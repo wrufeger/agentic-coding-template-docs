@@ -5,18 +5,15 @@ scripts/check-translations.mjs; see README "Editing the site". -->
 
 ## _intro
 <!-- source: eee8cb2b59a2166e -->
-<!-- todo: translate -->
-`init` fills in the values below from what it asked or detected. Change them any time — nothing here needs a rebuild; `.act/hooks/dispatch.py` reads this file at session start.
+`init` trägt die folgenden Werte aus dem ein, was es gefragt oder erkannt hat. Sie lassen sich jederzeit ändern — nichts davon erfordert einen Neuaufbau; `.act/hooks/dispatch.py` liest diese Datei beim Sitzungsstart.
 
 ## _note
 <!-- source: fa0fcf6cf2bcbd63 -->
-<!-- todo: translate -->
-This is the template's default `config.md`; placeholders in angle brackets are filled in by `init`.
+Dies ist die Standard-`config.md` des Templates; Platzhalter in spitzen Klammern füllt `init` aus.
 
 ## Project
 <!-- source: e340bc139b654764 -->
-<!-- todo: translate -->
-| Key | Value |
+| Schlüssel | Wert |
 | :--- | :--- |
 | `name` | <name> |
 | `owner` | <owner> |
@@ -27,197 +24,183 @@ This is the template's default `config.md`; placeholders in angle brackets are f
 | `tools` | <tool-list> |
 | `mode` | <mode> |
 
-`language-chat` is the language the assistant talks in: `auto` (default) follows the owner's own
-messages, a code such as `de` fixes it. `language-docs` is the language of everything the
-assistant writes under `docs/` and of the scaffold there; `.act/` stays English either way
-(`R-work-language`). A config.md with the older single `language` key still works — the value
-counts for both.
+`language-chat` ist die Sprache, in der der Assistent spricht: `auto` (Standard) folgt den eigenen
+Nachrichten des Owners, ein Code wie `de` legt sie fest. `language-docs` ist die Sprache von allem, was der
+Assistent unter `docs/` schreibt, und des dortigen Gerüsts; `.act/` bleibt in beiden Fällen Englisch
+(`R-work-language`). Eine config.md mit dem älteren einzelnen Schlüssel `language` funktioniert weiterhin — der Wert
+gilt für beide.
 
-`commands` is lint, typecheck, test, in this order; `(not set)` means no command is set up for that
-slot, and the matching check is skipped (`R-code-commit`).
+`commands` ist Lint, Typecheck, Test, in dieser Reihenfolge; `(not set)` heißt, dass für diesen Platz kein Befehl
+eingerichtet ist und die zugehörige Prüfung übersprungen wird (`R-code-commit`).
 
-`mode` is `solo` or `team`, and it changes **one** thing: when an entry gets its short ID. In
-`solo` the assistant assigns it right away and carries on. In `team` only
-whoever files the entry on the default branch assigns it, so two people can never hand out the
-same number; until then the file name is what you cite. File name, location and format are the
-same either way, so you can switch back and forth at any time — IDs already assigned stay as they
-are, only later ones follow the new value. The IDs are `T<n>` (task), `B<n>` (backlog item), `Q<n>`
-(question) and `U<n>` (todo for you); a report or note has none.
+`mode` ist `solo` oder `team` und ändert **eine** Sache: wann ein Eintrag seine kurze ID bekommt. In
+`solo` vergibt der Assistent sie sofort und arbeitet weiter. In `team` vergibt sie nur,
+wer den Eintrag auf dem Default-Branch ablegt, sodass zwei Personen nie dieselbe Nummer vergeben können; bis dahin
+ist der Dateiname das, was man zitiert. Dateiname, Ablageort und Format sind in beiden Fällen gleich, man kann also
+jederzeit hin- und herwechseln — bereits vergebene IDs bleiben, nur spätere folgen dem neuen Wert. Die IDs sind
+`T<n>` (Aufgabe), `B<n>` (Backlog-Eintrag), `Q<n>` (Frage) und `U<n>` (Todo für dich); eine Meldung oder Notiz hat keine.
 
 ## Status line
 <!-- source: e012c1dd0a03740c -->
-<!-- todo: translate -->
-Claude Code's status line (`statusLine` in `.claude/settings.json`) shows what is waiting for you
-in `docs/ai/inbox/` and how many open tasks there are — set by the template the first time there is
-none yet. To turn it off for good: set your own `statusLine` command, even a trivial one — the
-template only ever replaces its own previously generated entry, never a different one, so yours
-then stays untouched by every later update. Removing the `statusLine` key outright turns it off
-only until the next `init`/`update` run, which finds none set and adds the template's entry again
-(unless a user-wide one exists by then, see below) — not a lasting way to turn it off. If a
-user-wide `statusLine` already exists (`~/.claude/settings.json`), the project is left with none of
-its own from the start, so the two never overlap — a one-line note says so at setup/update time.
+Die Statuszeile von Claude Code (`statusLine` in `.claude/settings.json`) zeigt, was in `docs/ai/inbox/` auf dich
+wartet und wie viele offene Aufgaben es gibt — vom Template gesetzt, sobald noch keine vorhanden ist. Um sie
+dauerhaft abzuschalten: einen eigenen `statusLine`-Befehl setzen, und sei er trivial — das
+Template ersetzt nur seinen eigenen, zuvor erzeugten Eintrag, nie einen anderen, sodass deiner
+bei jedem späteren Update unangetastet bleibt. Den Schlüssel `statusLine` ganz zu entfernen schaltet sie
+nur bis zum nächsten `init`/`update`-Lauf ab, der keine findet und den Eintrag des Templates wieder hinzufügt
+(es sei denn, bis dahin existiert eine benutzerweite, siehe unten) — kein dauerhafter Weg zum Abschalten. Gibt es
+bereits eine benutzerweite `statusLine` (`~/.claude/settings.json`), bleibt das Projekt von Anfang an ohne eigene,
+sodass sich beide nie überlagern — ein einzeiliger Hinweis sagt das bei Einrichtung/Update.
 
 ## Board
 <!-- source: c6529e28a0633f98 -->
-<!-- todo: translate -->
-| Key | Value |
+| Schlüssel | Wert |
 | :--- | :--- |
 | `board` | docs |
 | `board-others` | |
 
-`board`: `docs` (default) \| `shared` \| `local` — where the generated board goes. `docs`:
-`docs/ai/board.md`, gitignored, one per checkout; its heading names the branch. `shared`: keeps the
-local view in `docs/ai/board.md` and writes the versioned per-person board
-`docs/ai/board-<identity>.md` (no last commit, no working tree, no timestamp) at commit time, by
-`act-commit`. `local`: `.act-local/board-<branch>.md`. The local view is regenerated at session
-start and after git commands in the session that change the checked-out state (merge, pull,
-rebase, switch, checkout …); a versioned file is never rewritten by that. `board-others`: `on` \| `off` — a
-section for tasks assigned to others (`for:` in the task header); with `shared` it also lists the others'
-committed boards. Empty means `on` with `mode: team`, `off` otherwise.
+`board`: `docs` (Standard) \| `shared` \| `local` — wohin das erzeugte Board geschrieben wird. `docs`:
+`docs/ai/board.md`, per gitignore ausgeschlossen, eines je Checkout; seine Überschrift nennt den Branch. `shared`: behält die
+lokale Ansicht in `docs/ai/board.md` und schreibt beim Commit durch `act-commit` das versionierte Board je Person
+`docs/ai/board-<identity>.md` (ohne letzten Commit, ohne Arbeitsverzeichnis, ohne Zeitstempel). `local`: `.act-local/board-<branch>.md`. Die lokale Ansicht wird beim Sitzungsstart
+und nach Git-Befehlen in der Sitzung neu erzeugt, die den ausgecheckten Stand ändern (merge, pull,
+rebase, switch, checkout …); eine versionierte Datei wird dadurch nie neu geschrieben. `board-others`: `on` \| `off` — ein
+Abschnitt für Aufgaben, die anderen zugewiesen sind (`for:` im Aufgabenkopf); mit `shared` listet er auch die
+committeten Boards der anderen auf. Leer bedeutet `on` bei `mode: team`, sonst `off`.
 
 ## Inbox
 <!-- source: fc852c30405eeb0e -->
-<!-- todo: translate -->
-| Key | Value |
+| Schlüssel | Wert |
 | :--- | :--- |
 | `inbox-decisions` | immediate |
 
-`immediate` (default) \| `at-start`. `immediate`: every open decision, and every step only a person
-can take and can take now, goes into `docs/ai/inbox/` as soon as it is booked, so the inbox always
-shows everything waiting. `at-start`: a backlog entry may keep its open decisions — header
-`decision: open`, listed on the board — until work on it starts (`act-prepare`); a task always has
-them in the inbox (`R-human-ask`).
+`immediate` (Standard) \| `at-start`. `immediate`: jede offene Entscheidung und jeder Schritt, den nur eine Person
+tun kann und jetzt tun kann, kommt nach `docs/ai/inbox/`, sobald er verbucht wird, sodass die Inbox immer
+alles Wartende zeigt. `at-start`: ein Backlog-Eintrag darf seine offenen Entscheidungen behalten — Kopfzeile
+`decision: open`, auf dem Board gelistet —, bis die Arbeit daran beginnt (`act-prepare`); bei einer Aufgabe liegen
+sie immer in der Inbox (`R-human-ask`).
 
 ## Output depth
 <!-- source: 286c0b8258438ed0 -->
-<!-- todo: translate -->
-| Key | Value |
+| Schlüssel | Wert |
 | :--- | :--- |
 | `output-depth` | normal |
 
-`verbose` \| `normal` \| `sparse`. Controls what the assistant *writes* in chat, not what the
-tool's own interface displays — see `docs/README.md` for the per-tool display settings.
+`verbose` \| `normal` \| `sparse`. Steuert, was der Assistent im Chat *schreibt*, nicht, was die
+eigene Oberfläche des Werkzeugs anzeigt — die Anzeigeeinstellungen je Werkzeug stehen in `docs/README.md`.
 
 ## Dependencies
 <!-- source: e93a0ba1929e8873 -->
-<!-- todo: translate -->
-| Key | Value |
+| Schlüssel | Wert |
 | :--- | :--- |
 | `dependency-check` | once |
 
-`never` \| `once` \| `regularly`. `once` (default) leaves a one-time inbox entry right after `init`
-asking to run `act-deps`, then only on request; `regularly` instead notes at session
-start when the last `act-deps` run (a journal entry titled `act-deps: ...`) is older than 30 days;
-`never` does neither — the skill itself still runs on explicit request either way.
+`never` \| `once` \| `regularly`. `once` (Standard) legt direkt nach `init` einen einmaligen Inbox-Eintrag an,
+der bittet, `act-deps` auszuführen, danach nur noch auf Anforderung; `regularly` weist stattdessen beim Sitzungsstart
+darauf hin, wenn der letzte `act-deps`-Lauf (ein Journal-Eintrag mit dem Titel `act-deps: ...`) älter als 30 Tage ist;
+`never` tut keines von beidem — der Skill selbst läuft in jedem Fall weiterhin auf ausdrückliche Anforderung.
 
 ## Docs audit
 <!-- source: 6ba9bfc48adc8f43 -->
-<!-- todo: translate -->
-| Key | Value |
+| Schlüssel | Wert |
 | :--- | :--- |
 | `docs-audit-due` | 30d/100c |
 
-`<n>d/<n>c` \| `off`. At session start, a note (at most once a day) when the last full
-`act-audit-docs` sweep (a journal entry titled `act-audit-docs: ...`) is older than this many days
-*or* this many commits, or once only when there is none yet — never a blocker, and only while
-`docs/project/` exists. A missing or malformed value counts as `30d/100c`.
+`<n>d/<n>c` \| `off`. Beim Sitzungsstart ein Hinweis (höchstens einmal am Tag), wenn der letzte vollständige
+`act-audit-docs`-Durchlauf (ein Journal-Eintrag mit dem Titel `act-audit-docs: ...`) älter als so viele Tage
+*oder* so viele Commits ist, oder nur einmalig, wenn es noch keinen gibt — nie eine Sperre, und nur, solange
+`docs/project/` existiert. Ein fehlender oder fehlerhafter Wert zählt als `30d/100c`.
 
 ## Git hosting
 <!-- source: 0464af45ac916d67 -->
-<!-- todo: translate -->
-| Key | Value |
+| Schlüssel | Wert |
 | :--- | :--- |
 | `target-branch` | auto |
 | `forge` | auto |
 | `forge-host` | auto |
 
-`target-branch` is the branch a pull/merge request goes into. `auto` takes the remote's default
-branch, else the first of `development`, `develop`, `main` that exists; a branch name fixes it (the
-skill `act-pr` enters the value you confirm). `forge` is the host software of the `origin` remote:
-`auto` tells GitHub from GitLab by the host name (`github.com`, `gitlab.com`), else by a read-only
-probe of the host; `github` or `gitlab` sets it for a self-hosted instance. Empty, `(not set)` and a
-missing key all count as `auto`, so a project from before this section needs no change.
-`forge-host` names a self-hosted instance (one host name, or a comma list) that may receive the token;
-`auto` or empty means none. `forge.py` sends a token only to `github.com` (`api.github.com`),
-`gitlab.com`, a host named here or the host of `ACT_FORGE_API_URL` (an explicit override, for tests and
-proxies), and never over `http://` except to loopback. Enter a host only after the human confirmed it —
-this keeps a global token from going to a foreign host. Without it reads run without a token; `whoami`,
-`issues --mine` and every write stop with a hint before any request. A confirmed host reached over
-`http://` gets the same treatment until its address is `https://`.
+`target-branch` ist der Branch, in den ein Pull/Merge Request geht. `auto` nimmt den Default-Branch des Remotes,
+sonst den ersten vorhandenen aus `development`, `develop`, `main`; ein Branch-Name legt ihn fest (der
+Skill `act-pr` trägt den Wert ein, den du bestätigst). `forge` ist die Host-Software des Remotes `origin`:
+`auto` unterscheidet GitHub von GitLab am Host-Namen (`github.com`, `gitlab.com`), sonst durch eine rein lesende
+Abfrage des Hosts; `github` oder `gitlab` legt es für eine selbst gehostete Instanz fest. Leer, `(not set)` und ein
+fehlender Schlüssel zählen alle als `auto`, ein Projekt aus der Zeit vor diesem Abschnitt braucht also keine Änderung.
+`forge-host` nennt eine selbst gehostete Instanz (ein Host-Name oder eine Komma-Liste), die das Token erhalten darf;
+`auto` oder leer heißt keine. `forge.py` sendet ein Token nur an `github.com` (`api.github.com`),
+`gitlab.com`, einen hier genannten Host oder den Host von `ACT_FORGE_API_URL` (ein ausdrücklicher Override, für Tests und
+Proxys) und nie über `http://`, außer an Loopback. Einen Host erst eintragen, nachdem der Mensch ihn bestätigt hat —
+so gelangt ein globales Token nicht an einen fremden Host. Ohne Eintrag laufen Lesezugriffe ohne Token; `whoami`,
+`issues --mine` und jeder Schreibzugriff brechen vor jeder Anfrage mit einem Hinweis ab. Ein bestätigter Host, der über
+`http://` erreicht wird, wird genauso behandelt, bis seine Adresse `https://` ist.
 
 ## Checks
 <!-- source: b314aeb0299e1726 -->
-<!-- todo: translate -->
-Each check below runs before the action it names; `block` refuses the action, `warn` allows it
-with a note, `off` skips the check entirely. A check that only ever notes (marked "never
-refuses") treats `block` as `warn`.
+Jede der folgenden Prüfungen läuft vor der Aktion, die sie nennt; `block` verweigert die Aktion, `warn` erlaubt sie
+mit einem Hinweis, `off` überspringt die Prüfung ganz. Eine Prüfung, die nur hinweist (markiert mit „never
+refuses“), behandelt `block` wie `warn`.
 
-| Check | Value | Guards |
+| Prüfung | Wert | Schützt |
 | :--- | :--- | :--- |
-| `template-write-guard` | block | writes under `.act/` — put a project version in `docs/ai/local/<same path>` instead |
-| `session-start-refresh` | block | rebuilds the generated bridges and the board at session start; `warn` reports without writing, `off` skips it |
-| `orchestrator-rules` | block | fallback only: while `docs/ai/rules.md` does not import the orchestrator-only rules (an older, locally changed copy), the session start names them in short; `off` skips it |
-| `worker-nesting-guard` | block | a sub-agent calling `Agent`/`Task` (no sub-sub-agents, `R-role-worker`) — `warn` reports without blocking, `off` skips it |
-| `worker-write-scope` | block | a worker writing outside its assignment's `Write scope:` line (`R-cost-delegate`) — `warn` reports without blocking, `off` skips it |
-| `commit-pathspec` | block | `git add -A`, `git add .`, `git add --all`, `git commit -a` — stage by pathspec instead (`R-code-commit`) |
-| `git-reset-hard` | block | `git reset --hard` (Bash/PowerShell, also `git -C <dir> ...`) while the affected working tree has uncommitted changes (untracked files count as changes too) or its own working tree cannot be determined — `git stash`/`git reset --soft` first (`R-safe-git-reset`) |
-| `recursive-delete` | block | recursive delete from the shell (`rm -r`, `rmdir /s`, `Remove-Item -Recurse`, `find -delete`) — delete with the language's own means or file by file (`R-safe-no-shell-delete`) |
-| `secret-scan` | block | `git commit` while the staged diff holds a key/token pattern, a private key, an `.env` file or a high-entropy assignment; a line carrying `act:allow-secret` is exempt (`R-safe-no-secret-diff`) |
-| `security-check` | local | `off` \| `local` \| `deps` \| `full`, not the usual block/warn/off. `off` runs nothing here; `local`/`deps`/`full` all run the dangerous-pattern scan (Art A: `eval`/`exec`, `shell=True`, `pickle.loads`, `yaml.load` without a SafeLoader, `v-html`, `innerHTML =`, SQL built by string concatenation, ... — only for a coding rule set the project has checked on in `docs/project/coding_rules.md`) on `git commit`, stopping the first hit once per file and pattern with its location; the repeat goes through, and a line carrying `act:allow-danger` is exempt. A doc file (`.md`, `.txt`, `.rst`) and anything under `.act/` are never scanned (prose and the template's own files, not project code). `deps`/`full` add Art B (`.act/scripts/security_scan.py`, `.act/hooks/checks/deps_scan.py`): a live dependency-vulnerability lookup — `osv-scanner` if installed, else `npm audit`/`composer audit`/`pip-audit` per ecosystem — run on `git commit` for exactly the lock files that commit touches (`package-lock.json`, `composer.lock`, `requirements.txt`, `go.mod`, `Cargo.lock`, ...; a finding in a lock file the commit leaves alone never holds it), and once a day at session start over every lock file in the project (reported as a line there, never delaying the start itself). The scan never runs inside the commit's own hook call: it runs as a detached background process, the hook waits briefly for its result and otherwise denies once ("dependency scan running — commit again in a moment"); the retry reads the finished result, cached for the day per lock-file content (recorded only if the files did not change while the tool ran), so a repeated commit does not query again; a background run that outlives the tools' own timeouts lets the commit through unchecked, with a note, instead of waiting forever. An unaccepted finding at severity high/critical holds the commit (package, version, advisory id, severity, fixed version); a lower or unknown severity only notes — pip-audit's own output carries no severity field at all, so a pip-audit finding is always "unknown" and can only ever note, never hold the commit on its own. Accept a finding deliberately with a line in `docs/ai/local/security-accepted.md`: `- <advisory-id>: <reason>` (one per line; `#`-comments and blank lines ignored). A missing tool notes once per machine with the install command, never blocks; a tool or network failure notes every time, never blocks, and is reused for a minute at most before the next commit scans afresh (fail-open — Art B never has a template-shipped fallback list to fall back on, see the concept). `full` additionally runs Art C (Semgrep with open rule sets, plus a `reviewer` security pass) via `.act/scripts/security_deep.py`, but only on request and before a release (`act-release`) — never on every commit, same as Art A/B never run a heavy static-analysis pass |
-| `worker-docs-ai` | block | a worker writing under `docs/ai/` — only the orchestrator writes there (`R-role-worker`) |
-| `worker-git-write` | block | a worker running a git command that changes the tree or history (`commit`, `add`, `stash`, `checkout`, `reset`, `restore`, `merge`, `rebase`, `clean`, `push`) (`R-role-worker`) |
-| `ide-mcp` | block | a connected IDE MCP server's own tools (`execute_terminal_command`, `apply_patch`, `execute_run_configuration`, ...), classified as shell/write/exec-without-target and checked the same way the matching standard tool would be — a target this cannot evaluate denies rather than passing through unchecked; `warn` reports without blocking, `off` skips it (`topics/ide.md`) |
-| `worker-cap` | block | a worker's tool calls beyond its `Cap: <n>` line (without one: `light` 10, `standard` 40, `elevated` 60, `high`/`expert` 80) — a note at the cap, refused from 1.5 × the cap (`R-cost-delegate`) |
-| `status-poll` | block | repeated status queries on a running worker with no real work in between — refused from the second in a row (`R-cost-wait`) |
-| `encoding-hint` | block | writing to a file that is not UTF-8 — the first write per session and file is stopped once with a note, the repeat goes through; `warn` only notes after the write (`R-code-encoding`) |
-| `update-branch-hint` | warn | update or settings import on a branch other than the default one: one note that the others get it only with the merge — never refuses, `block` counts as `warn`, `off` drops the note |
-| `update-check` | block | at session start: a note if `.act/` was pulled in without `update.py`, and — at most once a day — a note if the template has moved on; never refuses, `off` skips both |
+| `template-write-guard` | block | Schreibzugriffe unter `.act/` — stattdessen eine Projektfassung in `docs/ai/local/<same path>` ablegen |
+| `session-start-refresh` | block | baut die erzeugten Brücken und das Board beim Sitzungsstart neu; `warn` meldet ohne zu schreiben, `off` überspringt es |
+| `orchestrator-rules` | block | nur als Rückfall: solange `docs/ai/rules.md` die Orchestrator-Regeln nicht importiert (eine ältere, lokal geänderte Kopie), nennt sie der Sitzungsstart in Kürze; `off` überspringt es |
+| `worker-nesting-guard` | block | ein Sub-Agent, der `Agent`/`Task` aufruft (keine Sub-Sub-Agenten, `R-role-worker`) — `warn` meldet ohne zu sperren, `off` überspringt es |
+| `worker-write-scope` | block | ein Worker, der außerhalb der `Write scope:`-Zeile seines Auftrags schreibt (`R-cost-delegate`) — `warn` meldet ohne zu sperren, `off` überspringt es |
+| `commit-pathspec` | block | `git add -A`, `git add .`, `git add --all`, `git commit -a` — stattdessen per Pathspec stagen (`R-code-commit`) |
+| `git-reset-hard` | block | `git reset --hard` (Bash/PowerShell, auch `git -C <dir> ...`), solange der betroffene Arbeitsbaum nicht committete Änderungen hat (untracked Dateien zählen ebenfalls als Änderungen) oder sein eigener Arbeitsbaum nicht ermittelt werden kann — zuerst `git stash`/`git reset --soft` (`R-safe-git-reset`) |
+| `recursive-delete` | block | rekursives Löschen aus der Shell (`rm -r`, `rmdir /s`, `Remove-Item -Recurse`, `find -delete`) — mit den eigenen Mitteln der Sprache oder Datei für Datei löschen (`R-safe-no-shell-delete`) |
+| `secret-scan` | block | `git commit`, solange der gestagte Diff ein Schlüssel-/Token-Muster, einen privaten Schlüssel, eine `.env`-Datei oder eine Zuweisung mit hoher Entropie enthält; eine Zeile mit `act:allow-secret` ist ausgenommen (`R-safe-no-secret-diff`) |
+| `security-check` | local | `off` \| `local` \| `deps` \| `full`, nicht das übliche block/warn/off. `off` führt hier nichts aus; `local`/`deps`/`full` führen alle den Scan nach gefährlichen Mustern aus (Art A: `eval`/`exec`, `shell=True`, `pickle.loads`, `yaml.load` ohne SafeLoader, `v-html`, `innerHTML =`, per String-Verkettung gebautes SQL, ... — nur für einen Coding-Regelsatz, den das Projekt in `docs/project/coding_rules.md` angekreuzt hat) bei `git commit`, stoppen beim ersten Treffer je Datei und Muster einmal mit seiner Fundstelle; die Wiederholung geht durch, und eine Zeile mit `act:allow-danger` ist ausgenommen. Eine Doku-Datei (`.md`, `.txt`, `.rst`) und alles unter `.act/` wird nie gescannt (Prosa und die eigenen Dateien des Templates, kein Projektcode). `deps`/`full` ergänzen Art B (`.act/scripts/security_scan.py`, `.act/hooks/checks/deps_scan.py`): eine Live-Abfrage nach Schwachstellen in Abhängigkeiten — `osv-scanner`, falls installiert, sonst `npm audit`/`composer audit`/`pip-audit` je Ökosystem — bei `git commit` genau für die Lock-Dateien, die dieser Commit berührt (`package-lock.json`, `composer.lock`, `requirements.txt`, `go.mod`, `Cargo.lock`, ...; ein Befund in einer Lock-Datei, die der Commit unberührt lässt, hält ihn nie auf), und einmal am Tag beim Sitzungsstart über jede Lock-Datei im Projekt (dort als eine Zeile gemeldet, ohne den Start selbst je zu verzögern). Der Scan läuft nie innerhalb des Hook-Aufrufs des Commits selbst: er läuft als abgekoppelter Hintergrundprozess, der Hook wartet kurz auf sein Ergebnis und verweigert sonst einmal („dependency scan running — commit again in a moment“); der erneute Versuch liest das fertige Ergebnis, für den Tag je Lock-Datei-Inhalt zwischengespeichert (nur festgehalten, wenn sich die Dateien während des Tool-Laufs nicht geändert haben), sodass ein wiederholter Commit nicht erneut abfragt; ein Hintergrundlauf, der die eigenen Timeouts der Werkzeuge überdauert, lässt den Commit ungeprüft mit einem Hinweis durch, statt ewig zu warten. Ein nicht akzeptierter Befund mit Schweregrad high/critical hält den Commit auf (Paket, Version, Advisory-ID, Schweregrad, behobene Version); ein niedrigerer oder unbekannter Schweregrad weist nur hin — die eigene Ausgabe von pip-audit enthält gar kein Schweregrad-Feld, ein pip-audit-Befund ist also immer „unknown“ und kann nur hinweisen, nie von sich aus den Commit aufhalten. Einen Befund bewusst akzeptieren mit einer Zeile in `docs/ai/local/security-accepted.md`: `- <advisory-id>: <reason>` (eine je Zeile; `#`-Kommentare und Leerzeilen werden ignoriert). Ein fehlendes Werkzeug weist einmal je Rechner mit dem Installationsbefehl hin und sperrt nie; ein Werkzeug- oder Netzwerkfehler weist jedes Mal hin, sperrt nie und wird höchstens eine Minute lang wiederverwendet, bevor der nächste Commit neu scannt (fail-open — Art B hat nie eine vom Template mitgelieferte Ausweichliste, siehe das Konzept). `full` führt zusätzlich Art C aus (Semgrep mit offenen Regelsätzen, dazu ein Sicherheitsdurchgang des `reviewer`) über `.act/scripts/security_deep.py`, aber nur auf Anforderung und vor einem Release (`act-release`) — nie bei jedem Commit, wie auch Art A/B nie einen schweren statischen Analyselauf ausführen |
+| `worker-docs-ai` | block | ein Worker, der unter `docs/ai/` schreibt — dort schreibt nur der Orchestrator (`R-role-worker`) |
+| `worker-git-write` | block | ein Worker, der einen Git-Befehl ausführt, der Baum oder Verlauf ändert (`commit`, `add`, `stash`, `checkout`, `reset`, `restore`, `merge`, `rebase`, `clean`, `push`) (`R-role-worker`) |
+| `ide-mcp` | block | die eigenen Tools eines verbundenen IDE-MCP-Servers (`execute_terminal_command`, `apply_patch`, `execute_run_configuration`, ...), eingestuft als Shell/Schreiben/Ausführen ohne Ziel und genauso geprüft wie das passende Standard-Tool — ein Ziel, das sich nicht auswerten lässt, wird verweigert statt ungeprüft durchgelassen; `warn` meldet ohne zu sperren, `off` überspringt es (`topics/ide.md`) |
+| `worker-cap` | block | Tool-Aufrufe eines Workers über seine `Cap: <n>`-Zeile hinaus (ohne sie: `light` 10, `standard` 40, `elevated` 60, `high`/`expert` 80) — ein Hinweis beim Cap, Verweigerung ab dem 1,5-Fachen des Caps (`R-cost-delegate`) |
+| `status-poll` | block | wiederholte Statusabfragen an einen laufenden Worker ohne echte Arbeit dazwischen — ab der zweiten in Folge verweigert (`R-cost-wait`) |
+| `encoding-hint` | block | Schreiben in eine Datei, die nicht UTF-8 ist — der erste Schreibzugriff je Sitzung und Datei wird einmal mit einem Hinweis gestoppt, die Wiederholung geht durch; `warn` weist erst nach dem Schreiben hin (`R-code-encoding`) |
+| `update-branch-hint` | warn | Update oder Einstellungsimport auf einem anderen Branch als dem Default-Branch: ein Hinweis, dass die anderen es erst mit dem Merge bekommen — verweigert nie, `block` zählt als `warn`, `off` lässt den Hinweis weg |
+| `update-check` | block | beim Sitzungsstart: ein Hinweis, wenn `.act/` ohne `update.py` hereingeholt wurde, und — höchstens einmal am Tag — ein Hinweis, wenn das Template weitergezogen ist; verweigert nie, `off` überspringt beides |
 
 ## Logging
 <!-- source: 9fb49fc66248da1d -->
-<!-- todo: translate -->
-| Key | Value |
+| Schlüssel | Wert |
 | :--- | :--- |
 | `logging` | off |
 | `log-level` | INFO |
 
-`logging`: `on` \| `off`. With `on`, every agent action lands as one line in `ai.log` at the
-project root (not versioned) — to follow along live, e.g. in a second terminal during a talk.
+`logging`: `on` \| `off`. Mit `on` landet jede Aktion des Agenten als eine Zeile in `ai.log` im
+Projektwurzelverzeichnis (nicht versioniert) — um live mitzuverfolgen, z. B. in einem zweiten Terminal während eines Vortrags.
 `log-level`: `DEBUG` \| `INFO` \| `WARN` \| `ERROR`. Details: `.act/rules/topics/logging.md`.
 
 ## Feedback
 <!-- source: 45264bf2783aa47d -->
-<!-- todo: translate -->
-| Key | Value |
+| Schlüssel | Wert |
 | :--- | :--- |
 | `feedback` | <feedback-mode> |
 | `feedback-cadence` | weekly |
 | `feedback-scope` | a,b,c |
 
-Voluntary feedback to the template author about the working method, never about the project.
-`feedback`: `off` \| `confirm` \| `automatic` \| `manual`. `feedback-cadence` is an upper limit:
+Freiwilliges Feedback an den Template-Autor über die Arbeitsweise, nie über das Projekt.
+`feedback`: `off` \| `confirm` \| `automatic` \| `manual`. `feedback-cadence` ist eine Obergrenze:
 `manual` \| `immediate` \| `hourly` \| `daily` \| `weekly` \| `adaptive`. `feedback-scope`: `a`
-metrics, `b` rule and structure changes, `c` tool usage (counts of template skills/scripts used since the last send; your own only as one `own` count). Every sent payload's full copy stays
-local (`.act-local/feedback/sent/`, gitignored) — each send also gets one line in the journal
-(date, kind, entry count, schema version, never content). A message you write yourself
-(`feedback: <text>`) always goes out, even with `off`. Details: `.act/rules/topics/feedback.md`.
+Metriken, `b` Regel- und Strukturänderungen, `c` Tool-Nutzung (Zähler der seit dem letzten Senden genutzten Template-Skills/-Scripte; deine eigenen nur als ein `own`-Zähler). Die vollständige Kopie jeder gesendeten Nutzlast bleibt
+lokal (`.act-local/feedback/sent/`, per gitignore ausgeschlossen) — jedes Senden bekommt zudem eine Zeile im Journal
+(Datum, Art, Anzahl der Einträge, Schema-Version, nie Inhalt). Eine Nachricht, die du selbst schreibst
+(`feedback: <text>`), geht immer raus, auch bei `off`. Details: `.act/rules/topics/feedback.md`.
 
 ## Tips
 <!-- source: 1a90246f22239098 -->
-<!-- todo: translate -->
-| Key | Value |
+| Schlüssel | Wert |
 | :--- | :--- |
 | `tips` | occasionally |
 
-`never` \| `occasionally` (at most once a session and once a day) \| `regularly` (once a
-session). Tips come from `.act/tips.md` and disappear once you use the feature. Your own reminders
-in `docs/ai/local/reminders.md` are not affected by this key.
+`never` \| `occasionally` (höchstens einmal pro Sitzung und einmal am Tag) \| `regularly` (einmal pro
+Sitzung). Tipps stammen aus `.act/tips.md` und verschwinden, sobald du die Funktion nutzt. Deine eigenen Erinnerungen
+in `docs/ai/local/reminders.md` sind von diesem Schlüssel nicht betroffen.
 
 ## Roles
 <!-- source: 10cdbdc9e4ce09c6 -->
-<!-- todo: translate -->
-| Role | Tier | Reasoning | Model |
+| Rolle | Tier | Reasoning | Modell |
 | :--- | :--- | :--- | :--- |
 
-Empty by default: every role runs the tier/reasoning the template ships. Fill a row to override
-one role's tier and/or reasoning, or set `Model` outright — a filled `Model` wins over `Tier`.
+Standardmäßig leer: jede Rolle läuft mit dem Tier/Reasoning, das das Template mitliefert. Eine Zeile füllen, um
+Tier und/oder Reasoning einer Rolle zu überschreiben, oder `Model` direkt setzen — ein gefülltes `Model` hat Vorrang vor `Tier`.

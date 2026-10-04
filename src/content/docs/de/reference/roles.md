@@ -7,144 +7,124 @@ sidebar:
 
 :::note
 Diese Seite wird aus dem Template 2.0.0 (Commit 8ad385e) erzeugt; die deutschen Texte stammen aus einem Katalog unter `src/translations/de/reference/`. Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
-
-Einzelne Einträge dieser Seite sind noch nicht übersetzt oder veraltet; sie stehen auf Englisch da und sind mit _(noch nicht übersetzt)_ markiert.
 :::
 
-9 Rollen. A role is a bounded kind of worker; its tier says how much model capacity it gets, and `.act/tiers.json` maps tiers to concrete models only at generation time. _(noch nicht übersetzt)_
+9 Rollen. Eine Rolle ist eine abgegrenzte Art von Worker; ihr Tier legt fest, wie viel Modellleistung sie bekommt, und `.act/tiers.json` ordnet Tiers erst bei der Erzeugung konkreten Modellen zu.
 
 ## builder
 
-Implements a bounded assignment - code, migration, tests, configuration - and returns a result plus evidence; never commits. _(noch nicht übersetzt)_
+Setzt eine abgegrenzte Aufgabe um - Code, Migration, Tests, Konfiguration - und liefert ein Ergebnis samt Beleg; committet nie.
 
 - Tier: `standard`
 - Reasoning: `medium`
 - Werkzeuge: `Read, Write, Edit, Bash, Grep, Glob`
 
-Implements a bounded assignment: code, migration, tests, configuration. Applies `R-role-worker`.
-
-_(noch nicht übersetzt)_
+Setzt eine abgegrenzte Aufgabe um: Code, Migration, Tests, Konfiguration. Wendet `R-role-worker` an.
 
 Quelle: `.act/agents/builder.md`
 
 ## debugger
 
-Searches for a bug's cause by hypothesis rather than guesswork; reproduces first, separates symptom from cause. _(noch nicht übersetzt)_
+Sucht die Ursache eines Bugs per Hypothese statt durch Raten; reproduziert zuerst und trennt Symptom von Ursache.
 
 - Tier: `standard`
 - Reasoning: `high`
 - Werkzeuge: `Read, Bash, Grep, Glob`
 
-Searches for the cause of a reported bug that the orchestrator describes. Fixes nothing — the fix
-is a separate assignment (`builder`). Applies `R-role-worker`.
-
-_(noch nicht übersetzt)_
+Sucht die Ursache eines gemeldeten Bugs, den der Orchestrator beschreibt. Behebt nichts —
+die Behebung ist ein eigener Auftrag (`builder`). Wendet `R-role-worker` an.
 
 Quelle: `.act/agents/debugger.md`
 
 ## doc-writer
 
-Maintains docs/project/ (never docs/ai/) - works findings into the project docs, keeps cross-references and status markers current. _(noch nicht übersetzt)_
+Pflegt docs/project/ (nie docs/ai/) - arbeitet Befunde in die Projektdoku ein und hält Querverweise und Statusmarken aktuell.
 
 - Tier: `standard`
 - Reasoning: `medium`
 - Werkzeuge: `Read, Write, Edit, Grep, Glob, Bash`
 
-Maintains `docs/project/` — project documentation, not the collaboration workspace under
-`docs/ai/`. Applies `R-role-worker`.
-
-_(noch nicht übersetzt)_
+Pflegt `docs/project/` — die Projektdokumentation, nicht den Arbeitsbereich der Zusammenarbeit unter
+`docs/ai/`. Wendet `R-role-worker` an.
 
 Quelle: `.act/agents/doc-writer.md`
 
 ## expert-solver
 
-High-reasoning escalation, called only after a worker has failed the same task twice or hit an unsolvable error. _(noch nicht übersetzt)_
+Eskalation mit hohem Reasoning, nur gerufen, wenn ein Worker dieselbe Aufgabe zweimal verfehlt hat oder auf einen unlösbaren Fehler gestoßen ist.
 
 - Tier: `expert`
 - Reasoning: `max`
 - Werkzeuge: `Read, Edit, Write, Bash, Grep, Glob`
 
-Escalation only, per `R-role-escalate` — called after a worker has failed the same task twice, or
-an edge case has a standard worker stuck. Senior architect and problem-solver for exactly that
-case, not routine implementation. Applies `R-role-worker`.
-
-_(noch nicht übersetzt)_
+Nur zur Eskalation nach `R-role-escalate` — gerufen, wenn ein Worker dieselbe Aufgabe zweimal verfehlt hat
+oder ein Sonderfall einen normalen Worker festhält. Erfahrener Architekt und Problemlöser genau für diesen
+Fall, nicht für Routine-Implementierung. Wendet `R-role-worker` an.
 
 Quelle: `.act/agents/expert-solver.md`
 
 ## explorer
 
-Read-only codebase research across multiple files and directories; reports findings backed by path:line. _(noch nicht übersetzt)_
+Lesende Recherche im Code über mehrere Dateien und Verzeichnisse; meldet Befunde mit path:line als Beleg.
 
 - Tier: `standard`
 - Reasoning: `low`
 - Werkzeuge: `Read, Grep, Glob, Bash`
 
-Read-only research across multiple files and directories; findings backed by `<path>:<line>`.
-Applies `R-role-worker`.
-
-_(noch nicht übersetzt)_
+Lesende Recherche über mehrere Dateien und Verzeichnisse; Befunde mit `<path>:<line>` belegt.
+Wendet `R-role-worker` an.
 
 Quelle: `.act/agents/explorer.md`
 
 ## optimizer
 
-Polishes freshly written code for brevity and readability - at most two rounds, no algorithm tuning. _(noch nicht übersetzt)_
+Poliert frisch geschriebenen Code auf Kürze und Lesbarkeit - höchstens zwei Runden, kein Algorithmus-Tuning.
 
 - Tier: `standard`
 - Reasoning: `medium`
 - Werkzeuge: `Read, Edit, Bash, Grep, Glob`
 
-Runs after `builder`, only on the code that assignment just wrote — files and lines named in the
-assignment, never grown code from elsewhere and never project-wide. Applies `R-role-worker`.
-
-_(noch nicht übersetzt)_
+Läuft nach `builder`, nur über den Code, den dieser Auftrag gerade geschrieben hat — Dateien und Zeilen stehen
+im Auftrag, nie gewachsener Code von anderswo und nie projektweit. Wendet `R-role-worker` an.
 
 Quelle: `.act/agents/optimizer.md`
 
 ## quick-check
 
-Fixed, read-only lookups without judgment (git status, tests, files, line counts). _(noch nicht übersetzt)_
+Feste, lesende Abfragen ohne Bewertung (git status, Tests, Dateien, Zeilenzahlen).
 
 - Tier: `light`
 - Reasoning: `none`
 - Werkzeuge: `Read, Grep, Glob, Bash`
 
-Runs a fixed set of read-only lookups and returns the raw result, without judgment. Applies
-`R-role-worker`.
-
-_(noch nicht übersetzt)_
+Führt eine feste Reihe lesender Abfragen aus und liefert das rohe Ergebnis, ohne Bewertung. Wendet
+`R-role-worker` an.
 
 Quelle: `.act/agents/quick-check.md`
 
 ## reviewer
 
-Adversarial review before a commit — bugs, style, and task fidelity — plus ALLOW/BLOCK on a flagged safeguard call. _(noch nicht übersetzt)_
+Kritische Prüfung vor einem Commit — Bugs, Stil und Aufgabentreue — sowie ALLOW/BLOCK bei einem markierten Safeguard-Aufruf.
 
 - Tier: `elevated`
 - Reasoning: `high`
 - Werkzeuge: `Read, Bash, Grep, Glob`
 
-Adversarial review before a commit, plus ALLOW/BLOCK on a flagged tool call. Applies
-`R-role-worker`.
-
-_(noch nicht übersetzt)_
+Kritische Prüfung vor einem Commit, dazu ALLOW/BLOCK bei einem markierten Tool-Aufruf. Wendet
+`R-role-worker` an.
 
 Quelle: `.act/agents/reviewer.md`
 
 ## test-writer
 
-Writes tests to existing code, or test-first from a concept/interface alone; checks behavior, not implementation. _(noch nicht übersetzt)_
+Schreibt Tests zu bestehendem Code oder Test-first allein aus einem Konzept bzw. Interface; prüft Verhalten, nicht Implementierung.
 
 - Tier: `standard`
 - Reasoning: `medium`
 - Werkzeuge: `Read, Edit, Write, Bash, Grep, Glob`
 
-Writes tests — to existing code, or test-first from a concept/interface description alone — and
-proves them with a test run. Applies `R-role-worker`.
-
-_(noch nicht übersetzt)_
+Schreibt Tests — zu bestehendem Code oder Test-first allein aus einer Konzept- bzw. Interface-Beschreibung —
+und belegt sie mit einem Testlauf. Wendet `R-role-worker` an.
 
 Quelle: `.act/agents/test-writer.md`
 

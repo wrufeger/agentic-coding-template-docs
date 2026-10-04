@@ -7,804 +7,731 @@ sidebar:
 
 :::note
 Diese Seite wird aus dem Template 2.0.0 (Commit 8ad385e) erzeugt; die deutschen Texte stammen aus einem Katalog unter `src/translations/de/reference/`. Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
-
-Einzelne Einträge dieser Seite sind noch nicht übersetzt oder veraltet; sie stehen auf Englisch da und sind mit _(noch nicht übersetzt)_ markiert.
 :::
 
-11 Regelsätze mit 39 Gruppen. A project switches a set on in `docs/project/coding_rules.md`; group IDs `CR-<set>-<name>` are stable. _(noch nicht übersetzt)_
+11 Regelsätze mit 39 Gruppen. Ein Projekt schaltet einen Satz in `docs/project/coding_rules.md` ein; Gruppen-IDs `CR-<set>-<name>` sind stabil.
 
 ## bash
 
-**Coding rules — Bash**
+**Coding-Regeln — Bash**
 
 Quelle: `.act/coding/bash.md`
 
-Kurzfassung: strict mode, quoting, exit codes, error messages, shellcheck, pitfalls
+Kurzfassung: Strict Mode, Quoting, Exit-Codes, Fehlermeldungen, shellcheck, Fallstricke
 
-Rules for Bash scripts. Group IDs (`CR-bash-<name>`) are stable and never reassigned; a group
-whose purpose no longer holds gets a new ID and is listed as `retired:` in this header.
-
-_(noch nicht übersetzt)_
+Regeln für Bash-Skripte. Gruppen-IDs (`CR-bash-<name>`) sind stabil und werden nie neu vergeben; eine
+Gruppe, deren Zweck nicht mehr gilt, bekommt eine neue ID und wird in diesem Kopf als `retired:` aufgeführt.
 
 ### CR-bash-basics
 
-**Strict mode, quoting, error handling, shellcheck**
+**Strict Mode, Quoting, Fehlerbehandlung, shellcheck**
 
-Kurzfassung: set -euo pipefail, quoting, deliberate exit codes, errors on stderr, shellcheck, pitfalls
+Kurzfassung: set -euo pipefail, Quoting, bewusste Exit-Codes, Fehler auf stderr, shellcheck, Fallstricke
 
-- Start every script with `set -euo pipefail` as the first executable line.
-- Quote variables consistently (`"$var"`), especially paths that may contain spaces.
-- Set exit codes deliberately (`exit 0`/`exit 1`/specific codes) instead of letting the last
-  command's status pass through implicitly.
-- Check arguments and inputs before use (count, whether a path exists); report failures on stderr,
-  and name what failed and with what — not a bare "error".
-- Run `shellcheck` as the stack's standard linter before every commit; do not suppress its
-  warnings wholesale.
-- Pitfalls:
-  - Never parse the output of `ls` in a loop — use globbing or `find ... -print0` with
-    `read -d ''`.
-  - Check the result of `cd` (`cd dir || exit 1`); otherwise following commands run in the
-    wrong directory.
-
-_(noch nicht übersetzt)_
+- Jedes Skript beginnt mit `set -euo pipefail` als erster ausführbarer Zeile.
+- Variablen konsequent quoten (`"$var"`), besonders Pfade, die Leerzeichen enthalten können.
+- Exit-Codes bewusst setzen (`exit 0`/`exit 1`/bestimmte Codes), statt den Status des letzten Befehls
+  stillschweigend durchzureichen.
+- Argumente und Eingaben vor der Verwendung prüfen (Anzahl, ob ein Pfad existiert); Fehler auf stderr
+  melden und benennen, was woran gescheitert ist — nicht nur ein pauschales „Fehler“.
+- `shellcheck` als Standard-Linter des Stacks vor jedem Commit ausführen; dessen Warnungen nicht pauschal
+  unterdrücken.
+- Fallstricke:
+  - Die Ausgabe von `ls` nie in einer Schleife auswerten — Globbing oder `find ... -print0` mit
+    `read -d ''` verwenden.
+  - Das Ergebnis von `cd` prüfen (`cd dir || exit 1`); sonst laufen die folgenden Befehle im falschen
+    Verzeichnis.
 
 ### CR-bash-script-shape
 
-**One script, one purpose**
+**Ein Skript, ein Zweck**
 
-Kurzfassung: header comment, functions over duplication, single-purpose scripts
+Kurzfassung: Kopfkommentar, Funktionen statt Duplikation, Skripte mit nur einem Zweck
 
-- Start with a header comment stating purpose, an example call, and the expected output/exit
-  behavior.
-- Use functions for reusable sections instead of copying the same command sequence.
-- One script, one clearly named purpose — no multi-purpose script with mode flags for
-  unrelated tasks.
-
-_(noch nicht übersetzt)_
+- Mit einem Kopfkommentar beginnen, der Zweck, einen Beispielaufruf und die erwartete Ausgabe bzw. das
+  Exit-Verhalten nennt.
+- Wiederverwendbare Abschnitte als Funktionen schreiben, statt dieselbe Befehlsfolge zu kopieren.
+- Ein Skript, ein klar benannter Zweck — kein Mehrzweck-Skript mit Modus-Flags für unzusammenhängende
+  Aufgaben.
 
 ## csharp
 
-**Coding rules — C#**
+**Coding-Regeln — C#**
 
 Quelle: `.act/coding/csharp.md`
 
-Kurzfassung: nullable context, async conventions, error handling, analyzers, DI, library code
+Kurzfassung: Nullable-Kontext, async-Konventionen, Fehlerbehandlung, Analyzer, DI, Bibliothekscode
 
-Rules for C# projects. Group IDs (`CR-csharp-<name>`) are stable and never reassigned; a group
-whose purpose no longer holds gets a new ID and is listed as `retired:` in this header.
-
-_(noch nicht übersetzt)_
+Regeln für C#-Projekte. Gruppen-IDs (`CR-csharp-<name>`) sind stabil und werden nie neu vergeben; eine
+Gruppe, deren Zweck nicht mehr gilt, bekommt eine neue ID und wird in diesem Kopf als `retired:` aufgeführt.
 
 ### CR-csharp-basics
 
-**Nullable context, async, error handling, analyzers**
+**Nullable-Kontext, async, Fehlerbehandlung, Analyzer**
 
-Kurzfassung: nullable enabled, async suffix, no async void, no blocking on tasks, using, exceptions
+Kurzfassung: Nullable aktiviert, Async-Suffix, kein async void, kein Blockieren auf Tasks, using, Exceptions
 
-- Keep the nullable context (`<Nullable>enable</Nullable>`) on project-wide; do not suppress the
-  warnings it produces.
-- Name asynchronous methods with the `Async` suffix and return `Task`/`Task<T>`.
-- Never use `async void` outside event handlers — use `async Task`, otherwise exceptions are
-  swallowed.
-- Avoid `.Result`/`.Wait()` on tasks; blocking on a task this way risks a deadlock in synchronous
-  contexts.
-- Manage every `IDisposable` resource exclusively through `using`/`await using`.
-- Use exceptions for exceptional cases, not for regular control flow — consider a return type
-  (`Result<T>`/`bool`) for expected failure cases; wherever an exception is thrown, its message
-  names what failed and with what.
-- Run `dotnet format` and the analyzer rules (`.editorconfig` section `dotnet_diagnostic`) as the
-  stack's standard linting/static analysis; set them up in every project, run what is installed.
-
-_(noch nicht übersetzt)_
+- Den Nullable-Kontext (`<Nullable>enable</Nullable>`) projektweit eingeschaltet lassen; die dabei
+  entstehenden Warnungen nicht unterdrücken.
+- Asynchrone Methoden mit dem Suffix `Async` benennen und `Task`/`Task<T>` zurückgeben.
+- `async void` nie außerhalb von Event-Handlern verwenden — stattdessen `async Task`, sonst werden
+  Exceptions verschluckt.
+- `.Result`/`.Wait()` auf Tasks vermeiden; wer so auf einen Task blockiert, riskiert in synchronen
+  Kontexten einen Deadlock.
+- Jede `IDisposable`-Ressource ausschließlich über `using`/`await using` verwalten.
+- Exceptions für Ausnahmefälle verwenden, nicht für den regulären Kontrollfluss — für erwartbare
+  Fehlerfälle einen Rückgabetyp (`Result<T>`/`bool`) erwägen; wo immer eine Exception geworfen wird,
+  nennt ihre Meldung, was woran gescheitert ist.
+- `dotnet format` und die Analyzer-Regeln (`.editorconfig`, Abschnitt `dotnet_diagnostic`) als
+  Standard-Linting/statische Analyse des Stacks verwenden; in jedem Projekt einrichten, ausführen, was
+  installiert ist.
 
 ### CR-csharp-conventions
 
-**var, records, one type per file**
+**var, Records, ein Typ pro Datei**
 
-Kurzfassung: var only for an obvious type, records for value objects, one public type per file
+Kurzfassung: var nur bei offensichtlichem Typ, Records für Value Objects, ein öffentlicher Typ pro Datei
 
-- Use `var` only when the type is obvious from the right-hand side, an explicit type otherwise.
-- Use records for immutable value objects/DTOs, classes for objects with identity and behavior.
-- One public type per file, with the file name matching the type name.
-
-_(noch nicht übersetzt)_
+- `var` nur verwenden, wenn der Typ aus der rechten Seite offensichtlich ist, sonst den Typ ausschreiben.
+- Records für unveränderliche Value Objects/DTOs verwenden, Klassen für Objekte mit Identität und
+  Verhalten.
+- Ein öffentlicher Typ pro Datei, der Dateiname entspricht dem Typnamen.
 
 ### CR-csharp-dependency-injection
 
-**Constructor injection**
+**Constructor Injection**
 
-Kurzfassung: constructor injection, no service locator
+Kurzfassung: Constructor Injection, kein Service Locator
 
-- Inject dependencies through the constructor; no hidden service-locator access.
-
-_(noch nicht übersetzt)_
+- Abhängigkeiten über den Konstruktor injizieren; kein versteckter Zugriff über einen Service Locator.
 
 ### CR-csharp-library-code
 
-**ConfigureAwait in library code**
+**ConfigureAwait in Bibliothekscode**
 
-Kurzfassung: ConfigureAwait(false) in code without a UI context
+Kurzfassung: ConfigureAwait(false) in Code ohne UI-Kontext
 
-- Use `ConfigureAwait(false)` in library code that has no dependency on a UI context.
-
-_(noch nicht übersetzt)_
+- In Bibliothekscode ohne Abhängigkeit von einem UI-Kontext `ConfigureAwait(false)` verwenden.
 
 ## go
 
-**Coding rules — Go**
+**Coding-Regeln — Go**
 
 Quelle: `.act/coding/go.md`
 
-Kurzfassung: strict error checking, static analysis tooling, package design
+Kurzfassung: strikte Fehlerprüfung, Werkzeuge für statische Analyse, Paketdesign
 
-Rules for Go projects. Group IDs (`CR-go-<name>`) are stable and never reassigned; a group
-whose purpose no longer holds gets a new ID and is listed as `retired:` in this header.
-
-_(noch nicht übersetzt)_
+Regeln für Go-Projekte. Gruppen-IDs (`CR-go-<name>`) sind stabil und werden nie neu vergeben; eine
+Gruppe, deren Zweck nicht mehr gilt, bekommt eine neue ID und wird in diesem Kopf als `retired:` aufgeführt.
 
 ### CR-go-basics
 
-**Error handling, formatting, static analysis**
+**Fehlerbehandlung, Formatierung, statische Analyse**
 
-Kurzfassung: check and wrap errors, format with gofmt, run vet/staticcheck, avoid panics and leaks
+Kurzfassung: Fehler prüfen und wrappen, mit gofmt formatieren, vet/staticcheck ausführen, Panics und Leaks vermeiden
 
-- Format every file with `gofmt`/`goimports` before committing; no hand-tuned deviation from either.
-- Check an error immediately after the call that returned it (`if err != nil`) instead of collecting
-  errors for later, and never discard a return value with `_` when it comes with an unchecked error.
-- Wrap errors with `%w` (`fmt.Errorf("...: %w", err)`) so `errors.Is`/`errors.As` keep working further
-  up the call chain; never lose or flatten the underlying error.
-- Run `go vet` and `staticcheck` in CI as the stack's standard static analysis — set them up, but run
-  only what is installed; if a tool is missing, say so once and install nothing unasked.
-- No panics in library code for expected failure cases; panic only for genuine programming errors.
-- `context.Context` is the first parameter of any function that must propagate cancellation, a
-  deadline, or request-scoped values.
-- Every goroutine has a visible lifecycle end (`WaitGroup` or context cancellation) — a goroutine
-  with no way to stop is a leak.
-- Synchronize state shared between goroutines through channels or explicit locks, never silently.
-
-_(noch nicht übersetzt)_
+- Jede Datei vor dem Commit mit `gofmt`/`goimports` formatieren; keine handgepflegte Abweichung von beiden.
+- Einen Fehler unmittelbar nach dem Aufruf prüfen, der ihn zurückgegeben hat (`if err != nil`), statt
+  Fehler für später zu sammeln, und einen Rückgabewert nie mit `_` verwerfen, wenn er einen ungeprüften
+  Fehler mitbringt.
+- Fehler mit `%w` wrappen (`fmt.Errorf("...: %w", err)`), damit `errors.Is`/`errors.As` weiter oben in der
+  Aufrufkette funktionieren; den zugrunde liegenden Fehler nie verlieren oder einebnen.
+- `go vet` und `staticcheck` in der CI als Standard der statischen Analyse des Stacks ausführen — einrichten,
+  aber nur ausführen, was installiert ist; fehlt ein Werkzeug, das einmal sagen und nichts ungefragt
+  installieren.
+- Keine Panics in Bibliothekscode für erwartbare Fehlerfälle; panic nur bei echten Programmierfehlern.
+- `context.Context` ist der erste Parameter jeder Funktion, die Abbruch, eine Deadline oder
+  request-bezogene Werte weitergeben muss.
+- Jede Goroutine hat ein sichtbares Lebensende (`WaitGroup` oder Abbruch über den Context) — eine Goroutine
+  ohne Möglichkeit zu stoppen ist ein Leak.
+- Zustand, den Goroutinen gemeinsam nutzen, über Channels oder explizite Locks synchronisieren, nie
+  stillschweigend.
 
 ### CR-go-package-design
 
-**Small interfaces, no grab-bag packages**
+**Kleine Interfaces, keine Sammelpakete**
 
-Kurzfassung: interfaces defined by the consumer, packages named and cut by domain
+Kurzfassung: Interfaces vom Konsumenten definiert, Pakete nach Domäne benannt und geschnitten
 
-- Define interfaces on the consumer side (small, often one or two methods), not upfront by the
-  provider that implements them.
-- Give packages short, meaningful names cut by domain; no `util`/`common` grab-bag package without a
-  real subject of its own.
-
-_(noch nicht übersetzt)_
+- Interfaces auf der Seite des Konsumenten definieren (klein, oft ein oder zwei Methoden), nicht vorab vom
+  Anbieter, der sie implementiert.
+- Pakete mit kurzen, aussagekräftigen Namen nach Domäne schneiden; kein Sammelpaket `util`/`common` ohne
+  eigenen Gegenstand.
 
 ## java
 
-**Coding rules — Java**
+**Coding-Regeln — Java**
 
 Quelle: `.act/coding/java.md`
 
-Kurzfassung: nullability, error handling, structure, toolchain, tests
+Kurzfassung: Nullability, Fehlerbehandlung, Struktur, Toolchain, Tests
 
-Rules for Java projects. Group IDs (`CR-java-<name>`) are stable and never reassigned; a group
-whose purpose no longer holds gets a new ID and is listed as `retired:` in this header.
-
-_(noch nicht übersetzt)_
+Regeln für Java-Projekte. Gruppen-IDs (`CR-java-<name>`) sind stabil und werden nie neu vergeben; eine
+Gruppe, deren Zweck nicht mehr gilt, bekommt eine neue ID und wird in diesem Kopf als `retired:` aufgeführt.
 
 ### CR-java-basics
 
-**Nullability, error handling, established pitfalls**
+**Nullability, Fehlerbehandlung, bekannte Fallstricke**
 
-Kurzfassung: explicit nullability, no raw types, correct exception handling, logging and SQL safety
+Kurzfassung: explizite Nullability, keine Raw Types, korrekte Exception-Behandlung, sicheres Logging und SQL
 
-- Make nullability explicit on fields, parameters and return types (JSpecify `@Nullable`/`@NonNull` or
-  the alternative the project has fixed on) instead of leaving it implicit.
-- No raw `Object`, no raw types on generics.
-- No empty `catch` blocks and no `catch (Exception e)` without a concrete reason; use unchecked
-  exceptions for programming errors and checked exceptions for expected, recoverable failures — the
-  message must name what failed and with what.
-- Manage resources exclusively through try-with-resources.
-- Use `java.util.concurrent` (executors, `CompletableFuture`, concurrent collections) instead of manual
-  `synchronized`/`wait`/`notify`.
-- Log through SLF4J, parametrized (`log.info("user {} failed", id)`, never string concatenation) —
-  see `R-safe-no-secret-log` for what never goes into a log line at all.
-- Use `var` only where the type is obvious from the right-hand side, otherwise spell out the type.
-- Return `Optional<T>` only as a method's return type for "possibly no result" — never as a field, a
-  parameter, or inside a collection.
-- Pitfalls: override `equals`/`hashCode` only together; use `java.time`, never `Date`/`Calendar`; use
-  `BigDecimal` for money, never `float`/`double`; state `UTF_8` explicitly, never rely on the platform
-  default; use only parametrized SQL, never string-concatenated queries; a plain loop may read better
-  than forcing a Stream.
-- Static analysis is the stack's standard — set it up, but run only what is installed; if a tool is
-  missing, say so once and install nothing unasked.
-
-_(noch nicht übersetzt)_
+- Nullability an Feldern, Parametern und Rückgabetypen explizit machen (JSpecify `@Nullable`/`@NonNull` oder
+  die Alternative, auf die sich das Projekt festgelegt hat), statt sie implizit zu lassen.
+- Kein rohes `Object`, keine Raw Types bei Generics.
+- Keine leeren `catch`-Blöcke und kein `catch (Exception e)` ohne konkreten Grund; Unchecked Exceptions für
+  Programmierfehler, Checked Exceptions für erwartbare, behebbare Fehler — die Meldung muss nennen, was
+  woran gescheitert ist.
+- Ressourcen ausschließlich über try-with-resources verwalten.
+- `java.util.concurrent` (Executors, `CompletableFuture`, Concurrent Collections) statt manuellem
+  `synchronized`/`wait`/`notify` verwenden.
+- Über SLF4J loggen, parametrisiert (`log.info("user {} failed", id)`, nie per String-Konkatenation) —
+  was gar nicht in eine Logzeile gehört, steht in `R-safe-no-secret-log`.
+- `var` nur verwenden, wo der Typ aus der rechten Seite offensichtlich ist, sonst den Typ ausschreiben.
+- `Optional<T>` nur als Rückgabetyp einer Methode für „möglicherweise kein Ergebnis“ zurückgeben — nie als
+  Feld, als Parameter oder innerhalb einer Collection.
+- Fallstricke: `equals`/`hashCode` nur gemeinsam überschreiben; `java.time` verwenden, nie
+  `Date`/`Calendar`; für Geldbeträge `BigDecimal`, nie `float`/`double`; `UTF_8` ausdrücklich angeben, sich
+  nie auf den Plattform-Default verlassen; ausschließlich parametrisiertes SQL verwenden, nie per
+  String-Konkatenation gebaute Abfragen; eine einfache Schleife liest sich unter Umständen besser als ein
+  erzwungener Stream.
+- Statische Analyse ist der Standard des Stacks — einrichten, aber nur ausführen, was installiert ist; fehlt
+  ein Werkzeug, das einmal sagen und nichts ungefragt installieren.
 
 ### CR-java-modern-idioms
 
-**Records, sealed types, text blocks, virtual threads**
+**Records, Sealed Types, Text Blocks, Virtual Threads**
 
-Kurzfassung: modern language features, requires Java 17 for most, Java 21 for virtual threads
+Kurzfassung: moderne Sprachfeatures, meist ab Java 17, Virtual Threads ab Java 21
 
-- Use records for immutable data carriers (DTOs, value objects) instead of a manual class with
-  getters, `equals`, `hashCode` and a constructor — requires Java 17 (records) or 16 (preview).
-- Use sealed interfaces/classes with pattern matching (`switch` on type) instead of `instanceof` chains
-  — requires Java 17.
-- Use text blocks for multi-line strings (SQL, JSON templates) instead of concatenation — requires
+- Records für unveränderliche Datenträger (DTOs, Value Objects) verwenden statt einer handgeschriebenen
+  Klasse mit Gettern, `equals`, `hashCode` und Konstruktor — erfordert Java 17 (Records) bzw. 16 (Preview).
+- Sealed Interfaces/Classes mit Pattern Matching (`switch` auf den Typ) statt `instanceof`-Ketten
+  verwenden — erfordert Java 17.
+- Text Blocks für mehrzeilige Strings (SQL, JSON-Vorlagen) statt Konkatenation verwenden — erfordert
   Java 17.
-- Use virtual threads only where the runtime and every library on the path support them — requires
-  Java 21.
-
-_(noch nicht übersetzt)_
+- Virtual Threads nur verwenden, wo die Laufzeit und jede Bibliothek auf dem Weg sie unterstützen —
+  erfordert Java 21.
 
 ### CR-java-structure
 
-**Package cut, immutability, constructor injection**
+**Paketschnitt, Immutability, Constructor Injection**
 
-Kurzfassung: packages by domain, immutability as the default, constructor injection
+Kurzfassung: Pakete nach Domäne, Immutability als Standard, Constructor Injection
 
-- Cut packages by business domain, not by technical layer.
-- Keep visibility as narrow as possible, fields `final`, no setter without a reason — immutability is
-  the default and the best guard against concurrency bugs.
-- Use constructor injection instead of field injection, even outside a DI container.
-
-_(noch nicht übersetzt)_
+- Pakete nach fachlicher Domäne schneiden, nicht nach technischer Schicht.
+- Sichtbarkeit so eng wie möglich halten, Felder `final`, kein Setter ohne Grund — Immutability ist der
+  Standard und der beste Schutz gegen Nebenläufigkeitsfehler.
+- Constructor Injection statt Field Injection verwenden, auch außerhalb eines DI-Containers.
 
 ### CR-java-toolchain
 
-**Build and static analysis tools**
+**Build- und Analysewerkzeuge**
 
-Kurzfassung: Maven or Gradle by default; static analysis whichever the project has set up
+Kurzfassung: standardmäßig Maven oder Gradle; statische Analyse mit dem, was das Projekt eingerichtet hat
 
-- Build with Maven or Gradle — the project decides which.
-- Enforce formatting and static analysis in CI: Spotless or google-java-format for formatting, plus
-  Checkstyle, SpotBugs, Error Prone or PMD — the template's usual choice; run whatever the project
-  actually has set up (see `R-code-tools`).
-
-_(noch nicht übersetzt)_
+- Mit Maven oder Gradle bauen — das Projekt entscheidet, womit.
+- Formatierung und statische Analyse in der CI erzwingen: Spotless oder google-java-format für die
+  Formatierung, dazu Checkstyle, SpotBugs, Error Prone oder PMD — die übliche Wahl des Templates; ausführen,
+  was das Projekt tatsächlich eingerichtet hat (siehe `R-code-tools`).
 
 ### CR-java-tests
 
-**JUnit 5 with AssertJ by default**
+**Standardmäßig JUnit 5 mit AssertJ**
 
-Kurzfassung: JUnit 5/AssertJ by default, behavior-describing names, no unseeded randomness, no Thread.sleep
+Kurzfassung: standardmäßig JUnit 5/AssertJ, Testnamen beschreiben das Verhalten, keine Zufallswerte ohne Seed, kein Thread.sleep
 
-- Write tests with JUnit 5 and AssertJ — the template's usual choice; use the test framework the
-  project actually has set up instead (see `R-code-tools`).
-- Name tests after the expected behavior, not after the method under test.
-- Never use randomness without a fixed seed.
-- Never wait with `Thread.sleep`; wait on the actual condition instead.
-
-_(noch nicht übersetzt)_
+- Tests mit JUnit 5 und AssertJ schreiben — die übliche Wahl des Templates; stattdessen das Test-Framework
+  verwenden, das das Projekt tatsächlich eingerichtet hat (siehe `R-code-tools`).
+- Tests nach dem erwarteten Verhalten benennen, nicht nach der getesteten Methode.
+- Nie Zufall ohne festen Seed verwenden.
+- Nie mit `Thread.sleep` warten; stattdessen auf die tatsächliche Bedingung warten.
 
 ## nuxt
 
-**Coding rules — Nuxt**
+**Coding-Regeln — Nuxt**
 
 Quelle: `.act/coding/nuxt.md`
 
-Kurzfassung: directory conventions, data fetching, runtime config, SSR mode, tooling
+Kurzfassung: Verzeichniskonventionen, Datenabruf, Runtime-Konfiguration, SSR-Modus, Tooling
 
 requires: vue, typescript
 
-Rules for Nuxt projects. Group IDs (`CR-nuxt-<name>`) are stable and never reassigned; a group
-whose purpose no longer holds gets a new ID and is listed as `retired:` in this header.
-
-_(noch nicht übersetzt)_
+Regeln für Nuxt-Projekte. Gruppen-IDs (`CR-nuxt-<name>`) sind stabil und werden nie neu vergeben; eine
+Gruppe, deren Zweck nicht mehr gilt, bekommt eine neue ID und wird in diesem Kopf als `retired:` aufgeführt.
 
 ### CR-nuxt-basics
 
-**Established Nuxt defaults**
+**Bewährte Nuxt-Standards**
 
-Kurzfassung: directory layout, data fetching, typed handlers, runtime config, pitfalls
+Kurzfassung: Verzeichnisstruktur, Datenabruf, typisierte Handler, Runtime-Konfiguration, Fallstricke
 
-- Follow the directory convention (`pages/`, `components/`, `composables/`, `server/`) instead of
-  inventing a structure; use auto-imports, no manual re-exports for files in those directories.
-- Read data with `useFetch`/`useAsyncData` while rendering, use `$fetch` for one-off writes and actions.
-- Never copy the return value of `useFetch`/`useAsyncData` into your own `ref` — pass the returned
-  object through and `await` it where `data`/`status`/`error` reach the template. Copying loses
-  awaitability: the call resolves later, the server renders without data, the client fills it in, and
-  the result is a hydration mismatch.
+- Der Verzeichniskonvention folgen (`pages/`, `components/`, `composables/`, `server/`), statt eine eigene
+  Struktur zu erfinden; Auto-Imports nutzen, keine manuellen Re-Exports für Dateien in diesen Verzeichnissen.
+- Daten beim Rendern mit `useFetch`/`useAsyncData` lesen, `$fetch` für einmalige Schreibzugriffe und
+  Aktionen verwenden.
+- Den Rückgabewert von `useFetch`/`useAsyncData` nie in ein eigenes `ref` kopieren — das zurückgegebene
+  Objekt durchreichen und dort `await`en, wo `data`/`status`/`error` das Template erreichen. Kopieren
+  verliert die Awaitability: Der Aufruf löst sich später auf, der Server rendert ohne Daten, der Client
+  füllt sie nachträglich ein, und das Ergebnis ist ein Hydration-Mismatch.
 
       ```ts
-      // Wrong — awaitability is lost
+      // Falsch — die Awaitability geht verloren
       function useThing() {
         const result = ref()
         useFetch('/api/thing').then(r => (result.value = r.data.value))
         return result
       }
 
-      // Right — pass the returned object through unchanged
+      // Richtig — das zurückgegebene Objekt unverändert durchreichen
       async function useThing() {
         return await useFetch('/api/thing')
       }
       ```
 
-- Declare path aliases in `tsconfig.json` **and** `nuxt.config.ts`. Since Nuxt 4, `~` points at `app/`,
-  so without its own entry `~/types` resolves somewhere other than `~types`.
-- Use `runtimeConfig` for configuration values instead of reading `process.env` in components; secrets
-  live in the private part of `runtimeConfig`, never under `public`.
-- Write out types for props, emits, store actions, composables and `defineEventHandler`, including
-  return types.
-- Name server routes under `server/api/` with a verb suffix (`login.post.ts`, `users.get.ts`) and return
-  failures with `createError` and a matching HTTP status — never swallow an error or answer 200.
-- Lint and typecheck are the stack's standard and belong in the project; `nuxt typecheck` needs `vue-tsc`
-  as a dependency, without it there is no typecheck. Run what is installed, install nothing unasked.
-- Keep the npm scripts named the same everywhere: `lint` (`eslint .`), `typecheck` (`nuxt typecheck`),
-  plus `test` (`vitest run`) and `test:e2e` (`playwright test`) where tests exist.
-- Pitfalls:
-  - SSR code must not touch browser globals (`window`, `document`) without a guard.
-  - Use `<ClientOnly>` only where a component genuinely cannot render on the server, not as a default fix.
-  - **Security:** never keep per-request state in a module-level `ref`/`reactive`. On the server such a
-    value outlives the request and is shared between users — the next request sees the previous one's
-    data. Use `useState` for state that must survive the request.
-  - Forms with `@submit.prevent` also need `method="post"` (see `CR-vue-basics`).
-  - **Windows:** an aborted dev server can keep its port bound; the next start moves to the next free
-    port and HMR/WebSocket errors follow. Kill the running process (`netstat -ano | findstr :3000`,
-    `taskkill /PID <pid> /F`; `lsof -i :3000`, `kill <pid>`) instead of configuring a custom HMR port.
-
-_(noch nicht übersetzt)_
+- Pfad-Aliase in `tsconfig.json` **und** `nuxt.config.ts` deklarieren. Seit Nuxt 4 zeigt `~` auf `app/`,
+  ohne eigenen Eintrag löst `~/types` also woanders auf als `~types`.
+- `runtimeConfig` für Konfigurationswerte verwenden, statt `process.env` in Komponenten zu lesen; Secrets
+  gehören in den privaten Teil von `runtimeConfig`, nie unter `public`.
+- Typen für Props, Emits, Store-Actions, Composables und `defineEventHandler` ausschreiben, einschließlich
+  der Rückgabetypen.
+- Server-Routen unter `server/api/` mit einem Verb-Suffix benennen (`login.post.ts`, `users.get.ts`) und
+  Fehler mit `createError` und einem passenden HTTP-Status zurückgeben — nie einen Fehler verschlucken oder
+  mit 200 antworten.
+- Lint und Typecheck sind der Standard des Stacks und gehören ins Projekt; `nuxt typecheck` braucht
+  `vue-tsc` als Abhängigkeit, ohne es gibt es keinen Typecheck. Ausführen, was installiert ist, nichts
+  ungefragt installieren.
+- Die npm-Scripts überall gleich benennen: `lint` (`eslint .`), `typecheck` (`nuxt typecheck`), dazu
+  `test` (`vitest run`) und `test:e2e` (`playwright test`), wo es Tests gibt.
+- Fallstricke:
+  - SSR-Code darf Browser-Globals (`window`, `document`) nicht ohne Absicherung anfassen.
+  - `<ClientOnly>` nur dort verwenden, wo eine Komponente auf dem Server wirklich nicht rendern kann, nicht
+    als Standardlösung.
+  - **Sicherheit:** nie Zustand pro Request in einem `ref`/`reactive` auf Modulebene halten. Auf dem Server
+    überlebt ein solcher Wert den Request und wird zwischen Nutzern geteilt — der nächste Request sieht die
+    Daten des vorigen. Für Zustand, der den Request überleben muss, `useState` verwenden.
+  - Formulare mit `@submit.prevent` brauchen zusätzlich `method="post"` (siehe `CR-vue-basics`).
+  - **Windows:** Ein abgebrochener Dev-Server kann seinen Port belegt halten; der nächste Start weicht auf
+    den nächsten freien Port aus, und HMR-/WebSocket-Fehler folgen. Den laufenden Prozess beenden
+    (`netstat -ano | findstr :3000`, `taskkill /PID <pid> /F`; `lsof -i :3000`, `kill <pid>`), statt einen
+    eigenen HMR-Port zu konfigurieren.
 
 ### CR-nuxt-root-folders
 
-**Fixed root folders with their own aliases**
+**Feste Root-Ordner mit eigenen Aliasen**
 
-Kurzfassung: /types, /constants and /server at the repo root, each the only place of its kind
+Kurzfassung: /types, /constants und /server im Repo-Root, jeweils der einzige Ort seiner Art
 
-- Keep three folders at the repository root, each with its own alias and each the only place of its kind:
-  `/types` (`~types`, shared types and interfaces), `/constants` (`~constants`, constants, enumerations,
-  fixed keys), `/server` (`~server`, the Nitro backend).
-- Import types and constants from there instead of duplicating them in components. A second type folder
-  under `app/types/` is a mistake, not an addition.
-
-_(noch nicht übersetzt)_
+- Drei Ordner im Repository-Root halten, jeweils mit eigenem Alias und jeweils der einzige Ort seiner Art:
+  `/types` (`~types`, gemeinsame Typen und Interfaces), `/constants` (`~constants`, Konstanten,
+  Enumerationen, feste Schlüssel), `/server` (`~server`, das Nitro-Backend).
+- Typen und Konstanten von dort importieren, statt sie in Komponenten zu duplizieren. Ein zweiter
+  Typen-Ordner unter `app/types/` ist ein Fehler, keine Ergänzung.
 
 ### CR-nuxt-ssr
 
-**Choose the SSR mode on purpose**
+**Den SSR-Modus bewusst wählen**
 
-Kurzfassung: ask before assuming SSR, know the hydration cost, check for mismatches after SSR work
+Kurzfassung: vor der Annahme von SSR fragen, die Hydration-Kosten kennen, nach SSR-Arbeit auf Mismatches prüfen
 
-- `ssr: false` or a plain SPA is often the simpler choice for a purely local UI with no SEO or
-  first-paint requirement (e.g. an admin tool). Ask the user once, when scaffolding or restructuring
-  the app, instead of defaulting to SSR without asking.
-- Know what SSR costs: every page render runs twice, once on the server and once on the client.
-  Anything that only exists in the browser or differs between the two runs — timestamps, random
-  values, `window`, `localStorage`, locale or timezone detection — produces a hydration mismatch.
-- After working on a component that renders server-side, check for hydration errors on purpose:
-  load the page in the browser and read the console warning "Hydration ... mismatch" — it names the
-  component and the node. Treat that warning as a finding, not a footnote.
-- Known causes and their fix, in short: gate browser-only values behind `onMounted`/
-  `import.meta.client`; share request-scoped state through `useState`, never a module-level `ref`;
-  fix invalid HTML nesting (e.g. a block element inside a `<p>`); reach for `<ClientOnly>` only as
-  the last resort.
-- Copying a `useFetch`/`useAsyncData` result into your own `ref` is a common hydration-mismatch
-  cause too — see `CR-nuxt-basics` for why and the fix, not repeated here.
-
-_(noch nicht übersetzt)_
+- `ssr: false` oder eine reine SPA ist bei einer rein lokalen Oberfläche ohne SEO- oder
+  First-Paint-Anforderung (z. B. ein Admin-Tool) oft die einfachere Wahl. Den Nutzer einmal fragen, wenn die
+  App aufgesetzt oder umstrukturiert wird, statt ungefragt SSR als Standard zu nehmen.
+- Wissen, was SSR kostet: Jedes Rendern einer Seite läuft zweimal, einmal auf dem Server und einmal auf dem
+  Client. Alles, was nur im Browser existiert oder sich zwischen beiden Läufen unterscheidet — Zeitstempel,
+  Zufallswerte, `window`, `localStorage`, Erkennung von Locale oder Zeitzone —, erzeugt einen
+  Hydration-Mismatch.
+- Nach Arbeit an einer Komponente, die serverseitig rendert, gezielt auf Hydration-Fehler prüfen: die Seite
+  im Browser laden und die Konsolenwarnung „Hydration ... mismatch“ lesen — sie nennt Komponente und Knoten.
+  Diese Warnung als Befund behandeln, nicht als Fußnote.
+- Bekannte Ursachen und ihre Behebung in Kürze: Werte, die nur im Browser existieren, hinter
+  `onMounted`/`import.meta.client` legen; request-bezogenen Zustand über `useState` teilen, nie über ein
+  `ref` auf Modulebene; ungültige HTML-Verschachtelung beheben (z. B. ein Block-Element in einem `<p>`);
+  `<ClientOnly>` nur als letztes Mittel einsetzen.
+- Das Ergebnis von `useFetch`/`useAsyncData` in ein eigenes `ref` zu kopieren ist ebenfalls eine häufige
+  Ursache für Hydration-Mismatches — Grund und Behebung stehen in `CR-nuxt-basics`, hier nicht wiederholt.
 
 ### CR-nuxt-toolchain
 
-**Lint and format tooling**
+**Lint- und Format-Tooling**
 
-Kurzfassung: ESLint with `@nuxt/eslint` plus Prettier, whichever the project has set up
+Kurzfassung: ESLint mit `@nuxt/eslint` plus Prettier, oder was das Projekt eingerichtet hat
 
-- ESLint with `@nuxt/eslint`, configured in `eslint.config.mjs`, and Prettier for formatting are the
-  template's usual choice; what the project actually has installed and configured governs
-  (see `R-code-tools`).
-
-_(noch nicht übersetzt)_
+- ESLint mit `@nuxt/eslint`, konfiguriert in `eslint.config.mjs`, und Prettier für die Formatierung sind die
+  übliche Wahl des Templates; maßgeblich ist, was das Projekt tatsächlich installiert und konfiguriert hat
+  (siehe `R-code-tools`).
 
 ### CR-nuxt-tests
 
-**Unit and end-to-end tests**
+**Unit- und End-to-End-Tests**
 
-Kurzfassung: vitest/Playwright by default, but whichever suite the project runs must pass
+Kurzfassung: standardmäßig vitest/Playwright, aber die Suite, die das Projekt ausführt, muss bestehen
 
-- `vitest` (`vitest.config.ts`) for unit and component tests, `@playwright/test`
-  (`playwright.config.ts`) for end-to-end tests — the template's usual choice; if the project has a
-  different test runner installed and configured (e.g. Selenium, Nightwatch, Cypress), use that one
-  instead (see `R-code-tools`).
-- Whichever test suites the project actually has exist and run; a change that breaks them is not done.
-
-_(noch nicht übersetzt)_
+- `vitest` (`vitest.config.ts`) für Unit- und Komponententests, `@playwright/test`
+  (`playwright.config.ts`) für End-to-End-Tests — die übliche Wahl des Templates; hat das Projekt einen
+  anderen Test Runner installiert und konfiguriert (z. B. Selenium, Nightwatch, Cypress), stattdessen diesen
+  verwenden (siehe `R-code-tools`).
+- Welche Test-Suiten das Projekt tatsächlich hat, die existieren und laufen; eine Änderung, die sie bricht,
+  ist nicht fertig.
 
 ## php
 
-**Coding rules — PHP**
+**Coding-Regeln — PHP**
 
 Quelle: `.act/coding/php.md`
 
-Kurzfassung: strict types, PSR-12/PSR-4, exceptions, prepared statements, toolchain
+Kurzfassung: strict types, PSR-12/PSR-4, Exceptions, Prepared Statements, Toolchain
 
-Rules for PHP projects (8.x and later). Group IDs (`CR-php-<name>`) are stable and never reassigned; a
-group whose purpose no longer holds gets a new ID and is listed as `retired:` in this header.
-
-_(noch nicht übersetzt)_
+Regeln für PHP-Projekte (8.x und neuer). Gruppen-IDs (`CR-php-<name>`) sind stabil und werden nie neu
+vergeben; eine Gruppe, deren Zweck nicht mehr gilt, bekommt eine neue ID und wird in diesem Kopf als
+`retired:` aufgeführt.
 
 ### CR-php-basics
 
-**Strict types, safe errors, safe queries**
+**Strict Types, sichere Fehler, sichere Abfragen**
 
-Kurzfassung: strict_types, PSR-12/PSR-4, typed methods, exceptions, PDO, production errors, static analysis
+Kurzfassung: strict_types, PSR-12/PSR-4, typisierte Methoden, Exceptions, PDO, Fehler in Produktion, statische Analyse
 
-- Put `declare(strict_types=1);` as the first statement in every PHP file.
-- Follow PSR-12 for formatting (4-space indentation) and PSR-4 for namespaces, one namespace per
-  Composer autoload root.
-- Keep one class per file, with the filename matching the class name.
-- Manage dependencies through Composer only; never include a library by hand.
-- Declare parameter and return types on every public method. Use `mixed` only with a comment justifying
-  it, and mark nullable types (`?Type`) explicitly instead of falling back to an implicit `null`.
-- Throw exceptions instead of returning `false` or an error code. Define one exception class per error
-  domain rather than throwing a blanket `\Exception`, and let the message name what failed and with
-  what — a database exception names the query or table, a validation exception names the field and the
-  value it rejected.
-- Keep business logic out of templates (Blade, Twig, plain PHP templates); templates render, they don't
-  decide.
-- Access the database only through PDO with prepared statements; never build SQL by concatenating
-  values into the query string.
-- Use `===`/`!==` wherever type equality is meant, not the loose operators.
-- Turn `display_errors` off in production; errors go to the log, not into the response.
-- Static analysis is the stack's standard and belongs in the project. Run what is installed, install
-  nothing unasked.
-
-_(noch nicht übersetzt)_
+- `declare(strict_types=1);` als erste Anweisung in jede PHP-Datei schreiben.
+- Für die Formatierung PSR-12 befolgen (Einrückung mit 4 Leerzeichen) und für Namespaces PSR-4, ein
+  Namespace pro Composer-Autoload-Root.
+- Eine Klasse pro Datei, der Dateiname entspricht dem Klassennamen.
+- Abhängigkeiten ausschließlich über Composer verwalten; nie eine Bibliothek von Hand einbinden.
+- Parameter- und Rückgabetypen an jeder öffentlichen Methode deklarieren. `mixed` nur mit einem Kommentar
+  verwenden, der es begründet, und nullable Typen (`?Type`) ausdrücklich markieren, statt auf ein
+  implizites `null` auszuweichen.
+- Exceptions werfen, statt `false` oder einen Fehlercode zurückzugeben. Eine Exception-Klasse pro
+  Fehlerdomäne definieren, statt pauschal `\Exception` zu werfen, und die Meldung nennen lassen, was woran
+  gescheitert ist — eine Datenbank-Exception nennt die Abfrage oder Tabelle, eine Validierungs-Exception das
+  Feld und den abgelehnten Wert.
+- Geschäftslogik aus Templates (Blade, Twig, reine PHP-Templates) heraushalten; Templates rendern, sie
+  entscheiden nicht.
+- Auf die Datenbank ausschließlich über PDO mit Prepared Statements zugreifen; nie SQL bauen, indem Werte
+  in den Abfrage-String konkateniert werden.
+- `===`/`!==` verwenden, wo Typgleichheit gemeint ist, nicht die losen Operatoren.
+- `display_errors` in Produktion ausschalten; Fehler gehören ins Log, nicht in die Antwort.
+- Statische Analyse ist der Standard des Stacks und gehört ins Projekt. Ausführen, was installiert ist,
+  nichts ungefragt installieren.
 
 ### CR-php-conventions
 
-**Closures over global callbacks**
+**Closures statt globaler Callbacks**
 
-Kurzfassung: arrow functions and closures instead of global callback functions
+Kurzfassung: Arrow Functions und Closures statt globaler Callback-Funktionen
 
-- Use arrow functions/closures instead of global callback functions.
-
-_(noch nicht übersetzt)_
+- Arrow Functions/Closures statt globaler Callback-Funktionen verwenden.
 
 ### CR-php-toolchain
 
-**Formatter and static analysis tooling**
+**Formatter und Werkzeuge für statische Analyse**
 
-Kurzfassung: PHP-CS-Fixer/PHP_CodeSniffer plus PHPStan/Psalm by default, or what the project has set up
+Kurzfassung: standardmäßig PHP-CS-Fixer/PHP_CodeSniffer plus PHPStan/Psalm, oder was das Projekt eingerichtet hat
 
-- PHP-CS-Fixer or PHP_CodeSniffer, configured for PSR-12, and PHPStan or Psalm for static analysis —
-  the template's usual choice; run whatever the project actually has set up (see `R-code-tools`).
-
-_(noch nicht übersetzt)_
+- PHP-CS-Fixer oder PHP_CodeSniffer, für PSR-12 konfiguriert, und PHPStan oder Psalm für die statische
+  Analyse — die übliche Wahl des Templates; ausführen, was das Projekt tatsächlich eingerichtet hat
+  (siehe `R-code-tools`).
 
 ## python
 
-**Coding rules — Python**
+**Coding-Regeln — Python**
 
 Quelle: `.act/coding/python.md`
 
-Kurzfassung: strict annotations, stdlib-first, data models, module layout, toolchain, tests
+Kurzfassung: strikte Annotationen, stdlib zuerst, Datenmodelle, Modulaufbau, Toolchain, Tests
 
-Rules for Python 3 with type annotations, a stdlib-first preference and automated linting. Group IDs
-(`CR-python-<name>`) are stable and never reassigned; a group whose purpose no longer holds gets a new ID
-and is listed as `retired:` in this header.
-
-_(noch nicht übersetzt)_
+Regeln für Python 3 mit Typannotationen, einer Vorliebe für die Standardbibliothek und automatisiertem
+Linting. Gruppen-IDs (`CR-python-<name>`) sind stabil und werden nie neu vergeben; eine Gruppe, deren Zweck
+nicht mehr gilt, bekommt eine neue ID und wird in diesem Kopf als `retired:` aufgeführt.
 
 ### CR-python-basics
 
-**Established Python defaults**
+**Bewährte Python-Standards**
 
-Kurzfassung: annotations, f-strings, context managers, exception handling, venv, lint
+Kurzfassung: Annotationen, f-strings, Context Manager, Exception-Behandlung, venv, Lint
 
-- Annotate every function signature (parameters and return value), including internal/private functions.
-- Use f-strings, not `%` formatting or `.format()`.
-- Use `with` for anything that must be opened and closed (files, locks, connections).
-- Never use a mutable default argument (`def f(x: list = [])`) — default to `None` and initialize inside
-  the function body.
-- Catch specific exception types; never a bare `except Exception` without re-raising or logging it. Every
-  raised or logged error states what failed and with what value — a caller or log reader must find the
-  cause without opening the source.
-- Use `is`/`is not` only for identity comparisons (`None`, singletons), never for values.
-- One virtual environment (`venv`) per project, dependencies pinned in a lockfile (`requirements.txt`,
-  `poetry.lock`); never a global install of project dependencies.
-- Lint is the stack's standard and belongs in the project; run what is installed, install nothing unasked.
-
-_(noch nicht übersetzt)_
+- Jede Funktionssignatur annotieren (Parameter und Rückgabewert), auch interne/private Funktionen.
+- f-strings verwenden, nicht `%`-Formatierung oder `.format()`.
+- `with` für alles verwenden, was geöffnet und geschlossen werden muss (Dateien, Locks, Verbindungen).
+- Nie ein veränderliches Default-Argument verwenden (`def f(x: list = [])`) — als Default `None` setzen und
+  im Funktionsrumpf initialisieren.
+- Spezifische Exception-Typen abfangen; nie ein nacktes `except Exception` ohne erneutes Auslösen oder
+  Loggen. Jeder ausgelöste oder geloggte Fehler nennt, was woran gescheitert ist, mit welchem Wert — wer
+  aufruft oder das Log liest, muss die Ursache finden, ohne den Quellcode zu öffnen.
+- `is`/`is not` nur für Identitätsvergleiche verwenden (`None`, Singletons), nie für Werte.
+- Ein Virtual Environment (`venv`) pro Projekt, Abhängigkeiten in einer Lockfile festgeschrieben
+  (`requirements.txt`, `poetry.lock`); nie eine globale Installation von Projektabhängigkeiten.
+- Lint ist der Standard des Stacks und gehört ins Projekt; ausführen, was installiert ist, nichts
+  ungefragt installieren.
 
 ### CR-python-stdlib-first
 
-**Standard library before a new dependency**
+**Standardbibliothek vor einer neuen Abhängigkeit**
 
-Kurzfassung: reach for the stdlib before adding a package
+Kurzfassung: zuerst zur stdlib greifen, bevor ein Paket hinzukommt
 
-- Prefer the standard library over adding an external dependency; add one only where the stdlib genuinely
-  falls short.
-
-_(noch nicht übersetzt)_
+- Die Standardbibliothek einer zusätzlichen externen Abhängigkeit vorziehen; eine hinzufügen, nur wo die
+  stdlib wirklich nicht ausreicht.
 
 ### CR-python-data-models
 
-**Typed data instead of loose dicts**
+**Typisierte Daten statt loser dicts**
 
-Kurzfassung: dataclasses, TypedDict or pydantic for structured data
+Kurzfassung: dataclasses, TypedDict oder pydantic für strukturierte Daten
 
-- Model structured data with `dataclasses`, `TypedDict` or `pydantic`, not a loose `dict`.
-
-_(noch nicht übersetzt)_
+- Strukturierte Daten mit `dataclasses`, `TypedDict` oder `pydantic` modellieren, nicht mit einem losen
+  `dict`.
 
 ### CR-python-module-structure
 
-**One module per responsibility**
+**Ein Modul pro Verantwortung**
 
-Kurzfassung: module boundaries, no circular imports
+Kurzfassung: Modulgrenzen, keine zirkulären Imports
 
-- One module per functional responsibility, no catch-all module without a clear boundary.
-- Resolve circular imports by fixing the module boundaries, not by working around them with deferred or
-  local imports.
-
-_(noch nicht übersetzt)_
+- Ein Modul pro fachlicher Verantwortung, kein Sammelmodul ohne klare Grenze.
+- Zirkuläre Imports durch Korrektur der Modulgrenzen auflösen, nicht durch Umgehung mit verzögerten oder
+  lokalen Imports.
 
 ### CR-python-toolchain
 
-**Lint and format tooling**
+**Lint- und Format-Tooling**
 
-Kurzfassung: ruff by default for lint and formatting, or what the project has set up
+Kurzfassung: standardmäßig ruff für Lint und Formatierung, oder was das Projekt eingerichtet hat
 
-- `ruff` for both linting and formatting is the template's usual choice; `black` remains a common
-  alternative for formatting in existing projects — either way, run what the project actually has
-  configured (see `R-code-tools`).
-
-_(noch nicht übersetzt)_
+- `ruff` für Linting und Formatierung ist die übliche Wahl des Templates; `black` bleibt in bestehenden
+  Projekten eine verbreitete Alternative für die Formatierung — in beiden Fällen ausführen, was das Projekt
+  tatsächlich konfiguriert hat (siehe `R-code-tools`).
 
 ### CR-python-tests
 
-**Unit tests**
+**Unit-Tests**
 
-Kurzfassung: pytest by default, or the test runner the project has set up
+Kurzfassung: standardmäßig pytest, oder der Test Runner, den das Projekt eingerichtet hat
 
-- `pytest` is the template's usual choice, with fixtures instead of repeating setup code in every
-  test module; use the test runner the project actually has configured (see `R-code-tools`).
-
-_(noch nicht übersetzt)_
+- `pytest` ist die übliche Wahl des Templates, mit Fixtures statt wiederholtem Setup-Code in jedem
+  Testmodul; den Test Runner verwenden, den das Projekt tatsächlich konfiguriert hat (siehe `R-code-tools`).
 
 ## sql
 
-**Coding rules — SQL**
+**Coding-Regeln — SQL**
 
 Quelle: `.act/coding/sql.md`
 
-Kurzfassung: query safety, transactions, indexing, naming, migrations
+Kurzfassung: Abfragesicherheit, Transaktionen, Indizes, Benennung, Migrationen
 
-Rules for schema changes and database access from application code. Group IDs (`CR-sql-<name>`) are
-stable and never reassigned; a group whose purpose no longer holds gets a new ID and is listed as
-`retired:` in this header.
-
-_(noch nicht übersetzt)_
+Regeln für Schemaänderungen und Datenbankzugriff aus Anwendungscode. Gruppen-IDs (`CR-sql-<name>`) sind
+stabil und werden nie neu vergeben; eine Gruppe, deren Zweck nicht mehr gilt, bekommt eine neue ID und wird
+in diesem Kopf als `retired:` aufgeführt.
 
 ### CR-sql-basics
 
-**Query safety and schema discipline**
+**Abfragesicherheit und Schemadisziplin**
 
-Kurzfassung: parametrized queries, transactions, UTC, indexing, no hidden logic, locking
+Kurzfassung: parametrisierte Abfragen, Transaktionen, UTC, Indizes, keine versteckte Logik, Locking
 
-- Use parametrized queries only — never build a query by concatenating values into the SQL string, in
-  any language or driver.
-- Never `SELECT *` in application code; name columns explicitly, so a schema change breaks visibly
-  instead of silently changing what a query returns.
-- Bundle multi-step writes into one transaction; don't reconcile partial failures by hand afterward.
-- Store timestamps in UTC; convert to a time zone only in the presentation layer.
-- Add an index to every foreign-key column — without one, joins and cascading deletes degrade as the
-  table grows.
-- Keep application logic out of stored procedures and triggers; logic that isn't visible in the
-  application code isn't reviewable.
-- Check a column type change on a large table for lock behavior and expected runtime before running it
-  live.
-
-_(noch nicht übersetzt)_
+- Ausschließlich parametrisierte Abfragen verwenden — nie eine Abfrage bauen, indem Werte in den SQL-String
+  konkateniert werden, in jeder Sprache und mit jedem Treiber.
+- Im Anwendungscode nie `SELECT *`; Spalten ausdrücklich benennen, damit eine Schemaänderung sichtbar
+  bricht, statt unbemerkt zu verändern, was eine Abfrage zurückgibt.
+- Mehrschrittige Schreibvorgänge in einer Transaktion bündeln; Teilfehler nicht nachträglich von Hand
+  abgleichen.
+- Zeitstempel in UTC speichern; erst in der Darstellungsschicht in eine Zeitzone umrechnen.
+- Jede Fremdschlüsselspalte mit einem Index versehen — ohne Index werden Joins und kaskadierende Löschungen
+  mit wachsender Tabelle langsamer.
+- Anwendungslogik aus Stored Procedures und Triggern heraushalten; Logik, die im Anwendungscode nicht
+  sichtbar ist, lässt sich nicht reviewen.
+- Eine Änderung des Spaltentyps bei einer großen Tabelle auf Lock-Verhalten und erwartete Laufzeit prüfen,
+  bevor sie live ausgeführt wird.
 
 ### CR-sql-naming
 
-**Identifier naming**
+**Benennung von Bezeichnern**
 
-Kurzfassung: snake_case, plural tables, singular columns
+Kurzfassung: snake_case, Tabellen im Plural, Spalten im Singular
 
-- Name tables and columns in `snake_case`.
-- Use the plural for table names, the singular for column names.
-
-_(noch nicht übersetzt)_
+- Tabellen und Spalten in `snake_case` benennen.
+- Für Tabellennamen den Plural verwenden, für Spaltennamen den Singular.
 
 ### CR-sql-migrations
 
-**Migration discipline**
+**Migrationsdisziplin**
 
-Kurzfassung: versioned naming, idempotent, reversible, one tool
+Kurzfassung: versionierte Benennung, idempotent, umkehrbar, ein Werkzeug
 
-- Name migrations with a version (sequence number or timestamp) plus a description; one file per change.
-- Write migrations idempotently (`IF NOT EXISTS` or an existence check) — running an already-migrated
-  state again must not fail.
-- Ship a down-migration with every migration where the migration tool supports it.
-- Use one migration tool consistently (e.g. Flyway, Prisma Migrate, Alembic); don't mix.
-
-_(noch nicht übersetzt)_
+- Migrationen mit einer Version (laufende Nummer oder Zeitstempel) plus Beschreibung benennen; eine Datei
+  pro Änderung.
+- Migrationen idempotent schreiben (`IF NOT EXISTS` oder eine Existenzprüfung) — ein erneuter Lauf über
+  einen bereits migrierten Stand darf nicht fehlschlagen.
+- Zu jeder Migration eine Down-Migration mitliefern, wo das Migrationswerkzeug das unterstützt.
+- Ein Migrationswerkzeug konsequent verwenden (z. B. Flyway, Prisma Migrate, Alembic); nicht mischen.
 
 ## tailwind
 
-**Coding rules — Tailwind**
+**Coding-Regeln — Tailwind**
 
 Quelle: `.act/coding/tailwind.md`
 
-Kurzfassung: utility-first styling, design tokens, dark mode, class sorting
+Kurzfassung: Utility-first-Styling, Design Tokens, Dark Mode, Sortierung der Klassen
 
-Rules for Tailwind CSS, usually applied inside a frontend framework. Group IDs (`CR-tailwind-<name>`) are
-stable and never reassigned; a group whose purpose no longer holds gets a new ID and is listed as `retired:`
-in this header.
-
-_(noch nicht übersetzt)_
+Regeln für Tailwind CSS, meist innerhalb eines Frontend-Frameworks eingesetzt. Gruppen-IDs
+(`CR-tailwind-<name>`) sind stabil und werden nie neu vergeben; eine Gruppe, deren Zweck nicht mehr gilt,
+bekommt eine neue ID und wird in diesem Kopf als `retired:` aufgeführt.
 
 ### CR-tailwind-basics
 
-**Established Tailwind defaults**
+**Bewährte Tailwind-Standards**
 
-Kurzfassung: utilities in markup, tokens, theme, dark mode, extraction, tooling, pitfalls
+Kurzfassung: Utilities im Markup, Tokens, Theme, Dark Mode, Extraktion, Tooling, Fallstricke
 
-- Write utility classes directly in markup; no separate CSS files without a concrete reason.
-- Use design tokens (the spacing, color and radius scale from the config) instead of arbitrary values —
-  `p-[13px]` only as a documented exception.
-- Keep theme changes (colors, fonts, breakpoints) centralized in the Tailwind config, not scattered across
-  files.
-- Map dark mode through the configured tokens/variants, never parallel hardcoded color values.
-- Extract a repeated class combination into a component/partial; never copy it around as a text snippet.
-- Lint/format tooling is the stack's standard and belongs in the project: `prettier-plugin-tailwindcss` for
-  automatic class sorting (layout, box model, typography, color, state), enforced by the formatter instead
-  of sorted by hand. Run what is installed, install nothing unasked.
-- Pitfalls:
-  - Use `@apply` only in exceptions (e.g. base styles of a third-party component), never as the default way
-    to style.
-  - Keep `content` paths in the config correct — a wrong or missing path either drops classes that are
-    actually used or leaves unused utility classes in the build.
-
-_(noch nicht übersetzt)_
+- Utility-Klassen direkt im Markup schreiben; keine separaten CSS-Dateien ohne konkreten Grund.
+- Design Tokens (die Skala für Abstände, Farben und Radien aus der Konfiguration) statt beliebiger Werte
+  verwenden — `p-[13px]` nur als dokumentierte Ausnahme.
+- Theme-Änderungen (Farben, Schriften, Breakpoints) zentral in der Tailwind-Konfiguration halten, nicht über
+  Dateien verstreut.
+- Dark Mode über die konfigurierten Tokens/Varianten abbilden, nie über parallele hartkodierte Farbwerte.
+- Eine wiederholte Klassenkombination in eine Komponente/ein Partial auslagern; nie als Textschnipsel
+  herumkopieren.
+- Lint-/Format-Tooling ist der Standard des Stacks und gehört ins Projekt: `prettier-plugin-tailwindcss` für
+  die automatische Sortierung der Klassen (Layout, Box-Modell, Typografie, Farbe, Zustand), vom Formatter
+  erzwungen statt von Hand sortiert. Ausführen, was installiert ist, nichts ungefragt installieren.
+- Fallstricke:
+  - `@apply` nur in Ausnahmen verwenden (z. B. Basisstile einer Drittanbieter-Komponente), nie als
+    Standardweg zum Stylen.
+  - Die `content`-Pfade in der Konfiguration korrekt halten — ein falscher oder fehlender Pfad lässt
+    entweder tatsächlich genutzte Klassen wegfallen oder lässt ungenutzte Utility-Klassen im Build.
 
 ## typescript
 
-**Coding rules — TypeScript**
+**Coding-Regeln — TypeScript**
 
 Quelle: `.act/coding/typescript.md`
 
-Kurzfassung: strict mode, no any, typed errors, module structure, tooling
+Kurzfassung: Strict Mode, kein any, typisierte Fehler, Modulaufbau, Tooling
 
-Rules for TypeScript projects in strict mode. Group IDs (`CR-typescript-<name>`) are stable and never
-reassigned; a group whose purpose no longer holds gets a new ID and is listed as `retired:` in this
-header.
-
-_(noch nicht übersetzt)_
+Regeln für TypeScript-Projekte im Strict Mode. Gruppen-IDs (`CR-typescript-<name>`) sind stabil und werden
+nie neu vergeben; eine Gruppe, deren Zweck nicht mehr gilt, bekommt eine neue ID und wird in diesem Kopf als
+`retired:` aufgeführt.
 
 ### CR-typescript-basics
 
-**Strict mode, narrowing, typed errors**
+**Strict Mode, Narrowing, typisierte Fehler**
 
-Kurzfassung: strict, no any, return types, as/!, error handling, lint
+Kurzfassung: strict, kein any, Rückgabetypen, as/!, Fehlerbehandlung, Lint
 
-- Enable `strict: true` in `tsconfig.json`; loosen it only with a comment explaining why.
-- Never use `any` — type unknown values as `unknown` and narrow them before use.
-- Draw the line where strictness stops helping: a type nested deeper than the code it describes
-  (heavily nested generics, chained conditional types, stretched mapped types) is worse than a
-  simpler one. Fall back to `unknown` with a check at the boundary, or a narrow `interface` for just
-  the fields used, with a comment saying why — the exception serves readability, not convenience,
-  and `any` stays excluded even here.
-- Give exported functions an explicit return type instead of relying on inference.
-- Use `as Type` only when narrowing cannot do the job, and say why in a comment.
-- Never use the non-null assertion (`!`) — it suppresses a real nullability check.
-- Raise errors as typed Error objects, never `throw` an arbitrary value; whatever is thrown, logged
-  or rethrown, its message names what failed and with what — a caller must find the cause without
-  opening the source.
-- Lint and typecheck (`tsc --noEmit`) are the stack's standard and belong in the project; run what is
-  installed, install nothing unasked.
-
-_(noch nicht übersetzt)_
+- `strict: true` in `tsconfig.json` aktivieren; nur mit einem Kommentar lockern, der den Grund nennt.
+- Nie `any` verwenden — unbekannte Werte als `unknown` typisieren und vor der Verwendung eingrenzen.
+- Die Grenze ziehen, wo Strenge nicht mehr hilft: Ein Typ, der tiefer verschachtelt ist als der Code, den er
+  beschreibt (stark verschachtelte Generics, verkettete Conditional Types, überdehnte Mapped Types), ist
+  schlechter als ein einfacherer. Auf `unknown` mit einer Prüfung an der Grenze zurückfallen oder auf ein
+  schmales `interface` nur für die benutzten Felder, mit einem Kommentar, der den Grund nennt — die Ausnahme
+  dient der Lesbarkeit, nicht der Bequemlichkeit, und `any` bleibt auch hier ausgeschlossen.
+- Exportierten Funktionen einen expliziten Rückgabetyp geben, statt sich auf Inferenz zu verlassen.
+- `as Type` nur verwenden, wenn Narrowing die Aufgabe nicht erfüllen kann, und den Grund in einem Kommentar
+  nennen.
+- Nie die Non-null-Assertion (`!`) verwenden — sie unterdrückt eine echte Nullability-Prüfung.
+- Fehler als typisierte Error-Objekte auslösen, nie einen beliebigen Wert mit `throw` werfen; was auch immer
+  geworfen, geloggt oder erneut geworfen wird, dessen Meldung nennt, was woran gescheitert ist — wer
+  aufruft, muss die Ursache finden, ohne den Quellcode zu öffnen.
+- Lint und Typecheck (`tsc --noEmit`) sind der Standard des Stacks und gehören ins Projekt; ausführen, was
+  installiert ist, nichts ungefragt installieren.
 
 ### CR-typescript-conventions
 
-**interface, type, generics**
+**interface, type, Generics**
 
-Kurzfassung: interface for shapes, type for unions, no enums, generics from second use
+Kurzfassung: interface für Strukturen, type für Unions, keine Enums, Generics ab der zweiten Verwendung
 
-- Use `interface` for object shapes/contracts, `type` for unions, intersections and derived types.
-- Avoid enums — use `as const` objects or union literal types instead.
-- Introduce a generic only once a second concrete use exists; a concrete type is fine for the first.
-
-_(noch nicht übersetzt)_
+- `interface` für Objektstrukturen/Verträge verwenden, `type` für Unions, Intersections und abgeleitete
+  Typen.
+- Enums vermeiden — stattdessen `as const`-Objekte oder Union-Literaltypen verwenden.
+- Ein Generic erst einführen, wenn es eine zweite konkrete Verwendung gibt; für die erste genügt ein
+  konkreter Typ.
 
 ### CR-typescript-module-structure
 
-**Central types, explicit exports**
+**Zentrale Typen, explizite Exports**
 
-Kurzfassung: shared types in one place, public exports through an index
+Kurzfassung: gemeinsame Typen an einem Ort, öffentliche Exports über einen Index
 
-- Define shared types/schemas in one central place and import them, instead of redeclaring them per
-  module.
-- Expose a module's public API through an explicit index, not deep import paths into another module.
-
-_(noch nicht übersetzt)_
+- Gemeinsame Typen/Schemas an einer zentralen Stelle definieren und von dort importieren, statt sie pro
+  Modul neu zu deklarieren.
+- Die öffentliche API eines Moduls über einen expliziten Index bereitstellen, nicht über tiefe Importpfade
+  in ein anderes Modul.
 
 ### CR-typescript-toolchain
 
-**Lint and format tooling**
+**Lint- und Format-Tooling**
 
-Kurzfassung: ESLint with `@typescript-eslint` plus Prettier by default, or what the project has set up
+Kurzfassung: standardmäßig ESLint mit `@typescript-eslint` plus Prettier, oder was das Projekt eingerichtet hat
 
-- ESLint with `@typescript-eslint` and Prettier for formatting are the template's usual choice; what
-  the project actually has installed and configured governs (see `R-code-tools`).
-
-_(noch nicht übersetzt)_
+- ESLint mit `@typescript-eslint` und Prettier für die Formatierung sind die übliche Wahl des Templates;
+  maßgeblich ist, was das Projekt tatsächlich installiert und konfiguriert hat (siehe `R-code-tools`).
 
 ## vue
 
-**Coding rules — Vue**
+**Coding-Regeln — Vue**
 
 Quelle: `.act/coding/vue.md`
 
-Kurzfassung: composition API, typed props, SFC order, shared state, tooling
+Kurzfassung: Composition API, typisierte Props, SFC-Reihenfolge, gemeinsamer Zustand, Tooling
 
 requires: typescript
 
-Rules for Vue 3 components using the Composition API. Group IDs (`CR-vue-<name>`) are stable and
-never reassigned; a group whose purpose no longer holds gets a new ID and is listed as `retired:` in
-this header.
-
-_(noch nicht übersetzt)_
+Regeln für Vue-3-Komponenten mit der Composition API. Gruppen-IDs (`CR-vue-<name>`) sind stabil und werden
+nie neu vergeben; eine Gruppe, deren Zweck nicht mehr gilt, bekommt eine neue ID und wird in diesem Kopf als
+`retired:` aufgeführt.
 
 ### CR-vue-basics
 
-**Composition API, typed props, safe forms**
+**Composition API, typisierte Props, sichere Formulare**
 
-Kurzfassung: script setup, typed props/emits, conventions, error handling, pitfalls
+Kurzfassung: script setup, typisierte Props/Emits, Konventionen, Fehlerbehandlung, Fallstricke
 
-- Use `<script setup lang="ts">` in every component; no Options API in new code.
-- Type `defineProps<...>()` and `defineEmits<...>()` — no loose object props.
-- Keep no business logic in the `<template>` — move computations into `computed` or a method.
-- Choose `ref` for primitive/atomic values, `reactive` only for one connected object state.
-- Give composables a `useX` name and an explicit return type when it is not trivially inferred.
-- Clean up a watcher/effect that binds a resource (timer, listener) once it is no longer needed.
-- Catch errors around calls in components and composables on purpose: surface them where the
-  template can show them, or rethrow — never swallow one silently; the message names what failed
-  and with what. Use `onErrorCaptured` to handle a child component's error deliberately, not as a
-  global catch-all.
-- Lint is the stack's standard and belongs in the project; run what is installed, install nothing
-  unasked.
-- Pitfalls:
-  - Never combine `v-if` and `v-for` on the same element.
-  - Never mutate a prop directly — report a change to the parent through an event.
-  - **Security:** a form using `@submit.prevent` also needs `method="post"` on the `<form>` element.
-    The handler only exists once hydration finishes; a submit before that point (a password manager
-    pressing enter, a slow connection, a blocked JS bundle) triggers the browser's native submit.
-    Without `method` that is a GET to the current URL — a form carrying credentials puts the values
-    in the address bar, browser history and server log. Applies to every server-rendered app, not
-    only auth forms (see GHSA-gj2h-2fpw-fhv9, the same bug in `@nuxt/ui` before 4.8.1).
-
-_(noch nicht übersetzt)_
+- In jeder Komponente `<script setup lang="ts">` verwenden; im neuen Code keine Options API.
+- `defineProps<...>()` und `defineEmits<...>()` typisieren — keine losen Objekt-Props.
+- Keine Geschäftslogik im `<template>` — Berechnungen in `computed` oder eine Methode verlagern.
+- `ref` für primitive/atomare Werte wählen, `reactive` nur für den zusammenhängenden Zustand eines Objekts.
+- Composables mit einem Namen `useX` und einem expliziten Rückgabetyp versehen, wenn er nicht trivial
+  inferiert wird.
+- Einen Watcher/Effect, der eine Ressource bindet (Timer, Listener), aufräumen, sobald er nicht mehr
+  gebraucht wird.
+- Fehler bei Aufrufen in Komponenten und Composables bewusst abfangen: dort sichtbar machen, wo das Template
+  sie anzeigen kann, oder erneut werfen — nie stillschweigend verschlucken; die Meldung nennt, was woran
+  gescheitert ist. `onErrorCaptured` verwenden, um den Fehler einer Kindkomponente gezielt zu behandeln,
+  nicht als globales Auffangbecken.
+- Lint ist der Standard des Stacks und gehört ins Projekt; ausführen, was installiert ist, nichts
+  ungefragt installieren.
+- Fallstricke:
+  - Nie `v-if` und `v-for` am selben Element kombinieren.
+  - Eine Prop nie direkt verändern — eine Änderung dem Parent über ein Event melden.
+  - **Sicherheit:** Ein Formular mit `@submit.prevent` braucht zusätzlich `method="post"` am
+    `<form>`-Element. Der Handler existiert erst, wenn die Hydration abgeschlossen ist; ein Absenden vor
+    diesem Zeitpunkt (ein Passwortmanager, der Enter drückt, eine langsame Verbindung, ein blockiertes
+    JS-Bundle) löst das native Absenden des Browsers aus. Ohne `method` ist das ein GET auf die aktuelle
+    URL — ein Formular mit Zugangsdaten legt die Werte in die Adressleiste, den Browserverlauf und das
+    Serverlog. Gilt für jede serverseitig gerenderte App, nicht nur für Auth-Formulare (siehe
+    GHSA-gj2h-2fpw-fhv9, derselbe Fehler in `@nuxt/ui` vor 4.8.1).
 
 ### CR-vue-sfc-order
 
-**Fixed SFC block order**
+**Feste Reihenfolge der SFC-Blöcke**
 
 Kurzfassung: template, script setup, style
 
-- Order SFC blocks as `<template>`, `<script setup>`, `<style>`.
-
-_(noch nicht übersetzt)_
+- SFC-Blöcke in der Reihenfolge `<template>`, `<script setup>`, `<style>` anordnen.
 
 ### CR-vue-state-store
 
-**Store module for shared state**
+**Store-Modul für gemeinsamen Zustand**
 
-Kurzfassung: Pinia store instead of provide/inject
+Kurzfassung: Pinia-Store statt provide/inject
 
-- Keep state shared across the app in a dedicated store module (Pinia), not in `provide`/`inject`.
-
-_(noch nicht übersetzt)_
+- Zustand, der in der ganzen App geteilt wird, in einem eigenen Store-Modul (Pinia) halten, nicht in
+  `provide`/`inject`.
 
 ### CR-vue-toolchain
 
-**Lint and format tooling**
+**Lint- und Format-Tooling**
 
-Kurzfassung: ESLint with eslint-plugin-vue plus Prettier by default, or what the project has set up
+Kurzfassung: standardmäßig ESLint mit eslint-plugin-vue plus Prettier, oder was das Projekt eingerichtet hat
 
-- ESLint with `eslint-plugin-vue` and Prettier for formatting are the template's usual choice; what
-  the project actually has installed and configured governs (see `R-code-tools`).
-
-_(noch nicht übersetzt)_
+- ESLint mit `eslint-plugin-vue` und Prettier für die Formatierung sind die übliche Wahl des Templates;
+  maßgeblich ist, was das Projekt tatsächlich installiert und konfiguriert hat (siehe `R-code-tools`).

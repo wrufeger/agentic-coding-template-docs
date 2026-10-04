@@ -43,7 +43,9 @@ function list(rel, ext = '.md') {
   return fs.readdirSync(p).filter((f) => f.endsWith(ext)).sort();
 }
 function stripComments(text) {
-  return text.replace(/<!--[\s\S]*?-->\n?/g, '');
+  // HTML comments are marks for the mechanism, not reader text; a comment written inside a code span or
+  // fence (`<!-- act:default -->` named in a rule's prose) is text and stays.
+  return text.replace(/(`+)[\s\S]*?\1|<!--[\s\S]*?-->\n?/g, (match, ticks) => (ticks ? match : ''));
 }
 function frontmatter(text) {
   const m = /^---\n([\s\S]*?)\n---\n?/.exec(text);

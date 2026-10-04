@@ -5,135 +5,108 @@ scripts/check-translations.mjs; see README "Editing the site". -->
 
 ## act
 <!-- source: 37952c157389d862 -->
-<!-- todo: translate -->
-List the project's skills with a one-line description from each one's frontmatter, like a man page; given a name, show that skill in full. Use when asked what skills or commands exist, or for one skill's exact instructions.
+Listet die Skills des Projekts mit einer einzeiligen Beschreibung aus dem Frontmatter jedes Skills, wie eine Man-Page; zu einem Namen zeigt sie diesen Skill vollständig. Verwenden, wenn gefragt wird, welche Skills oder Befehle es gibt, oder nach den genauen Anweisungen eines Skills.
 
 ## act-a11y
 <!-- source: 036df85d5648b7e0 -->
-<!-- todo: translate -->
-Check an interface for accessibility and work through the findings by severity - keyboard operation, focus, contrast, labels, structure. Use when asked to check accessibility, whether something is usable with a screen reader, or against WCAG.
+Prüft eine Oberfläche auf Barrierefreiheit und arbeitet die Befunde nach Schwere ab - Tastaturbedienung, Fokus, Kontrast, Beschriftungen, Struktur. Verwenden, wenn gebeten wird, Barrierefreiheit zu prüfen, ob etwas mit einem Screenreader nutzbar ist, oder gegen WCAG.
 
 ## act-adopt
 <!-- source: 9f2f89006547304c -->
-<!-- todo: translate -->
-One-time takeover of an existing project's docs and AI tooling into this template's layout - old template, foreign template, or a homegrown structure, all through the same path. Use instead of a plain init.py --target whenever the project already has its own docs or AI tooling, or when asked to adopt/migrate an existing project's docs/ai-tooling.
+Einmalige Übernahme der Doku und KI-Werkzeuge eines bestehenden Projekts in das Layout dieses Templates - altes Template, fremdes Template oder eine selbstgebaute Struktur, alles über denselben Weg. Statt eines einfachen init.py --target verwenden, sobald das Projekt schon eigene Doku oder KI-Werkzeuge hat, oder wenn gebeten wird, die Doku/KI-Werkzeuge eines bestehenden Projekts zu übernehmen bzw. zu migrieren.
 
 ## act-audit-docs
 <!-- source: 8eeef3217bcca462 -->
-<!-- todo: translate -->
-Check docs/project against the actual code and bring outdated entries back in line - architecture, coding rules, testing, features, decisions. Use after a feature wave, before a handover, or when docs/project might be stale.
+Prüft docs/project gegen den tatsächlichen Code und bringt veraltete Einträge auf Stand - Architektur, Coding-Regeln, Tests, Features, Entscheidungen. Verwenden nach einer Feature-Welle, vor einer Übergabe oder wenn docs/project veraltet sein könnte.
 
 ## act-bug
 <!-- source: 78a421c2fe67cd2d -->
-<!-- todo: translate -->
-Fix a reported bug - reproduce it, localize the cause, then prove the fix with a test that is red before the change and green after. Use when a bug is reported, something is broken, or asked to debug specific behavior.
+Behebt einen gemeldeten Bug - reproduzieren, Ursache eingrenzen, dann die Behebung mit einem Test belegen, der vor der Änderung rot und danach grün ist. Verwenden, wenn ein Bug gemeldet wird, etwas kaputt ist oder gebeten wird, ein bestimmtes Verhalten zu debuggen.
 
 ## act-commit
 <!-- source: a936bd2d52472989 -->
-<!-- todo: translate -->
-Close out an accepted task - check the evidence, archive it, update the journal, commit by pathspec. Use right after a task is accepted and its evidence (a test run, an outside call, a commit) is in hand.
+Schließt eine akzeptierte Aufgabe ab - Beleg prüfen, archivieren, Journal aktualisieren, per Pathspec committen. Verwenden direkt nach der Abnahme einer Aufgabe, wenn ihr Beleg (ein Testlauf, ein externer Aufruf, ein Commit) vorliegt.
 
 ## act-deps
 <!-- source: 6104dd9d727c36a6 -->
-<!-- todo: translate -->
-Update dependencies - inventory age and known gaps, bundle patch/minor, one commit per major after reading its changelog, checks green after every step. Use when dependencies are stale, a security advisory needs checking, or asked to update packages.
+Aktualisiert Abhängigkeiten - Alter und bekannte Lücken erfassen, Patch/Minor bündeln, je Major ein Commit nach Lektüre des Changelogs, nach jedem Schritt grüne Checks. Verwenden, wenn Abhängigkeiten veraltet sind, ein Security Advisory zu prüfen ist oder gebeten wird, Pakete zu aktualisieren.
 
 ## act-design-assets
 <!-- source: cccf09d6fabe990d -->
-<!-- todo: translate -->
-Produce graphics that stay in the project - logo, icon set, illustration, favicons - as hand-written SVG or through an image model, checked and placed in the repo. Use when asked to design a logo, icons, a favicon set, or a product image.
+Erstellt Grafiken, die im Projekt bleiben - Logo, Icon-Set, Illustration, Favicons - als handgeschriebenes SVG oder über ein Bildmodell, geprüft und im Repo abgelegt. Verwenden, wenn gebeten wird, ein Logo, Icons, ein Favicon-Set oder ein Produktbild zu gestalten.
 
 ## act-design-build
 <!-- source: 62139866ccc1f023 -->
-<!-- todo: translate -->
-Implement a component or page against a template and check the result yourself in the browser - in rounds, until it fits. Use when asked to build a component from a screenshot, implement a chosen variant, or turn a page design into code.
+Setzt eine Komponente oder Seite nach einer Vorlage um und prüft das Ergebnis selbst im Browser - in Runden, bis es passt. Verwenden, wenn gebeten wird, eine Komponente nach einem Screenshot zu bauen, eine gewählte Variante umzusetzen oder einen Seitenentwurf in Code zu überführen.
 
 ## act-design-ideas
 <!-- source: 2442766c4c181628 -->
-<!-- todo: translate -->
-Generate three to four design variants as preview images, from a description, screenshots, or web links - for discussion before code exists. Use when asked for design ideas, variants for a component or page, or what something could look like.
+Erzeugt drei bis vier Design-Varianten als Vorschaubilder, aus einer Beschreibung, Screenshots oder Weblinks - zur Diskussion, bevor Code existiert. Verwenden, wenn gebeten wird um Design-Ideen, Varianten für eine Komponente oder Seite, oder wie etwas aussehen könnte.
 
 ## act-doctor
 <!-- source: c420ca22de107815 -->
-<!-- todo: translate -->
-Reconcile project and template state - mechanical checks after every update (stale overrides, dead IDs, orphaned bridges), content checks only on request or for rules an update just changed. Use to check for drift against the template, after an update, or when asked whether local overrides still make sense.
+Gleicht Projekt- und Template-Stand ab - mechanische Prüfungen nach jedem Update (veraltete Overrides, tote IDs, verwaiste Bridges), inhaltliche Prüfungen nur auf Wunsch oder für Regeln, die ein Update gerade geändert hat. Verwenden, um Abweichungen vom Template zu prüfen, nach einem Update oder wenn gefragt wird, ob lokale Overrides noch sinnvoll sind.
 
 ## act-export-settings
 <!-- source: 035925f9801d4fac -->
-<!-- todo: translate -->
-Write this project's own rule deviations, and optionally its own scripts/checklists/agents/skills, to a portable settings file for another project or for review before sharing. Use to hand this project's setup to a new project, or to check what a settings export would reveal before sending it anywhere.
+Schreibt die eigenen Regelabweichungen dieses Projekts, optional auch eigene Scripts/Checklisten/Agents/Skills, in eine portable Settings-Datei für ein anderes Projekt oder zur Durchsicht vor dem Teilen. Verwenden, um das Setup dieses Projekts an ein neues Projekt zu übergeben oder um zu prüfen, was ein Settings-Export preisgeben würde, bevor er irgendwohin geht.
 
 ## act-feedback
 <!-- source: 743942cf99e1a9b2 -->
-<!-- todo: translate -->
-Send feedback to the template author about the working method itself - a rule, workflow, script, or skill that helped or was missing - never project specifics. Use when asked to send feedback, report something back to the template, or note a bug in the template.
+Sendet Feedback an den Template-Autor zur Arbeitsmethode selbst - eine Regel, ein Workflow, ein Script oder ein Skill, der geholfen hat oder fehlte - nie Projektspezifisches. Verwenden, wenn gebeten wird, Feedback zu senden, etwas ans Template zurückzumelden oder einen Bug im Template zu notieren.
 
 ## act-idea
 <!-- source: 307121bdfc9bf3aa -->
-<!-- todo: translate -->
-Take in an idea, feature, or change request - check what exists, lay out options with a recommendation, get a decision, then estimate effort and missing tooling and file it as a backlog item and task. Use when a feature or change is proposed, or asked "can we add X", "it would be good if", "change request".
+Nimmt eine Idee, ein Feature oder einen Änderungswunsch auf - prüfen, was existiert, Optionen mit Empfehlung darlegen, eine Entscheidung einholen, dann Aufwand und fehlende Werkzeuge schätzen und als Backlog-Eintrag und Aufgabe ablegen. Verwenden, wenn ein Feature oder eine Änderung vorgeschlagen wird oder bei "can we add X", "it would be good if", "change request".
 
 ## act-integrations
 <!-- source: f939905d122ed085 -->
-<!-- todo: translate -->
-Check which ways lead from this project to its repo host and issue tracker (REST token, MCP servers), what each can do, and record it in docs/project/integrations.md. Read-only probes, never a write. Also proposes MCP servers from the catalog (.act/mcp-catalog.md) when asked, e.g. "which MCP servers fit?", and sets one up only after a yes. Use when asked what GitHub/GitLab access exists, before act-pr or act-issue when the file is missing or older than 30 days, after a token or MCP server changed, or when the human asks which MCP servers or tools fit the project.
+Prüft, welche Wege von diesem Projekt zu seinem Repo-Host und Issue-Tracker führen (REST-Token, MCP-Server), was jeder kann, und hält es in docs/project/integrations.md fest. Lesende Proben, nie ein Schreibzugriff. Schlägt auf Wunsch auch MCP-Server aus dem Katalog (.act/mcp-catalog.md) vor, z. B. bei "which MCP servers fit?", und richtet einen erst nach einem Ja ein. Verwenden, wenn gefragt wird, welcher GitHub/GitLab-Zugriff besteht, vor act-pr oder act-issue, wenn die Datei fehlt oder älter als 30 Tage ist, nachdem sich ein Token oder MCP-Server geändert hat, oder wenn der Mensch fragt, welche MCP-Server oder Tools zum Projekt passen.
 
 ## act-issue
 <!-- source: 8e52a9c5727fad45 -->
-<!-- todo: translate -->
-Read, create, comment on, close and start work on issues and stories of GitHub or GitLab. Use when asked to "show issues", "show my open stories", "show issue 42", to create or comment on or close an issue, or to "start work on issue 42".
+Liest, erstellt, kommentiert und schließt Issues und Stories von GitHub oder GitLab und startet die Arbeit daran. Verwenden bei "show issues", "show my open stories", "show issue 42", zum Erstellen, Kommentieren oder Schließen eines Issues oder bei "start work on issue 42".
 
 ## act-load-settings
 <!-- source: ace54b491e4e70a2 -->
-<!-- todo: translate -->
-Import a settings file (act-export-settings' output) into this project - mechanical checks decide new/identical/dead on their own, content overlaps go to a model for judgment, everything unresolved lands in the inbox instead of being applied silently. Use when handed a settings.md or settings.zip file to bring into this project.
+Importiert eine Settings-Datei (Ausgabe von act-export-settings) in dieses Projekt - mechanische Prüfungen entscheiden selbst über neu/identisch/tot, inhaltliche Überschneidungen gehen zur Beurteilung an ein Modell, alles Ungeklärte landet in der Inbox, statt stillschweigend angewendet zu werden. Verwenden, wenn eine settings.md- oder settings.zip-Datei zum Einspielen in dieses Projekt übergeben wird.
 
 ## act-perf
 <!-- source: 9013650ee421bed5 -->
-<!-- todo: translate -->
-Improve the performance of a named, concrete part of the system - measure first, form a hypothesis, change one thing, measure again, compare. Use when something is reported as slow, or asked to speed up a page, query, or endpoint.
+Verbessert die Performance eines benannten, konkreten Teils des Systems - erst messen, Hypothese bilden, eine Sache ändern, erneut messen, vergleichen. Verwenden, wenn etwas als langsam gemeldet wird oder gebeten wird, eine Seite, Query oder einen Endpoint zu beschleunigen.
 
 ## act-pr
 <!-- source: edee616e4b1589f5 -->
-<!-- todo: translate -->
-Prepare a pull request (GitHub) or merge request (GitLab) from the diff against the target branch and create it only after the human's explicit yes. Use when asked to open a pull request, create a merge request, write a PR description, or "send this branch for review".
+Bereitet einen Pull Request (GitHub) oder Merge Request (GitLab) aus dem Diff gegen den Zielbranch vor und legt ihn erst nach dem ausdrücklichen Ja des Menschen an. Verwenden, wenn gebeten wird, einen Pull Request zu öffnen, einen Merge Request anzulegen, eine PR-Beschreibung zu schreiben oder bei "send this branch for review".
 
 ## act-prepare
 <!-- source: 8f486c03d465f40b -->
-<!-- todo: translate -->
-Prepare a larger block so it runs without interruptions - research what exists, cut it into tasks, check readiness, then ask everything open in one bundle. Use when planning a feature, asked to "plan this out", before a block that should run unattended, or when the human says they'll be away.
+Bereitet einen größeren Block so vor, dass er ohne Unterbrechung läuft - recherchieren, was existiert, in Aufgaben schneiden, Bereitschaft prüfen, dann alles Offene in einem Bündel fragen. Verwenden beim Planen eines Features, bei "plan this out", vor einem Block, der unbeaufsichtigt laufen soll, oder wenn der Mensch sagt, dass er nicht da ist.
 
 ## act-refactor
 <!-- source: 2cdd686c50be53e6 -->
-<!-- todo: translate -->
-Restructure existing code without changing its behavior - state the goal and scope, check the test net, refactor in small steps, verify with tests after each one. Use when asked to refactor, clean up, or restructure code without changing what it does.
+Strukturiert bestehenden Code um, ohne sein Verhalten zu ändern - Ziel und Umfang festhalten, das Testnetz prüfen, in kleinen Schritten umbauen, nach jedem mit Tests verifizieren. Verwenden, wenn gebeten wird, Code zu refactoren, aufzuräumen oder umzustrukturieren, ohne zu ändern, was er tut.
 
 ## act-release
 <!-- source: 2839617af97c921c -->
-<!-- todo: translate -->
-Prepare a new release - check preconditions, pick a semantic version, generate a readable changelog from commits, tag it. Use when asked to prepare a release, publish a new version, or generate a changelog.
+Bereitet ein neues Release vor - Voraussetzungen prüfen, eine Semantic Version wählen, aus den Commits einen lesbaren Changelog erzeugen, taggen. Verwenden, wenn gebeten wird, ein Release vorzubereiten, eine neue Version zu veröffentlichen oder einen Changelog zu erzeugen.
 
 ## act-setup
 <!-- source: 44af45079767f98c -->
-<!-- todo: translate -->
-Set up this checkout as a project, or dock it onto one that already exists - the first thing to run in a fresh template clone, and whenever the owner asks to set up, initialize or install a project. Triggers include "setup", "initialize", "install", "richte ... ein", "neues Projekt".
+Richtet diesen Checkout als Projekt ein oder dockt ihn an ein bereits bestehendes an - das Erste, was in einem frischen Template-Klon läuft, und immer, wenn der Besitzer bittet, ein Projekt einzurichten, zu initialisieren oder zu installieren. Auslöser sind unter anderem "setup", "initialize", "install", "richte ... ein", "neues Projekt".
 
 ## act-slides
 <!-- source: edc23cda4be4ea1a -->
-<!-- todo: translate -->
-Create or update a presentation about the project - slides as Markdown in the repo, content from the existing docs, exported to HTML/PDF. Use when asked for a presentation, slides for the project, or a training deck.
+Erstellt oder aktualisiert eine Präsentation über das Projekt - Folien als Markdown im Repo, Inhalt aus der vorhandenen Doku, exportiert nach HTML/PDF. Verwenden, wenn eine Präsentation, Folien zum Projekt oder ein Schulungs-Deck gewünscht werden.
 
 ## act-test-gap
 <!-- source: 6e3e351519d0f4bb -->
-<!-- todo: translate -->
-Find untested areas in a scope, prioritize by risk, and close the gaps after approval - measure what's covered, propose a prioritized list, write targeted tests instead of chasing coverage percentages. Use when asked to find test gaps, check test coverage for an area, or backfill tests for existing code.
+Findet ungetestete Bereiche in einem Scope, priorisiert nach Risiko und schließt die Lücken nach Freigabe - messen, was abgedeckt ist, eine priorisierte Liste vorschlagen, gezielte Tests schreiben, statt Coverage-Prozenten hinterherzujagen. Verwenden, wenn gebeten wird, Testlücken zu finden, die Testabdeckung eines Bereichs zu prüfen oder Tests für bestehenden Code nachzuholen.
 
 ## act-update
 <!-- source: c73b5e61be323a8a -->
-<!-- todo: translate -->
-Pull a newer template state into the project - review the diff, give consent, then let update.py replace .act/, refresh copies, run migrations, and hand off to the doctor. Use to check for or apply a template update.
+Holt einen neueren Template-Stand ins Projekt - Diff prüfen, Zustimmung einholen, dann update.py .act/ ersetzen, Kopien auffrischen und Migrationen laufen lassen und an den Doctor übergeben lassen. Verwenden, um auf ein Template-Update zu prüfen oder es einzuspielen.
 
 ## _intro
 <!-- source: 46565377cf8cbe79 -->
-<!-- todo: translate -->
-A skill is a reusable procedure the assistant runs on request or when its description matches the situation.
+Ein Skill ist eine wiederverwendbare Prozedur, die der Assistent auf Anfrage oder dann ausführt, wenn seine Beschreibung zur Situation passt.

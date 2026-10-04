@@ -7,45 +7,43 @@ sidebar:
 
 :::note
 Diese Seite wird aus dem Template 2.0.0 (Commit 8ad385e) erzeugt; die deutschen Texte stammen aus einem Katalog unter `src/translations/de/reference/`. Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
-
-Einzelne Einträge dieser Seite sind noch nicht übersetzt oder veraltet; sie stehen auf Englisch da und sind mit _(noch nicht übersetzt)_ markiert.
 :::
 
-One row per script under `.act/scripts/`; the per-script sections below are each script's own `--help` output, not retyped by hand. Regenerate with `python .act/scripts/script_docs.py` after changing a script's arguments — `--check` catches drift, and `doctor.py` reports it as a finding. _(noch nicht übersetzt)_
+Eine Zeile je Script unter `.act/scripts/`; die Abschnitte je Script weiter unten sind jeweils die eigene `--help`-Ausgabe des Scripts, nicht von Hand abgetippt. Neu erzeugen mit `python .act/scripts/script_docs.py`, nachdem die Argumente eines Scripts geändert wurden — `--check` erkennt Abweichungen, und `doctor.py` meldet sie als Befund.
 
 ## Überblick
 
 | Script | Zweck | Aufruf |
 | :--- | :--- | :--- |
-| `actlib.py` | Shared library for every script under .act/scripts/ and .act/hooks/ — the single place that knows how to resolve template vs. project… | library |
-| [`adopt.py`](#adoptpy) | Mechanical executor of an approved adoption table (skill `act-adopt`, steps 4 and 7). Runs from a template checkout against a project that… | direct (used by skill `act-adopt` (stage 6)) |
-| [`adopt_config.py`](#adopt_configpy) | Carry the settings of an older German AI-CONFIG.md (the predecessor template's control file) over into the project's docs/ai/config.md… | direct (used by skill `act-adopt` (stage 6)) |
-| [`adopt_entries.py`](#adopt_entriespy) | Batch writer for the content step of an adoption (skill `act-adopt`). The model reads the old material in whatever format it has and writes… | direct (used by skill `act-adopt` (stage 6)) |
-| [`adopt_passages.py`](#adopt_passagespy) | Mechanical insertion of an adopted project's own passages into docs/project/coding_rules.md and docs/README.md (skill `act-adopt`, step 6… | direct (used by skill `act-adopt` (stage 6)) |
-| [`adopt_scan.py`](#adopt_scanpy) | Read-only sighting of an existing project's documentation and AI-tooling material, before adoption (skill `act-adopt`). Walks the target… | direct (used by skill `act-adopt` (stage 6)) |
-| [`board.py`](#boardpy) | Generate the board — a fully derived snapshot (current branch, last commit, dirty state, recent journal entries, one "Waiting for you" list… | direct |
-| [`doctor.py`](#doctorpy) | Mechanical half of the reconcile skill `act-doctor` — the cheap checks that run after every update and on demand, without a model in the… | direct (judging the findings: skill `act-doctor`) |
-| [`entries.py`](#entriespy) | Create and account for the project's short-lived entry files — tasks, backlog items, journal entries, and docs/ai/inbox/ entries (question… | direct |
-| [`feedback.py`](#feedbackpy) | Voluntary feedback from a derived project to the template author — so real work in real projects turns into better default rules, scripts… | skill `act-feedback` (`--status`/`--due` alone are direct) |
-| `feedback_privacy.py` | The privacy checks that decide whether a string may leave the project as part of a feedback payload (.act/scripts/feedback.py) — patterns… | library |
-| [`forge.py`](#forgepy) | A small REST client for the project's git host (GitHub, GitHub Enterprise, GitLab.com and self-hosted GitLab) — the one script the skills… | skills `act-pr`, `act-issue`, `act-integrations` (reads are direct; every write shows a preview and needs `--apply` after the human's "yes" (`topics/live-systems.md`)) |
-| `frontmatter.py` | One shared frontmatter parser for every "---\n...\n---\n" block under .act/ and docs/ai/local/ -- used to be two: tiers.py's… | library |
-| [`ideas.py`](#ideaspy) | The per-person ideas file `docs/ai/concept/ideas-<identity>.md` — one versioned file for every person on a project, written by that person… | direct (session start and init call it; run by hand to record entries as processed) |
-| [`init.py`](#initpy) | Turn a checkout of this template into a project ("here, in this clone"), or dock onto an existing/empty directory ("--target"). Ten steps… | direct |
-| [`integrations.py`](#integrationspy) | Find out which ways lead from this project to its repo host and issue tracker (REST access through forge.py, MCP servers) and what each one… | skill `act-integrations` (`status` alone is direct) |
-| [`log.py`](#logpy) | Write one line to ai.log at the project root (AGENTS.md § "Logging (optional)", .act/rules/topics/logging.md) and the small tools to read… | direct |
-| [`manifest.py`](#manifestpy) | Generate or verify .act/MANIFEST.json — a SHA-256 hash per file under .act/, used to detect local edits to the template before an update… | direct |
-| [`rules.py`](#rulespy) | Read the *effective* rules — the template's rule sets after the project's own checkboxes, replacements and additions are applied. One… | direct |
-| [`script_docs.py`](#script_docspy) | Generate .act/scripts/README.md — a reference for every script under .act/scripts/, built from each script's own `--help` output plus a… | direct |
-| [`security_deep.py`](#security_deeppy) | Security check "Art C": a deep, cross-language scan with Semgrep over the files changed since a ref (default: the latest tag) or the whole… | direct (used by skill `act-release` with `security-check: full`) |
-| [`security_scan.py`](#security_scanpy) | Security check Art B: a live library-vulnerability lookup against the lock files an ecosystem actually has, run either as a manual command… | direct (also run before a commit that touches a lock file and daily at session start, with `security-check: deps`/`full`) |
-| [`settings_export.py`](#settings_exportpy) | `act-export-settings` — write the project's own rule deviations (and, with a switch, local scripts/checklists) to a portable settings file… | skill `act-export-settings` |
-| `settings_format.py` | Data model, parser and serializer for the settings file ("settings.md") — the portable snapshot of a project's own rule deviations (and, in… | library |
-| [`settings_load.py`](#settings_loadpy) | `act-load-settings` — import a portable settings file (or several) into this project: the counterpart to settings_export.py. Runs the same… | skill `act-load-settings` |
-| [`skills.py`](#skillspy) | List the project's skills like a man page (name + one-line description from each `SKILL.md`'s frontmatter), or print one skill's `SKILL.md`… | direct (used by skill `act` and by dispatch.py's `/act` fast path) |
-| `tiers.py` | Resolve a role's tier/reasoning -- never a real model name anywhere else under .act/ -- into a concrete model alias/effort pair for one… | library |
-| [`update.py`](#updatepy) | Pull a newer state of the template into an already-initialized project. Ten steps, always in the same order: fetch the template into a temp… | skill `act-update` (`--plan` alone is direct) |
-| [`usage.py`](#usagepy) | Local usage counter — how often each role starts, at which tier/model; how often each skill, slash command, script and checklist is used… | direct |
+| `actlib.py` | Gemeinsame Bibliothek für jedes Script unter .act/scripts/ und .act/hooks/ — die einzige Stelle, die weiß, wie Template und Projekt aufgelöst werden… | library |
+| [`adopt.py`](#adoptpy) | Mechanischer Ausführer einer freigegebenen Übernahmetabelle (Skill `act-adopt`, Schritte 4 und 7). Läuft aus einem Template-Checkout gegen ein Projekt, das… | direct (used by skill `act-adopt` (stage 6)) |
+| [`adopt_config.py`](#adopt_configpy) | Übernimmt die Einstellungen einer älteren deutschen AI-CONFIG.md (der Steuerdatei des Vorgänger-Templates) in die docs/ai/config.md des Projekts… | direct (used by skill `act-adopt` (stage 6)) |
+| [`adopt_entries.py`](#adopt_entriespy) | Stapel-Schreiber für den Inhaltsschritt einer Übernahme (Skill `act-adopt`). Das Modell liest das alte Material in dem Format, in dem es vorliegt, und schreibt… | direct (used by skill `act-adopt` (stage 6)) |
+| [`adopt_passages.py`](#adopt_passagespy) | Mechanisches Einfügen der eigenen Passagen eines übernommenen Projekts in docs/project/coding_rules.md und docs/README.md (Skill `act-adopt`, Schritt 6… | direct (used by skill `act-adopt` (stage 6)) |
+| [`adopt_scan.py`](#adopt_scanpy) | Rein lesende Sichtung der Dokumentation und des KI-Werkzeug-Materials eines bestehenden Projekts vor der Übernahme (Skill `act-adopt`). Durchläuft das Ziel… | direct (used by skill `act-adopt` (stage 6)) |
+| [`board.py`](#boardpy) | Erzeugt das Board — einen vollständig abgeleiteten Schnappschuss (aktueller Branch, letzter Commit, Änderungsstand, jüngste Journal-Einträge, eine Liste „Waiting for you“… | direct |
+| [`doctor.py`](#doctorpy) | Mechanische Hälfte des Abgleich-Skills `act-doctor` — die günstigen Prüfungen, die nach jedem Update und auf Anforderung laufen, ohne ein Modell in der… | direct (judging the findings: skill `act-doctor`) |
+| [`entries.py`](#entriespy) | Legt die kurzlebigen Eintragsdateien des Projekts an und verbucht sie — Aufgaben, Backlog-Einträge, Journal-Einträge und Einträge in docs/ai/inbox/ (Fragen… | direct |
+| [`feedback.py`](#feedbackpy) | Freiwilliges Feedback eines abgeleiteten Projekts an den Template-Autor — damit aus der echten Arbeit in echten Projekten bessere Standardregeln, Scripte werden… | skill `act-feedback` (`--status`/`--due` alone are direct) |
+| `feedback_privacy.py` | Die Datenschutzprüfungen, die entscheiden, ob ein String als Teil einer Feedback-Nutzlast das Projekt verlassen darf (.act/scripts/feedback.py) — Muster… | library |
+| [`forge.py`](#forgepy) | Ein kleiner REST-Client für den Git-Host des Projekts (GitHub, GitHub Enterprise, GitLab.com und selbst gehostetes GitLab) — das eine Script, das die Skills… | skills `act-pr`, `act-issue`, `act-integrations` (reads are direct; every write shows a preview and needs `--apply` after the human's "yes" (`topics/live-systems.md`)) |
+| `frontmatter.py` | Ein gemeinsamer Frontmatter-Parser für jeden „---\n...\n---\n“-Block unter .act/ und docs/ai/local/ -- früher waren es zwei: der von tiers.py… | library |
+| [`ideas.py`](#ideaspy) | Die Ideen-Datei je Person `docs/ai/concept/ideas-<identity>.md` — eine versionierte Datei für jede Person eines Projekts, von dieser Person geschrieben… | direct (session start and init call it; run by hand to record entries as processed) |
+| [`init.py`](#initpy) | Macht aus einem Checkout dieses Templates ein Projekt („here, in this clone“) oder dockt an ein bestehendes oder leeres Verzeichnis an („--target“). Zehn Schritte… | direct |
+| [`integrations.py`](#integrationspy) | Ermittelt, welche Wege von diesem Projekt zu seinem Repo-Host und Issue-Tracker führen (REST-Zugriff über forge.py, MCP-Server) und was jeder… | skill `act-integrations` (`status` alone is direct) |
+| [`log.py`](#logpy) | Schreibt eine Zeile in ai.log im Projektwurzelverzeichnis (AGENTS.md § „Logging (optional)“, .act/rules/topics/logging.md) und die kleinen Werkzeuge zum Lesen… | direct |
+| [`manifest.py`](#manifestpy) | Erzeugt oder prüft .act/MANIFEST.json — einen SHA-256-Hash je Datei unter .act/, um lokale Änderungen am Template vor einem Update zu erkennen… | direct |
+| [`rules.py`](#rulespy) | Liest die *wirksamen* Regeln — die Regelsätze des Templates, nachdem die Kästchen, Ersetzungen und Ergänzungen des Projekts angewendet wurden. Ein… | direct |
+| [`script_docs.py`](#script_docspy) | Erzeugt .act/scripts/README.md — eine Referenz für jedes Script unter .act/scripts/, gebaut aus der eigenen `--help`-Ausgabe jedes Scripts plus einem… | direct |
+| [`security_deep.py`](#security_deeppy) | Sicherheitsprüfung „Art C“: ein tiefer, sprachübergreifender Scan mit Semgrep über die Dateien, die seit einem Ref (Standard: das neueste Tag) geändert wurden, oder das ganze… | direct (used by skill `act-release` with `security-check: full`) |
+| [`security_scan.py`](#security_scanpy) | Sicherheitsprüfung Art B: eine Live-Abfrage nach Schwachstellen in Bibliotheken anhand der Lock-Dateien, die ein Ökosystem tatsächlich hat, entweder als manueller Befehl… | direct (also run before a commit that touches a lock file and daily at session start, with `security-check: deps`/`full`) |
+| [`settings_export.py`](#settings_exportpy) | `act-export-settings` — schreibt die eigenen Regelabweichungen des Projekts (und, mit einem Schalter, lokale Scripte/Checklisten) in eine portable Einstellungsdatei… | skill `act-export-settings` |
+| `settings_format.py` | Datenmodell, Parser und Serialisierer für die Einstellungsdatei („settings.md“) — der portable Schnappschuss der eigenen Regelabweichungen eines Projekts (und, in… | library |
+| [`settings_load.py`](#settings_loadpy) | `act-load-settings` — importiert eine portable Einstellungsdatei (oder mehrere) in dieses Projekt: das Gegenstück zu settings_export.py. Führt dieselben… | skill `act-load-settings` |
+| [`skills.py`](#skillspy) | Listet die Skills des Projekts wie eine Man-Page (Name plus einzeilige Beschreibung aus dem Frontmatter jeder `SKILL.md`) oder gibt die `SKILL.md` eines Skills aus… | direct (used by skill `act` and by dispatch.py's `/act` fast path) |
+| `tiers.py` | Löst Tier/Reasoning einer Rolle -- nirgends sonst unter .act/ steht ein echter Modellname -- in ein konkretes Paar aus Modell-Alias und Effort für ein… | library |
+| [`update.py`](#updatepy) | Holt einen neueren Stand des Templates in ein bereits initialisiertes Projekt. Zehn Schritte, immer in derselben Reihenfolge: das Template in ein temporäres Verzeichnis holen… | skill `act-update` (`--plan` alone is direct) |
+| [`usage.py`](#usagepy) | Lokaler Nutzungszähler — wie oft jede Rolle startet, mit welchem Tier/Modell; wie oft jeder Skill, Slash-Befehl, jedes Script und jede Checkliste genutzt wird… | direct |
 
 ## adopt.py
 
@@ -136,7 +134,7 @@ Source/test/content trees (first path segment): __tests__, app, apps, assets, cl
   file whose layout json.dumps cannot reproduce, an entry whose script was already missing before
   the adoption or went with an adopt row, a statusLine, and .claude/settings.local.json.
   An adopt target (or a file below one that changed since --apply) whose line 1 is
-   loses that line — except docs/ai/config.md (values adopted, its text
+  <!-- act:default --> loses that line — except docs/ai/config.md (values adopted, its text
   stays scaffold to translate).
   docs/ai/work/archive/legacy/_act-renames.md (act:default, old path -> renamed path table) is written when at least one
   legacy path was renamed; nothing when none was.

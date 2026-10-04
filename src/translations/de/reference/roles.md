@@ -5,104 +5,85 @@ scripts/check-translations.mjs; see README "Editing the site". -->
 
 ## builder
 <!-- source: 18febb351480ec94 -->
-<!-- todo: translate -->
-Implements a bounded assignment - code, migration, tests, configuration - and returns a result plus evidence; never commits.
+Setzt eine abgegrenzte Aufgabe um - Code, Migration, Tests, Konfiguration - und liefert ein Ergebnis samt Beleg; committet nie.
 
 ## builder#about
 <!-- source: 311a918b3b385de6 -->
-<!-- todo: translate -->
-Implements a bounded assignment: code, migration, tests, configuration. Applies `R-role-worker`.
+Setzt eine abgegrenzte Aufgabe um: Code, Migration, Tests, Konfiguration. Wendet `R-role-worker` an.
 
 ## debugger
 <!-- source: 3bceaaa2f6c25186 -->
-<!-- todo: translate -->
-Searches for a bug's cause by hypothesis rather than guesswork; reproduces first, separates symptom from cause.
+Sucht die Ursache eines Bugs per Hypothese statt durch Raten; reproduziert zuerst und trennt Symptom von Ursache.
 
 ## debugger#about
 <!-- source: d18718184076056b -->
-<!-- todo: translate -->
-Searches for the cause of a reported bug that the orchestrator describes. Fixes nothing — the fix
-is a separate assignment (`builder`). Applies `R-role-worker`.
+Sucht die Ursache eines gemeldeten Bugs, den der Orchestrator beschreibt. Behebt nichts —
+die Behebung ist ein eigener Auftrag (`builder`). Wendet `R-role-worker` an.
 
 ## doc-writer
 <!-- source: c290dce552652e04 -->
-<!-- todo: translate -->
-Maintains docs/project/ (never docs/ai/) - works findings into the project docs, keeps cross-references and status markers current.
+Pflegt docs/project/ (nie docs/ai/) - arbeitet Befunde in die Projektdoku ein und hält Querverweise und Statusmarken aktuell.
 
 ## doc-writer#about
 <!-- source: 269b317dbbe11ab5 -->
-<!-- todo: translate -->
-Maintains `docs/project/` — project documentation, not the collaboration workspace under
-`docs/ai/`. Applies `R-role-worker`.
+Pflegt `docs/project/` — die Projektdokumentation, nicht den Arbeitsbereich der Zusammenarbeit unter
+`docs/ai/`. Wendet `R-role-worker` an.
 
 ## expert-solver
 <!-- source: 67097544e420609b -->
-<!-- todo: translate -->
-High-reasoning escalation, called only after a worker has failed the same task twice or hit an unsolvable error.
+Eskalation mit hohem Reasoning, nur gerufen, wenn ein Worker dieselbe Aufgabe zweimal verfehlt hat oder auf einen unlösbaren Fehler gestoßen ist.
 
 ## expert-solver#about
 <!-- source: 32c7e6675fafecf5 -->
-<!-- todo: translate -->
-Escalation only, per `R-role-escalate` — called after a worker has failed the same task twice, or
-an edge case has a standard worker stuck. Senior architect and problem-solver for exactly that
-case, not routine implementation. Applies `R-role-worker`.
+Nur zur Eskalation nach `R-role-escalate` — gerufen, wenn ein Worker dieselbe Aufgabe zweimal verfehlt hat
+oder ein Sonderfall einen normalen Worker festhält. Erfahrener Architekt und Problemlöser genau für diesen
+Fall, nicht für Routine-Implementierung. Wendet `R-role-worker` an.
 
 ## explorer
 <!-- source: 49430822cabdf716 -->
-<!-- todo: translate -->
-Read-only codebase research across multiple files and directories; reports findings backed by path:line.
+Lesende Recherche im Code über mehrere Dateien und Verzeichnisse; meldet Befunde mit path:line als Beleg.
 
 ## explorer#about
 <!-- source: 34f0cb32fed94a65 -->
-<!-- todo: translate -->
-Read-only research across multiple files and directories; findings backed by `<path>:<line>`.
-Applies `R-role-worker`.
+Lesende Recherche über mehrere Dateien und Verzeichnisse; Befunde mit `<path>:<line>` belegt.
+Wendet `R-role-worker` an.
 
 ## optimizer
 <!-- source: bde5b9671f615258 -->
-<!-- todo: translate -->
-Polishes freshly written code for brevity and readability - at most two rounds, no algorithm tuning.
+Poliert frisch geschriebenen Code auf Kürze und Lesbarkeit - höchstens zwei Runden, kein Algorithmus-Tuning.
 
 ## optimizer#about
 <!-- source: 564be43f4d0ed33f -->
-<!-- todo: translate -->
-Runs after `builder`, only on the code that assignment just wrote — files and lines named in the
-assignment, never grown code from elsewhere and never project-wide. Applies `R-role-worker`.
+Läuft nach `builder`, nur über den Code, den dieser Auftrag gerade geschrieben hat — Dateien und Zeilen stehen
+im Auftrag, nie gewachsener Code von anderswo und nie projektweit. Wendet `R-role-worker` an.
 
 ## quick-check
 <!-- source: dc952c767a01b276 -->
-<!-- todo: translate -->
-Fixed, read-only lookups without judgment (git status, tests, files, line counts).
+Feste, lesende Abfragen ohne Bewertung (git status, Tests, Dateien, Zeilenzahlen).
 
 ## quick-check#about
 <!-- source: cace6d37f7fd3e1a -->
-<!-- todo: translate -->
-Runs a fixed set of read-only lookups and returns the raw result, without judgment. Applies
-`R-role-worker`.
+Führt eine feste Reihe lesender Abfragen aus und liefert das rohe Ergebnis, ohne Bewertung. Wendet
+`R-role-worker` an.
 
 ## reviewer
 <!-- source: db27b9e02fbc6b4e -->
-<!-- todo: translate -->
-Adversarial review before a commit — bugs, style, and task fidelity — plus ALLOW/BLOCK on a flagged safeguard call.
+Kritische Prüfung vor einem Commit — Bugs, Stil und Aufgabentreue — sowie ALLOW/BLOCK bei einem markierten Safeguard-Aufruf.
 
 ## reviewer#about
 <!-- source: b1a43d753b082121 -->
-<!-- todo: translate -->
-Adversarial review before a commit, plus ALLOW/BLOCK on a flagged tool call. Applies
-`R-role-worker`.
+Kritische Prüfung vor einem Commit, dazu ALLOW/BLOCK bei einem markierten Tool-Aufruf. Wendet
+`R-role-worker` an.
 
 ## test-writer
 <!-- source: e6dbc3c49677ea08 -->
-<!-- todo: translate -->
-Writes tests to existing code, or test-first from a concept/interface alone; checks behavior, not implementation.
+Schreibt Tests zu bestehendem Code oder Test-first allein aus einem Konzept bzw. Interface; prüft Verhalten, nicht Implementierung.
 
 ## test-writer#about
 <!-- source: 485a942ab447849c -->
-<!-- todo: translate -->
-Writes tests — to existing code, or test-first from a concept/interface description alone — and
-proves them with a test run. Applies `R-role-worker`.
+Schreibt Tests — zu bestehendem Code oder Test-first allein aus einer Konzept- bzw. Interface-Beschreibung —
+und belegt sie mit einem Testlauf. Wendet `R-role-worker` an.
 
 ## _intro
 <!-- source: bb784335680ef087 -->
-<!-- todo: translate -->
-A role is a bounded kind of worker; its tier says how much model capacity it gets, and `.act/tiers.json` maps tiers to concrete models only at generation time.
+Eine Rolle ist eine abgegrenzte Art von Worker; ihr Tier legt fest, wie viel Modellleistung sie bekommt, und `.act/tiers.json` ordnet Tiers erst bei der Erzeugung konkreten Modellen zu.

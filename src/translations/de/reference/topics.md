@@ -5,66 +5,59 @@ scripts/check-translations.mjs; see README "Editing the site". -->
 
 ## feedback
 <!-- source: 8e66813319a3b7e4 -->
-<!-- todo: translate -->
-Feedback to the template author
+Feedback an den Template-Autor
 
-Detail page for a rule that references it as `topics/feedback.md`. Read this when
-`docs/ai/config.md` § Feedback has `feedback` set to anything other than `off`, or when a
-template bug needs reporting regardless of that switch (see "Immediate trigger" below).
-Mechanism: `.act/scripts/feedback.py` (privacy checks in `feedback_privacy.py`), skill
+Detailseite zu einer Regel, die sie als `topics/feedback.md` referenziert. Lies sie, wenn in
+`docs/ai/config.md` § Feedback der Schalter `feedback` auf etwas anderes als `off` steht, oder wenn ein
+Template-Bug gemeldet werden muss, unabhängig von diesem Schalter (siehe „Immediate trigger“ unten).
+Mechanik: `.act/scripts/feedback.py` (Datenschutzprüfungen in `feedback_privacy.py`), Skill
 `act-feedback`.
 
 ## ide
 <!-- source: ab54a19c2036e1f1 -->
-<!-- todo: translate -->
-IDE MCP server
+IDE-MCP-Server
 
-Detail page for a rule that references it as `topics/ide.md`. Loaded only when a session start
-detects a connected IDE MCP server (JetBrains `idea` and similar names in `.mcp.json`, the Claude
-settings or `~/.claude.json`, or Claude Code's own `ide` server — see `checks/session.py`'s
-`_ide_mcp_connected`). Not loaded otherwise; nothing here applies to a project without one.
-Claude Code's `ide` server offers `getDiagnostics` (read, fine for anyone) and `executeCode`
-(orchestrator only, like every tool that runs code).
+Detailseite zu einer Regel, die sie als `topics/ide.md` referenziert. Wird nur geladen, wenn der Sitzungsstart
+einen verbundenen IDE-MCP-Server erkennt (JetBrains `idea` und ähnliche Namen in `.mcp.json`, den
+Claude-Einstellungen oder `~/.claude.json`, oder Claude Codes eigenen `ide`-Server — siehe
+`_ide_mcp_connected` in `checks/session.py`). Sonst wird sie nicht geladen; für ein Projekt ohne einen solchen
+Server gilt nichts davon. Der `ide`-Server von Claude Code bietet `getDiagnostics` (lesend, für alle in
+Ordnung) und `executeCode` (nur Orchestrator, wie jedes Tool, das Code ausführt).
 
 ## ideas
 <!-- source: 6cdeac7b19e8f2ba -->
-<!-- todo: translate -->
-Ideas
+Ideen
 
-Detail page announced by the session-start topic line. "ideas" is active when the session owner's
-own ideas file — `docs/ai/concept/ideas-<identity>.md`, rules for the human in that folder's
-`README.md` — has entries that are new or changed since they were last processed; the session
-start names them in an `[act] ideas:` note. Mechanism: `.act/scripts/ideas.py`, called from
+Detailseite, angekündigt von der Topic-Zeile des Sitzungsstarts. „ideas“ ist aktiv, wenn die eigene Ideendatei
+des Sitzungsinhabers — `docs/ai/concept/ideas-<identity>.md`, Regeln für den Menschen in der `README.md` dieses
+Ordners — Einträge hat, die neu oder seit der letzten Verarbeitung geändert sind; der Sitzungsstart nennt sie
+in einem Hinweis `[act] ideas:`. Mechanik: `.act/scripts/ideas.py`, aufgerufen aus
 `.act/hooks/checks/session.py`.
 
 ## live-systems
 <!-- source: a1d03acb0e39d7c5 -->
-<!-- todo: translate -->
-Access to live systems
+Zugriff auf Live-Systeme
 
-Detail page for `R-safe-approval` (`.act/rules/shared/10-safety.md`). Read this whenever a task
-reaches beyond the repo into a reachable system: a server over SSH, a database, a service's API, a
-container host, a router, a smart-home or monitoring instance.
+Detailseite zu `R-safe-approval` (`.act/rules/shared/10-safety.md`). Lies sie immer, wenn eine Aufgabe über das
+Repo hinaus in ein erreichbares System greift: ein Server per SSH, eine Datenbank, die API eines Dienstes, ein
+Container-Host, ein Router, eine Smart-Home- oder Monitoring-Instanz.
 
 ## logging
 <!-- source: c8d4ca2c4fd335b0 -->
-<!-- todo: translate -->
 Logging
 
-Detail page announced by the session-start topic line. Read this when
-`docs/ai/config.md` § Logging has `logging` set to `on` — the session-start status line names
-every topic whose switch is on, this one included, see `.act/hooks/checks/session.py`'s
-`refresh_session()`. Mechanism: `.act/scripts/log.py`, observer `.act/hooks/checks/event_log.py`.
+Detailseite, angekündigt von der Topic-Zeile des Sitzungsstarts. Lies sie, wenn in
+`docs/ai/config.md` § Logging der Schalter `logging` auf `on` steht — die Statuszeile des Sitzungsstarts nennt
+jedes Topic, dessen Schalter an ist, auch dieses, siehe `refresh_session()` in `.act/hooks/checks/session.py`.
+Mechanik: `.act/scripts/log.py`, Beobachter `.act/hooks/checks/event_log.py`.
 
 ## safeguards
 <!-- source: 96b06e61daf30d89 -->
-<!-- todo: translate -->
-Safeguard blocks
+Safeguard-Blocks
 
-Detail page for `R-safe-block` (`.act/rules/shared/10-safety.md`). Read this whenever a tool
-flags a request or an action as risky — a guardrail, a content filter, a permission escalation.
+Detailseite zu `R-safe-block` (`.act/rules/shared/10-safety.md`). Lies sie immer, wenn ein Tool eine Anfrage
+oder Aktion als riskant markiert — eine Schutzvorkehrung, ein Inhaltsfilter, eine Rechteausweitung.
 
 ## _intro
 <!-- source: 8c88cf2e463d41fe -->
-<!-- todo: translate -->
-A rule points to a topic when the detail is only needed in some situations.
+Eine Regel verweist auf ein Topic, wenn das Detail nur in manchen Situationen gebraucht wird.

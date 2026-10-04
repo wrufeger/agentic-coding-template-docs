@@ -134,7 +134,7 @@ Source/test/content trees (first path segment): __tests__, app, apps, assets, cl
   file whose layout json.dumps cannot reproduce, an entry whose script was already missing before
   the adoption or went with an adopt row, a statusLine, and .claude/settings.local.json.
   An adopt target (or a file below one that changed since --apply) whose line 1 is
-   loses that line — except docs/ai/config.md (values adopted, its text
+  <!-- act:default --> loses that line — except docs/ai/config.md (values adopted, its text
   stays scaffold to translate).
   docs/ai/work/archive/legacy/_act-renames.md (act:default, old path -> renamed path table) is written when at least one
   legacy path was renamed; nothing when none was.

@@ -7,11 +7,9 @@ sidebar:
 
 :::note
 Diese Seite wird aus dem Template 2.0.0 (Commit 8ad385e) erzeugt; die deutschen Texte stammen aus einem Katalog unter `src/translations/de/reference/`. Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
-
-Einzelne Einträge dieser Seite sind noch nicht übersetzt oder veraltet; sie stehen auf Englisch da und sind mit _(noch nicht übersetzt)_ markiert.
 :::
 
-These pages are generated from the `.act/` directory of this repository, which is the pinned template state: template version 2.0.0, commit 8ad385e. Nothing here is written by hand, so the pages cannot drift from the template. _(noch nicht übersetzt)_
+Diese Seiten werden aus dem Verzeichnis `.act/` dieses Repositorys erzeugt, also aus dem festgehaltenen Template-Stand: Template-Version 2.0.0, Commit 8ad385e. Nichts davon ist von Hand geschrieben, deshalb können die Seiten nicht vom Template abweichen.
 
 ## Seiten
 

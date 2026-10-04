@@ -60,10 +60,10 @@ whatever language the chat runs in and whoever it runs with, so the record reads
 stays English, and so does what the mechanism generates (the board under `.act-local/`,
 `docs/ai/rules.md`, which the template keeps current); identifiers follow `R-code-language`. Text
 a person wrote stays in its original language: translating it is a separate, explicit assignment,
-never part of another task. A file whose line 1 is `` is scaffold in the
+never part of another task. A file whose line 1 is `<!-- act:default -->` is scaffold in the
 template's English: if `language-docs` is not English, translate it once (the inbox entry
 `*-translate-scaffold.md` lists the files) — headings, table headers, status words in prose and
-hint texts only. Marks (``), header fields and their values (`status:
+hint texts only. Marks (`<!-- act:... -->`), header fields and their values (`status:
 open|answered|done` stays English, in examples too), config keys and values, code and paths stay
 as they are, since the mechanism reads those, never the words. Then drop the mark line; from then
 on the file is the project's.
