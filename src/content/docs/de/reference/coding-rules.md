@@ -6,7 +6,7 @@ sidebar:
 ---
 
 :::note
-Diese Seite wird aus dem Template 2.0.0 (Commit 8ad385e) erzeugt; die deutschen Texte stammen aus einem Katalog unter `src/translations/de/reference/`. Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
+Diese Seite wird aus dem Template 2.0.0 (Commit 5d257d0) erzeugt; die deutschen Texte stammen aus einem Katalog unter `src/translations/de/reference/`. Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
 :::
 
 11 Regelsätze mit 39 Gruppen. Ein Projekt schaltet einen Satz in `docs/project/coding_rules.md` ein; Gruppen-IDs `CR-<set>-<name>` sind stabil.

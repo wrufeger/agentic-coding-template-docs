@@ -6,7 +6,7 @@ sidebar:
 ---
 
 :::note
-Diese Seite wird aus dem Template 2.0.0 (Commit 8ad385e) erzeugt; die deutschen Texte stammen aus einem Katalog unter `src/translations/de/reference/`. Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
+Diese Seite wird aus dem Template 2.0.0 (Commit 5d257d0) erzeugt; die deutschen Texte stammen aus einem Katalog unter `src/translations/de/reference/`. Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
 :::
 
 26 Skills. Ein Skill ist eine wiederverwendbare Prozedur, die der Assistent auf Anfrage oder dann ausführt, wenn seine Beschreibung zur Situation passt.

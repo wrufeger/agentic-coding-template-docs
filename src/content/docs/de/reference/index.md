@@ -6,10 +6,10 @@ sidebar:
 ---
 
 :::note
-Diese Seite wird aus dem Template 2.0.0 (Commit 8ad385e) erzeugt; die deutschen Texte stammen aus einem Katalog unter `src/translations/de/reference/`. Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
+Diese Seite wird aus dem Template 2.0.0 (Commit 5d257d0) erzeugt; die deutschen Texte stammen aus einem Katalog unter `src/translations/de/reference/`. Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
 :::
 
-Diese Seiten werden aus dem Verzeichnis `.act/` dieses Repositorys erzeugt, also aus dem festgehaltenen Template-Stand: Template-Version 2.0.0, Commit 8ad385e. Nichts davon ist von Hand geschrieben, deshalb können die Seiten nicht vom Template abweichen.
+Diese Seiten werden aus dem Verzeichnis `.act/` dieses Repositorys erzeugt, also aus dem festgehaltenen Template-Stand: Template-Version 2.0.0, Commit 5d257d0. Nichts davon ist von Hand geschrieben, deshalb können die Seiten nicht vom Template abweichen.
 
 ## Seiten
 

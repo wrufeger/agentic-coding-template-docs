@@ -6,7 +6,7 @@ sidebar:
 ---
 
 :::note
-Generated from template version 2.0.0 (commit 8ad385e) — do not edit by hand. Regenerate with `npm run gen`.
+Generated from template version 2.0.0 (commit 5d257d0) — do not edit by hand. Regenerate with `npm run gen`.
 :::
 
 One row per script under `.act/scripts/`; the per-script sections below are each script's own `--help` output, not retyped by hand. Regenerate with `python .act/scripts/script_docs.py` after changing a script's arguments — `--check` catches drift, and `doctor.py` reports it as a finding.

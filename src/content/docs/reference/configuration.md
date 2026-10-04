@@ -6,7 +6,7 @@ sidebar:
 ---
 
 :::note
-Generated from template version 2.0.0 (commit 8ad385e) — do not edit by hand. Regenerate with `npm run gen`.
+Generated from template version 2.0.0 (commit 5d257d0) — do not edit by hand. Regenerate with `npm run gen`.
 :::
 
 `init` fills in the values below from what it asked or detected. Change them any time — nothing here needs a rebuild; `.act/hooks/dispatch.py` reads this file at session start.
