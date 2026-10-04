@@ -1,49 +1,21 @@
-# Starlight Starter Kit: Basics
+# Agentic Coding Template: documentation site
 
-[![Built with Starlight](https://astro.badg.es/v2/built-with-starlight/tiny.svg)](https://starlight.astro.build)
-
-```
-npm create astro@latest -- --template starlight
-```
-
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
-
-## 🚀 Project Structure
-
-Inside of your Astro + Starlight project, you'll see the following folders and files:
+Source of the documentation site for the agentic coding template, built with Astro and Starlight, in English
+and German. The reference pages under `reference/` are generated from the template; the other pages are
+written by hand, German pages are translations of the English ones.
 
 ```
-.
-├── public/
-├── src/
-│   ├── assets/
-│   ├── content/
-│   │   └── docs/
-│   └── content.config.ts
-├── astro.config.mjs
-├── package.json
-└── tsconfig.json
+npm install                    # once
+npm run dev                    # local preview
+npm run build                  # production build (checks the generated reference first)
+npm run gen                    # regenerate the reference pages from the template
+npm run check:translations     # report stale German pages
+npm run sync                   # plan: what a template update would change
+npm run sync -- --apply        # update the template state, regenerate, list pages to review
 ```
 
-Starlight looks for `.md` or `.mdx` files in the `src/content/docs/` directory. Each file is exposed as a route based on its file name.
+`sync` calls `.act/scripts/update.py` (pass `--source <path>` to use another template checkout) and ends with
+the translation report.
 
-Images can be added to `src/assets/` and embedded in Markdown with a relative link.
-
-Static assets, like favicons, can be placed in the `public/` directory.
-
-## 🧞 Commands
-
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Check out [Starlight’s docs](https://starlight.astro.build/), read [the Astro documentation](https://docs.astro.build), or jump into the [Astro Discord server](https://astro.build/chat).
+Deploy: a GitHub Actions workflow builds and publishes on every push to `main`. Publishing happens only on
+the owner's word.

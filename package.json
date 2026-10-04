@@ -10,6 +10,7 @@
     "astro": "astro",
     "gen": "node scripts/gen-reference.mjs",
     "gen:check": "node scripts/gen-reference.mjs --check",
+    "sync": "node scripts/sync.mjs",
     "check:translations": "node scripts/check-translations.mjs",
     "stamp:translations": "node scripts/check-translations.mjs --stamp-all-unstamped",
     "prebuild": "node scripts/gen-reference.mjs --check"
