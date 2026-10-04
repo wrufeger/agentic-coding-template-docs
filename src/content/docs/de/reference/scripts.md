@@ -1,0 +1,824 @@
+---
+title: "Scripts"
+description: "Alle Scripts unter .act/scripts mit Zweck und Kommandozeilenhilfe."
+sidebar:
+  order: 3
+---
+
+:::note
+Diese Referenz wird aus der Vorlage erzeugt und ist englisch; Stand: Vorlage 2.0.0 (Commit 2a5095c). Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
+:::
+
+One row per script under `.act/scripts/`; the per-script sections below are each script's own `--help` output, not retyped by hand. Regenerate with `python .act/scripts/script_docs.py` after changing a script's arguments — `--check` catches drift, and `doctor.py` reports it as a finding.
+
+## Overview
+
+| Script | Purpose | Call |
+| :--- | :--- | :--- |
+| `actlib.py` | Shared library for every script under .act/scripts/ and .act/hooks/ — the single place that knows how to resolve template vs. project… | library |
+| [`adopt.py`](#adoptpy) | Mechanical executor of an approved adoption table (skill `act-adopt`, steps 4 and 7). Runs from a template checkout against a project that… | direct (used by skill `act-adopt` (stage 6)) |
+| [`adopt_config.py`](#adopt_configpy) | Carry the settings of an older German AI-CONFIG.md (the predecessor template's control file) over into the project's docs/ai/config.md… | direct (used by skill `act-adopt` (stage 6)) |
+| [`adopt_entries.py`](#adopt_entriespy) | Batch writer for the content step of an adoption (skill `act-adopt`). The model reads the old material in whatever format it has and writes… | direct (used by skill `act-adopt` (stage 6)) |
+| [`adopt_passages.py`](#adopt_passagespy) | Mechanical insertion of an adopted project's own passages into docs/project/coding_rules.md and docs/README.md (skill `act-adopt`, step 6… | direct (used by skill `act-adopt` (stage 6)) |
+| [`adopt_scan.py`](#adopt_scanpy) | Read-only sighting of an existing project's documentation and AI-tooling material, before adoption (skill `act-adopt`). Walks the target… | direct (used by skill `act-adopt` (stage 6)) |
+| [`board.py`](#boardpy) | Generate the board — a fully derived snapshot (current branch, last commit, dirty state, recent journal entries, one "Waiting for you" list… | direct |
+| [`doctor.py`](#doctorpy) | Mechanical half of the reconcile skill `act-doctor` — the cheap checks that run after every update and on demand, without a model in the… | direct (judging the findings: skill `act-doctor`) |
+| [`entries.py`](#entriespy) | Create and account for the project's short-lived entry files — tasks, backlog items, journal entries, and docs/ai/inbox/ entries (question… | direct |
+| [`feedback.py`](#feedbackpy) | Voluntary feedback from a derived project to the template author — so real work in real projects turns into better default rules, scripts… | skill `act-feedback` (`--status`/`--due` alone are direct) |
+| `feedback_privacy.py` | The privacy checks that decide whether a string may leave the project as part of a feedback payload (.act/scripts/feedback.py) — patterns… | library |
+| [`forge.py`](#forgepy) | A small REST client for the project's git host (GitHub, GitHub Enterprise, GitLab.com and self-hosted GitLab) — the one script the skills… | skills `act-pr`, `act-issue`, `act-integrations` (reads are direct; every write shows a preview and needs `--apply` after the human's "yes" (`topics/live-systems.md`)) |
+| `frontmatter.py` | One shared frontmatter parser for every "---\n...\n---\n" block under .act/ and docs/ai/local/ -- used to be two: tiers.py's… | library |
+| [`ideas.py`](#ideaspy) | The per-person ideas file `docs/ai/concept/ideas-<identity>.md` — one versioned file for every person on a project, written by that person… | direct (session start and init call it; run by hand to record entries as processed) |
+| [`init.py`](#initpy) | Turn a checkout of this template into a project ("here, in this clone"), or dock onto an existing/empty directory ("--target"). Ten steps… | direct |
+| [`integrations.py`](#integrationspy) | Find out which ways lead from this project to its repo host and issue tracker (REST access through forge.py, MCP servers) and what each one… | skill `act-integrations` (`status` alone is direct) |
+| [`log.py`](#logpy) | Write one line to ai.log at the project root (AGENTS.md § "Logging (optional)", .act/rules/topics/logging.md) and the small tools to read… | direct |
+| [`manifest.py`](#manifestpy) | Generate or verify .act/MANIFEST.json — a SHA-256 hash per file under .act/, used to detect local edits to the template before an update… | direct |
+| [`rules.py`](#rulespy) | Read the *effective* rules — the template's rule sets after the project's own checkboxes, replacements and additions are applied. One… | direct |
+| [`script_docs.py`](#script_docspy) | Generate .act/scripts/README.md — a reference for every script under .act/scripts/, built from each script's own `--help` output plus a… | direct |
+| [`security_deep.py`](#security_deeppy) | Security check "Art C": a deep, cross-language scan with Semgrep over the files changed since a ref (default: the latest tag) or the whole… | direct (used by skill `act-release` with `security-check: full`) |
+| [`security_scan.py`](#security_scanpy) | Security check Art B: a live library-vulnerability lookup against the lock files an ecosystem actually has, run either as a manual command… | direct (also run before a commit that touches a lock file and daily at session start, with `security-check: deps`/`full`) |
+| [`settings_export.py`](#settings_exportpy) | `act-export-settings` — write the project's own rule deviations (and, with a switch, local scripts/checklists) to a portable settings file… | skill `act-export-settings` |
+| `settings_format.py` | Data model, parser and serializer for the settings file ("settings.md") — the portable snapshot of a project's own rule deviations (and, in… | library |
+| [`settings_load.py`](#settings_loadpy) | `act-load-settings` — import a portable settings file (or several) into this project: the counterpart to settings_export.py. Runs the same… | skill `act-load-settings` |
+| [`skills.py`](#skillspy) | List the project's skills like a man page (name + one-line description from each `SKILL.md`'s frontmatter), or print one skill's `SKILL.md`… | direct (used by skill `act` and by dispatch.py's `/act` fast path) |
+| `tiers.py` | Resolve a role's tier/reasoning -- never a real model name anywhere else under .act/ -- into a concrete model alias/effort pair for one… | library |
+| [`update.py`](#updatepy) | Pull a newer state of the template into an already-initialized project. Ten steps, always in the same order: fetch the template into a temp… | skill `act-update` (`--plan` alone is direct) |
+| [`usage.py`](#usagepy) | Local usage counter — how often each role starts, at which tier/model; how often each skill, slash command, script and checklist is used… | direct |
+
+## adopt.py
+
+Call: direct (used by skill `act-adopt` (stage 6))
+
+```text
+usage: adopt.py [-h] --target DIR (--apply | --finish | --abort) [--plan] [--force]
+                [--language-docs CODE] [--language-chat CODE]
+
+Carry out an approved adoption table: move legacy sources, install the template, then bridge/remove adopted sources. Never commits.
+
+options:
+  -h, --help            show this help message and exit
+  --target DIR          the project to adopt (a git repository)
+  --apply               branch, legacy moves, init.py --target
+  --finish              bridges, removals, settings entries, marks, references, doctor, inbox
+                        report
+  --abort               the way back after --apply: undo it, delete the branch
+  --plan                validate and show what would happen, change nothing
+  --force               with --abort: copy work done since --apply to .act-local/adopt/aborted/
+                        first, then abort
+  --language-docs CODE  with --apply: language of docs/ (e.g. de), passed on to init.py; default
+                        en
+  --language-chat CODE  with --apply: chat language (a code, or auto), passed on to init.py
+
+TABLE <target>/.act-local/adopt/table.json — {"rows": [...]}, exactly one row per scan.json row:
+  path       as in scan.json          class   as in scan.json (must match)
+  action     adopt | legacy | keep | delete
+  target     adopt only: destination path or list of paths (filled by the content step)
+  done       adopt only: true once the content is at its target (required for --finish)
+  confirmed  true: the owner confirmed this one row (see below)      note  free text
+
+ALLOWED ACTIONS PER CLASS
+  log           legacy, keep                 ai-machinery  adopt, legacy, delete, keep
+  ai-config     adopt, legacy, keep, delete  work          adopt, legacy, keep, delete
+  project-doc   adopt, legacy, keep; delete only with confirmed
+  predecessor   adopt, legacy, keep; delete only "template only" (scan origin) or with confirmed
+  unknown       keep; adopt/legacy/delete only with confirmed
+
+REFUSED (whole run, with a list) on: a path that is not plain relative posix or not on disk; a
+path not in scan.json, or a scan.json row without a table row; a class differing from scan.json;
+a disallowed action; a row whose note (scan's or table's) says "never bridge"/"git-ignored/local"
+with action delete or legacy, or adopt into a bridge file; any non-keep action on a link or below
+one; any non-keep action below a source/test/content tree (see below) without confirmed; a unit
+folder holding untracked or git-ignored files that would be moved or removed, without confirmed
+(with it, those files go to .act-local/adopt/rescued/ first); an adopt target equal to or below its own
+source (unless the source moves before init) or below any path that is deleted, archived, removed
+or bridged; a path segment ending in a dot or space; paths are compared case-insensitively where
+the file system is; a scan.json that no longer matches a fresh scan (--apply); on Windows a
+legacy path of 260 characters or more while the repository does not set core.longpaths
+(`git config core.longpaths true`).
+Source/test/content trees (first path segment): __tests__, app, apps, assets, client, components, content, e2e, fixtures, lib, packages, pages, public, server, spec, specs, src, static, test*.
+
+--apply: clean tree (untracked only under .act-local/), new branch act-adopt (an existing branch
+  refuses; a recorded state prints it and exits 0), `legacy` rows moved byte-identical to
+  docs/ai/work/archive/legacy/<old path> (sha256 before = after) — with every AI-tool config path segment
+  renamed first (`.claude`/`.codex`/`.gemini`/`.cursor`/`.agents` -> `_claude`/…,
+  `.github/agents`/`.github/prompts` -> `_agents`/`_prompts`, `.github/copilot-instructions.md`
+  -> `….legacy`, a `CLAUDE.md`/`AGENTS.md`/`GEMINI.md` at any depth -> `….legacy`, so no tool
+  reads the archived copy as its own configuration) — then staged by path; a git
+  call that fails stops the run with no accounting. An old skill/agent carrying the name of a
+  template unit, or a file at a place init.py writes itself (docs/ai/ skeleton, docs/ai/rules.md,
+  docs/project/coding_rules.md, docs/README.md), moves there too unless it is a delete row
+  (removed) — a kept file at such a place stays and init leaves it. Then init.py --target
+  --non-interactive --no-commit (detected at runtime; only an init.py without that flag makes its
+  own first commit instead); existing CLAUDE.md/AGENTS.md stay until --finish.
+--finish: every adopt row done with its target on disk; adopted ai-config files that init has a
+  bridge for become that bridge (protected rows stay as they are), other adopted sources and
+  delete rows removed (git rm); an adopt target docs/ai/local/skills/<name>/... or
+  docs/ai/local/agents/<name>.md is an own unit and gets its tool copies/bridge like
+  act-load-settings writes them (skill copies recorded in .act-lock.json § copies) — refused if
+  <name> is a template unit's (that would be an override; a row note "override" leaves it to the
+  template's copy mechanism); doctor.py, references to moved/removed paths, report
+  docs/ai/inbox/report-<stamp>-adoption-report.md. A reference in docs/project/ and docs/README.md
+  to a path that is gone — or to a folder the adoption leaves without any file — is bent to its
+  new place (legacy copy, or the one successor of an adopt row), the link target only:
+  the target of a Markdown link or of a reference definition `[x]: path` (relative stays
+  relative, anchor kept); no other text changes, code blocks never. A path in backticks is text:
+  never changed, only listed ("mention in text — not changed") with both readings, relative to
+  the file and to the root. The full list, bent and left with the reason, goes to
+  .act-local/adopt/references.txt (--finish --plan: .act-local/adopt/references.plan.txt,
+  the terminal gets the counts); the report lists it inline up to 50 lines. Hook commands and
+  Bash(...) permission rules in .claude/settings.json whose executed script (the first word of a
+  command, or the word after python/bash/node/… or "$VAR"; bare, ./ or $CLAUDE_PROJECT_DIR/ path)
+  lies at or below a gone delete or legacy row are removed — an emptied hook group or event with
+  them, nothing else changes, line endings kept; a script that is only an argument, Read/Edit/
+  Write rules and entries on scripts still on disk never. Listed for removal by hand instead: a
+  file whose layout json.dumps cannot reproduce, an entry whose script was already missing before
+  the adoption or went with an adopt row, a statusLine, and .claude/settings.local.json.
+  An adopt target (or a file below one that changed since --apply) whose line 1 is
+   loses that line — except docs/ai/config.md (values adopted, its text
+  stays scaffold to translate).
+  docs/ai/work/archive/legacy/_act-renames.md (act:default, old path -> renamed path table) is written when at least one
+  legacy path was renamed; nothing when none was.
+  --finish --plan shows all of it first. A second --finish says "already finished".
+  An adopt target that still has the content it had right after --apply, or that only
+  adopt_config.py changed since (its hash as recorded in .act-local/adopt/config-touched.json), is
+  refused ("content not adopted?").
+--apply --language-docs <code> --language-chat <code|auto>: passed on to init.py, so the
+  docs language and the init todos are right from the start. They are recorded in state.json
+  ("languages") and adopt_config.py keeps them; it sets `language-docs` from an old AI-CONFIG.md
+  only where none was given.
+--apply refuses a detached HEAD. It backs up .claude/settings.json (init.py merges hooks into it).
+--abort: the way back after --apply or a stopped --apply, resumable (state.json is rewritten after
+  every step). Refused while act-adopt carries a commit other than init.py's, and while work was
+  done since --apply — a changed file init.py created, an uncommitted edit to a tracked file, a
+  new file where a moved unit returns — unless --force, which first copies those files to
+  .act-local/adopt/aborted/<path> and lists them. Then: removes the files init.py created that are
+  unchanged (or saved), puts moved units back only from a legacy copy that still holds the moved
+  content, puts rescued files back, checks out the base branch, restores the settings backup,
+  deletes act-adopt and the state. New files it did not create are left in place and listed.
+```
+
+## adopt_config.py
+
+Call: direct (used by skill `act-adopt` (stage 6))
+
+```text
+usage: adopt_config.py [-h] --target DIR [--source FILE] [--plan]
+
+Carry an old AI-CONFIG.md's settings into docs/ai/config.md; report everything else.
+
+options:
+  -h, --help     show this help message and exit
+  --target DIR   the project (already set up by adopt.py --apply)
+  --source FILE  the old AI-CONFIG.md (default: see Usage)
+  --plan         show the report, write nothing
+```
+
+## adopt_entries.py
+
+Call: direct (used by skill `act-adopt` (stage 6))
+
+```text
+usage: adopt_entries.py [-h] --target DIR --from JSON [--plan]
+
+Write a checked batch of adopted entries (tasks, backlog, questions, todos, reports, notes,
+proposals) as entry files; the whole batch is refused on any conflict.
+
+options:
+  -h, --help    show this help message and exit
+  --target DIR  the project (already set up by adopt.py --apply)
+  --from JSON   the batch file (UTF-8 JSON)
+  --plan        check and show what would be written, write nothing
+```
+
+## adopt_passages.py
+
+Call: direct (used by skill `act-adopt` (stage 6))
+
+```text
+usage: adopt_passages.py [-h] --target DIR --into {coding,readme} --from FILE [--plan]
+
+Insert an adopted project's own passages into docs/project/coding_rules.md or docs/README.md,
+heading levels shifted, target line endings preserved.
+
+options:
+  -h, --help            show this help message and exit
+  --target DIR          the project (already set up by adopt.py --apply)
+  --into {coding,readme}
+                        which file to insert into
+  --from FILE           UTF-8 file holding the passage(s), cut byte-identical from the old source
+  --plan                check and show what would change, write nothing
+```
+
+## adopt_scan.py
+
+Call: direct (used by skill `act-adopt` (stage 6))
+
+```text
+usage: adopt_scan.py [-h] [--target DIR] [--json]
+
+Read-only sighting of an existing project's documentation/AI-tooling sources before adoption.
+
+options:
+  -h, --help    show this help message and exit
+  --target DIR  directory to scan (default: this project's root)
+  --json        print the JSON payload instead of the human-readable table
+
+ALLOW-LIST (exact, case-sensitive) — the only way into the four classes with a downstream action:
+  ai-config     root AGENTS.md CLAUDE.md CLAUDE.local.md GEMINI.md CONVENTIONS.md AI-CONFIG.md
+                .aider.conf.yml .cursorrules .clinerules .windsurfrules .mcp.json;
+                .github/copilot-instructions.md, .github/instructions/*.instructions.md,
+                .claude/settings.json, .claude/settings.local.json (never bridge or delete),
+                .claude/settings.local.json.example, .claude/rules/*.md, .cursor/rules/,
+                .cursor/mcp.json, .gemini/settings.json, .junie/guidelines.md (never a nested one)
+  ai-machinery  one row per unit under .claude/{agents,skills,commands,scripts,hooks}/,
+                .github/agents/, .github/prompts/, .codex/{agents,skills,commands,scripts,hooks}/,
+                .gemini/commands/, and .cursor/ except rules/ and mcp.json
+  log           root ai.log, ai.log.*.bak, ai.log.state.json, ai.log.raw.jsonl; in a signed
+                docs/ai/: names with ledger/journal/protokoll/archive/archiv, template-feedback/sent/**;
+                a dated file (YYYY-MM-DD*) in journal(s)/ or docs/journal(s)/
+  work          root TODO.md, TODO; in a signed docs/ai/: names with task(s)/aufgabe(n)/backlog/
+                question(s)/frage(n)/board/inbox
+Signed docs/ai/: holds at least two of board.md, tasks.md, ledger.md, questions.md, backlog.md,
+or the target has .claude/template.json. Any keyword hit elsewhere yields only "unknown" with a
+hint ("log?"). The same goes for the words chatlog, umbau, weiter, handover (whole tokens, anywhere in
+the path, "@" counts as a separator) and a folder named memory: unknown + hint "work?" and an info line
+"possible home-made work system" — a hint for the owner, never a class. A symlink/junction at an allow-listed place is one "unknown" row ("link to …"),
+never followed. Git-ignored rows keep their class and get a "git-ignored/local" note.
+project-doc also covers ADR folders: adr/, adrs/, decisions/, decision-records/.
+
+PREDECESSOR (the target has .claude/template.json): a row that would be "unknown" but is in the
+base_commit tree, or is one of the predecessor's named parts (docs/ai/README.md, checklists.md,
+config-guide.md, ai-config-hilfe.md, resources.md, template-feedback/, docs/project/coding_rules.d/,
+.claude/mcp-katalog.md, .mcp.json.example) — including .claude/template.json, .claude/TEMPLATE-
+LICENSE and .github/workflows/ci.yml, which no document extension lets the generic doc
+scan reach, so they are sighted by name here too, proposed "legacy" (template.json,
+TEMPLATE-LICENSE: never a blind delete) or, for ci.yml, "legacy" only while it still carries the
+predecessor's own placeholder steps (an `echo "TODO` line naming create-project.py or
+checklists.md), else "keep" — is class "predecessor". A row already "project-doc"
+reclassifies to "predecessor" only for a curated file name (docs/ai/README.md etc.) or, under a
+PREDECESSOR_PREFIXES directory (template-feedback/, coding_rules.d/), only when the path is
+confirmed present in the base_commit tree — a file the project added on its own under that same
+directory (docs/project/coding_rules.d/our-api.md, never part of any template) stays project-doc,
+flagged with a note that its directory is otherwise the predecessor's. Every row gets an origin:
+"template only" (each line is the base_commit's, after putting in the values of template.json §
+values; lines removed since do not count), "own text: n lines", or "unknown" when the base_commit
+is not in the history.
+
+PROPOSED ACTION (column "-> …", JSON "proposed"; the owner decides): log, work -> legacy;
+ai-config -> adopt, legacy if template only, keep for .claude/settings*.json and protected rows,
+for .claude/settings.local.json.example of a predecessor delete if template only, else legacy;
+ai-machinery -> delete if template only, keep if its origin is unknown, else adopt (a skill/agent
+unit whose own name is free) or legacy (a skill/agent unit whose name collides, case-insensitively,
+with the new template's own — its reserved "-<role>-high" variant included — adopt would be refused
+at --finish; the row's note points at the manual override) or keep (the rest); a README/description
+file directly under a MACHINERY_DIRS folder whose every OTHER sibling proposes delete/legacy follows
+them by its own origin instead of the generic ai-machinery rule (a README only describing scripts
+that are all gone is not current documentation either); project-doc -> keep (a root README.md too),
+docs/README.md and docs/project/coding_rules.md adopt (legacy if template only); predecessor ->
+delete (tooling, examples, docs/project/coding_rules.d/: template only), else legacy (docs, own
+lines included — the origin shows them); unknown -> keep. A link or protected row is always keep.
+Line breaks do not count: a line that is a stretch of a base paragraph (whitespace collapsed, at
+least 20 characters) is the template's.
+```
+
+## board.py
+
+Call: direct
+
+```text
+usage: board.py [-h] [--chat-language CODE] [--shared]
+
+Write the board view chosen by `board` in docs/ai/config.md: docs/ai/board.md (docs, shared) or
+.act-local/board-<branch>.md (local).
+
+options:
+  -h, --help            show this help message and exit
+  --chat-language CODE  remember the chat language recognized for this person on this machine
+                        (.act-local/identity.json) while language-chat is auto, then exit
+  --shared              with `board: shared`: also write the versioned docs/ai/board-<identity>.md
+                        (act-commit calls it; a plain run never touches that file)
+```
+
+## doctor.py
+
+Call: direct (judging the findings: skill `act-doctor`)
+
+```text
+usage: doctor.py [-h] [--target DIR] [--json] [--inbox] [--accept ID] [--accept-all]
+
+Mechanical project/template reconciliation — see the header comment for the full list of checks.
+
+options:
+  -h, --help    show this help message and exit
+  --target DIR  check this project instead of the current checkout
+  --json        machine-readable output
+  --inbox       also write docs/ai/inbox/report-<YYYYMMDD-HHMM>-doctor.md if there are findings
+  --accept ID   accept the current template text for ID (repeatable)
+  --accept-all  accept the current template text for every stale override/off
+```
+
+## entries.py
+
+Call: direct
+
+```text
+usage: entries.py [-h] {new,assign,state,start,list,check} ...
+
+Create and account for docs/ai/'s per-entry task/backlog/ledger/inbox files (inbox: question |
+todo | report | note).
+
+positional arguments:
+  {new,assign,state,start,list,check}
+    new                 create a new entry file
+    assign              hand out ids still missing ('team' mode: only on the default branch)
+    state               append a working-state line for an open task to .act-local/state/ — needs
+                        an id already assigned; in 'team' mode a task awaiting one (filename only)
+                        has no `state` target yet
+    start               mark an open task as started (versioned `started:` header) without a state
+                        line; `state` does the same on its first call
+    list                list entries, optionally filtered by kind
+    check               report a duplicate id or an entry file that isn't valid UTF-8
+
+options:
+  -h, --help            show this help message and exit
+```
+
+### `entries.py new`
+
+```text
+usage: entries.py new [-h] [--id ID] [--formerly OLD_ID] [--status {open,answered}]
+                      [--for IDENTITY] [--body-file PATH]
+                      {backlog,inbox,ledger,note,question,report,task,todo} title [title ...]
+
+positional arguments:
+  {backlog,inbox,ledger,note,question,report,task,todo}
+                        task | backlog | ledger | question | todo | report | note (inbox: alias
+                        for todo)
+  title                 entry title — becomes the file's heading
+
+options:
+  -h, --help            show this help message and exit
+  --id ID               keep this id (T/B/Q/U<n>, optional sub-letter); refused if taken or wrong
+                        prefix
+  --formerly OLD_ID     header line "formerly: <old id>"
+  --status {open,answered}
+                        question/todo/report/note entry (default open)
+  --for IDENTITY        task/todo/report/note entry: recipient (todo/report/note default all, task
+                        default this identity; all = shared)
+  --body-file PATH      body below the heading, copied verbatim (UTF-8)
+```
+
+### `entries.py assign`
+
+```text
+usage: entries.py assign [-h]
+
+options:
+  -h, --help  show this help message and exit
+```
+
+### `entries.py state`
+
+```text
+usage: entries.py state [-h] T-ID text [text ...]
+
+append a working-state line for an open task to .act-local/state/ — needs an id already assigned;
+in 'team' mode a task awaiting one (filename only) has no `state` target yet
+
+positional arguments:
+  T-ID        the task's id, e.g. T12
+  text        the state line's text, e.g. "step 3 running, next: ..."
+
+options:
+  -h, --help  show this help message and exit
+```
+
+### `entries.py start`
+
+```text
+usage: entries.py start [-h] T-ID
+
+mark an open task as started (versioned `started:` header) without a state line; `state` does the
+same on its first call
+
+positional arguments:
+  T-ID        the task's id, e.g. T12
+
+options:
+  -h, --help  show this help message and exit
+```
+
+### `entries.py list`
+
+```text
+usage: entries.py list [-h] [{backlog,inbox,ledger,note,question,report,task,todo}]
+
+positional arguments:
+  {backlog,inbox,ledger,note,question,report,task,todo}
+                        task | backlog | ledger | question | todo | report | note (inbox: alias
+                        for todo)
+
+options:
+  -h, --help            show this help message and exit
+```
+
+### `entries.py check`
+
+```text
+usage: entries.py check [-h]
+
+options:
+  -h, --help  show this help message and exit
+```
+
+## feedback.py
+
+Call: skill `act-feedback` (`--status`/`--due` alone are direct)
+
+```text
+usage: feedback.py [-h] [--status | --enable | --disable | --add | --plan | --send |
+                   --direct TEXT | --due | --postpone DAYS | --clear | --discard-harvest]
+                   [--target DIR] [--kind {rule,script,skill,workflow,docs,bug,mcp,link}]
+                   [--title TITLE] [--text TEXT] [--url URL] [--repo-url REPO_URL]
+                   [--mode {off,confirm,automatic,manual}] [--force] [--yes]
+
+Voluntary feedback to the template author - never without consent, never unseen.
+
+options:
+  -h, --help            show this help message and exit
+  --status              show the current state
+  --enable              set consent
+  --disable             revoke consent
+  --add                 store a finding in the outbox
+  --plan                show the payload, send nothing (default)
+  --send                send if consent, the privacy check and the cadence gate all allow it
+  --direct TEXT         send a hand-written message at once - works even with feedback off
+  --due                 report whether a reminder is due under the current cadence
+  --postpone DAYS       pause the due reminder for this many days and count it as a postponement
+  --clear               discard every waiting entry, send nothing
+  --discard-harvest     remove --target's .act-local/adopt/harvest.md, add nothing to the outbox
+  --target DIR          act on the project at DIR instead of the current checkout (act-adopt)
+  --kind {rule,script,skill,workflow,docs,bug,mcp,link}
+                        with --add
+  --title TITLE         with --add: one line
+  --text TEXT           with --add: two to six sentences
+  --url URL             with --add --kind link: the public address
+  --repo-url REPO_URL   with --enable: public repo URL (optional)
+  --mode {off,confirm,automatic,manual}
+                        with --enable: off, confirm, automatic (default), manual
+  --force               with --send: lift the cadence gate (not the consent gate)
+  --yes                 with --send and mode 'confirm': actually send after showing the payload
+```
+
+## forge.py
+
+Call: skills `act-pr`, `act-issue`, `act-integrations` (reads are direct; every write shows a preview and needs `--apply` after the human's "yes" (`topics/live-systems.md`))
+
+```text
+usage: forge.py [-h] [--root ROOT] [--remote REMOTE] [--json] <command> ...
+
+REST client for GitHub and GitLab issues and pull/merge requests (stdlib only). Writes only
+preview unless --apply is given. The token comes from the environment or .env, never from the
+command line.
+
+positional arguments:
+  <command>
+    detect          show host, kind, project, API base, where the access comes from and whether
+                    the token may go to the host
+    whoami          the user the token belongs to
+    project         name, default branch, visibility and URL of the project
+    default-branch  the project's default branch
+    target-branch   branch for pull requests: config, remote default, or development/develop/main
+    issues          list issues
+    issue           show one issue
+    prs             list pull/merge requests
+    branch-name     branch name for an issue
+    create-issue    create an issue (preview without --apply)
+    comment         comment on an issue (preview without --apply)
+    close-issue     close an issue (preview without --apply)
+    create-pr       create a pull/merge request (preview without --apply)
+    close-pr        close a pull/merge request (preview without --apply)
+
+options:
+  -h, --help        show this help message and exit
+  --root ROOT       project root (default: found from the current directory)
+  --remote REMOTE   git remote to use (default: origin, else the only one)
+  --json            print one JSON document instead of text
+```
+
+## ideas.py
+
+Call: direct (session start and init call it; run by hand to record entries as processed)
+
+```text
+usage: ideas.py [-h] [--check | --seen | --ensure]
+
+Entries of the per-person ideas file that are new or changed since they were last processed.
+
+options:
+  -h, --help  show this help message and exit
+  --check     list new or changed entries (default)
+  --seen      record every entry as processed
+  --ensure    create the README.md and own file if missing
+```
+
+## init.py
+
+Call: direct
+
+```text
+usage: init.py [-h] [--target TARGET] [--plan] [--non-interactive] [--no-commit] [--no-local]
+               [--no-profile] [--profile] [--language-docs CODE] [--language-chat CODE]
+
+Turn a template checkout into a project, or dock onto an existing directory (--target). Inside a
+project that is already set up, only --profile runs (see there); bringing .act/ up to date is
+update.py's job.
+
+options:
+  -h, --help            show this help message and exit
+  --target TARGET       create/dock in this directory instead of the current checkout
+  --plan                show what would happen, change nothing
+  --non-interactive     never prompt; take defaults, log open points to the inbox
+  --no-commit           do everything except the final commit
+  --no-local            --target only: don't carry over the source checkout's own rule/coding-rule
+                        deviations and docs/ai/local/ (Weg C, on by default)
+  --no-profile          don't offer the owner profile at %APPDATA%\act\settings.md /
+                        ~/.config/act/settings.md (on by default)
+  --profile             apply the owner profile without asking (its entries are shown first).
+                        Inside a project that is already set up (no --target) this is the only
+                        step that runs -- nothing else is touched, only what it wrote is committed
+                        ('catch up' path after a non-interactive first run); in a fresh clone or
+                        with --target it is part of the full run
+  --language-docs CODE  language of docs/ (e.g. de) instead of asking; default en (R-work-
+                        language)
+  --language-chat CODE  chat language (a code, or auto = follow the owner's messages) instead of
+                        asking
+```
+
+## integrations.py
+
+Call: skill `act-integrations` (`status` alone is direct)
+
+```text
+usage: integrations.py [-h] <command> ...
+
+Find and probe (read-only) the ways to the repo host and issue tracker, and keep the result in
+docs/project/integrations.md. Never writes to a live system.
+
+positional arguments:
+  <command>
+    check     detect, probe read-only, optionally write the file
+    status    exit 0 if the file exists and is fresh, else 3
+
+options:
+  -h, --help  show this help message and exit
+```
+
+## log.py
+
+Call: direct
+
+```text
+usage: log.py [-h] [--tail] [--grep PATTERN] [--lines N] [--no-color] [--status] [--reset]
+              [LEVEL] [AGENT] [TOPIC] ...
+
+Write one line to ai.log (LEVEL agent topic text...), or --tail/--status/--reset it. See
+.act/rules/topics/logging.md for when this runs and what a line looks like.
+
+positional arguments:
+  LEVEL           DEBUG|INFO|WARN|ERROR
+  AGENT           who acted, e.g. orchestrator, builder#2
+  TOPIC           one word, e.g. decision, commit, result
+  TEXT            the line's message, joined with spaces (may itself start with '-')
+
+options:
+  -h, --help      show this help message and exit
+  --tail          print the last lines of ai.log, then follow it
+  --grep PATTERN  with --tail: only lines matching this pattern
+  --lines N       with --tail: how many existing lines to print first (default: 20)
+  --no-color      with --tail: plain text, no ANSI colors
+  --status        show the effective config and label counters
+  --reset         rename ai.log to ai.log.<timestamp>.bak
+```
+
+## manifest.py
+
+Call: direct
+
+```text
+usage: manifest.py --write | --check
+```
+
+## rules.py
+
+Call: direct
+
+```text
+usage: rules.py [-h] [--area {coding,core}] [--list | --validate | --imports] [--from FILE] [id]
+
+Read the effective coding/core rules after the project's checkboxes and replacements are applied.
+
+positional arguments:
+  id                    print exactly this group/rule in full
+
+options:
+  -h, --help            show this help message and exit
+  --area {coding,core}  which rule area to read (default: coding)
+  --list                human overview, one line per set/group
+  --validate            schema + cross-checks, exit 1 on findings
+  --imports             files Claude Code loads through @-imports, exit 1 on any it cannot follow
+  --from FILE           start file for --imports, root-relative (default: CLAUDE.md)
+```
+
+## script_docs.py
+
+Call: direct
+
+```text
+usage: script_docs.py [-h] [--check]
+
+Generate .act/scripts/README.md from every script's own --help output.
+
+options:
+  -h, --help  show this help message and exit
+  --check     compare disk against the generated text, write nothing, exit 1 on any difference
+```
+
+## security_deep.py
+
+Call: direct (used by skill `act-release` with `security-check: full`)
+
+```text
+usage: security_deep.py [-h] [--since REF | --all] [--json] [--force]
+
+Deep security scan (Art C) over the files changed since a ref, via Semgrep.
+
+options:
+  -h, --help   show this help message and exit
+  --since REF  scan files changed since REF instead of the latest tag
+  --all        scan the whole tree instead of only changed files
+  --json       print findings as a JSON array instead of text
+  --force      run even when docs/ai/config.md's security-check is not 'full'
+```
+
+## security_scan.py
+
+Call: direct (also run before a commit that touches a lock file and daily at session start, with `security-check: deps`/`full`)
+
+```text
+usage: security_scan.py [-h] [--deps] [--json]
+
+Security check Art B -- dependency-vulnerability scan via osv-scanner or an ecosystem's own audit
+tool (npm audit / composer audit / pip-audit). Read-only except for the chosen tool's own network
+lookup; never installs or builds anything.
+
+options:
+  -h, --help  show this help message and exit
+  --deps      run the scan and print a summary
+  --json      with --deps: print the result as JSON instead of text
+```
+
+## settings_export.py
+
+Call: skill `act-export-settings`
+
+```text
+usage: settings_export.py [-h] [--all] [--with-scripts] [--with-checklists] [--with-agents]
+                          [--with-skills] [--with-files] [--strict] [--out PATH] [--profile]
+
+Write the project's rule deviations (and, with a switch, local scripts/checklists) to a portable
+settings file.
+
+options:
+  -h, --help         show this help message and exit
+  --all              include unchanged ('=') rules/groups too
+  --with-scripts     include docs/ai/local/scripts/ (forces --with-files)
+  --with-checklists  include docs/ai/local/checklists/ (forces --with-files)
+  --with-agents      include docs/ai/local/agents/, the project's own roles (forces --with-files)
+  --with-skills      include docs/ai/local/skills/, the project's own skills (forces --with-files)
+  --with-files       write a .zip even without --with-scripts/--with-checklists/--with-
+                     agents/--with-skills
+  --strict           abort on any finding instead of substituting a placeholder
+  --out PATH         output path (default: .act-local/export/act-settings-<date>.md|.zip)
+  --profile          write to the Owner's profile (platform config dir) instead of --out/the
+                     default location; backs up an existing profile file first
+```
+
+## settings_load.py
+
+Call: skill `act-load-settings`
+
+```text
+usage: settings_load.py [-h] {plan,apply} ...
+
+Import a settings file (act-export-settings' output) into this project.
+
+positional arguments:
+  {plan,apply}
+    plan        check only, write nothing to the project
+    apply       check, then write what is mechanically clear or judged
+
+options:
+  -h, --help    show this help message and exit
+```
+
+### `settings_load.py plan`
+
+```text
+usage: settings_load.py plan [-h] [--candidates-out PATH] [--json] [files ...]
+
+positional arguments:
+  files                 settings.md or settings.zip file(s), in order; default: every .md/.zip in
+                        .act-local/import/
+
+options:
+  -h, --help            show this help message and exit
+  --candidates-out PATH
+                        write the candidate-pair list here as JSON
+  --json                machine-readable output
+```
+
+### `settings_load.py apply`
+
+```text
+usage: settings_load.py apply [-h] [--judgments PATH] [--yes] [--non-interactive]
+                              [--resolve FILE=ACTION]
+                              [files ...]
+
+positional arguments:
+  files                 settings.md or settings.zip file(s), in order; default: every .md/.zip in
+                        .act-local/import/ (moved to .act-local/import/done/ once processed)
+
+options:
+  -h, --help            show this help message and exit
+  --judgments PATH      JSON verdicts for plan --candidates-out's pairs
+  --yes                 write bundled files without asking first
+  --non-interactive     never prompt (same effect as omitting --yes when stdin is not a terminal)
+  --resolve FILE=ACTION
+                        decide what happens to a not-fully-processed .act-local/import/ file
+                        (repeatable); ACTION is keep (default, offered again), partial (close it,
+                        keep what applied, discard the rest), ignore (move to import/ignored/,
+                        never offered again), or delete (remove the file) — only with the default
+                        no-argument .act-local/import/ discovery
+```
+
+## skills.py
+
+Call: direct (used by skill `act` and by dispatch.py's `/act` fast path)
+
+```text
+usage: skills.py [-h] [name]
+
+List the project's skills (name + description), or print one in full.
+
+positional arguments:
+  name        print exactly this skill's SKILL.md in full
+
+options:
+  -h, --help  show this help message and exit
+```
+
+## update.py
+
+Call: skill `act-update` (`--plan` alone is direct)
+
+```text
+usage: update.py [-h] [--source SOURCE] [--ref REF] [--on-local-changes {rescue,discard,abort}]
+                 [--yes] [--plan] [--no-commit] [--non-interactive] [--catch-up]
+
+Pull a newer state of the template into this project.
+
+options:
+  -h, --help            show this help message and exit
+  --source SOURCE       local directory or git URL/repo to update from (default: 'template'
+                        remote, else .act-lock.json)
+  --ref REF             tag or commit to update to (default: the source's default branch tip)
+  --on-local-changes {rescue,discard,abort}
+                        skip the step-2 prompt
+  --yes                 skip the interactive consent prompt (step 4)
+  --plan                show steps 1-3, describe 5-10, change nothing
+  --no-commit           do everything except the final commit
+  --non-interactive     never prompt
+  --catch-up            skip the fetch/diff/replace; finish steps 6-10 from the .act/ already on
+                        disk (e.g. after a plain 'git pull' of the template outside update.py) --
+                        refuses unless that tree still matches its own MANIFEST.json
+```
+
+## usage.py
+
+Call: direct
+
+```text
+usage: usage.py [-h] [--show | --outcome ROLE TIER OUTCOME | --unused KEY | --reset]
+
+Local usage counter: worker starts by role/tier/model, skill/command/script/checklist calls,
+worker outcomes.
+
+options:
+  -h, --help            show this help message and exit
+  --show                readable overview (default)
+  --outcome ROLE TIER OUTCOME
+                        record accepted|reworked|escalated for one role/tier
+  --unused KEY          exit 0 if KEY was never recorded, 1 if it was (see is_unused())
+  --reset               delete every recorded count
+```

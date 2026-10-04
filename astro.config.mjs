@@ -15,7 +15,7 @@ export default defineConfig({
 				root: { label: 'English', lang: 'en' },
 				de: { label: 'Deutsch', lang: 'de' },
 			},
-			plugins: [starlightLinksValidator({ errorOnFallbackPages: false })],
+			plugins: [starlightLinksValidator()],
 			social: [
 				{ icon: 'github', label: 'GitHub', href: 'https://github.com/wrufeger/agentic-coding-template' },
 			],

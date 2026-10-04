@@ -440,19 +440,45 @@ pages['index.md'] = buildIndex({
   codingRules: coding.count,
 });
 
-const changed = [];
+// German twins: same generated body (it stays English), German title/description and note.
+const deMeta = {
+  'index.md': ['Referenz', 'Referenzseiten, erzeugt aus dem Vorlagenstand, auf den dieses Projekt festgelegt ist.'],
+  'skills.md': ['Skills', 'Alle Skills der Vorlage mit ihrer einzeiligen Beschreibung.'],
+  'scripts.md': ['Scripts', 'Alle Scripts unter .act/scripts mit Zweck und Kommandozeilenhilfe.'],
+  'configuration.md': ['Konfiguration', 'Die Schlüssel in docs/ai/config.md: Abschnitte, Werte und die Prüftabelle.'],
+  'rules.md': ['Regeln', 'Die Regeln der Vorlage mit ihren stabilen Kennungen, nach Regeldatei gruppiert.'],
+  'topics.md': ['Themen', 'Detailseiten, auf die Regeln als topics/<name>.md verweisen.'],
+  'roles.md': ['Rollen', 'Die Worker-Rollen mit Stufe, Denktiefe und Werkzeugen.'],
+  'coding-rules.md': ['Coding-Regeln', 'Die Coding-Regelsätze je Sprache oder Framework mit ihren Gruppenkennungen.'],
+};
+const deNote = `Diese Referenz wird aus der Vorlage erzeugt und ist englisch; Stand: Vorlage ${version} (Commit ${commitShort}). Nicht von Hand ändern, neu erzeugen mit ${code('npm run gen')}.`;
+function germanTwin(name, text) {
+  const [title, description] = deMeta[name];
+  let out = text
+    .replace(/^title: .*$/m, () => `title: ${JSON.stringify(title)}`)
+    .replace(/^description: .*$/m, () => `description: ${JSON.stringify(description)}`)
+    .replace(stamp, () => deNote);
+  if (name === 'index.md') out = out.split(`${siteBase()}/reference/`).join(`${siteBase()}/de/reference/`);
+  return out;
+}
+const deDir = optValue('--out') ? path.join(outDir, 'de') : path.join(root, 'src', 'content', 'docs', 'de', 'reference');
+const targets = [];
 for (const name of Object.keys(pages).sort()) {
-  const p = path.join(outDir, name);
-  const cur = fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : null;
-  if (cur !== pages[name]) {
-    changed.push(name);
+  targets.push({ label: name, file: path.join(outDir, name), text: pages[name] });
+  targets.push({ label: `de/${name}`, file: path.join(deDir, name), text: germanTwin(name, pages[name]) });
+}
+const changed = [];
+for (const t of targets) {
+  const cur = fs.existsSync(t.file) ? fs.readFileSync(t.file, 'utf8') : null;
+  if (cur !== t.text) {
+    changed.push(t.label);
     if (!check) {
-      fs.mkdirSync(outDir, { recursive: true });
-      fs.writeFileSync(p, pages[name], 'utf8');
+      fs.mkdirSync(path.dirname(t.file), { recursive: true });
+      fs.writeFileSync(t.file, t.text, 'utf8');
     }
   }
 }
-const total = Object.keys(pages).length;
+const total = targets.length;
 if (check) {
   if (changed.length) {
     console.log(`gen-reference: ${changed.length} page(s) out of date: ${changed.join(', ')}`);

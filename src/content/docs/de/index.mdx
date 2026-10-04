@@ -1,12 +1,42 @@
 ---
 title: agentic-coding-template
-description: Dokumentation des Agentic-Coding-Templates (act).
+description: Mach deinen KI-Coding-Assistenten zu einem verlässlichen Teammitglied, in einem neuen oder einem bestehenden Projekt.
 template: splash
 hero:
-  tagline: Dokumentation im Aufbau
+  tagline: Dein KI-Coding-Assistent als verlässliches Teammitglied. Du setzt die Ziele und entscheidest; er plant, delegiert, belegt seine Ergebnisse und hält den Projektstand im Repository fest.
+  actions:
+    - text: Loslegen
+      link: /agentic-coding-template-docs/de/getting-started/new-project/
+      icon: right-arrow
+    - text: Referenz
+      link: /agentic-coding-template-docs/de/reference/
+      variant: minimal
+sourceHash: ccddc2649211e26e693b873ea24bbe69c27322ee5709e56623aff4d43c86a239
 ---
 
-Das Agentic-Coding-Template macht Ihren KI-Coding-Assistenten zu einem verlässlichen Teammitglied, in einem
-neuen oder einem bestehenden Projekt. Sie setzen die Ziele und entscheiden; der Assistent plant, übergibt die
-Arbeit an spezialisierte Sub-Agenten, belegt seine Ergebnisse und hält den Projektstand im Repository fest,
-sodass jede Sitzung dort weitermacht, wo die letzte aufgehört hat. Die Einrichtung braucht einen Satz im Chat.
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+Die Einrichtung braucht einen Satz im Chat. Von da an macht jede Sitzung dort weiter, wo die letzte aufgehört hat.
+
+<CardGrid>
+  <Card title="Skills und Sub-Agenten" icon="puzzle">
+    Mehr als zwanzig Skills für die tägliche Arbeit, von der Idee über Aufgabe, Fehlerbehebung und Refactoring
+    bis zum Release, und neun Worker-Rollen, jede mit eigener Modellstufe. Siehe
+    [Skills](/agentic-coding-template-docs/de/reference/skills/) und
+    [Rollen](/agentic-coding-template-docs/de/reference/roles/).
+  </Card>
+  <Card title="Regeln, die eingehalten werden" icon="approve-check">
+    Konzept vor Code, „fertig“ nur mit Beleg, nichts Unumkehrbares ohne dein Ja, keine Geheimnisse in
+    Befehlen, Commits oder Logs. In Claude Code erzwingen Hooks die mechanischen davon. Siehe
+    [Regeln](/agentic-coding-template-docs/de/reference/rules/).
+  </Card>
+  <Card title="Ein Protokoll der Arbeit" icon="open-book">
+    Aufgaben, Backlog, Fragen und ein Journal liegen in `docs/ai/`, versioniert mit deinem Code, sodass eine
+    neue Sitzung oder ein neues Teammitglied ohne Übergabegespräch weiterarbeiten kann.
+  </Card>
+  <Card title="Anpassbar und sicher zu aktualisieren" icon="setting">
+    Eine Datei, `docs/ai/config.md`, steuert den Arbeitsablauf. Jede Regel lässt sich abschalten oder
+    ersetzen, und `act-update` holt eine neuere Vorlage, ohne deine eigenen Inhalte zu überschreiben. Siehe
+    [Schichten und Überschreibungen](/agentic-coding-template-docs/de/concepts/layers/).
+  </Card>
+</CardGrid>
