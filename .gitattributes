@@ -19,3 +19,6 @@
 /.claude/skills/** text eol=lf
 /.agents/skills/** text eol=lf
 /.claude/agents/** text eol=lf
+
+# Docs repo: LF everywhere
+* text=auto eol=lf
