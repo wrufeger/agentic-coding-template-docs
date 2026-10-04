@@ -1,0 +1,139 @@
+---
+title: "Roles"
+description: "The worker roles with their tier, reasoning level and tools."
+sidebar:
+  order: 7
+---
+
+:::note
+Generated from template version 2.0.0 (commit 2a5095c) — do not edit by hand. Regenerate with `npm run gen`.
+:::
+
+9 roles. A role is a bounded kind of worker; its tier says how much model capacity it gets, and `.act/tiers.json` maps tiers to concrete models only at generation time.
+
+## builder
+
+Implements a bounded assignment - code, migration, tests, configuration - and returns a result plus evidence; never commits.
+
+- Tier: `standard`
+- Reasoning: `medium`
+- Tools: `Read, Write, Edit, Bash, Grep, Glob`
+
+Implements a bounded assignment: code, migration, tests, configuration. Applies `R-role-worker`.
+
+Source: `.act/agents/builder.md`
+
+## debugger
+
+Searches for a bug's cause by hypothesis rather than guesswork; reproduces first, separates symptom from cause.
+
+- Tier: `standard`
+- Reasoning: `high`
+- Tools: `Read, Bash, Grep, Glob`
+
+Searches for the cause of a reported bug that the orchestrator describes. Fixes nothing — the fix
+is a separate assignment (`builder`). Applies `R-role-worker`.
+
+Source: `.act/agents/debugger.md`
+
+## doc-writer
+
+Maintains docs/project/ (never docs/ai/) - works findings into the project docs, keeps cross-references and status markers current.
+
+- Tier: `standard`
+- Reasoning: `medium`
+- Tools: `Read, Write, Edit, Grep, Glob, Bash`
+
+Maintains `docs/project/` — project documentation, not the collaboration workspace under
+`docs/ai/`. Applies `R-role-worker`.
+
+Source: `.act/agents/doc-writer.md`
+
+## expert-solver
+
+High-reasoning escalation, called only after a worker has failed the same task twice or hit an unsolvable error.
+
+- Tier: `expert`
+- Reasoning: `max`
+- Tools: `Read, Edit, Write, Bash, Grep, Glob`
+
+Escalation only, per `R-role-escalate` — called after a worker has failed the same task twice, or
+an edge case has a standard worker stuck. Senior architect and problem-solver for exactly that
+case, not routine implementation. Applies `R-role-worker`.
+
+Source: `.act/agents/expert-solver.md`
+
+## explorer
+
+Read-only codebase research across multiple files and directories; reports findings backed by path:line.
+
+- Tier: `standard`
+- Reasoning: `low`
+- Tools: `Read, Grep, Glob, Bash`
+
+Read-only research across multiple files and directories; findings backed by `<path>:<line>`.
+Applies `R-role-worker`.
+
+Source: `.act/agents/explorer.md`
+
+## optimizer
+
+Polishes freshly written code for brevity and readability - at most two rounds, no algorithm tuning.
+
+- Tier: `standard`
+- Reasoning: `medium`
+- Tools: `Read, Edit, Bash, Grep, Glob`
+
+Runs after `builder`, only on the code that assignment just wrote — files and lines named in the
+assignment, never grown code from elsewhere and never project-wide. Applies `R-role-worker`.
+
+Source: `.act/agents/optimizer.md`
+
+## quick-check
+
+Fixed, read-only lookups without judgment (git status, tests, files, line counts).
+
+- Tier: `light`
+- Reasoning: `none`
+- Tools: `Read, Grep, Glob, Bash`
+
+Runs a fixed set of read-only lookups and returns the raw result, without judgment. Applies
+`R-role-worker`.
+
+Source: `.act/agents/quick-check.md`
+
+## reviewer
+
+Adversarial review before a commit — bugs, style, and task fidelity — plus ALLOW/BLOCK on a flagged safeguard call.
+
+- Tier: `elevated`
+- Reasoning: `high`
+- Tools: `Read, Bash, Grep, Glob`
+
+Adversarial review before a commit, plus ALLOW/BLOCK on a flagged tool call. Applies
+`R-role-worker`.
+
+Source: `.act/agents/reviewer.md`
+
+## test-writer
+
+Writes tests to existing code, or test-first from a concept/interface alone; checks behavior, not implementation.
+
+- Tier: `standard`
+- Reasoning: `medium`
+- Tools: `Read, Edit, Write, Bash, Grep, Glob`
+
+Writes tests — to existing code, or test-first from a concept/interface description alone — and
+proves them with a test run. Applies `R-role-worker`.
+
+Source: `.act/agents/test-writer.md`
+
+## Tier mapping (Claude Code)
+
+| Tier | Model alias |
+| :--- | :--- |
+| `light` | `haiku` |
+| `standard` | `sonnet` |
+| `elevated` | `opus` |
+| `high` | `opus` (reasoning one step higher) |
+| `expert` | `fable` |

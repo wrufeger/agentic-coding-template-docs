@@ -7,7 +7,10 @@
     "start": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "gen": "node scripts/gen-reference.mjs",
+    "gen:check": "node scripts/gen-reference.mjs --check",
+    "prebuild": "node scripts/gen-reference.mjs --check"
   },
   "dependencies": {
     "@astrojs/starlight": "^0.42.5",
