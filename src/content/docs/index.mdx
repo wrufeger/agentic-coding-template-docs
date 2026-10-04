@@ -1,12 +1,40 @@
 ---
 title: agentic-coding-template
-description: Documentation of the agentic coding template (act).
+description: Turn your AI coding assistant into a reliable member of the team, in a new project or one that already exists.
 template: splash
 hero:
-  tagline: Documentation in progress
+  tagline: Your AI coding assistant, working as a reliable member of the team. You set the goals and decide; it plans, delegates, proves its results, and keeps the project's state in the repository.
+  actions:
+    - text: Get started
+      link: /agentic-coding-template-docs/getting-started/new-project/
+      icon: right-arrow
+    - text: Reference
+      link: /agentic-coding-template-docs/reference/
+      variant: minimal
 ---
 
-The agentic coding template turns your AI coding assistant into a reliable member of the team, in a new
-project or one that already exists. You set the goals and decide; the assistant plans, hands the work to
-specialized sub-agents, proves its results, and keeps the project's state in the repository, so every
-session picks up where the last one stopped. Setting it up takes one sentence in the chat.
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+Setting it up takes one sentence in the chat. From then on every session picks up where the last one stopped.
+
+<CardGrid>
+  <Card title="Skills and sub-agents" icon="puzzle">
+    More than twenty skills for everyday work, from idea to task, bug fix, refactoring, and release, and
+    nine worker roles, each with its own model tier. See [Skills](/agentic-coding-template-docs/reference/skills/)
+    and [Roles](/agentic-coding-template-docs/reference/roles/).
+  </Card>
+  <Card title="Rules that are followed" icon="approve-check">
+    Concept before code, "done" only with evidence, nothing irreversible without your yes, no secrets in
+    commands, commits, or logs. In Claude Code, hooks enforce the mechanical ones. See
+    [Rules](/agentic-coding-template-docs/reference/rules/).
+  </Card>
+  <Card title="A record of the work" icon="open-book">
+    Tasks, backlog, questions, and a journal live in `docs/ai/`, versioned with your code, so a fresh
+    session or a new team member can continue without a hand-over meeting.
+  </Card>
+  <Card title="Yours to change, safe to update" icon="setting">
+    One file, `docs/ai/config.md`, steers the workflow. Every rule can be switched off or replaced, and
+    `act-update` brings in a newer template without overwriting your own content. See
+    [Layers and overrides](/agentic-coding-template-docs/concepts/layers/).
+  </Card>
+</CardGrid>
