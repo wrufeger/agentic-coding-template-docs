@@ -1,32 +1,31 @@
----
-title: "Konfiguration"
-description: "Die Schlüssel in docs/ai/config.md: Abschnitte, Werte und die Prüftabelle."
-sidebar:
-  order: 4
----
+<!-- German catalog for the reference page "configuration". One section per entry: the id is the heading, the
+source hash ties the text to its English source. Edit the German text by hand; remove the todo marker when done.
+Never translate commands, keys, ids or code. Maintained by scripts/gen-reference.mjs --skeleton and
+scripts/check-translations.mjs; see README "Editing the site". -->
 
-:::note
-Diese Seite wird aus dem Template 2.0.0 (Commit 8ad385e) erzeugt; die deutschen Texte stammen aus einem Katalog unter `src/translations/de/reference/`. Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
+## _intro
+<!-- source: eee8cb2b59a2166e -->
+<!-- todo: translate -->
+`init` fills in the values below from what it asked or detected. Change them any time — nothing here needs a rebuild; `.act/hooks/dispatch.py` reads this file at session start.
 
-Einzelne Einträge dieser Seite sind noch nicht übersetzt oder veraltet; sie stehen auf Englisch da und sind mit _(noch nicht übersetzt)_ markiert.
-:::
-
-`init` fills in the values below from what it asked or detected. Change them any time — nothing here needs a rebuild; `.act/hooks/dispatch.py` reads this file at session start. _(noch nicht übersetzt)_
-
-This is the template's default `config.md`; placeholders in angle brackets are filled in by `init`. _(noch nicht übersetzt)_
+## _note
+<!-- source: fa0fcf6cf2bcbd63 -->
+<!-- todo: translate -->
+This is the template's default `config.md`; placeholders in angle brackets are filled in by `init`.
 
 ## Project
-
+<!-- source: e340bc139b654764 -->
+<!-- todo: translate -->
 | Key | Value |
 | :--- | :--- |
-| `name` | &lt;name> |
-| `owner` | &lt;owner> |
-| `language-chat` | &lt;language-chat> |
-| `language-docs` | &lt;language-docs> |
-| `stack` | &lt;stack> |
-| `commands` | &lt;lint-command>, &lt;typecheck-command>, &lt;test-command> |
-| `tools` | &lt;tool-list> |
-| `mode` | &lt;mode> |
+| `name` | <name> |
+| `owner` | <owner> |
+| `language-chat` | <language-chat> |
+| `language-docs` | <language-docs> |
+| `stack` | <stack> |
+| `commands` | <lint-command>, <typecheck-command>, <test-command> |
+| `tools` | <tool-list> |
+| `mode` | <mode> |
 
 `language-chat` is the language the assistant talks in: `auto` (default) follows the owner's own
 messages, a code such as `de` fixes it. `language-docs` is the language of everything the
@@ -45,10 +44,9 @@ same either way, so you can switch back and forth at any time — IDs already as
 are, only later ones follow the new value. The IDs are `T<n>` (task), `B<n>` (backlog item), `Q<n>`
 (question) and `U<n>` (todo for you); a report or note has none.
 
-_(noch nicht übersetzt)_
-
 ## Status line
-
+<!-- source: e012c1dd0a03740c -->
+<!-- todo: translate -->
 Claude Code's status line (`statusLine` in `.claude/settings.json`) shows what is waiting for you
 in `docs/ai/inbox/` and how many open tasks there are — set by the template the first time there is
 none yet. To turn it off for good: set your own `statusLine` command, even a trivial one — the
@@ -59,10 +57,9 @@ only until the next `init`/`update` run, which finds none set and adds the templ
 user-wide `statusLine` already exists (`~/.claude/settings.json`), the project is left with none of
 its own from the start, so the two never overlap — a one-line note says so at setup/update time.
 
-_(noch nicht übersetzt)_
-
 ## Board
-
+<!-- source: c6529e28a0633f98 -->
+<!-- todo: translate -->
 | Key | Value |
 | :--- | :--- |
 | `board` | docs |
@@ -78,10 +75,9 @@ rebase, switch, checkout …); a versioned file is never rewritten by that. `boa
 section for tasks assigned to others (`for:` in the task header); with `shared` it also lists the others'
 committed boards. Empty means `on` with `mode: team`, `off` otherwise.
 
-_(noch nicht übersetzt)_
-
 ## Inbox
-
+<!-- source: fc852c30405eeb0e -->
+<!-- todo: translate -->
 | Key | Value |
 | :--- | :--- |
 | `inbox-decisions` | immediate |
@@ -92,10 +88,9 @@ shows everything waiting. `at-start`: a backlog entry may keep its open decision
 `decision: open`, listed on the board — until work on it starts (`act-prepare`); a task always has
 them in the inbox (`R-human-ask`).
 
-_(noch nicht übersetzt)_
-
 ## Output depth
-
+<!-- source: 286c0b8258438ed0 -->
+<!-- todo: translate -->
 | Key | Value |
 | :--- | :--- |
 | `output-depth` | normal |
@@ -103,10 +98,9 @@ _(noch nicht übersetzt)_
 `verbose` \| `normal` \| `sparse`. Controls what the assistant *writes* in chat, not what the
 tool's own interface displays — see `docs/README.md` for the per-tool display settings.
 
-_(noch nicht übersetzt)_
-
 ## Dependencies
-
+<!-- source: e93a0ba1929e8873 -->
+<!-- todo: translate -->
 | Key | Value |
 | :--- | :--- |
 | `dependency-check` | once |
@@ -116,10 +110,9 @@ asking to run `act-deps`, then only on request; `regularly` instead notes at ses
 start when the last `act-deps` run (a journal entry titled `act-deps: ...`) is older than 30 days;
 `never` does neither — the skill itself still runs on explicit request either way.
 
-_(noch nicht übersetzt)_
-
 ## Docs audit
-
+<!-- source: 6ba9bfc48adc8f43 -->
+<!-- todo: translate -->
 | Key | Value |
 | :--- | :--- |
 | `docs-audit-due` | 30d/100c |
@@ -129,10 +122,9 @@ _(noch nicht übersetzt)_
 *or* this many commits, or once only when there is none yet — never a blocker, and only while
 `docs/project/` exists. A missing or malformed value counts as `30d/100c`.
 
-_(noch nicht übersetzt)_
-
 ## Git hosting
-
+<!-- source: 0464af45ac916d67 -->
+<!-- todo: translate -->
 | Key | Value |
 | :--- | :--- |
 | `target-branch` | auto |
@@ -153,10 +145,9 @@ this keeps a global token from going to a foreign host. Without it reads run wit
 `issues --mine` and every write stop with a hint before any request. A confirmed host reached over
 `http://` gets the same treatment until its address is `https://`.
 
-_(noch nicht übersetzt)_
-
 ## Checks
-
+<!-- source: b314aeb0299e1726 -->
+<!-- todo: translate -->
 Each check below runs before the action it names; `block` refuses the action, `warn` allows it
 with a note, `off` skips the check entirely. A check that only ever notes (marked "never
 refuses") treats `block` as `warn`.
@@ -182,10 +173,9 @@ refuses") treats `block` as `warn`.
 | `update-branch-hint` | warn | update or settings import on a branch other than the default one: one note that the others get it only with the merge — never refuses, `block` counts as `warn`, `off` drops the note |
 | `update-check` | block | at session start: a note if `.act/` was pulled in without `update.py`, and — at most once a day — a note if the template has moved on; never refuses, `off` skips both |
 
-_(noch nicht übersetzt)_
-
 ## Logging
-
+<!-- source: 9fb49fc66248da1d -->
+<!-- todo: translate -->
 | Key | Value |
 | :--- | :--- |
 | `logging` | off |
@@ -195,13 +185,12 @@ _(noch nicht übersetzt)_
 project root (not versioned) — to follow along live, e.g. in a second terminal during a talk.
 `log-level`: `DEBUG` \| `INFO` \| `WARN` \| `ERROR`. Details: `.act/rules/topics/logging.md`.
 
-_(noch nicht übersetzt)_
-
 ## Feedback
-
+<!-- source: 45264bf2783aa47d -->
+<!-- todo: translate -->
 | Key | Value |
 | :--- | :--- |
-| `feedback` | &lt;feedback-mode> |
+| `feedback` | <feedback-mode> |
 | `feedback-cadence` | weekly |
 | `feedback-scope` | a,b,c |
 
@@ -213,10 +202,9 @@ local (`.act-local/feedback/sent/`, gitignored) — each send also gets one line
 (date, kind, entry count, schema version, never content). A message you write yourself
 (`feedback: <text>`) always goes out, even with `off`. Details: `.act/rules/topics/feedback.md`.
 
-_(noch nicht übersetzt)_
-
 ## Tips
-
+<!-- source: 1a90246f22239098 -->
+<!-- todo: translate -->
 | Key | Value |
 | :--- | :--- |
 | `tips` | occasionally |
@@ -225,14 +213,11 @@ _(noch nicht übersetzt)_
 session). Tips come from `.act/tips.md` and disappear once you use the feature. Your own reminders
 in `docs/ai/local/reminders.md` are not affected by this key.
 
-_(noch nicht übersetzt)_
-
 ## Roles
-
+<!-- source: 10cdbdc9e4ce09c6 -->
+<!-- todo: translate -->
 | Role | Tier | Reasoning | Model |
 | :--- | :--- | :--- | :--- |
 
 Empty by default: every role runs the tier/reasoning the template ships. Fill a row to override
 one role's tier and/or reasoning, or set `Model` outright — a filled `Model` wins over `Tier`.
-
-_(noch nicht übersetzt)_

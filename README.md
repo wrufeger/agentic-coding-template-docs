@@ -29,6 +29,13 @@ the owner's word.
   (`translations.de`).
 - The landing page is `src/content/docs/index.mdx` (and `de/index.mdx`).
 - Reference pages are generated: change the template or `scripts/gen-reference.mjs`, then `npm run gen`.
+- German reference texts live in a catalog, `src/translations/de/reference/<page>.md`: one `## <id>` section per entry
+  with `<!-- source: <hash> -->` of its English text. `npm run translations:skeleton` adds entries for new ids
+  (English text, marked `<!-- todo: translate -->`, never overwriting); translate the text, remove the marker, run
+  `npm run gen`. A missing, todo or stale entry shows the English text with "_(noch nicht übersetzt)_".
+  `npm run check:translations` lists them per page (and orphans); after reviewing stale entries,
+  `node scripts/check-translations.mjs --stamp-catalog <page>` stamps all non-todo entries of that page.
+  Commands, keys, ids, code and `--help` output are never in the catalog.
 - After changing an English page, `npm run check:translations` lists the stale German page; after updating it,
   run `node scripts/check-translations.mjs --stamp <de-file>`.
 - German wording follows `docs/project/german-glossary.md`.

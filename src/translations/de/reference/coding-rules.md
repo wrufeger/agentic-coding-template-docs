@@ -1,36 +1,22 @@
----
-title: "Coding-Regeln"
-description: "Die Coding-Regelsätze je Sprache oder Framework mit ihren Gruppenkennungen."
-sidebar:
-  order: 8
----
-
-:::note
-Diese Seite wird aus dem Template 2.0.0 (Commit 8ad385e) erzeugt; die deutschen Texte stammen aus einem Katalog unter `src/translations/de/reference/`. Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
-
-Einzelne Einträge dieser Seite sind noch nicht übersetzt oder veraltet; sie stehen auf Englisch da und sind mit _(noch nicht übersetzt)_ markiert.
-:::
-
-11 Regelsätze mit 39 Gruppen. A project switches a set on in `docs/project/coding_rules.md`; group IDs `CR-<set>-<name>` are stable. _(noch nicht übersetzt)_
+<!-- German catalog for the reference page "coding-rules". One section per entry: the id is the heading, the
+source hash ties the text to its English source. Edit the German text by hand; remove the todo marker when done.
+Never translate commands, keys, ids or code. Maintained by scripts/gen-reference.mjs --skeleton and
+scripts/check-translations.mjs; see README "Editing the site". -->
 
 ## bash
-
-**Coding rules — Bash**
-
-Quelle: `.act/coding/bash.md`
-
-Kurzfassung: strict mode, quoting, exit codes, error messages, shellcheck, pitfalls
+<!-- source: 5ccd706af7f08593 -->
+<!-- todo: translate -->
+Coding rules — Bash
+summary: strict mode, quoting, exit codes, error messages, shellcheck, pitfalls
 
 Rules for Bash scripts. Group IDs (`CR-bash-<name>`) are stable and never reassigned; a group
 whose purpose no longer holds gets a new ID and is listed as `retired:` in this header.
 
-_(noch nicht übersetzt)_
-
-### CR-bash-basics
-
-**Strict mode, quoting, error handling, shellcheck**
-
-Kurzfassung: set -euo pipefail, quoting, deliberate exit codes, errors on stderr, shellcheck, pitfalls
+## CR-bash-basics
+<!-- source: 3031ea346436f142 -->
+<!-- todo: translate -->
+Strict mode, quoting, error handling, shellcheck
+summary: set -euo pipefail, quoting, deliberate exit codes, errors on stderr, shellcheck, pitfalls
 
 - Start every script with `set -euo pipefail` as the first executable line.
 - Quote variables consistently (`"$var"`), especially paths that may contain spaces.
@@ -46,13 +32,11 @@ Kurzfassung: set -euo pipefail, quoting, deliberate exit codes, errors on stderr
   - Check the result of `cd` (`cd dir || exit 1`); otherwise following commands run in the
     wrong directory.
 
-_(noch nicht übersetzt)_
-
-### CR-bash-script-shape
-
-**One script, one purpose**
-
-Kurzfassung: header comment, functions over duplication, single-purpose scripts
+## CR-bash-script-shape
+<!-- source: 01029fe0b544ff6a -->
+<!-- todo: translate -->
+One script, one purpose
+summary: header comment, functions over duplication, single-purpose scripts
 
 - Start with a header comment stating purpose, an example call, and the expected output/exit
   behavior.
@@ -60,26 +44,20 @@ Kurzfassung: header comment, functions over duplication, single-purpose scripts
 - One script, one clearly named purpose — no multi-purpose script with mode flags for
   unrelated tasks.
 
-_(noch nicht übersetzt)_
-
 ## csharp
-
-**Coding rules — C#**
-
-Quelle: `.act/coding/csharp.md`
-
-Kurzfassung: nullable context, async conventions, error handling, analyzers, DI, library code
+<!-- source: 353516e5996fb867 -->
+<!-- todo: translate -->
+Coding rules — C#
+summary: nullable context, async conventions, error handling, analyzers, DI, library code
 
 Rules for C# projects. Group IDs (`CR-csharp-<name>`) are stable and never reassigned; a group
 whose purpose no longer holds gets a new ID and is listed as `retired:` in this header.
 
-_(noch nicht übersetzt)_
-
-### CR-csharp-basics
-
-**Nullable context, async, error handling, analyzers**
-
-Kurzfassung: nullable enabled, async suffix, no async void, no blocking on tasks, using, exceptions
+## CR-csharp-basics
+<!-- source: 912e974f283d9801 -->
+<!-- todo: translate -->
+Nullable context, async, error handling, analyzers
+summary: nullable enabled, async suffix, no async void, no blocking on tasks, using, exceptions
 
 - Keep the nullable context (`<Nullable>enable</Nullable>`) on project-wide; do not suppress the
   warnings it produces.
@@ -95,58 +73,46 @@ Kurzfassung: nullable enabled, async suffix, no async void, no blocking on tasks
 - Run `dotnet format` and the analyzer rules (`.editorconfig` section `dotnet_diagnostic`) as the
   stack's standard linting/static analysis; set them up in every project, run what is installed.
 
-_(noch nicht übersetzt)_
-
-### CR-csharp-conventions
-
-**var, records, one type per file**
-
-Kurzfassung: var only for an obvious type, records for value objects, one public type per file
+## CR-csharp-conventions
+<!-- source: ea7611f7c92f8945 -->
+<!-- todo: translate -->
+var, records, one type per file
+summary: var only for an obvious type, records for value objects, one public type per file
 
 - Use `var` only when the type is obvious from the right-hand side, an explicit type otherwise.
 - Use records for immutable value objects/DTOs, classes for objects with identity and behavior.
 - One public type per file, with the file name matching the type name.
 
-_(noch nicht übersetzt)_
-
-### CR-csharp-dependency-injection
-
-**Constructor injection**
-
-Kurzfassung: constructor injection, no service locator
+## CR-csharp-dependency-injection
+<!-- source: 42475e085b79c7d9 -->
+<!-- todo: translate -->
+Constructor injection
+summary: constructor injection, no service locator
 
 - Inject dependencies through the constructor; no hidden service-locator access.
 
-_(noch nicht übersetzt)_
-
-### CR-csharp-library-code
-
-**ConfigureAwait in library code**
-
-Kurzfassung: ConfigureAwait(false) in code without a UI context
+## CR-csharp-library-code
+<!-- source: 9b8d2f37173ea8e5 -->
+<!-- todo: translate -->
+ConfigureAwait in library code
+summary: ConfigureAwait(false) in code without a UI context
 
 - Use `ConfigureAwait(false)` in library code that has no dependency on a UI context.
 
-_(noch nicht übersetzt)_
-
 ## go
-
-**Coding rules — Go**
-
-Quelle: `.act/coding/go.md`
-
-Kurzfassung: strict error checking, static analysis tooling, package design
+<!-- source: a1cf0bbe4110476f -->
+<!-- todo: translate -->
+Coding rules — Go
+summary: strict error checking, static analysis tooling, package design
 
 Rules for Go projects. Group IDs (`CR-go-<name>`) are stable and never reassigned; a group
 whose purpose no longer holds gets a new ID and is listed as `retired:` in this header.
 
-_(noch nicht übersetzt)_
-
-### CR-go-basics
-
-**Error handling, formatting, static analysis**
-
-Kurzfassung: check and wrap errors, format with gofmt, run vet/staticcheck, avoid panics and leaks
+## CR-go-basics
+<!-- source: f62de315fb3c3976 -->
+<!-- todo: translate -->
+Error handling, formatting, static analysis
+summary: check and wrap errors, format with gofmt, run vet/staticcheck, avoid panics and leaks
 
 - Format every file with `gofmt`/`goimports` before committing; no hand-tuned deviation from either.
 - Check an error immediately after the call that returned it (`if err != nil`) instead of collecting
@@ -162,39 +128,31 @@ Kurzfassung: check and wrap errors, format with gofmt, run vet/staticcheck, avoi
   with no way to stop is a leak.
 - Synchronize state shared between goroutines through channels or explicit locks, never silently.
 
-_(noch nicht übersetzt)_
-
-### CR-go-package-design
-
-**Small interfaces, no grab-bag packages**
-
-Kurzfassung: interfaces defined by the consumer, packages named and cut by domain
+## CR-go-package-design
+<!-- source: 2a236e6b334ba672 -->
+<!-- todo: translate -->
+Small interfaces, no grab-bag packages
+summary: interfaces defined by the consumer, packages named and cut by domain
 
 - Define interfaces on the consumer side (small, often one or two methods), not upfront by the
   provider that implements them.
 - Give packages short, meaningful names cut by domain; no `util`/`common` grab-bag package without a
   real subject of its own.
 
-_(noch nicht übersetzt)_
-
 ## java
-
-**Coding rules — Java**
-
-Quelle: `.act/coding/java.md`
-
-Kurzfassung: nullability, error handling, structure, toolchain, tests
+<!-- source: e99152267bb70f37 -->
+<!-- todo: translate -->
+Coding rules — Java
+summary: nullability, error handling, structure, toolchain, tests
 
 Rules for Java projects. Group IDs (`CR-java-<name>`) are stable and never reassigned; a group
 whose purpose no longer holds gets a new ID and is listed as `retired:` in this header.
 
-_(noch nicht übersetzt)_
-
-### CR-java-basics
-
-**Nullability, error handling, established pitfalls**
-
-Kurzfassung: explicit nullability, no raw types, correct exception handling, logging and SQL safety
+## CR-java-basics
+<!-- source: 484e3bbc035a0768 -->
+<!-- todo: translate -->
+Nullability, error handling, established pitfalls
+summary: explicit nullability, no raw types, correct exception handling, logging and SQL safety
 
 - Make nullability explicit on fields, parameters and return types (JSpecify `@Nullable`/`@NonNull` or
   the alternative the project has fixed on) instead of leaving it implicit.
@@ -217,13 +175,11 @@ Kurzfassung: explicit nullability, no raw types, correct exception handling, log
 - Static analysis is the stack's standard — set it up, but run only what is installed; if a tool is
   missing, say so once and install nothing unasked.
 
-_(noch nicht übersetzt)_
-
-### CR-java-modern-idioms
-
-**Records, sealed types, text blocks, virtual threads**
-
-Kurzfassung: modern language features, requires Java 17 for most, Java 21 for virtual threads
+## CR-java-modern-idioms
+<!-- source: 6685f30bda21814b -->
+<!-- todo: translate -->
+Records, sealed types, text blocks, virtual threads
+summary: modern language features, requires Java 17 for most, Java 21 for virtual threads
 
 - Use records for immutable data carriers (DTOs, value objects) instead of a manual class with
   getters, `equals`, `hashCode` and a constructor — requires Java 17 (records) or 16 (preview).
@@ -234,39 +190,33 @@ Kurzfassung: modern language features, requires Java 17 for most, Java 21 for vi
 - Use virtual threads only where the runtime and every library on the path support them — requires
   Java 21.
 
-_(noch nicht übersetzt)_
-
-### CR-java-structure
-
-**Package cut, immutability, constructor injection**
-
-Kurzfassung: packages by domain, immutability as the default, constructor injection
+## CR-java-structure
+<!-- source: bf4cc84ed8f80849 -->
+<!-- todo: translate -->
+Package cut, immutability, constructor injection
+summary: packages by domain, immutability as the default, constructor injection
 
 - Cut packages by business domain, not by technical layer.
 - Keep visibility as narrow as possible, fields `final`, no setter without a reason — immutability is
   the default and the best guard against concurrency bugs.
 - Use constructor injection instead of field injection, even outside a DI container.
 
-_(noch nicht übersetzt)_
-
-### CR-java-toolchain
-
-**Build and static analysis tools**
-
-Kurzfassung: Maven or Gradle by default; static analysis whichever the project has set up
+## CR-java-toolchain
+<!-- source: 381e2c8f7ee679b2 -->
+<!-- todo: translate -->
+Build and static analysis tools
+summary: Maven or Gradle by default; static analysis whichever the project has set up
 
 - Build with Maven or Gradle — the project decides which.
 - Enforce formatting and static analysis in CI: Spotless or google-java-format for formatting, plus
   Checkstyle, SpotBugs, Error Prone or PMD — the template's usual choice; run whatever the project
   actually has set up (see `R-code-tools`).
 
-_(noch nicht übersetzt)_
-
-### CR-java-tests
-
-**JUnit 5 with AssertJ by default**
-
-Kurzfassung: JUnit 5/AssertJ by default, behavior-describing names, no unseeded randomness, no Thread.sleep
+## CR-java-tests
+<!-- source: 46082cb29b5e2077 -->
+<!-- todo: translate -->
+JUnit 5 with AssertJ by default
+summary: JUnit 5/AssertJ by default, behavior-describing names, no unseeded randomness, no Thread.sleep
 
 - Write tests with JUnit 5 and AssertJ — the template's usual choice; use the test framework the
   project actually has set up instead (see `R-code-tools`).
@@ -274,28 +224,22 @@ Kurzfassung: JUnit 5/AssertJ by default, behavior-describing names, no unseeded 
 - Never use randomness without a fixed seed.
 - Never wait with `Thread.sleep`; wait on the actual condition instead.
 
-_(noch nicht übersetzt)_
-
 ## nuxt
-
-**Coding rules — Nuxt**
-
-Quelle: `.act/coding/nuxt.md`
-
-Kurzfassung: directory conventions, data fetching, runtime config, SSR mode, tooling
+<!-- source: de51014c7dacc9f2 -->
+<!-- todo: translate -->
+Coding rules — Nuxt
+summary: directory conventions, data fetching, runtime config, SSR mode, tooling
 
 requires: vue, typescript
 
 Rules for Nuxt projects. Group IDs (`CR-nuxt-<name>`) are stable and never reassigned; a group
 whose purpose no longer holds gets a new ID and is listed as `retired:` in this header.
 
-_(noch nicht übersetzt)_
-
-### CR-nuxt-basics
-
-**Established Nuxt defaults**
-
-Kurzfassung: directory layout, data fetching, typed handlers, runtime config, pitfalls
+## CR-nuxt-basics
+<!-- source: beb284259423da23 -->
+<!-- todo: translate -->
+Established Nuxt defaults
+summary: directory layout, data fetching, typed handlers, runtime config, pitfalls
 
 - Follow the directory convention (`pages/`, `components/`, `composables/`, `server/`) instead of
   inventing a structure; use auto-imports, no manual re-exports for files in those directories.
@@ -342,13 +286,11 @@ Kurzfassung: directory layout, data fetching, typed handlers, runtime config, pi
     port and HMR/WebSocket errors follow. Kill the running process (`netstat -ano | findstr :3000`,
     `taskkill /PID <pid> /F`; `lsof -i :3000`, `kill <pid>`) instead of configuring a custom HMR port.
 
-_(noch nicht übersetzt)_
-
-### CR-nuxt-root-folders
-
-**Fixed root folders with their own aliases**
-
-Kurzfassung: /types, /constants and /server at the repo root, each the only place of its kind
+## CR-nuxt-root-folders
+<!-- source: a3ad57821a6f8362 -->
+<!-- todo: translate -->
+Fixed root folders with their own aliases
+summary: /types, /constants and /server at the repo root, each the only place of its kind
 
 - Keep three folders at the repository root, each with its own alias and each the only place of its kind:
   `/types` (`~types`, shared types and interfaces), `/constants` (`~constants`, constants, enumerations,
@@ -356,13 +298,11 @@ Kurzfassung: /types, /constants and /server at the repo root, each the only plac
 - Import types and constants from there instead of duplicating them in components. A second type folder
   under `app/types/` is a mistake, not an addition.
 
-_(noch nicht übersetzt)_
-
-### CR-nuxt-ssr
-
-**Choose the SSR mode on purpose**
-
-Kurzfassung: ask before assuming SSR, know the hydration cost, check for mismatches after SSR work
+## CR-nuxt-ssr
+<!-- source: 4301f7390de1d1f2 -->
+<!-- todo: translate -->
+Choose the SSR mode on purpose
+summary: ask before assuming SSR, know the hydration cost, check for mismatches after SSR work
 
 - `ssr: false` or a plain SPA is often the simpler choice for a purely local UI with no SEO or
   first-paint requirement (e.g. an admin tool). Ask the user once, when scaffolding or restructuring
@@ -380,25 +320,21 @@ Kurzfassung: ask before assuming SSR, know the hydration cost, check for mismatc
 - Copying a `useFetch`/`useAsyncData` result into your own `ref` is a common hydration-mismatch
   cause too — see `CR-nuxt-basics` for why and the fix, not repeated here.
 
-_(noch nicht übersetzt)_
-
-### CR-nuxt-toolchain
-
-**Lint and format tooling**
-
-Kurzfassung: ESLint with `@nuxt/eslint` plus Prettier, whichever the project has set up
+## CR-nuxt-toolchain
+<!-- source: 342a42a91eb9e683 -->
+<!-- todo: translate -->
+Lint and format tooling
+summary: ESLint with `@nuxt/eslint` plus Prettier, whichever the project has set up
 
 - ESLint with `@nuxt/eslint`, configured in `eslint.config.mjs`, and Prettier for formatting are the
   template's usual choice; what the project actually has installed and configured governs
   (see `R-code-tools`).
 
-_(noch nicht übersetzt)_
-
-### CR-nuxt-tests
-
-**Unit and end-to-end tests**
-
-Kurzfassung: vitest/Playwright by default, but whichever suite the project runs must pass
+## CR-nuxt-tests
+<!-- source: 0e92ef5e3df806c0 -->
+<!-- todo: translate -->
+Unit and end-to-end tests
+summary: vitest/Playwright by default, but whichever suite the project runs must pass
 
 - `vitest` (`vitest.config.ts`) for unit and component tests, `@playwright/test`
   (`playwright.config.ts`) for end-to-end tests — the template's usual choice; if the project has a
@@ -406,26 +342,20 @@ Kurzfassung: vitest/Playwright by default, but whichever suite the project runs 
   instead (see `R-code-tools`).
 - Whichever test suites the project actually has exist and run; a change that breaks them is not done.
 
-_(noch nicht übersetzt)_
-
 ## php
-
-**Coding rules — PHP**
-
-Quelle: `.act/coding/php.md`
-
-Kurzfassung: strict types, PSR-12/PSR-4, exceptions, prepared statements, toolchain
+<!-- source: 6d28e3173cec2ea7 -->
+<!-- todo: translate -->
+Coding rules — PHP
+summary: strict types, PSR-12/PSR-4, exceptions, prepared statements, toolchain
 
 Rules for PHP projects (8.x and later). Group IDs (`CR-php-<name>`) are stable and never reassigned; a
 group whose purpose no longer holds gets a new ID and is listed as `retired:` in this header.
 
-_(noch nicht übersetzt)_
-
-### CR-php-basics
-
-**Strict types, safe errors, safe queries**
-
-Kurzfassung: strict_types, PSR-12/PSR-4, typed methods, exceptions, PDO, production errors, static analysis
+## CR-php-basics
+<!-- source: 34fdd424990e0f9f -->
+<!-- todo: translate -->
+Strict types, safe errors, safe queries
+summary: strict_types, PSR-12/PSR-4, typed methods, exceptions, PDO, production errors, static analysis
 
 - Put `declare(strict_types=1);` as the first statement in every PHP file.
 - Follow PSR-12 for formatting (4-space indentation) and PSR-4 for namespaces, one namespace per
@@ -447,48 +377,38 @@ Kurzfassung: strict_types, PSR-12/PSR-4, typed methods, exceptions, PDO, product
 - Static analysis is the stack's standard and belongs in the project. Run what is installed, install
   nothing unasked.
 
-_(noch nicht übersetzt)_
-
-### CR-php-conventions
-
-**Closures over global callbacks**
-
-Kurzfassung: arrow functions and closures instead of global callback functions
+## CR-php-conventions
+<!-- source: 75963d2d459eda52 -->
+<!-- todo: translate -->
+Closures over global callbacks
+summary: arrow functions and closures instead of global callback functions
 
 - Use arrow functions/closures instead of global callback functions.
 
-_(noch nicht übersetzt)_
-
-### CR-php-toolchain
-
-**Formatter and static analysis tooling**
-
-Kurzfassung: PHP-CS-Fixer/PHP_CodeSniffer plus PHPStan/Psalm by default, or what the project has set up
+## CR-php-toolchain
+<!-- source: ff6f339a77178e02 -->
+<!-- todo: translate -->
+Formatter and static analysis tooling
+summary: PHP-CS-Fixer/PHP_CodeSniffer plus PHPStan/Psalm by default, or what the project has set up
 
 - PHP-CS-Fixer or PHP_CodeSniffer, configured for PSR-12, and PHPStan or Psalm for static analysis —
   the template's usual choice; run whatever the project actually has set up (see `R-code-tools`).
 
-_(noch nicht übersetzt)_
-
 ## python
-
-**Coding rules — Python**
-
-Quelle: `.act/coding/python.md`
-
-Kurzfassung: strict annotations, stdlib-first, data models, module layout, toolchain, tests
+<!-- source: a65faf9791aea834 -->
+<!-- todo: translate -->
+Coding rules — Python
+summary: strict annotations, stdlib-first, data models, module layout, toolchain, tests
 
 Rules for Python 3 with type annotations, a stdlib-first preference and automated linting. Group IDs
 (`CR-python-<name>`) are stable and never reassigned; a group whose purpose no longer holds gets a new ID
 and is listed as `retired:` in this header.
 
-_(noch nicht übersetzt)_
-
-### CR-python-basics
-
-**Established Python defaults**
-
-Kurzfassung: annotations, f-strings, context managers, exception handling, venv, lint
+## CR-python-basics
+<!-- source: c03ef771d847127a -->
+<!-- todo: translate -->
+Established Python defaults
+summary: annotations, f-strings, context managers, exception handling, venv, lint
 
 - Annotate every function signature (parameters and return value), including internal/private functions.
 - Use f-strings, not `%` formatting or `.format()`.
@@ -503,83 +423,67 @@ Kurzfassung: annotations, f-strings, context managers, exception handling, venv,
   `poetry.lock`); never a global install of project dependencies.
 - Lint is the stack's standard and belongs in the project; run what is installed, install nothing unasked.
 
-_(noch nicht übersetzt)_
-
-### CR-python-stdlib-first
-
-**Standard library before a new dependency**
-
-Kurzfassung: reach for the stdlib before adding a package
+## CR-python-stdlib-first
+<!-- source: 690cc47cc736f5d7 -->
+<!-- todo: translate -->
+Standard library before a new dependency
+summary: reach for the stdlib before adding a package
 
 - Prefer the standard library over adding an external dependency; add one only where the stdlib genuinely
   falls short.
 
-_(noch nicht übersetzt)_
-
-### CR-python-data-models
-
-**Typed data instead of loose dicts**
-
-Kurzfassung: dataclasses, TypedDict or pydantic for structured data
+## CR-python-data-models
+<!-- source: e6059b6a4a744461 -->
+<!-- todo: translate -->
+Typed data instead of loose dicts
+summary: dataclasses, TypedDict or pydantic for structured data
 
 - Model structured data with `dataclasses`, `TypedDict` or `pydantic`, not a loose `dict`.
 
-_(noch nicht übersetzt)_
-
-### CR-python-module-structure
-
-**One module per responsibility**
-
-Kurzfassung: module boundaries, no circular imports
+## CR-python-module-structure
+<!-- source: 1892c2da9b9a4c86 -->
+<!-- todo: translate -->
+One module per responsibility
+summary: module boundaries, no circular imports
 
 - One module per functional responsibility, no catch-all module without a clear boundary.
 - Resolve circular imports by fixing the module boundaries, not by working around them with deferred or
   local imports.
 
-_(noch nicht übersetzt)_
-
-### CR-python-toolchain
-
-**Lint and format tooling**
-
-Kurzfassung: ruff by default for lint and formatting, or what the project has set up
+## CR-python-toolchain
+<!-- source: 0f86ea1fa0876228 -->
+<!-- todo: translate -->
+Lint and format tooling
+summary: ruff by default for lint and formatting, or what the project has set up
 
 - `ruff` for both linting and formatting is the template's usual choice; `black` remains a common
   alternative for formatting in existing projects — either way, run what the project actually has
   configured (see `R-code-tools`).
 
-_(noch nicht übersetzt)_
-
-### CR-python-tests
-
-**Unit tests**
-
-Kurzfassung: pytest by default, or the test runner the project has set up
+## CR-python-tests
+<!-- source: 45c09e28763d538d -->
+<!-- todo: translate -->
+Unit tests
+summary: pytest by default, or the test runner the project has set up
 
 - `pytest` is the template's usual choice, with fixtures instead of repeating setup code in every
   test module; use the test runner the project actually has configured (see `R-code-tools`).
 
-_(noch nicht übersetzt)_
-
 ## sql
-
-**Coding rules — SQL**
-
-Quelle: `.act/coding/sql.md`
-
-Kurzfassung: query safety, transactions, indexing, naming, migrations
+<!-- source: d78785b1cb6b6a1e -->
+<!-- todo: translate -->
+Coding rules — SQL
+summary: query safety, transactions, indexing, naming, migrations
 
 Rules for schema changes and database access from application code. Group IDs (`CR-sql-<name>`) are
 stable and never reassigned; a group whose purpose no longer holds gets a new ID and is listed as
 `retired:` in this header.
 
-_(noch nicht übersetzt)_
-
-### CR-sql-basics
-
-**Query safety and schema discipline**
-
-Kurzfassung: parametrized queries, transactions, UTC, indexing, no hidden logic, locking
+## CR-sql-basics
+<!-- source: 3bc1f5f759d33efc -->
+<!-- todo: translate -->
+Query safety and schema discipline
+summary: parametrized queries, transactions, UTC, indexing, no hidden logic, locking
 
 - Use parametrized queries only — never build a query by concatenating values into the SQL string, in
   any language or driver.
@@ -594,24 +498,20 @@ Kurzfassung: parametrized queries, transactions, UTC, indexing, no hidden logic,
 - Check a column type change on a large table for lock behavior and expected runtime before running it
   live.
 
-_(noch nicht übersetzt)_
-
-### CR-sql-naming
-
-**Identifier naming**
-
-Kurzfassung: snake_case, plural tables, singular columns
+## CR-sql-naming
+<!-- source: eb7842a7f235e9c5 -->
+<!-- todo: translate -->
+Identifier naming
+summary: snake_case, plural tables, singular columns
 
 - Name tables and columns in `snake_case`.
 - Use the plural for table names, the singular for column names.
 
-_(noch nicht übersetzt)_
-
-### CR-sql-migrations
-
-**Migration discipline**
-
-Kurzfassung: versioned naming, idempotent, reversible, one tool
+## CR-sql-migrations
+<!-- source: 1555ff10f74b12c8 -->
+<!-- todo: translate -->
+Migration discipline
+summary: versioned naming, idempotent, reversible, one tool
 
 - Name migrations with a version (sequence number or timestamp) plus a description; one file per change.
 - Write migrations idempotently (`IF NOT EXISTS` or an existence check) — running an already-migrated
@@ -619,27 +519,21 @@ Kurzfassung: versioned naming, idempotent, reversible, one tool
 - Ship a down-migration with every migration where the migration tool supports it.
 - Use one migration tool consistently (e.g. Flyway, Prisma Migrate, Alembic); don't mix.
 
-_(noch nicht übersetzt)_
-
 ## tailwind
-
-**Coding rules — Tailwind**
-
-Quelle: `.act/coding/tailwind.md`
-
-Kurzfassung: utility-first styling, design tokens, dark mode, class sorting
+<!-- source: 64187d320bfffffa -->
+<!-- todo: translate -->
+Coding rules — Tailwind
+summary: utility-first styling, design tokens, dark mode, class sorting
 
 Rules for Tailwind CSS, usually applied inside a frontend framework. Group IDs (`CR-tailwind-<name>`) are
 stable and never reassigned; a group whose purpose no longer holds gets a new ID and is listed as `retired:`
 in this header.
 
-_(noch nicht übersetzt)_
-
-### CR-tailwind-basics
-
-**Established Tailwind defaults**
-
-Kurzfassung: utilities in markup, tokens, theme, dark mode, extraction, tooling, pitfalls
+## CR-tailwind-basics
+<!-- source: 3b4b0dc15b0ff9ae -->
+<!-- todo: translate -->
+Established Tailwind defaults
+summary: utilities in markup, tokens, theme, dark mode, extraction, tooling, pitfalls
 
 - Write utility classes directly in markup; no separate CSS files without a concrete reason.
 - Use design tokens (the spacing, color and radius scale from the config) instead of arbitrary values —
@@ -657,27 +551,21 @@ Kurzfassung: utilities in markup, tokens, theme, dark mode, extraction, tooling,
   - Keep `content` paths in the config correct — a wrong or missing path either drops classes that are
     actually used or leaves unused utility classes in the build.
 
-_(noch nicht übersetzt)_
-
 ## typescript
-
-**Coding rules — TypeScript**
-
-Quelle: `.act/coding/typescript.md`
-
-Kurzfassung: strict mode, no any, typed errors, module structure, tooling
+<!-- source: c1dd0390eb1f8881 -->
+<!-- todo: translate -->
+Coding rules — TypeScript
+summary: strict mode, no any, typed errors, module structure, tooling
 
 Rules for TypeScript projects in strict mode. Group IDs (`CR-typescript-<name>`) are stable and never
 reassigned; a group whose purpose no longer holds gets a new ID and is listed as `retired:` in this
 header.
 
-_(noch nicht übersetzt)_
-
-### CR-typescript-basics
-
-**Strict mode, narrowing, typed errors**
-
-Kurzfassung: strict, no any, return types, as/!, error handling, lint
+## CR-typescript-basics
+<!-- source: 995bd336a8753935 -->
+<!-- todo: translate -->
+Strict mode, narrowing, typed errors
+summary: strict, no any, return types, as/!, error handling, lint
 
 - Enable `strict: true` in `tsconfig.json`; loosen it only with a comment explaining why.
 - Never use `any` — type unknown values as `unknown` and narrow them before use.
@@ -695,50 +583,40 @@ Kurzfassung: strict, no any, return types, as/!, error handling, lint
 - Lint and typecheck (`tsc --noEmit`) are the stack's standard and belong in the project; run what is
   installed, install nothing unasked.
 
-_(noch nicht übersetzt)_
-
-### CR-typescript-conventions
-
-**interface, type, generics**
-
-Kurzfassung: interface for shapes, type for unions, no enums, generics from second use
+## CR-typescript-conventions
+<!-- source: 8834a2e54c129055 -->
+<!-- todo: translate -->
+interface, type, generics
+summary: interface for shapes, type for unions, no enums, generics from second use
 
 - Use `interface` for object shapes/contracts, `type` for unions, intersections and derived types.
 - Avoid enums — use `as const` objects or union literal types instead.
 - Introduce a generic only once a second concrete use exists; a concrete type is fine for the first.
 
-_(noch nicht übersetzt)_
-
-### CR-typescript-module-structure
-
-**Central types, explicit exports**
-
-Kurzfassung: shared types in one place, public exports through an index
+## CR-typescript-module-structure
+<!-- source: 71bea2bc6f737512 -->
+<!-- todo: translate -->
+Central types, explicit exports
+summary: shared types in one place, public exports through an index
 
 - Define shared types/schemas in one central place and import them, instead of redeclaring them per
   module.
 - Expose a module's public API through an explicit index, not deep import paths into another module.
 
-_(noch nicht übersetzt)_
-
-### CR-typescript-toolchain
-
-**Lint and format tooling**
-
-Kurzfassung: ESLint with `@typescript-eslint` plus Prettier by default, or what the project has set up
+## CR-typescript-toolchain
+<!-- source: 05cf1f3a8aa1903a -->
+<!-- todo: translate -->
+Lint and format tooling
+summary: ESLint with `@typescript-eslint` plus Prettier by default, or what the project has set up
 
 - ESLint with `@typescript-eslint` and Prettier for formatting are the template's usual choice; what
   the project actually has installed and configured governs (see `R-code-tools`).
 
-_(noch nicht übersetzt)_
-
 ## vue
-
-**Coding rules — Vue**
-
-Quelle: `.act/coding/vue.md`
-
-Kurzfassung: composition API, typed props, SFC order, shared state, tooling
+<!-- source: 82101ec282385d0b -->
+<!-- todo: translate -->
+Coding rules — Vue
+summary: composition API, typed props, SFC order, shared state, tooling
 
 requires: typescript
 
@@ -746,13 +624,11 @@ Rules for Vue 3 components using the Composition API. Group IDs (`CR-vue-<name>`
 never reassigned; a group whose purpose no longer holds gets a new ID and is listed as `retired:` in
 this header.
 
-_(noch nicht übersetzt)_
-
-### CR-vue-basics
-
-**Composition API, typed props, safe forms**
-
-Kurzfassung: script setup, typed props/emits, conventions, error handling, pitfalls
+## CR-vue-basics
+<!-- source: cea36fff796e4b43 -->
+<!-- todo: translate -->
+Composition API, typed props, safe forms
+summary: script setup, typed props/emits, conventions, error handling, pitfalls
 
 - Use `<script setup lang="ts">` in every component; no Options API in new code.
 - Type `defineProps<...>()` and `defineEmits<...>()` — no loose object props.
@@ -776,35 +652,32 @@ Kurzfassung: script setup, typed props/emits, conventions, error handling, pitfa
     in the address bar, browser history and server log. Applies to every server-rendered app, not
     only auth forms (see GHSA-gj2h-2fpw-fhv9, the same bug in `@nuxt/ui` before 4.8.1).
 
-_(noch nicht übersetzt)_
-
-### CR-vue-sfc-order
-
-**Fixed SFC block order**
-
-Kurzfassung: template, script setup, style
+## CR-vue-sfc-order
+<!-- source: ef8ad68cef09f408 -->
+<!-- todo: translate -->
+Fixed SFC block order
+summary: template, script setup, style
 
 - Order SFC blocks as `<template>`, `<script setup>`, `<style>`.
 
-_(noch nicht übersetzt)_
-
-### CR-vue-state-store
-
-**Store module for shared state**
-
-Kurzfassung: Pinia store instead of provide/inject
+## CR-vue-state-store
+<!-- source: aae2a239ebd6cd85 -->
+<!-- todo: translate -->
+Store module for shared state
+summary: Pinia store instead of provide/inject
 
 - Keep state shared across the app in a dedicated store module (Pinia), not in `provide`/`inject`.
 
-_(noch nicht übersetzt)_
-
-### CR-vue-toolchain
-
-**Lint and format tooling**
-
-Kurzfassung: ESLint with eslint-plugin-vue plus Prettier by default, or what the project has set up
+## CR-vue-toolchain
+<!-- source: 01c4f76f6cb4b091 -->
+<!-- todo: translate -->
+Lint and format tooling
+summary: ESLint with eslint-plugin-vue plus Prettier by default, or what the project has set up
 
 - ESLint with `eslint-plugin-vue` and Prettier for formatting are the template's usual choice; what
   the project actually has installed and configured governs (see `R-code-tools`).
 
-_(noch nicht übersetzt)_
+## _intro
+<!-- source: 2ca805618d3642f7 -->
+<!-- todo: translate -->
+A project switches a set on in `docs/project/coding_rules.md`; group IDs `CR-<set>-<name>` are stable.

@@ -6,14 +6,16 @@ sidebar:
 ---
 
 :::note
-Diese Referenz wird aus dem Template erzeugt und ist englisch; Stand: Template 2.0.0 (Commit 8ad385e). Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
+Diese Seite wird aus dem Template 2.0.0 (Commit 8ad385e) erzeugt; die deutschen Texte stammen aus einem Katalog unter `src/translations/de/reference/`. Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
+
+Einzelne Einträge dieser Seite sind noch nicht übersetzt oder veraltet; sie stehen auf Englisch da und sind mit _(noch nicht übersetzt)_ markiert.
 :::
 
-One row per script under `.act/scripts/`; the per-script sections below are each script's own `--help` output, not retyped by hand. Regenerate with `python .act/scripts/script_docs.py` after changing a script's arguments — `--check` catches drift, and `doctor.py` reports it as a finding.
+One row per script under `.act/scripts/`; the per-script sections below are each script's own `--help` output, not retyped by hand. Regenerate with `python .act/scripts/script_docs.py` after changing a script's arguments — `--check` catches drift, and `doctor.py` reports it as a finding. _(noch nicht übersetzt)_
 
-## Overview
+## Überblick
 
-| Script | Purpose | Call |
+| Script | Zweck | Aufruf |
 | :--- | :--- | :--- |
 | `actlib.py` | Shared library for every script under .act/scripts/ and .act/hooks/ — the single place that knows how to resolve template vs. project… | library |
 | [`adopt.py`](#adoptpy) | Mechanical executor of an approved adoption table (skill `act-adopt`, steps 4 and 7). Runs from a template checkout against a project that… | direct (used by skill `act-adopt` (stage 6)) |
