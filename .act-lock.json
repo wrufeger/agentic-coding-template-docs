@@ -35,7 +35,7 @@
   },
   "template": {
     "version": "2.0.0",
-    "commit": "8ad385ef61595e8456d8c1f70b6255725ed3201a",
+    "commit": "",
     "source": "D:/dev/rufeger/agentic-coding-template",
     "manifest_sha256": "1ad8ad0dfa585e114ea1cce28242a915129e4073a2cc5b908a8457fa1df41d6b"
   },
@@ -137,8 +137,8 @@
       "sha256": "297d6fde83a6d7aed20fb4ad75d6ef7c46ca7eb30cf79e70d01fa32b7d8881cf"
     },
     ".claude/skills/act-update/SKILL.md": {
-      "source": ".act/skills/act-update/SKILL.md",
-      "sha256": "49d4ee4e3baf8f6d3a8455bec279be96c26c6aa67923ce9af1987281b391c600"
+      "source": "docs/ai/local/skills/act-update/SKILL.md",
+      "sha256": "e3e490e5027c97893d95a77b024d35f6a12968eecfd612c8e37cf8ab31414f93"
     }
   },
   "removed_by_user": [],
