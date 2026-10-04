@@ -35,9 +35,9 @@
   },
   "template": {
     "version": "2.0.0",
-    "commit": "2a5095c980d6c47d1c6c748108a9e724da728ea9",
-    "source": "git@github.com:wrufeger/agentic-coding-template.git",
-    "manifest_sha256": "bd54614f238dc1fc9a8879c2a5bbc18cc5d70bc67e67054b44b77f17cee0af50"
+    "commit": "8ad385ef61595e8456d8c1f70b6255725ed3201a",
+    "source": "D:/dev/rufeger/agentic-coding-template",
+    "manifest_sha256": "1ad8ad0dfa585e114ea1cce28242a915129e4073a2cc5b908a8457fa1df41d6b"
   },
   "copies": {
     ".claude/skills/act/SKILL.md": {
@@ -86,7 +86,7 @@
     },
     ".claude/skills/act-feedback/SKILL.md": {
       "source": ".act/skills/act-feedback/SKILL.md",
-      "sha256": "dbf44472bbf31b325a40dc289a476600bb9986f2f01ead242f0c8ba433eb3120"
+      "sha256": "af1a43c774beb94cf721f1c1a16f094f4c2aec70af91e3dee1b44bfd721e36dd"
     },
     ".claude/skills/act-idea/SKILL.md": {
       "source": ".act/skills/act-idea/SKILL.md",
@@ -126,7 +126,7 @@
     },
     ".claude/skills/act-setup/SKILL.md": {
       "source": ".act/skills/act-setup/SKILL.md",
-      "sha256": "58a74843a85eb782ced62fa768a8e9ba3396761aab8352244d7890cae7ccb05f"
+      "sha256": "61f2b710b9ebe00b3bc26c9a9db7cd3a4def4e560388d32e531d95e76314ea43"
     },
     ".claude/skills/act-slides/SKILL.md": {
       "source": ".act/skills/act-slides/SKILL.md",
@@ -138,7 +138,7 @@
     },
     ".claude/skills/act-update/SKILL.md": {
       "source": ".act/skills/act-update/SKILL.md",
-      "sha256": "565d7a013966f1c2dc98a45926a2929ce94d7d93c4380996102a2d8d2ca152e0"
+      "sha256": "49d4ee4e3baf8f6d3a8455bec279be96c26c6aa67923ce9af1987281b391c600"
     }
   },
   "removed_by_user": [],
@@ -147,5 +147,9 @@
       "claude-code"
     ],
     "roles": {}
-  }
+  },
+  "migrations_applied": [
+    "001-one-inbox",
+    "002-todo-ids"
+  ]
 }
