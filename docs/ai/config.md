@@ -12,8 +12,8 @@ here needs a rebuild; `.act/hooks/dispatch.py` reads this file at session start.
 | `owner` | Wolfgang Rufeger |
 | `language-chat` | auto |
 | `language-docs` | en |
-| `stack` | unspecified |
-| `commands` | (not set), (not set), (not set) |
+| `stack` | Astro Starlight (Node/npm, Markdown/MDX) |
+| `commands` | (not set), (not set), `npm run build` |
 | `tools` | claude-code |
 | `mode` | solo |
 
