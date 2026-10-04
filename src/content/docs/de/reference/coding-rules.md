@@ -6,7 +6,7 @@ sidebar:
 ---
 
 :::note
-Diese Referenz wird aus der Vorlage erzeugt und ist englisch; Stand: Vorlage 2.0.0 (Commit 8ad385e). Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
+Diese Referenz wird aus dem Template erzeugt und ist englisch; Stand: Template 2.0.0 (Commit 8ad385e). Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
 :::
 
 11 rule sets with 39 groups. A project switches a set on in `docs/project/coding_rules.md`; group IDs `CR-<set>-<name>` are stable.

@@ -1,6 +1,6 @@
 ---
 title: Einführung
-description: Was die Vorlage ist, für wen sie gedacht ist und wie sie in einem Bild funktioniert.
+description: Was das Template ist, für wen sie gedacht ist und wie sie in einem Bild funktioniert.
 sidebar:
   order: 1
 sourceHash: 96b3eed654b8cf45ebc7c0bea76a6c62b6c60da05b476fab4dc797afd1a02f02
@@ -42,12 +42,12 @@ Ein Projekt hat zwei Schichten, die sich nie vermischen.
 
 | Schicht | Wo | Wem sie gehört |
 | :--- | :--- | :--- |
-| Vorlage | `.act/` | Der Vorlage. Wird bei einem Update als Ganzes ersetzt, nie im Projekt bearbeitet. |
+| Template | `.act/` | Dem Template. Wird bei einem Update als Ganzes ersetzt, nie im Projekt bearbeitet. |
 | Projekt | `docs/ai/` (Arbeitsstand), `docs/project/` (deine Dokumentation) | Dir. Ein Update überschreibt deine Inhalte nie. |
 
 Drumherum liegen die kleinen Dateien, die jedes Werkzeug liest (`CLAUDE.md`, `AGENTS.md`, `.claude/`,
-`.agents/skills/`), und `.act-local/`, das auf deinem Rechner bleibt. Eine Projektfassung einer Datei der
-Vorlage kommt nach `docs/ai/local/<gleicher Pfad>` und gewinnt. Details: [Schichten und Überschreibungen](/agentic-coding-template-docs/de/concepts/layers/).
+`.agents/skills/`), und `.act-local/`, das auf deinem Rechner bleibt. Eine Projektfassung einer Datei des
+Templates kommt nach `docs/ai/local/<gleicher Pfad>` und gewinnt. Details: [Schichten und Overrides](/agentic-coding-template-docs/de/concepts/layers/).
 
 ## Unterstützte KI-Werkzeuge
 

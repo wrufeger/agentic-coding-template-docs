@@ -1,14 +1,14 @@
 ---
-title: Rückmeldungen senden
-description: Freiwillige Rückmeldung an den Autor der Vorlage - die Modi, Takt und Umfang, was nie gesendet wird und wo die lokale Kopie bleibt.
+title: Feedback
+description: Freiwilliges Feedback an den Autor des Templates - die Modi, Takt und Scope, was nie gesendet wird und wo die lokale Kopie bleibt.
 sidebar:
   order: 1
 sourceHash: 08e307fe84e2e9e749eeb9e96a7531d3eab49cccfbbeb48ce52ea732f9b62328
 ---
 
-Du kannst dem Autor der Vorlage zurückmelden, was der Arbeitsweise gutgetan hat oder fehlte. Rückmeldung ist freiwillig, betrifft **nur die Arbeitsweise, nie dein Projekt**, und alles, was den Rechner verlässt, wird auch lokal aufbewahrt.
+Du kannst dem Autor des Templates als Feedback melden, was der Arbeitsweise gutgetan hat oder fehlte. Feedback ist freiwillig, betrifft **nur die Arbeitsweise, nie dein Projekt**, und alles, was den Rechner verlässt, wird auch lokal aufbewahrt.
 
-Der Test für jeden Eintrag: Würde das jemandem helfen, der dein Projekt nie sieht? Eine Regel, die du ergänzen musstest, weil die Vorlage sie nicht hatte, ein Ablauf, der immer wieder scheiterte, ein Script, das sich verallgemeinern lässt: Das ist Rückmeldung. Eine Tatsache über dein Projekt (sein Name, sein Stack, eine Zahl, ein Zitat aus seiner Doku) ist es nicht.
+Der Test für jeden Eintrag: Würde das jemandem helfen, der dein Projekt nie sieht? Eine Regel, die du ergänzen musstest, weil das Template sie nicht hatte, ein Ablauf, der immer wieder scheiterte, ein Script, das sich verallgemeinern lässt: Das ist Feedback. Eine Tatsache über dein Projekt (sein Name, sein Stack, eine Zahl, ein Zitat aus seiner Doku) ist es nicht.
 
 ## Modi
 
@@ -23,26 +23,26 @@ Drei Schlüssel im Abschnitt Feedback von `docs/ai/config.md` steuern das:
 
 `python .act/scripts/feedback.py --enable [--mode off|confirm|automatic|manual]` setzt den Modus; `--enable` ohne `--mode` bedeutet `automatic`, das ohne Rückfrage sendet; `--disable` schaltet es ab.
 
-## Takt und Umfang
+## Takt und Scope
 
 `feedback-cadence` ist eine Obergrenze, nie eine Pflicht: `manual`, `immediate`, `hourly`, `daily`, `weekly` (der übliche Wert) oder `adaptive`, das daraus lernt, wie oft auf Erinnerungen reagiert oder sie verschoben werden. Gibt es nichts zu melden, wird nichts gesendet, egal wie kurz der Takt ist.
 
 `feedback-scope` sagt, was der Assistent **von sich aus** sammeln darf:
 
-| Umfang | Sammelt |
+| Scope | Sammelt |
 | :--- | :--- |
 | `a` | Kennzahlen |
 | `b` | Regel- und Strukturänderungen |
-| `c` | Werkzeugnutzung: wie viele Agenten, Skills und Scripts es gibt und wie oft jeder Skill und jedes Script der Vorlage seit dem letzten Senden benutzt wurde. Deine eigenen Skills und Scripts erscheinen nur als eine `own`-Zahl je Art, nie mit Namen. Namen von MCP-Servern werden nicht gesendet. |
+| `c` | Werkzeugnutzung: wie viele Agenten, Skills und Scripts es gibt und wie oft jeder Skill und jedes Script des Templates seit dem letzten Senden benutzt wurde. Deine eigenen Skills und Scripts erscheinen nur als eine `own`-Zahl je Art, nie mit Namen. Namen von MCP-Servern werden nicht gesendet. |
 
-Ein von Hand geschriebener Befund landet immer im Ausgang, egal welcher Umfang gilt.
+Ein von Hand geschriebener Befund landet immer im Ausgang, egal welcher Scope gilt.
 
 ## Zwei Wege zum Senden
 
-1. **Ein Satz nach dem Auslöser**, zum Beispiel `feedback: the update left a file behind`. Dieser Satz ist die Nachricht selbst, unverändert gesendet, auch mit `feedback: off`. Mit `off` verlassen nur der Text und der eigene Commit-Hash der Vorlage das Projekt, sonst nichts. Bei jedem anderen Modus geht die Projekt-Id mit, damit sich mehrere Nachrichten desselben Projekts unterscheiden lassen, aber nie die Repository-URL.
+1. **Ein Satz nach dem Auslöser**, zum Beispiel `feedback: the update left a file behind`. Dieser Satz ist die Nachricht selbst, unverändert gesendet, auch mit `feedback: off`. Mit `off` verlassen nur der Text und der eigene Commit-Hash des Templates das Projekt, sonst nichts. Bei jedem anderen Modus geht die Projekt-Id mit, damit sich mehrere Nachrichten desselben Projekts unterscheiden lassen, aber nie die Repository-URL.
 2. **Der Auslöser allein** (der Skill `act-feedback`). Der Assistent geht durch `.act/`, die erzeugten Dateien und `docs/ai/`, schreibt pro Befund einen Eintrag (zwei bis sechs Sätze), zeigt den Stapel mit `feedback.py --plan` vorab und sendet ihn nach deinem Modus und Takt.
 
-Ein Fehler in der Vorlage selbst (ein Script oder Skill, der fehlschlägt, zwei Regeln, die sich widersprechen, eine Regel, die nie greift) wird gespeichert und, wo die Einwilligung es erlaubt, sofort gesendet, am Takt vorbei. Die Einwilligung umgeht er trotzdem nie: Mit `feedback: off` bleibt er im Ausgang.
+Ein Fehler in des Templates selbst (ein Script oder Skill, der fehlschlägt, zwei Regeln, die sich widersprechen, eine Regel, die nie greift) wird gespeichert und, wo die Einwilligung es erlaubt, sofort gesendet, am Takt vorbei. Die Einwilligung umgeht er trotzdem nie: Mit `feedback: off` bleibt er im Ausgang.
 
 ## Was nie gesendet wird
 

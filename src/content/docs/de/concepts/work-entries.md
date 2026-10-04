@@ -1,5 +1,5 @@
 ---
-title: Arbeitseinträge
+title: Inbox, Aufgaben und Journal
 description: Was in docs/ai/ liegt - Inbox, Aufgaben, Backlog, Journal, Archiv, Ideen, das Board und die Statuszeile.
 sidebar:
   order: 3
@@ -60,7 +60,7 @@ Jede Person hat ihre eigene Datei `docs/ai/concept/ideas-<identity>.md`, wobei `
 
 Das **Board** ist ein erzeugter Schnappschuss: Branch, jüngste Journal-Einträge, was auf dich wartet, offene Aufgaben, offene Entscheidungen im Backlog und das Backlog selbst. Es wird beim Sitzungsstart neu geschrieben und nach Git-Befehlen, die den ausgecheckten Stand ändern. Wohin es geht, hängt vom Schlüssel `board` ab: `docs` (Standard, `docs/ai/board.md`, per gitignore ausgeschlossen), `shared` (zusätzlich ein versioniertes `docs/ai/board-<identity>.md`, beim Commit geschrieben) oder `local` (unter `.act-local/`). Eine zweite erzeugte Datei, `.act-local/inbox-<identity>.md`, sammelt den vollen Text jedes offenen Eintrags, der an dich gerichtet ist, sodass eine Datei zum Lesen genügt.
 
-Die **Statuszeile** von Claude Code zeigt eine Zeile unter dem Chat, zum Beispiel `act · Q103 Q104 · tasks: 1 running, 4 new`. Offene Fragen und Todos erscheinen mit Id, Berichte und Notizen als Anzahl pro Art. Um sie dauerhaft abzuschalten, setze in `.claude/settings.json` einen eigenen `statusLine`-Befehl; die Vorlage ersetzt nie einen Eintrag, den sie nicht selbst erzeugt hat.
+Die **Statuszeile** von Claude Code zeigt eine Zeile unter dem Chat, zum Beispiel `act · Q103 Q104 · tasks: 1 running, 4 new`. Offene Fragen und Todos erscheinen mit Id, Berichte und Notizen als Anzahl pro Art. Um sie dauerhaft abzuschalten, setze in `.claude/settings.json` einen eigenen `statusLine`-Befehl; das Template ersetzt nie einen Eintrag, den sie nicht selbst erzeugt hat.
 
 ## Solo- und Team-Modus
 

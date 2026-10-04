@@ -29,7 +29,7 @@ Einträge und Aufgaben tragen einen Kopf `for:`: `all` für alle, oder eine Work
 | `docs/ai/concept/ideas-<identity>.md` | nur ihr Eigentümer | ja |
 | `docs/ai/board.md` (Standard `board: docs`) | pro Checkout erzeugt | nein, per gitignore ausgeschlossen |
 | `docs/ai/board-<identity>.md` (`board: shared`) | von `act-commit` erzeugt | ja |
-| `.act-local/**` (Identität, Arbeitsstand, Rückmeldung, Inbox-Ansicht) | pro Rechner | nein |
+| `.act-local/**` (Identität, Arbeitsstand, Feedback, Inbox-Ansicht) | pro Rechner | nein |
 
 Mit `board: shared` lässt das versionierte Board jeder Person die anderen offene Aufgaben sehen, ohne einen Arbeitsbaum zu teilen. Die Ideen-Datei einer anderen Person gehört ihr: Lies sie, schreibe in deine eigene.
 
@@ -38,6 +38,6 @@ Mit `board: shared` lässt das versionierte Board jeder Person die anderen offen
 - **Eintragsdateien** (Inbox, Aufgaben, Backlog, Journal) sind eine Datei pro Eintrag, sodass zwei Personen selten dieselbe Datei berühren. Das Journal und jeder neue Eintrag tragen einen Zeitstempel `created:`, sodass zwei Branches, die denselben Titel anlegen, nie einen stillen Merge identischer Dateien erzeugen.
 - **Erzeugte Dateien** (`CLAUDE.md`, `AGENTS.md`, `docs/ai/rules.md`) sind in `.gitattributes` mit `merge=ours` markiert, ebenso `docs/ai/board-*.md`. Ist kein Merge-Treiber registriert (`git config merge.ours.driver true`), mergt Git normal; der Sitzungsstart leitet eine unveränderte Brücke neu ab, und der nächste Commit schreibt eine Board-Datei neu, sodass eine veraltete nie überlebt.
 - **`docs/ai/config.md` und deine eigenen Regeln** sind geteilte Projektentscheidungen; merge sie von Hand wie jede andere Quelldatei.
-- **Die Vorlage aktualisieren**: Andere Branches bekommen ein Update nur mit dem Merge. Ein Update auf einem Branch, der nicht der Standard-Branch ist, gibt einen Hinweis, der das sagt.
+- **Das Template aktualisieren**: Andere Branches bekommen ein Update nur mit dem Merge. Ein Update auf einem Branch, der nicht der Standard-Branch ist, gibt einen Hinweis, der das sagt.
 
-Siehe [Arbeitseinträge](/agentic-coding-template-docs/de/concepts/work-entries/) für die Eintragsarten und [Konfiguration](/agentic-coding-template-docs/de/concepts/configuration/) für `mode` und `board`.
+Siehe [Inbox, Aufgaben und Journal](/agentic-coding-template-docs/de/concepts/work-entries/) für die Eintragsarten und [Konfiguration](/agentic-coding-template-docs/de/concepts/configuration/) für `mode` und `board`.

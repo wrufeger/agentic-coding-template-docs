@@ -1,12 +1,12 @@
 ---
 title: "Skills"
-description: "Alle Skills der Vorlage mit ihrer einzeiligen Beschreibung."
+description: "Alle Skills des Templates mit ihrer einzeiligen Beschreibung."
 sidebar:
   order: 2
 ---
 
 :::note
-Diese Referenz wird aus der Vorlage erzeugt und ist englisch; Stand: Vorlage 2.0.0 (Commit 8ad385e). Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
+Diese Referenz wird aus dem Template erzeugt und ist englisch; Stand: Template 2.0.0 (Commit 8ad385e). Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
 :::
 
 26 skills. A skill is a reusable procedure the assistant runs on request or when its description matches the situation.

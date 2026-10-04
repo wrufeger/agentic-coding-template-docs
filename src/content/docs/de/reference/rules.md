@@ -1,12 +1,12 @@
 ---
 title: "Regeln"
-description: "Die Regeln der Vorlage mit ihren stabilen Kennungen, nach Regeldatei gruppiert."
+description: "Die Regeln des Templates mit ihren stabilen Kennungen, nach Regeldatei gruppiert."
 sidebar:
   order: 5
 ---
 
 :::note
-Diese Referenz wird aus der Vorlage erzeugt und ist englisch; Stand: Vorlage 2.0.0 (Commit 8ad385e). Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
+Diese Referenz wird aus dem Template erzeugt und ist englisch; Stand: Template 2.0.0 (Commit 8ad385e). Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
 :::
 
 35 rules in 7 files. Rule IDs `R-<area>-<name>` are stable and never reassigned. The shared files load for every role; the orchestrator files only for the main session.

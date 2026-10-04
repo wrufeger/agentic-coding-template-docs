@@ -1,6 +1,6 @@
 ---
 title: Tiers und Reasoning
-description: Wie Rollen eine Modellkapazität (Tier) und eine Reasoning-Stufe bekommen, die -high-Varianten, Überschreibungen und Caps.
+description: Wie Rollen eine Modellkapazität (Tier) und eine Reasoning-Stufe bekommen, die -high-Varianten, Overrides und Caps.
 sidebar:
   order: 5
 sourceHash: bf8bee759db577f8ddb266ef767f74eef9e122a17b1705f3c1eefe176bb634c1
@@ -33,11 +33,11 @@ Die Reasoning-Skala lautet `none`, `low`, `medium`, `high`, `xhigh`, `max`.
 | `reviewer` | `elevated` | `high` |
 | `expert-solver` | `expert` | `max` |
 
-Die [Rollenreferenz](/agentic-coding-template-docs/de/reference/roles/) wird aus der Vorlage erzeugt und ist immer aktuell; was jede Rolle tut, steht unter [Rollen](/agentic-coding-template-docs/de/concepts/roles/).
+Die [Rollenreferenz](/agentic-coding-template-docs/de/reference/roles/) wird aus dem Template erzeugt und ist immer aktuell; was jede Rolle tut, steht unter [Rollen](/agentic-coding-template-docs/de/concepts/roles/).
 
 ## Die -high-Varianten
 
-Neben `.claude/agents/<role>.md` erzeugt die Vorlage `.claude/agents/<role>-high.md`: dieselbe Rolle mit dem Reasoning eine Stufe weiter oben auf der Skala. Der Assistent nennt die `-high`-Variante für einen einzelnen Auftrag, der mehr Nachdenken braucht, ohne die Rolle dauerhaft anzuheben. Eine Rolle, die schon an der Spitze der Skala steht (`expert-solver`), hat keine Variante.
+Neben `.claude/agents/<role>.md` erzeugt das Template `.claude/agents/<role>-high.md`: dieselbe Rolle mit dem Reasoning eine Stufe weiter oben auf der Skala. Der Assistent nennt die `-high`-Variante für einen einzelnen Auftrag, der mehr Nachdenken braucht, ohne die Rolle dauerhaft anzuheben. Eine Rolle, die schon an der Spitze der Skala steht (`expert-solver`), hat keine Variante.
 
 ## Eine Rolle überschreiben
 
@@ -49,7 +49,7 @@ Die Tabelle Roles am Ende von `docs/ai/config.md` ist standardmäßig leer. Fül
 | builder | elevated | high | |
 ```
 
-`Tier` und `Reasoning` überschreiben die Werte der Vorlage; ein gefülltes `Model` legt das Modell direkt fest und gewinnt gegenüber `Tier`. Die eigene Rolle eines Projekts (siehe [Eigene Regeln, Skills und Rollen](/agentic-coding-template-docs/de/guides/own-skills-and-rules/)) wird dort auf dieselbe Weise benannt. Die erzeugten Dateien werden beim Sitzungsstart und bei jedem Update aufgefrischt; angefasst werden nur ihre Zeilen `model` und `effort`, nie deine eigenen Ergänzungen im Text der Rolle.
+`Tier` und `Reasoning` überschreiben die Werte des Templates; ein gefülltes `Model` legt das Modell direkt fest und gewinnt gegenüber `Tier`. Die eigene Rolle eines Projekts (siehe [Eigene Regeln, Skills und Rollen](/agentic-coding-template-docs/de/guides/own-skills-and-rules/)) wird dort auf dieselbe Weise benannt. Die erzeugten Dateien werden beim Sitzungsstart und bei jedem Update aufgefrischt; angefasst werden nur ihre Zeilen `model` und `effort`, nie deine eigenen Ergänzungen im Text der Rolle.
 
 ## Caps
 

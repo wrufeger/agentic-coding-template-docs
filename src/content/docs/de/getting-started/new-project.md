@@ -1,12 +1,12 @@
 ---
 title: Neues Projekt
-description: Ein neues Projekt aus der Vorlage einrichten, mit dem Assistenten oder von Hand.
+description: Ein neues Projekt aus dem Template einrichten, mit dem Assistenten oder von Hand.
 sidebar:
   order: 1
 sourceHash: ca9a1d63ced9b42ed5c96e0d1b76e13cf0b233c653dc40bacd1f3eed0ae6885f
 ---
 
-## Die Vorlage holen
+## Das Template holen
 
 Klone [das Template-Repository](https://github.com/wrufeger/agentic-coding-template) oder nutze auf GitHub
 **Use this template**, und öffne den Ordner dann in deinem Assistenten: Claude Code, Codex, GitHub Copilot,
@@ -26,8 +26,8 @@ Set up a new project in ../shop-api.
 Jede Sprache funktioniert. Es gibt zwei Wege:
 
 1. **Genau hier.** Der Klon wird zum Projekt. Der Remote `origin` wird entfernt, wenn er auf das
-   Template-Repository zeigt, und das Projekt startet auf einem frischen `main` ohne die Historie der Vorlage.
-   Spätere Updates der Vorlage kommen nur über
+   Template-Repository zeigt, und das Projekt startet auf einem frischen `main` ohne die Historie des Templates.
+   Spätere Updates des Templates kommen nur über
    [`act-update`](/agentic-coding-template-docs/de/getting-started/update/).
 2. **Woanders.** Ein leerer oder fehlender Ordner wird direkt mit `--target` eingerichtet. Ein Ordner, der schon
    ein Projekt enthält, geht an [`act-adopt`](/agentic-coding-template-docs/de/getting-started/existing-project/).
@@ -55,16 +55,16 @@ Nützliche Optionen: `--language-docs <code>` (Sprache von `docs/`, Standard `en
 
 Zehn feste Schritte, jeder ausgegeben als `[n/10]`:
 
-1. Sammelt die Einstellungen: Name, Owner, Sprachen, Stack, Befehle, Werkzeuge, Modus, Rückmeldung.
+1. Sammelt die Einstellungen: Name, Owner, Sprachen, Stack, Befehle, Werkzeuge, Modus, Feedback.
 2. Klärt Git: im Klon entfernt es `origin` und baut `main` neu auf; mit `--target` führt es bei Bedarf `git init` aus.
 3. Prüft deine Git-Identität.
 4. Schreibt deine Workspace-Identität und den lokalen Import-Ordner `.act-local/import/`.
 5. Dünnt die Brücken auf die gewählten Werkzeuge aus.
 6. Schreibt das Gerüst: `docs/ai/` (`config.md`, `rules.md`, `concept/`, Inbox, Arbeitsordner), `docs/project/coding_rules.md`,
    `docs/README.md`, die Brückendateien, Skill-Kopien und die Hook-Einträge in `.claude/settings.json`.
-7. Hängt Blöcke der Vorlage an `.gitattributes` und `.gitignore` an.
-8. Nur im Klon: legt README und LICENSE der Vorlage still.
-9. Schreibt `.act-lock.json` (die festgehaltene Quelle und Version der Vorlage) und `.act/MANIFEST.json`.
+7. Hängt Blöcke des Templates an `.gitattributes` und `.gitignore` an.
+8. Nur im Klon: legt README und LICENSE des Templates still.
+9. Schreibt `.act-lock.json` (die festgehaltene Quelle und Version des Templates) und `.act/MANIFEST.json`.
 10. Macht den ersten Commit.
 
 `init.py` überschreibt nie eine Datei, die das Projekt schon hat. Eine `language-docs` außer Englisch lässt das

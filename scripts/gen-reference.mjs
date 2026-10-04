@@ -442,16 +442,16 @@ pages['index.md'] = buildIndex({
 
 // German twins: same generated body (it stays English), German title/description and note.
 const deMeta = {
-  'index.md': ['Referenz', 'Referenzseiten, erzeugt aus dem Vorlagenstand, auf den dieses Projekt festgelegt ist.'],
-  'skills.md': ['Skills', 'Alle Skills der Vorlage mit ihrer einzeiligen Beschreibung.'],
+  'index.md': ['Referenz', 'Referenzseiten, erzeugt aus dem Template-Stand, auf den dieses Projekt festgelegt ist.'],
+  'skills.md': ['Skills', 'Alle Skills des Templates mit ihrer einzeiligen Beschreibung.'],
   'scripts.md': ['Scripts', 'Alle Scripts unter .act/scripts mit Zweck und Kommandozeilenhilfe.'],
   'configuration.md': ['Konfiguration', 'Die Schlüssel in docs/ai/config.md: Abschnitte, Werte und die Prüftabelle.'],
-  'rules.md': ['Regeln', 'Die Regeln der Vorlage mit ihren stabilen Kennungen, nach Regeldatei gruppiert.'],
-  'topics.md': ['Themen', 'Detailseiten, auf die Regeln als topics/<name>.md verweisen.'],
-  'roles.md': ['Rollen', 'Die Worker-Rollen mit Stufe, Denktiefe und Werkzeugen.'],
+  'rules.md': ['Regeln', 'Die Regeln des Templates mit ihren stabilen Kennungen, nach Regeldatei gruppiert.'],
+  'topics.md': ['Topics', 'Topics: Detailseiten, auf die Regeln als topics/<name>.md verweisen.'],
+  'roles.md': ['Rollen', 'Die Worker-Rollen mit Tier, Reasoning und Werkzeugen.'],
   'coding-rules.md': ['Coding-Regeln', 'Die Coding-Regelsätze je Sprache oder Framework mit ihren Gruppenkennungen.'],
 };
-const deNote = `Diese Referenz wird aus der Vorlage erzeugt und ist englisch; Stand: Vorlage ${version} (Commit ${commitShort}). Nicht von Hand ändern, neu erzeugen mit ${code('npm run gen')}.`;
+const deNote = `Diese Referenz wird aus dem Template erzeugt und ist englisch; Stand: Template ${version} (Commit ${commitShort}). Nicht von Hand ändern, neu erzeugen mit ${code('npm run gen')}.`;
 function germanTwin(name, text) {
   const [title, description] = deMeta[name];
   let out = text

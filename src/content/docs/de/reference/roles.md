@@ -1,12 +1,12 @@
 ---
 title: "Rollen"
-description: "Die Worker-Rollen mit Stufe, Denktiefe und Werkzeugen."
+description: "Die Worker-Rollen mit Tier, Reasoning und Werkzeugen."
 sidebar:
   order: 7
 ---
 
 :::note
-Diese Referenz wird aus der Vorlage erzeugt und ist englisch; Stand: Vorlage 2.0.0 (Commit 8ad385e). Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
+Diese Referenz wird aus dem Template erzeugt und ist englisch; Stand: Template 2.0.0 (Commit 8ad385e). Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
 :::
 
 9 roles. A role is a bounded kind of worker; its tier says how much model capacity it gets, and `.act/tiers.json` maps tiers to concrete models only at generation time.

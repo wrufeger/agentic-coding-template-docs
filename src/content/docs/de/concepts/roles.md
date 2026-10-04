@@ -1,6 +1,6 @@
 ---
 title: Rollen und Worker
-description: Der Orchestrator, die Worker-Rollen, Stufen, Caps, Schreibbereich und was ein Worker nicht darf.
+description: Der Orchestrator, die Worker-Rollen, Tiers, Caps, Write Scope und was ein Worker nicht darf.
 sidebar:
   order: 2
 sourceHash: 7031b0e5c52114807c8fc1e9bf753c4c17e6ae67f7e07c1e716fbdddc5f4db7c
@@ -27,22 +27,22 @@ einzusetzen.
 | `optimizer` | Poliert neuen Code auf Kürze und Lesbarkeit, optional. |
 | `expert-solver` | Eskalation nach zwei gescheiterten Versuchen. |
 
-Modell, Stufe, Reasoning und Werkzeuge jeder Rolle: [Rollen-Referenz](/agentic-coding-template-docs/de/reference/roles/).
+Modell, Tier, Reasoning und Werkzeuge jeder Rolle: [Rollen-Referenz](/agentic-coding-template-docs/de/reference/roles/).
 Eine Rolle läuft nur in Claude Code als Sub-Agent; andere Werkzeuge bekommen die Regeln und Skills als Anweisungen.
 
-## Stufen
+## Tiers
 
-Eine Stufe (Tier) sagt, wie viel Modellkapazität ein Auftrag bekommt: `light` für Lesen und Zählen, `standard` für
+Ein Tier sagt, wie viel Modellkapazität ein Auftrag bekommt: `light` für Lesen und Zählen, `standard` für
 Umsetzung, `elevated` für Review und Sicherheitsurteile, `high` als `elevated` mit einem weiteren Reasoning-Schritt
-und `expert` nur für eine Eskalation. `.act/tiers.json` ist die eine Stelle, die Stufen auf konkrete Modelle
+und `expert` nur für eine Eskalation. `.act/tiers.json` ist die eine Stelle, die Tiers auf konkrete Modelle
 abbildet, heute nur für Claude Code. Um eine einzelne Rolle zu ändern, füllst du eine Zeile in `## Roles` von
 `docs/ai/config.md`.
 
-## Caps und Schreibbereich
+## Caps und Write Scope
 
-Jeder Auftrag nennt seine Stufe, eine Schätzung und ein Cap als `Cap: <n>` Tool-Aufrufe. Ohne Angabe gilt der
-Standardwert der Stufe: `light` 10, `standard` 40, `elevated` 60, `high` und `expert` 80. Der Worker bekommt am
-Cap einen Hinweis und wird ab dem 1,5-Fachen des Caps abgewiesen. Außerdem nennt der Auftrag einen `Write scope:`
+Jeder Auftrag nennt sein Tier, eine Schätzung und ein Cap als `Cap: <n>` Tool-Aufrufe. Ohne Angabe gilt der
+Standardwert des Tiers: `light` 10, `standard` 40, `elevated` 60, `high` und `expert` 80. Der Worker bekommt am
+Cap einen Hinweis und wird ab dem 1,5-Fachen des Caps abgewiesen. Außerdem nennt der Auftrag seinen Write Scope als `Write scope:`
 aus Pfaden relativ zum Projekt; `Write scope: none` heißt nur lesend; ein Bereich `dir/**` deckt auch das Anlegen von `dir` selbst ab. Beides prüfen Hooks mechanisch (`worker-cap`,
 `worker-write-scope` in `docs/ai/config.md` § Checks, jeweils `block`, `warn` oder `off`).
 
@@ -59,5 +59,5 @@ aus Pfaden relativ zum Projekt; `Write scope: none` heißt nur lesend; ein Berei
 Ein Worker, der dieselbe Aufgabe zweimal nicht schafft, bekommt keinen dritten identischen Versuch: Der
 Orchestrator schärft den Auftrag einmal nach oder übergibt ihn mit dem vollständigen Fehlerkontext an
 `expert-solver`. Nach dem Annehmen, Nacharbeiten oder Eskalieren eines Ergebnisses hält er den Ausgang mit
-`usage.py --outcome` fest; ab genug solchen Einträgen schlägt `doctor.py` eine andere Stufe vor, und du
+`usage.py --outcome` fest; ab genug solchen Einträgen schlägt `doctor.py` ein anderes Tier vor, und du
 entscheidest. Der Orchestrator fragt außerdem einen laufenden Worker nicht wiederholt ab.
