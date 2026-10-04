@@ -3,7 +3,7 @@ title: Rückmeldungen senden
 description: Freiwillige Rückmeldung an den Autor der Vorlage - die Modi, Takt und Umfang, was nie gesendet wird und wo die lokale Kopie bleibt.
 sidebar:
   order: 1
-sourceHash: 97550675c4d74b5abcc0beb6c949535f613c480bff92c3625256831ea96ba126
+sourceHash: 08e307fe84e2e9e749eeb9e96a7531d3eab49cccfbbeb48ce52ea732f9b62328
 ---
 
 Du kannst dem Autor der Vorlage zurückmelden, was der Arbeitsweise gutgetan hat oder fehlte. Rückmeldung ist freiwillig, betrifft **nur die Arbeitsweise, nie dein Projekt**, und alles, was den Rechner verlässt, wird auch lokal aufbewahrt.
@@ -33,7 +33,7 @@ Drei Schlüssel im Abschnitt Feedback von `docs/ai/config.md` steuern das:
 | :--- | :--- |
 | `a` | Kennzahlen |
 | `b` | Regel- und Strukturänderungen |
-| `c` | Werkzeugnutzung |
+| `c` | Werkzeugnutzung: wie viele Agenten, Skills und Scripts es gibt und wie oft jeder Skill und jedes Script der Vorlage seit dem letzten Senden benutzt wurde. Deine eigenen Skills und Scripts erscheinen nur als eine `own`-Zahl je Art, nie mit Namen. Namen von MCP-Servern werden nicht gesendet. |
 
 Ein von Hand geschriebener Befund landet immer im Ausgang, egal welcher Umfang gilt.
 

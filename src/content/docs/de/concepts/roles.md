@@ -3,7 +3,7 @@ title: Rollen und Worker
 description: Der Orchestrator, die Worker-Rollen, Stufen, Caps, Schreibbereich und was ein Worker nicht darf.
 sidebar:
   order: 2
-sourceHash: dce5070c7bae7db918499cca6e31f76a22d68f095575d4a168298eb39cd7c8b0
+sourceHash: 7031b0e5c52114807c8fc1e9bf753c4c17e6ae67f7e07c1e716fbdddc5f4db7c
 ---
 
 ## Orchestrator und Worker
@@ -43,7 +43,7 @@ abbildet, heute nur für Claude Code. Um eine einzelne Rolle zu ändern, füllst
 Jeder Auftrag nennt seine Stufe, eine Schätzung und ein Cap als `Cap: <n>` Tool-Aufrufe. Ohne Angabe gilt der
 Standardwert der Stufe: `light` 10, `standard` 40, `elevated` 60, `high` und `expert` 80. Der Worker bekommt am
 Cap einen Hinweis und wird ab dem 1,5-Fachen des Caps abgewiesen. Außerdem nennt der Auftrag einen `Write scope:`
-aus Pfaden relativ zum Projekt; `Write scope: none` heißt nur lesend. Beides prüfen Hooks mechanisch (`worker-cap`,
+aus Pfaden relativ zum Projekt; `Write scope: none` heißt nur lesend; ein Bereich `dir/**` deckt auch das Anlegen von `dir` selbst ab. Beides prüfen Hooks mechanisch (`worker-cap`,
 `worker-write-scope` in `docs/ai/config.md` § Checks, jeweils `block`, `warn` oder `off`).
 
 ## Was ein Worker nicht darf

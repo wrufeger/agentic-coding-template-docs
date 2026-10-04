@@ -6,7 +6,7 @@ sidebar:
 ---
 
 :::note
-Diese Referenz wird aus der Vorlage erzeugt und ist englisch; Stand: Vorlage 2.0.0 (Commit 2a5095c). Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
+Diese Referenz wird aus der Vorlage erzeugt und ist englisch; Stand: Vorlage 2.0.0 (Commit 8ad385e). Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
 :::
 
 9 roles. A role is a bounded kind of worker; its tier says how much model capacity it gets, and `.act/tiers.json` maps tiers to concrete models only at generation time.

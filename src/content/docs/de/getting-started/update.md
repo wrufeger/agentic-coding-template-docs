@@ -3,7 +3,7 @@ title: Update
 description: Einen neueren Stand der Vorlage mit act-update in ein Projekt holen.
 sidebar:
   order: 3
-sourceHash: b23bec8d7ed663a05d363110e49f3906fd9997a2ce7f11714229a8be54177774
+sourceHash: 6395df366f3a88bec7bacb41cac9b1bb5ff788795ceca42738783b41fb4c8935
 ---
 
 `act-update` holt einen neueren Stand der Vorlage in dein Projekt: Du siehst den Diff, du stimmst zu, und
@@ -13,7 +13,10 @@ müsstest. Sag `Check for a template update` oder führe das Script selbst aus.
 ## Bevor du anfängst
 
 Committe oder beende offene Arbeit zuerst (`git status` sollte sauber sein). Die Adresse der Vorlage steht in
-`.act-lock.json` (`template.source`); mit `--source` und `--ref` wählst du eine andere Quelle oder ein Tag.
+`.act-lock.json` (`template.source`); mit `--source` und `--ref` wählst du eine andere Quelle oder ein Tag. Die dort
+eingetragene Quelle hat Vorrang: ein Git-Remote namens `template` wird nur genommen, wenn die Lock-Datei keine Quelle
+nennt, und das Script sagt, welche es genommen hat. Schlägt der Abruf fehl, nennt die Meldung die Quelle, woher sie
+stammt, und den Ausweg (`--source`, `--ref`).
 
 ```bash
 python .act/scripts/update.py --plan      # show the diff and describe the later steps, write nothing
@@ -39,6 +42,12 @@ python .act/scripts/update.py             # the real run, asks for consent
     `--no-commit` an.
 
 Danach ergänzt der Assistent eine Journalzeile mit der Änderung des Basis-Commits und der Zahl der Befunde.
+
+## Schutz vor Downgrade
+
+Ist der geholte Stand älter als der installierte, oder kennt die Quelle den installierten Commit nicht (zum Beispiel
+ein lokaler Checkout mit ungepushten Commits), warnt `--plan`, und ein echter Lauf bricht ab, außer du gibst
+`--allow-downgrade` an. Der übliche Ausweg ist `--source <lokaler Vorlagen-Checkout>`.
 
 ## Deine eigenen Änderungen
 

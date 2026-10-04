@@ -6,7 +6,7 @@ sidebar:
 ---
 
 :::note
-Generated from template version 2.0.0 (commit 2a5095c) — do not edit by hand. Regenerate with `npm run gen`.
+Generated from template version 2.0.0 (commit 8ad385e) — do not edit by hand. Regenerate with `npm run gen`.
 :::
 
 11 rule sets with 39 groups. A project switches a set on in `docs/project/coding_rules.md`; group IDs `CR-<set>-<name>` are stable.

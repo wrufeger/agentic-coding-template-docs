@@ -6,10 +6,10 @@ sidebar:
 ---
 
 :::note
-Generated from template version 2.0.0 (commit 2a5095c) — do not edit by hand. Regenerate with `npm run gen`.
+Generated from template version 2.0.0 (commit 8ad385e) — do not edit by hand. Regenerate with `npm run gen`.
 :::
 
-These pages are generated from the `.act/` directory of this repository, which is the pinned template state: template version 2.0.0, commit 2a5095c. Nothing here is written by hand, so the pages cannot drift from the template.
+These pages are generated from the `.act/` directory of this repository, which is the pinned template state: template version 2.0.0, commit 8ad385e. Nothing here is written by hand, so the pages cannot drift from the template.
 
 ## Pages
 

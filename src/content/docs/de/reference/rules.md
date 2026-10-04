@@ -6,7 +6,7 @@ sidebar:
 ---
 
 :::note
-Diese Referenz wird aus der Vorlage erzeugt und ist englisch; Stand: Vorlage 2.0.0 (Commit 2a5095c). Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
+Diese Referenz wird aus der Vorlage erzeugt und ist englisch; Stand: Vorlage 2.0.0 (Commit 8ad385e). Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
 :::
 
 35 rules in 7 files. Rule IDs `R-<area>-<name>` are stable and never reassigned. The shared files load for every role; the orchestrator files only for the main session.

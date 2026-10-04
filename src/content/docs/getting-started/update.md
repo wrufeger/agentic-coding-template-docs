@@ -12,7 +12,9 @@ sidebar:
 ## Before you start
 
 Commit or finish open work first (`git status` should be clean). The template's address lives in
-`.act-lock.json` (`template.source`); `--source` and `--ref` pick another source or a tag.
+`.act-lock.json` (`template.source`); `--source` and `--ref` pick another source or a tag. The source recorded there
+comes first: a git remote named `template` is used only if the lock names no source, and the script says which one it
+took. If the fetch fails, the message names the source, where it came from, and the way out (`--source`, `--ref`).
 
 ```bash
 python .act/scripts/update.py --plan      # show the diff and describe the later steps, write nothing
@@ -36,6 +38,12 @@ python .act/scripts/update.py             # the real run, asks for consent
 10. **Lock and commit.** `.act-lock.json` is rewritten and a commit is made, unless you pass `--no-commit`.
 
 Then the assistant adds a journal line with the base-commit change and the number of findings.
+
+## Downgrade guard
+
+If the fetched state is older than the installed one, or the installed commit is unknown to the source (for example a
+local checkout with unpushed commits), `--plan` warns and a real run refuses unless you pass `--allow-downgrade`. The
+usual fix is `--source <local template checkout>`.
 
 ## Your own changes
 

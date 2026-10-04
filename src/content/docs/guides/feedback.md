@@ -32,7 +32,7 @@ Three keys in the Feedback section of `docs/ai/config.md` control it:
 | :--- | :--- |
 | `a` | metrics |
 | `b` | rule and structure changes |
-| `c` | tool usage |
+| `c` | tool usage: how many agents, skills and scripts exist, and how often each of the template's own skills and scripts was used since the last sending. Your own skills and scripts appear only as one `own` count per kind, never by name. No MCP server names are sent. |
 
 A finding written by hand always goes into the outbox, whatever the scope.
 

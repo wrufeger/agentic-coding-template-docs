@@ -6,7 +6,7 @@ sidebar:
 ---
 
 :::note
-Generated from template version 2.0.0 (commit 2a5095c) — do not edit by hand. Regenerate with `npm run gen`.
+Generated from template version 2.0.0 (commit 8ad385e) — do not edit by hand. Regenerate with `npm run gen`.
 :::
 
 6 topic pages. A rule points to a topic when the detail is only needed in some situations.

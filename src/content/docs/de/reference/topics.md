@@ -6,7 +6,7 @@ sidebar:
 ---
 
 :::note
-Diese Referenz wird aus der Vorlage erzeugt und ist englisch; Stand: Vorlage 2.0.0 (Commit 2a5095c). Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
+Diese Referenz wird aus der Vorlage erzeugt und ist englisch; Stand: Vorlage 2.0.0 (Commit 8ad385e). Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
 :::
 
 6 topic pages. A rule points to a topic when the detail is only needed in some situations.

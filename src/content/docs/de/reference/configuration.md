@@ -6,7 +6,7 @@ sidebar:
 ---
 
 :::note
-Diese Referenz wird aus der Vorlage erzeugt und ist englisch; Stand: Vorlage 2.0.0 (Commit 2a5095c). Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
+Diese Referenz wird aus der Vorlage erzeugt und ist englisch; Stand: Vorlage 2.0.0 (Commit 8ad385e). Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
 :::
 
 `init` fills in the values below from what it asked or detected. Change them any time — nothing here needs a rebuild; `.act/hooks/dispatch.py` reads this file at session start.
@@ -68,9 +68,9 @@ local view in `docs/ai/board.md` and writes the versioned per-person board
 `docs/ai/board-<identity>.md` (no last commit, no working tree, no timestamp) at commit time, by
 `act-commit`. `local`: `.act-local/board-<branch>.md`. The local view is regenerated at session
 start and after git commands in the session that change the checked-out state (merge, pull,
-rebase, switch, checkout …); a versioned file is never rewritten by that. `board-others`: `on` \| `off` — a section for tasks
-assigned to others (`for:` in the task header); with `shared` it also lists the others' committed
-boards. Empty means `on` with `mode: team`, `off` otherwise.
+rebase, switch, checkout …); a versioned file is never rewritten by that. `board-others`: `on` \| `off` — a
+section for tasks assigned to others (`for:` in the task header); with `shared` it also lists the others'
+committed boards. Empty means `on` with `mode: team`, `off` otherwise.
 
 ## Inbox
 
@@ -186,7 +186,7 @@ project root (not versioned) — to follow along live, e.g. in a second terminal
 Voluntary feedback to the template author about the working method, never about the project.
 `feedback`: `off` \| `confirm` \| `automatic` \| `manual`. `feedback-cadence` is an upper limit:
 `manual` \| `immediate` \| `hourly` \| `daily` \| `weekly` \| `adaptive`. `feedback-scope`: `a`
-metrics, `b` rule and structure changes, `c` tool usage. Every sent payload's full copy stays
+metrics, `b` rule and structure changes, `c` tool usage (counts of template skills/scripts used since the last send; your own only as one `own` count). Every sent payload's full copy stays
 local (`.act-local/feedback/sent/`, gitignored) — each send also gets one line in the journal
 (date, kind, entry count, schema version, never content). A message you write yourself
 (`feedback: <text>`) always goes out, even with `off`. Details: `.act/rules/topics/feedback.md`.

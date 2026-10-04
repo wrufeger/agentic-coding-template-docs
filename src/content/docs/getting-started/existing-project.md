@@ -23,6 +23,8 @@ Nothing changes before you approve a table once, and no script commits anything.
 
 1. **Sight.** `adopt_scan.py --target <dir>` classifies every documentation and AI-tool source (`ai-config`,
    `ai-machinery`, `work`, `log`, `project-doc`, `predecessor`, `unknown`), writes a scan, and changes nothing.
+   The scan also names a leftover git remote that points at the template repository (a previous template's update script
+   added it). The assistant proposes removing it and does so only with your yes.
 2. **Propose the table.** One row per source with an action: `keep`, `adopt`, `legacy`, or `delete`.
 3. **You approve once.** The whole table in one pass. You may change any row.
 4. **Apply.** `adopt.py --apply` creates the branch `act-adopt`, moves `legacy` rows into the archive, and runs
@@ -44,6 +46,9 @@ Nothing changes before you approve a table once, and no script commits anything.
 | `adopt` | The content goes into a template place: an entry, a proposal, `docs/ai/config.md`, `docs/project/`, or `docs/ai/local/`. |
 | `keep` | The file stays untouched. This is the default for project docs, a foreign root `README.md`, and local files such as `CLAUDE.local.md`, `.mcp.json`, and `.claude/settings.json`. |
 | `delete` | Advised for a previous template's own tooling that holds nothing of yours; adopt also allows it for AI config, work files and confirmed project docs. It happens on the branch, so nothing is lost. |
+
+Old entries' ids are not reused: the reserved ids are kept in the versioned `docs/ai/work/reserved-ids.json`. In solo
+mode the workspace identity follows the adopted owner; in team mode you only get a note.
 
 Your wording stays as it is: titles and bodies are copied from the old text, never summarized or translated.
 `init.py` merges its hook entries into `.claude/settings.json` and leaves your own entries in place.
