@@ -1,0 +1,21 @@
+# Generated bridges: CLAUDE.md, AGENTS.md, and docs/ai/rules.md are
+# written by `.act/scripts/init.py` from `.act/bridges/`. `merge=ours` is a hint for a custom
+# merge driver (`git config merge.ours.driver`); if none is registered on this machine, git
+# falls back to a normal merge. Either way, `.act/hooks/dispatch.py` re-derives an unchanged
+# bridge at every session start (checked against `.act-local/cache.json`), so a missing driver
+# never leaves a stale file behind.
+/CLAUDE.md merge=ours
+/AGENTS.md merge=ours
+/docs/ai/rules.md merge=ours
+# Per-person board file of `board: shared`, written with LF. `merge=ours` only takes effect where
+# the driver above is registered; otherwise a normal merge applies, and the next commit rewrites
+# the file anyway (act-commit runs `board.py --shared`).
+/docs/ai/board-*.md merge=ours text eol=lf
+# .act/MANIFEST.json hashes the bytes on disk: without a fixed line ending, a checkout with
+# core.autocrlf=true would report every text file under .act/ as changed by hand.
+/.act/** text=auto eol=lf
+# Skill copies and role bridges: update.py tells an edited copy from an unchanged one by its hash;
+# a checkout with core.autocrlf=true would otherwise write them with CRLF.
+/.claude/skills/** text eol=lf
+/.agents/skills/** text eol=lf
+/.claude/agents/** text eol=lf

@@ -1,0 +1,152 @@
+{
+  "env": {
+    "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR": "1"
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/statusline.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\""
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then echo \"[act] Python 3.9+ not found - the template's hooks are inactive (see README)\"; exit 0; fi; if [ ! -f \"$D\" ]; then echo \"[act] .act/hooks/dispatch.py not found - the template's hooks are inactive\"; exit 0; fi; \"$P\" \"$D\" SessionStart; true",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|MultiEdit|NotebookEdit|Write|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" PreToolUse",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Agent|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" PreToolUse",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "^(?!(Edit|MultiEdit|NotebookEdit|Write|Bash|Agent|Task)$).*",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" PreToolUse",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" PostToolUse; true",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" SubagentStart; true",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" SubagentStop; true",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" UserPromptSubmit --act-check; true",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" UserPromptSubmit; true",
+            "timeout": 10,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" PostToolUseFailure; true",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" Notification; true",
+            "timeout": 10,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" SessionEnd; true",
+            "timeout": 10,
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
+}

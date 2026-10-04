@@ -1,0 +1,602 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+#
+# Purpose: Single entry point for every hook event this template wires into the assistant's
+#          harness (currently PreToolUse, PostToolUse and SessionStart). One script per event would
+#          scatter the same "read stdin, load actlib, check config" boilerplate across files;
+#          dispatch.py does that once and hands off to one handler per event. The checks/notes
+#          themselves live one module per check under .act/hooks/checks/ (see checks/__init__.py);
+#          dispatch.py stays the thin entry point that reads the payload and runs them in a fixed
+#          order.
+#
+#          PreToolUse runs the checks in _PRE_TOOL_USE_CHECKS, in that order, first denial wins:
+#          the template write-guard (checks.write_guard.check_write_guard), the no-sub-sub-agents
+#          guard (checks.nesting_guard.check_worker_nesting_guard, R-role-worker), and the
+#          per-worker write-scope guard (checks.write_scope.check_worker_write_scope,
+#          R-cost-delegate) — a worker may only write where its assignment's `Write scope:` line
+#          allows.
+#
+#          To add a new PreToolUse check: write checks/<name>.py exporting a function
+#          check_<name>(payload: dict) -> int (0 = allow, 2 = deny — print the reason to stderr
+#          before returning 2, same as every existing check) and add ("<name>", "check_<name>")
+#          to _PRE_TOOL_USE_CHECKS at the position it should run in. A listed module that does
+#          not exist yet is skipped. Observers (event log, usage counter) work the same way via
+#          _OBSERVERS, with observe(event, payload) -> None (checks/board_refresh.py, for instance,
+#          regenerates the board after a PostToolUse of a git merge/pull/rebase/switch/...); for
+#          every event but PreToolUse they see it before any check runs and never block — for
+#          PreToolUse specifically they run *after* the checks instead (see the "PreToolUse" paragraph under Usage below).
+#
+#          PostToolUse runs every entry in _POST_TOOL_USE_NOTES — signature
+#          note_<name>(payload: dict) -> str | None — collecting whatever text each one returns
+#          (None means "nothing to say", the common case) and, only if at least one note came back,
+#          printing a single hookSpecificOutput JSON object on stdout (see "Output format" below).
+#          Unlike PreToolUse's checks, notes never block: a missing module is skipped silently (not
+#          built yet, same convention as _PRE_TOOL_USE_CHECKS), and an exception while loading or
+#          calling one is caught, logged as one line on stderr, and skipped — the remaining notes
+#          still run, and the JSON on stdout, if any, stays well-formed either way. This is the
+#          channel a check reaches for when it needs the assistant to actually see a hint: unlike a
+#          PreToolUse check's plain-text stdout (transcript-only, never fed back to the model — see
+#          checks/encoding_hint.py's and checks/worker_cap.py's own header comments for the
+#          research behind that), PostToolUse's hookSpecificOutput.additionalContext is documented
+#          to reach the model. A check that also needs to *deny* a call still does that from
+#          PreToolUse (exit 2 + stderr, the only channel confirmed to reach the model for that
+#          event) — PostToolUse's notes are for the non-blocking half of the same checks only.
+#
+#          PostToolUseFailure runs the very same _POST_TOOL_USE_NOTES list, the same way (a live
+#          probe): when every one of a worker's tool calls fails (e.g. every Read
+#          errors because the file does not exist), the harness only ever fires PostToolUseFailure,
+#          never PostToolUse — a worker that never gets a single successful call also never got its
+#          cap-reached hint under the old PostToolUse-only wiring, silently. Confirmed against the
+#          hook docs (code.claude.com/docs/en/hooks, fetched 2026-09-23): PostToolUseFailure's
+#          hookSpecificOutput does support additionalContext, hookEventName "PostToolUseFailure".
+#          Deliberately NOT given the same pre-import, pre-observer fast exit that PostToolUse's
+#          early block above has (see that block's own comment): that exit runs before
+#          _run_observers, which is safe for PostToolUse only because the observers that react to
+#          a plain "PostToolUse" event (board_refresh) only care about tools in
+#          _POST_TOOL_USE_TOOLS (Bash, PowerShell), which the early block lets through — but checks.event_log.observe *does* have a dedicated
+#          PostToolUseFailure branch (the "[error]" log line, every failure, any tool, worker or
+#          not) that must keep firing regardless of which tool failed. Skipping straight past that
+#          would silently drop failure logging for every tool outside _POST_TOOL_USE_TOOLS (Read,
+#          Grep, Glob, WebFetch, ...) — the opposite of what this fix is for. PostToolUseFailure
+#          therefore always goes through the normal event path (imports, observers, then notes);
+#          only the notes themselves stay as cheap as PostToolUse's (each note_<name> already
+#          returns None fast for a call it does not care about, see worker_cap.note_worker_cap et
+#          al.). .act/bridges/settings.hooks.json's PostToolUseFailure entry was `async: true`
+#          (needed only for the event-log write, which never needs to reach the model) — switched
+#          to synchronous here so the JSON this now also prints is reliably delivered, one hook
+#          entry doing both jobs rather than a second one added alongside it.
+#
+#          The PreToolUse hook fires for every tool (settings.hooks.json: the Edit/Write/Bash
+#          entry, the Agent|Task entry and a third entry for all other tool names, e.g.
+#          PowerShell, Read, MCP tools) — each check filters the tool names it cares about.
+#          PostToolUse fires for every tool too, via a single unrestricted matcher (no need to
+#          split it the way PreToolUse's matcher is split — that split exists so future PreToolUse
+#          checks *could* be wired per tool-name group; every PostToolUse note today applies
+#          uniformly regardless of tool, so one entry suffices without risking a double call).
+#
+#          SessionStart is a single combined handler (checks.session.refresh_session) rather than
+#          a list — its sub-steps (inbox count, bridge refresh, template-awareness notes,
+#          orchestrator-rules delivery, ...) are each their own best-effort note or side effect
+#          gated by their own docs/ai/config.md row, not independent pass/fail gates, so a list
+#          with "first denial wins" semantics does not fit it the way it fits PreToolUse.
+#
+# Usage:
+#   python .act/hooks/dispatch.py <event>
+#   python .act/hooks/dispatch.py UserPromptSubmit --act-check
+#   ... with the hook's JSON payload piped in on stdin (may be empty or malformed; handled).
+#
+#   <event> is the hook event name. "PreToolUse" runs the checks, "PostToolUse" and
+#   "PostToolUseFailure" both run the notes, "SessionStart" the session handler; every event but
+#   "PreToolUse" (these three and e.g. SubagentStart, SubagentStop, UserPromptSubmit, Notification,
+#   SessionEnd) goes to the observers first, unconditionally. "PreToolUse" is the one exception
+#   exception: its observers run *after* its checks, and only for a call the checks
+#   allow — see _run_pre_tool_use_observers' own docstring for why a call the checks deny must
+#   never reach usage.py's role/skill/script/checklist counters (it never happened, from the
+#   counters' point of view), while checks.event_log.observe still runs for it, marked as a denial
+#   (R-safe-block: every block is logged). Anything else exits 0 — an unknown event must never
+#   break the caller's hook chain. "UserPromptSubmit --act-check" is a second, separate invocation
+#   of this same event (its own synchronous entry in .act/bridges/settings.hooks.json, alongside
+#   the plain "UserPromptSubmit" one, which stays async and unchanged) — see the fast-path block
+#   near the top of this file, before the heavy imports, and "Output format" below.
+#
+# Output format:
+#   PreToolUse:   exit 0 (allow) or exit 2 with a one-line reason on stderr (deny) — the
+#                 harness convention for "block this tool call and show the assistant why".
+#   PostToolUse / PostToolUseFailure: exit 0 always (notes never block); if at least one note
+#                 module returned text, one line on stdout: {"hookSpecificOutput": {"hookEventName":
+#                 "PostToolUse"|"PostToolUseFailure", "additionalContext": "<note>\n<note>..."}} —
+#                 multiple notes joined with "\n", hookEventName matching whichever of the two
+#                 events this run is for.
+#                 Nothing printed at all when no note module had anything to say.
+#   SessionStart: one JSON object on stdout: `hookSpecificOutput.additionalContext` holds
+#                 the lines below, kept under the 10,000-character cap (above it Claude Code
+#                 moves a hook output into a file and shows the model a 2,000-character
+#                 preview), and a top-level `systemMessage` holds one line for the human (rule
+#                 files loaded per `rules.py --imports`, chat language, inbox entries to
+#                 process). The lines: an optional
+#                 block of orchestrator-only rules, one line per rule plus where the full text
+#                 lives (main session only, never seen by a sub-agent), zero or more "[act] note: ..."
+#                 lines (a changed/unrefreshable bridge, an unresolvable tier/reasoning value, a
+#                 project .act/ pulled in without update.py — each best-effort and independently
+#                 gated, see checks.session.refresh_session()), then the fixed-format status line
+#                 "[act] branch=<name>[ · inbox: <n> waiting][ · ideas: <n> new][ · feedback due] ·
+#                 board updated[ · rules: <n>][ · role-bridges refreshed: <n>]", and finally, as a deliberate postscript after
+#                 that status line, an optional "a template update is available" note — always a
+#                 *previous* SessionStart's finding, consumed from .act-local/update-check-
+#                 result.json, never something looked up during this run (see
+#                 checks.session._spawn_update_check_worker: the actual `git ls-remote` runs
+#                 detached, in the background, so it can never delay this session — a SessionStart
+#                 hook has a fixed timeout, and an unreachable template source measured at 21s
+#                 against a 5s subprocess timeout before this fix, see that function's docstring).
+#                 Also re-derives the model/effort frontmatter of every existing
+#                 .claude/agents/*.md role bridge (tiers.py), leaving the rest of each file
+#                 untouched; exit 0 always — a session start must never fail the session over a
+#                 mechanism error.
+#
+#   "_update-check-worker" <root>: internal only, never a real harness hook event — this is what
+#                 checks.session._spawn_update_check_worker() launches as a detached background
+#                 process (see main() below). Not documented to the harness, not something a hook
+#                 config ever names.
+#
+#   "_security-scan-worker" <root> [<state-hash> <lock-file>...]: the same kind of internal-only
+#                 event, launched by checks.session._spawn_security_scan_worker() — with the root
+#                 alone for the daily dependency-vulnerability scan at session start (security-
+#                 check: deps/full), with a state hash and the lock files one commit
+#                 touches for checks/deps_scan.py's commit check — its own background process so
+#                 `security_scan.run_scan()`'s tool call never delays a session start or a commit's
+#                 own PreToolUse hook, mirroring "_update-check-worker".
+#
+#   "UserPromptSubmit --act-check": the prompt is not "/act"/"/act <name>", or it is a
+#                 worker's own payload — exit 0, nothing on stdout (the common case, checked
+#                 before any of manifest.py/tiers.py/checks.session is imported). On a match:
+#                 one line on stdout, {"decision": "block", "reason": "<skill list or one skill's
+#                 SKILL.md in full>"} — the format Claude Code is confirmed to read for
+#                 UserPromptSubmit as "show `reason` to the user, never send this prompt to the
+#                 model" (same mechanism the predecessor template used before the current `.act/`
+#                 layout). Always exit 0 either way; a bug in .act/scripts/skills.py falls
+#                 back to "say nothing, let the prompt through" rather than eating it.
+#
+# Exit-code contract for PreToolUse specifically: a mechanism error while checking a candidate
+# write is NOT swallowed the way a SessionStart error is. Every other check in this template
+# fails open (never blocks the session on its own bug); the write-guard is the one exception —
+# "when in doubt, deny" — because a false allow here means the template
+# silently loses its own files to an edit the next update overwrites anyway.
+#
+# Backward compatibility: every name that used to live directly in this module (before the
+# checks/ split, 2026-09-23) is still reachable as dispatch.<name> — each checks/ submodule
+# declares its public surface in its own __all__, and this file re-imports all of it with a
+# wildcard import per submodule below. A probe that does `import dispatch; dispatch._foo(...)`
+# keeps working unchanged; so does one that monkeypatches a name a check reads through another
+# module's own attribute lookup at call time (e.g. checks.session._manifest_fingerprint reads
+# manifest.manifest_fingerprint via getattr() on the shared `manifest` module on every call, not
+# a copied reference — patching `manifest.manifest_fingerprint` from outside still takes effect
+# no matter which file defines the function that reads it).
+
+from __future__ import annotations
+
+import importlib
+import json
+import sys
+import time
+
+from pathlib import Path  # noqa: E402
+
+# When this hook process began its own work -- every PreToolUse check receives it as
+# payload["_act_hook_started"] (see _run_checks) and caps its own time budget against it
+# (checks/secret_scan._check_deadline): the harness kills a PreToolUse hook at 10 s
+# (.act/bridges/settings.hooks.json), and the secret, danger and deps scans run back to back in
+# this one process, so their individual budgets must not simply add up (2026-09-27 review 2, m5).
+_HOOK_STARTED = time.monotonic()
+
+# Must run before importing anything under .act/ (actlib/manifest/tiers, the checks package):
+# compiled caches go to the system temp directory instead of __pycache__/ folders under the
+# template tree. Keeping them (rather than sys.dont_write_bytecode) saves ~35 ms per hook call,
+# which runs twice for every tool call. Not under .act-local/: pycache_prefix mirrors the full
+# source path below the prefix, which inside the project doubles the path length and breaks
+# Windows' 260-character limit (and `git clean`) in deep checkouts. Writing a cache is best
+# effort in Python — a failure there never fails the hook.
+import tempfile  # noqa: E402
+sys.pycache_prefix = str(Path(tempfile.gettempdir()) / "act-pycache")
+
+# PostToolUse fires after every tool call, but only a worker's calls (cap note) and the writing
+# tools (encoding note, secret-scan note after a commit) can produce a note. Everything else
+# returns here, before the imports below — the common case costs one small JSON parse.
+_POST_TOOL_USE_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit", "Bash", "PowerShell"}
+_early_payload = None
+if len(sys.argv) == 2 and sys.argv[1] == "PostToolUse":
+    try:
+        # Read raw bytes and decode as UTF-8 explicitly — sys.stdin.read() picks the console's
+        # legacy code page on Windows (e.g. cp1252), which silently mangles non-ASCII bytes in
+        # the payload (a prompt or path with an umlaut) before json.loads ever sees them (live
+        # probe: "wörtlich" arrived as "wÃ¶rtlich"). errors="replace" keeps a
+        # genuinely undecodable byte from crashing the hook — same "never grounds to crash"
+        # stance as the except clause below.
+        _raw = sys.stdin.buffer.read().decode("utf-8", errors="replace")
+        _early_payload = json.loads(_raw) if _raw.strip() else {}
+    except (OSError, ValueError, AttributeError):
+        _early_payload = {}
+    if not isinstance(_early_payload, dict):
+        _early_payload = {}
+    if not _early_payload.get("agent_id") and _early_payload.get("tool_name") not in _POST_TOOL_USE_TOOLS:
+        sys.exit(0)
+
+# UserPromptSubmit "/act" fast intercept — a second, synchronous hook entry dedicated to
+# this one check (.act/bridges/settings.hooks.json's "--act-check" entry), kept apart from the
+# plain "UserPromptSubmit" entry below (still async, feeds only the observers — see
+# checks/tips.py's own header for why that one stays async: it never needs to block anything). A
+# normal prompt must never pay for manifest.py/tiers.py/checks.session just to rule itself out
+# here — checked before any of that is imported, same early-exit shape as the PostToolUse block
+# above. Only on an actual "/act"/"/act <name>" match is .act/scripts/skills.py imported and run;
+# on a match, prints {"decision": "block", "reason": <skill list or one skill in full>} — Claude
+# Code shows the reason to the user and never sends the prompt to the model (confirmed against
+# the predecessor template's identical mechanism, live before the `.act/` layout).
+if len(sys.argv) == 3 and sys.argv[1] == "UserPromptSubmit" and sys.argv[2] == "--act-check":
+    import re as _re
+    try:
+        _raw2 = sys.stdin.buffer.read().decode("utf-8", errors="replace")
+        _payload2 = json.loads(_raw2) if _raw2.strip() else {}
+    except (OSError, ValueError, AttributeError):
+        _payload2 = {}
+    if not isinstance(_payload2, dict):
+        _payload2 = {}
+    _prompt2 = _payload2.get("prompt")
+    _match2 = _re.fullmatch(r"\s*/act(?:\s+(\S+))?\s*", _prompt2) if isinstance(_prompt2, str) else None
+    if _match2 is None or _payload2.get("agent_id"):
+        sys.exit(0)  # not "/act"/"/act <name>", or a worker's own payload — nothing to do here
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+    try:
+        import actlib as _actlib2  # noqa: E402
+        import skills as _skills2  # noqa: E402
+        _reason2 = _skills2.render(_actlib2.repo_root(), _match2.group(1) or "")
+    except Exception:  # noqa: BLE001 — a bug in the listing must never eat the user's prompt
+        sys.exit(0)
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except (AttributeError, ValueError):
+        pass
+    print(json.dumps({"decision": "block", "reason": _reason2}, ensure_ascii=False))
+    sys.exit(0)
+
+# Force UTF-8 on stdout/stderr: on Windows, Python otherwise picks the console's legacy code
+# page (e.g. cp1252), which silently mangles the em dash in checks.write_guard's message into a
+# different byte than the UTF-8 the harness expects. reconfigure() is Python 3.7+; the
+# try/except keeps this a no-op on a stream that does not support it instead of crashing.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8")
+    except (AttributeError, ValueError):
+        pass
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+# Keep .act/hooks/ ahead of .act/scripts/ so a future scripts/checks.py can never shadow the
+# checks package.
+_HOOKS_DIR = str(Path(__file__).resolve().parent)
+if _HOOKS_DIR in sys.path:
+    sys.path.remove(_HOOKS_DIR)
+sys.path.insert(0, _HOOKS_DIR)
+import actlib  # noqa: E402 (sys.path setup above must run first)
+import manifest  # noqa: E402
+import tiers  # noqa: E402
+
+# checks/ lives next to this file (.act/hooks/checks/); Python already put this file's own
+# directory (.act/hooks/) on sys.path[0] when it started, so the package is importable as-is.
+# common and session are needed by main() itself; a failure there is a template bug that must
+# surface, not be hidden. The other re-imports only keep `dispatch.<name>` reachable for probes —
+# a broken check module must not crash the dispatcher here; the registry below decides what a
+# broken check means (see _FAIL_CLOSED).
+from checks.common import *  # noqa: E402,F401,F403
+from checks.session import *  # noqa: E402,F401,F403
+for _compat_module in ("nesting_guard", "shell_targets", "write_guard", "write_scope"):
+    try:
+        _mod = importlib.import_module(f"checks.{_compat_module}")
+    except Exception:  # noqa: BLE001 — handled again, with a verdict, in _resolve()
+        continue
+    globals().update({name: getattr(_mod, name) for name in getattr(_mod, "__all__", ())})
+del _compat_module
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+# PreToolUse checks, in the order they run — first non-zero return wins and is this call's own
+# exit code. See the header comment above for how to add one. Each entry is (module under checks/,
+# function name); a module that does not exist yet is skipped, so a check can be registered here
+# before it is built (several modules are built in parallel, one each).
+#
+# Order note: worker_cap and status_poll are deliberately
+# the LAST two entries — both can deny based on their own running counter/streak (worker's tool-call
+# count, orchestrator's consecutive-poll streak), and that counter/streak must never be bumped for a
+# call another, earlier check goes on to deny anyway (e.g. encoding_hint refusing a worker's Write to
+# a non-UTF-8 file must not also count that call against the worker's cap). Every check ahead of them
+# here — including deps_scan, which can also deny — runs first for the same reason; a future check
+# that can deny stays ahead of these two unless it specifically needs to see their denial first.
+_PRE_TOOL_USE_CHECKS = (
+    ("write_guard", "check_write_guard"),                 # check 1  — .act/ template write-guard
+    ("nesting_guard", "check_worker_nesting_guard"),      # check 1b — no sub-sub-agents (R-role-worker)
+    ("write_scope", "check_worker_write_scope"),          # check 1c — per-worker write scope (R-cost-delegate)
+    ("worker_docs_ai", "check_worker_docs_ai"),           # worker writes under docs/ai/ (R-role-worker)
+    ("worker_git_write", "check_worker_git_write"),       # worker runs a mutating git command (R-role-worker)
+    ("mcp_ide", "check_mcp_ide"),                          # IDE MCP tool calls, classified and reused
+    ("commit_pathspec", "check_commit_pathspec"),         # git add -A / . / commit -a (R-code-commit)
+    ("git_reset_hard", "check_git_reset_hard"),           # git reset --hard on a dirty tree (R-safe-git-reset)
+    ("recursive_delete", "check_recursive_delete"),       # rm -r and friends (R-safe-no-shell-delete)
+    ("secret_scan", "check_secret_scan"),                 # secrets in the diff before commit (R-safe-no-secret-diff)
+    ("danger_scan", "check_danger_scan"),                 # dangerous patterns in the diff before commit (security-check)
+    ("deps_scan", "check_deps_scan"),                     # dependency vulnerabilities in a touched lock file (security-check)
+    ("encoding_hint", "check_encoding_hint"),             # non-UTF-8 target, note only (R-code-encoding)
+    ("worker_cap", "check_worker_cap"),                   # tool calls beyond the worker's cap (R-cost-delegate) — last on purpose, see above
+    ("status_poll", "check_status_poll"),                 # repeated status queries (R-cost-wait) — last on purpose, see above
+)
+
+# PostToolUse / PostToolUseFailure notes, all of them run every time for either event (no "first
+# wins" — unlike _PRE_TOOL_USE_CHECKS, these never block, so there is nothing to short-circuit).
+# Each entry is (module under checks/, function name); signature note_<name>(payload: dict) -> str
+# | None. Same skip-if-missing rule as _PRE_TOOL_USE_CHECKS. See the header comment above for the
+# full contract, and for why PostToolUseFailure shares this exact list instead of its own.
+_POST_TOOL_USE_NOTES = (
+    ("worker_cap", "note_worker_cap"),        # cap-reached / cap-exceeded hints (R-cost-delegate)
+    ("encoding_hint", "note_encoding_hint"),  # `warn` mode's one-time non-UTF-8 note (R-code-encoding)
+    ("secret_scan", "note_secret_scan"),      # `warn` mode / incomplete scan after a commit (R-safe-no-secret-diff)
+    ("deps_scan", "note_deps_scan"),          # lower-severity/accepted findings after a commit (security-check)
+)
+
+# Observers see every hook event and never block: signature observe(event: str, payload: dict) ->
+# None; an exception inside one is swallowed. For every event but PreToolUse they run before any
+# check does; for PreToolUse itself they run *after* the checks instead (_run_pre_tool_use_observers
+# below). Used for the event log (topic "logging") and the usage counter. Same
+# skip-if-missing rule as above.
+_OBSERVERS = (
+    ("event_log", "observe"),
+    ("usage", "observe"),
+    ("status_poll", "observe"),  # resets the poll streak on UserPromptSubmit (R-cost-wait)
+    ("board_refresh", "observe"),  # regenerates the board after PostToolUse of git merge/pull/...
+    ("tips", "observe"),         # minute/hour reminders on UserPromptSubmit — the one observer
+                                 # that prints, and only for that event: UserPromptSubmit runs
+                                 # async (.act/bridges/settings.hooks.json), so plain stdout is
+                                 # lost — only a hookSpecificOutput.additionalContext JSON object
+                                 # on stdout reaches the model (checks/tips.py's observe() prints
+                                 # exactly that, never bare text)
+)
+
+
+# Checks whose failure (import error, missing function, exception while running) refuses the
+# call instead of letting it through: exit code 1 would count as "not blocking" for the harness,
+# so a broken guard would silently open the door it is meant to keep shut. Every other check
+# fails open with one line on stderr — a broken convenience check must not stop all work.
+_FAIL_CLOSED = {"write_guard", "nesting_guard", "write_scope", "mcp_ide"}
+# Only tools that can write or start a worker are refused by a broken guard — reading stays
+# possible, so the assistant can still look into what broke.
+_FAIL_CLOSED_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit", "Bash", "PowerShell", "Agent", "Task"}
+
+def _mcp_call_needs_mcp_ide(tool_name: str, payload: dict) -> bool:
+    """True when a *working* checks.mcp_ide.check_mcp_ide could have denied this call -- i.e.
+    whether _check_failed's fallback below (mcp_ide broken) must deny it too, rather than letting
+    it through the way mcp_ide.py's own final `return 0` would for anything it does not classify
+    (review finding 4b: a broken mcp_ide used to deny *every* `mcp__` call, even a plainly
+    read-only one on an unrelated server, which is a strictly worse outcome than the bug this check
+    exists to guard against). A server with no IDE evidence at all (Gmail, Docs, ...) must stay
+    untouched here exactly as it would with a working mcp_ide.
+
+    Judged from checks.mcp_ide_tables -- the class tables mcp_ide.py itself reads, kept in a module
+    of their own with nothing in it that can fail -- so a runtime error inside check_mcp_ide() and
+    an import error of mcp_ide.py come out the same (the two used
+    to differ, exit 2 vs. 0 for the orchestrator's own `create_new_file`): a shell- or
+    write-classified tool denies for everyone (a working check can deny the orchestrator there,
+    via the .act/ write-guard); an exec-classified one for a worker only (a working check never
+    denies the orchestrator there, it only prints a note); a read tool never; an unlisted tool on an
+    IDE-named server (checks.session._is_ide_server_name, already loaded by this module's own
+    wildcard import above -- the one part of the definition that never depends on mcp_ide.py) for
+    a worker only, as the working check would. Only if even the tables module cannot be used is
+    every call on an IDE-named server refused, worker or not, reads included: with no table left to
+    tell `read_file` from `create_new_file`, "cannot evaluate" denies, and the message names
+    doctor.py."""
+    if not tool_name.startswith("mcp__"):
+        return False
+    rest = tool_name[len("mcp__"):]
+    server, sep, suffix = rest.partition("__")
+    if not sep or not server or not suffix:
+        return False  # not even shaped like an MCP tool call
+    ide_named = _is_ide_server_name(server)
+    try:
+        tables = importlib.import_module("checks.mcp_ide_tables")
+        tool_class = tables._tool_class(suffix)
+    except Exception:  # noqa: BLE001 — not even the tables are usable: nothing left to classify with
+        return ide_named
+    if tool_class in ("shell", "write"):
+        return True
+    if tool_class == "exec":
+        return _is_worker(payload)
+    if tool_class == "read":
+        return False
+    return ide_named and _is_worker(payload)
+
+
+def _load(module_name: str, func_name: str):
+    """(func, None) when the check is available, (None, None) when its module does not exist yet,
+    (None, reason) when it exists but cannot be used."""
+    try:
+        module = importlib.import_module(f"checks.{module_name}")
+    except ModuleNotFoundError as exc:
+        if exc.name == f"checks.{module_name}":
+            return None, None  # not built yet
+        return None, f"import failed: {exc}"
+    except Exception as exc:  # noqa: BLE001
+        return None, f"import failed: {type(exc).__name__}: {exc}"
+    func = getattr(module, func_name, None)
+    if not callable(func):
+        return None, f"function {func_name} missing"
+    return func, None
+
+
+def _check_failed(module_name: str, reason: str, payload: dict) -> int:
+    tool_name = payload.get("tool_name")
+    if module_name == "mcp_ide":
+        # mcp_ide is only ever this check's business for an actual `mcp__...` call (see
+        # mcp_ide.check_mcp_ide's own early `return 0` for anything else) — an unrelated Bash/
+        # Write/Agent call must never be denied just because this one, unrelated check is broken
+        # (review finding 4a). Within an MCP call, fail closed only where a working check would
+        # actually have looked at all (_mcp_call_needs_mcp_ide, review finding 4b) — a plainly
+        # read-only or unrecognized MCP tool passes through the same as mcp_ide.py's own final
+        # `return 0` would for it, broken check or not.
+        applies = isinstance(tool_name, str) and _mcp_call_needs_mcp_ide(tool_name, payload)
+    else:
+        applies = tool_name in _FAIL_CLOSED_TOOLS
+    if module_name in _FAIL_CLOSED and applies:
+        print(f"[act] check {module_name} failed ({reason}) — refusing to be safe; "
+              "run .act/scripts/doctor.py", file=sys.stderr)
+        return 2
+    print(f"[act] check {module_name} skipped ({reason})", file=sys.stderr)
+    return 0
+
+
+def _run_checks(payload: dict) -> "tuple[int, str | None]":
+    """(exit code, denying module's name) — the name is None on allow (exit code 0), and passed on
+    to _run_pre_tool_use_observers so checks.event_log.observe can name the check that denied
+    instead of only recording that *some* check did."""
+    # a copy, never the caller's own dict (same stance as _run_pre_tool_use_observers): the checks
+    # see the hook's own start for their shared time budget, the observers and the log do not
+    checked_payload = dict(payload, _act_hook_started=_HOOK_STARTED)
+    for module_name, func_name in _PRE_TOOL_USE_CHECKS:
+        func, reason = _load(module_name, func_name)
+        if func is None:
+            if reason is None:
+                continue
+            result = _check_failed(module_name, reason, payload)
+        else:
+            try:
+                result = func(checked_payload)
+            except Exception as exc:  # noqa: BLE001
+                result = _check_failed(module_name, f"{type(exc).__name__}: {exc}", payload)
+        if result != 0:
+            return result, module_name
+    return 0, None
+
+
+def _run_observers(event: str, payload: dict) -> None:
+    for module_name, func_name in _OBSERVERS:
+        func, _reason = _load(module_name, func_name)
+        if func is None:
+            continue
+        try:
+            func(event, payload)
+        except Exception:  # noqa: BLE001 — an observer must never break the hook chain
+            pass
+
+
+def _run_pre_tool_use_observers(payload: dict, denied: bool, denied_by: "str | None" = None) -> None:
+    """PreToolUse's own observer run: a call one of _PRE_TOOL_USE_CHECKS
+    denies must never be counted by usage.py's role/skill/script/checklist counters, nor logged as
+    an unqualified success — the fix is to run the observers *after* _run_checks, for this one
+    event only, and skip every counting observer outright when the call was denied.
+
+    Allowed call (denied=False): unchanged behavior, every observer in _OBSERVERS runs exactly as
+    it always has (_run_observers(event, payload)).
+
+    Denied call (denied=True): only checks.event_log.observe still runs (R-safe-block: every
+    block is logged, even a harmless one) — with payload["_act_denied"] = True and, when known,
+    payload["_act_denied_by"] = denied_by (the module name from _run_checks, e.g. "encoding_hint")
+    set on a *copy* of payload (never mutate the caller's own dict) so it can log the line as a
+    denial naming which check denied it, rather than as a "delegate"/DEBUG "tool" line or an
+    unqualified "denied". usage.observe, status_poll.observe and tips.observe are skipped
+    entirely: none of them has any business seeing a call that never actually happened. (status_
+    poll.observe/tips.observe only react to UserPromptSubmit anyway, so skipping them here changes
+    nothing for PreToolUse — spelled out because _OBSERVERS is a shared list, not to imply either
+    one used to fire here.)
+
+    Considered and rejected: passing `denied` as a third argument to every observer's own
+    observe(event, payload) — this module's own header documents that signature as
+    "observe(event: str, payload: dict) -> None" for every registered observer, a contract other
+    checks/notes also rely on (see the header's "Backward compatibility" paragraph); widening it
+    everywhere for the sake of the one observer that needs the flag would be a bigger, riskier
+    change than reusing the payload dict already every observer's only channel."""
+    if not denied:
+        _run_observers("PreToolUse", payload)
+        return
+    func, _reason = _load("event_log", "observe")
+    if func is None:
+        return
+    extra = {"_act_denied": True}
+    if denied_by:
+        extra["_act_denied_by"] = denied_by
+    try:
+        func("PreToolUse", dict(payload, **extra))
+    except Exception:  # noqa: BLE001 — an observer must never break the hook chain
+        pass
+
+
+def _run_post_tool_use_notes(payload: dict) -> list[str]:
+    """Every note module's text, in _POST_TOOL_USE_NOTES order, skipping None. A module that does
+    not exist yet is skipped silently (same as a not-yet-built PreToolUse check); one that exists
+    but fails to load, or raises while called, is skipped too but logged as one stderr line — never
+    blocks, never corrupts the stdout JSON main() builds from the list this returns."""
+    notes: list[str] = []
+    for module_name, func_name in _POST_TOOL_USE_NOTES:
+        func, reason = _load(module_name, func_name)
+        if func is None:
+            if reason is not None:
+                print(f"[act] note {module_name} skipped ({reason})", file=sys.stderr)
+            continue
+        try:
+            note = func(payload)
+        except Exception as exc:  # noqa: BLE001 — a broken note must never block or corrupt the JSON
+            print(f"[act] note {module_name} skipped ({type(exc).__name__}: {exc})", file=sys.stderr)
+            continue
+        if isinstance(note, str) and note:
+            notes.append(note)
+    return notes
+
+
+def _emit_post_tool_use_notes(event: str, payload: dict) -> None:
+    """Shared by the "PostToolUse" and "PostToolUseFailure" branches of main(): run
+    _POST_TOOL_USE_NOTES and, only if at least one note came back, print the single
+    hookSpecificOutput JSON object both events use, with hookEventName set to whichever of the two
+    this call is for (see this module's header, "Output format")."""
+    notes = _run_post_tool_use_notes(payload)
+    if notes:
+        print(json.dumps({
+            "hookSpecificOutput": {
+                "hookEventName": event,
+                "additionalContext": "\n".join(notes),
+            }
+        }))
+
+
+def main(argv: list[str]) -> int:
+    # "_update-check-worker" is the one exception to the "exactly one arg" harness contract
+    # below: it is never a harness hook event, only what checks.session._spawn_update_check_
+    # worker() launches (argv[1] is the project root as a string). Checked first so a stray
+    # extra argv entry here can never fall through to "no event named".
+    if len(argv) == 2 and argv[0] == "_update-check-worker":
+        return _run_update_check_worker(Path(argv[1]))
+    if len(argv) >= 2 and argv[0] == "_security-scan-worker":
+        # argv[1] the project root; optionally argv[2] a state hash and argv[3:] the lock files a
+        # commit touches, for checks/deps_scan.py (see checks.session._run_security_scan_worker)
+        state_hash = argv[2] if len(argv) >= 3 else None
+        return _run_security_scan_worker(Path(argv[1]), state_hash, [Path(arg) for arg in argv[3:]])
+
+    if len(argv) != 1:
+        return 0  # no event named — nothing to dispatch, never an error for the caller
+
+    event = argv[0]
+    payload = _early_payload if _early_payload is not None else _read_payload()
+
+    if event == "PreToolUse":
+        # Checks run first, observers second — the reverse of every other event, and
+        # the reverse of this module's own order before this fix. See _run_pre_tool_use_observers'
+        # own docstring for why a denied call must never reach a counting observer at all.
+        result, denied_by = _run_checks(payload)
+        _run_pre_tool_use_observers(payload, denied=(result != 0), denied_by=denied_by)
+        return result
+
+    _run_observers(event, payload)
+    if event in ("PostToolUse", "PostToolUseFailure"):
+        _emit_post_tool_use_notes(event, payload)
+        return 0  # notes never block
+    if event == "SessionStart":
+        return refresh_session(payload)
+    return 0  # any other event (SubagentStart, UserPromptSubmit, ...) only feeds the observers
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
