@@ -536,8 +536,9 @@ def step_replace(root: Path, new_act_dir: Path, plan: bool) -> str:
 # the last update gets a bridge created.
 # "entries" and "board" are here because init.py imports entries (which imports board): left out, the
 # fresh init.py would bind the entries module this run loaded at start-up — the older one, without the
-# functions the new init.py calls — and, being cached, board's older copy under it.
-_PROBE_MODULE_NAMES = ("actlib", "rules", "init", "tiers", "frontmatter", "ideas", "entries", "board")
+# functions the new init.py calls — and, being cached, board's older copy under it. "unit_copies"
+# imports init the same way, so a cached copy of it would keep the older init bound.
+_PROBE_MODULE_NAMES = ("actlib", "rules", "init", "tiers", "frontmatter", "ideas", "entries", "board", "unit_copies")
 
 
 def _project_tools(root: Path) -> list[str]:
@@ -1779,6 +1780,11 @@ def _refresh_generated_bridges(root: Path, plan: bool) -> tuple[str, list[Path]]
     function rather than rebuilding the re-derivation logic a second time, so a later change to
     which bridges dispatch.py re-derives never has to be kept in sync in two places.
 
+    Under `session-start-refresh: warn` or `off` the project has asked for no automatic rewrite of
+    generated files, so this reports "would refresh" with the file list and writes nothing, exactly
+    like --plan; the recorded hashes stay as they are, so the files do not look edited locally
+    afterwards (they are refreshed by the next run under the default mode).
+
     Returns (summary, touched) — `touched` are the absolute paths actually rewritten (empty under
     plan, which must write nothing, same contract as every other step here)."""
     hooks_dir = root / ".act" / "hooks"
@@ -1796,24 +1802,34 @@ def _refresh_generated_bridges(root: Path, plan: bool) -> tuple[str, list[Path]]
         if added:
             sys.path.remove(hooks_path)
 
+    refresh_mode = actlib.read_config(root).get("session-start-refresh", "").strip().lower()
+    report_only = plan or refresh_mode in ("warn", "off")
     try:
-        changed, refreshed, bootstrapped = _refresh_bridges(root, write=not plan)
+        changed, refreshed, bootstrapped = _refresh_bridges(root, write=not report_only, only_changed=not plan)
     except Exception as exc:  # same as the session hook: a failed refresh is reported, never aborts the update
         return f"bridge refresh failed ({exc})", []
+    if not report_only:
+        try:
+            if actlib.read_cache().get("warn_notes_digest"):
+                actlib.write_cache({"warn_notes_digest": ""})  # a syncing run: an earlier warn record is obsolete
+        except OSError:
+            pass
     if not refreshed and not changed and not bootstrapped:
-        return "no generated bridges due for refresh", []
-    verb = "would refresh" if plan else "refreshed"
+        return ("bridges current" if report_only and not plan else "no generated bridges due for refresh"), []
+    verb = "would refresh" if report_only else "refreshed"
     parts = [f"{verb} {', '.join(refreshed)}"] if refreshed else []
+    if report_only and not plan and (refreshed or bootstrapped):
+        parts.append(f"not written: session-start-refresh is {refresh_mode}")
     if bootstrapped:
         # A raw `git pull` landed the template's own bootstrap CLAUDE.md/AGENTS.md on top
         # of the project's real bridge -- not a local edit, rewritten the same as `refreshed`
         # above, just called out separately so `--catch-up` explains why the "edited locally"
         # rule did not apply here.
-        bootstrap_verb = "would replace" if plan else "replaced"
+        bootstrap_verb = "would replace" if report_only else "replaced"
         parts.append(f"{bootstrap_verb} {', '.join(bootstrapped)} (template bootstrap file, not a local edit)")
     if changed:
         parts.append(f"left {', '.join(changed)} (edited locally)")
-    touched = [] if plan else [root / rel for rel in refreshed + bootstrapped]
+    touched = [] if report_only else [root / rel for rel in refreshed + bootstrapped]
     return "; ".join(parts), touched
 
 
@@ -2064,6 +2080,21 @@ def _finish_update(
     fetched_commit: Optional[str], rescue_active: bool, keep_commit: bool = False,
 ) -> int:
     sync_summary, new_copies, sync_touched = sync_dependent_files(root, always_run=True, notes=notes)
+    # Own skills/roles written by hand under docs/ai/local/ get their tool copies/bridge too; the
+    # entries are merged into new_copies because step_lock() below writes that value as a whole.
+    try:
+        import unit_copies
+        own_messages, own_recorded, own_touched = unit_copies.ensure_own_unit_copies(
+            root, history_check=lambda rels: _paths_in_git_history(root, rels))
+        new_copies = {**new_copies, **own_recorded}
+        sync_touched = [*sync_touched, *own_touched]
+        # a template-named local unit is that unit's override — a normal mechanism, no note per run
+        own_messages = [m for m in own_messages if "has the name of a template" not in m]
+        notes.extend(f"own skills/roles: {message}" for message in own_messages if not message.endswith(": created"))
+        if own_messages:
+            sync_summary = "; ".join(filter(None, [sync_summary, f"own skills/roles: {'; '.join(own_messages)}"]))
+    except Exception as exc:
+        notes.append(f"own skill/role copies not checked ({exc.__class__.__name__}: {exc})")
     frontmatter_summary, frontmatter_touched = step_refresh_role_frontmatter(root, False, notes)
     _print_step(6, f"{sync_summary}; role frontmatter: {frontmatter_summary}")
 

@@ -35,6 +35,7 @@ One row per script under `.act/scripts/`; the per-script sections below are each
 | `settings_load.py` | `act-load-settings` — import a portable settings file (or several) into this project: the counterpart to settings_export.py. Runs the same… | skill `act-load-settings` |
 | `skills.py` | List the project's skills like a man page (name + one-line description from each `SKILL.md`'s frontmatter), or print one skill's `SKILL.md`… | direct (used by skill `act` and by dispatch.py's `/act` fast path) |
 | `tiers.py` | Resolve a role's tier/reasoning -- never a real model name anywhere else under .act/ -- into a concrete model alias/effort pair for one… | library |
+| `unit_copies.py` | tool copies for a project's own skills and roles — a skill written by hand under docs/ai/local/skills/<name>/ gets its copies under… | direct (session start and update.py call it; run by hand to create the copies at once) |
 | `update.py` | Pull a newer state of the template into an already-initialized project. Ten steps, always in the same order: fetch the template into a temp… | skill `act-update` (`--plan` alone is direct) |
 | `usage.py` | Local usage counter — how often each role starts, at which tier/model; how often each skill, slash command, script and checklist is used… | direct |
 
@@ -52,7 +53,7 @@ Call: direct (used by skill `act-adopt` (stage 6))
 
 ```text
 usage: adopt.py [-h] --target DIR (--apply | --finish | --abort) [--plan] [--force]
-                [--language-docs CODE] [--language-chat CODE]
+                [--confirm-no-targets] [--language-docs CODE] [--language-chat CODE]
 
 Carry out an approved adoption table: move legacy sources, install the template, then bridge/remove adopted sources. Never commits.
 
@@ -66,6 +67,8 @@ options:
   --plan                validate and show what would happen, change nothing
   --force               with --abort: copy work done since --apply to .act-local/adopt/aborted/
                         first, then abort
+  --confirm-no-targets  with --apply: the owner confirmed that adopt rows without a target are
+                        applied although --finish's "content not adopted?" check cannot cover them
   --language-docs CODE  with --apply: language of docs/ (e.g. de), passed on to init.py; default
                         en
   --language-chat CODE  with --apply: chat language (a code, or auto), passed on to init.py
@@ -143,6 +146,10 @@ Source/test/content trees (first path segment): __tests__, app, apps, assets, cl
   An adopt target that still has the content it had right after --apply, or that only
   adopt_config.py changed since (its hash as recorded in .act-local/adopt/config-touched.json), is
   refused ("content not adopted?").
+--apply with an adopt row of class project-doc, ai-machinery, predecessor or unknown that has no
+  target: refused unless --confirm-no-targets is given (the owner's yes) — without a target recorded
+  at --apply, --finish cannot refuse a row whose content was never carried over. ai-config and work
+  rows never need one (their content becomes proposals and entries). --apply --plan prints the warning and goes on.
 --apply --language-docs <code> --language-chat <code|auto>: passed on to init.py, so the
   docs language and the init todos are right from the start. They are recorded in state.json
   ("languages") and adopt_config.py keeps them; it sets `language-docs` from an old AI-CONFIG.md
@@ -811,6 +818,20 @@ List the project's skills (name + description), or print one in full.
 
 positional arguments:
   name        print exactly this skill's SKILL.md in full
+
+options:
+  -h, --help  show this help message and exit
+```
+
+## `unit_copies.py`
+
+Call: direct (session start and update.py call it; run by hand to create the copies at once)
+
+```text
+usage: unit_copies.py [-h]
+
+Create the missing tool copies of the project's own skills (docs/ai/local/skills/) and roles
+(docs/ai/local/agents/); idempotent, prints what happened.
 
 options:
   -h, --help  show this help message and exit

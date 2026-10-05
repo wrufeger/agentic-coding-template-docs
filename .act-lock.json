@@ -35,9 +35,9 @@
   },
   "template": {
     "version": "2.0.0",
-    "commit": "182931950b2c978b86e1d98954c42910e4794925",
+    "commit": "cab2136b29e72c4884502dd1351a0102239a82c9",
     "source": "D:/dev/rufeger/agentic-coding-template",
-    "manifest_sha256": "447990493bed255364fb6e7e88ce585cdab0dcf18e8888aa657c0ba63625bfc4"
+    "manifest_sha256": "2a4d98dcb2c8e4b3adb8729d0e74c63007d6b36084d6d897bfe78dfcb8b547b2"
   },
   "copies": {
     ".claude/skills/act/SKILL.md": {
@@ -102,7 +102,7 @@
     },
     ".claude/skills/act-load-settings/SKILL.md": {
       "source": ".act/skills/act-load-settings/SKILL.md",
-      "sha256": "68dcde743d195d61f9c4e6f05ea94bdb5632ca7367e86d75c94765f2e1794fbd"
+      "sha256": "59ca540f41663b8e3d7baed36b31857375d425536c88ec37aa91e700252bcee2"
     },
     ".claude/skills/act-perf/SKILL.md": {
       "source": ".act/skills/act-perf/SKILL.md",
