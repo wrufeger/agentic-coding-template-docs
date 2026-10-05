@@ -26,9 +26,12 @@ Nothing changes before you approve a table once, and no script commits anything.
    The scan also names a leftover git remote that points at the template repository (a previous template's update script
    added it). The assistant proposes removing it and does so only with your yes.
 2. **Propose the table.** One row per source with an action: `keep`, `adopt`, `legacy`, or `delete`.
-3. **You approve once.** The whole table in one pass. You may change any row.
+3. **You approve once.** The whole table in one pass. You may change any row. An `adopt` row of class `project-doc`,
+   `ai-machinery`, `predecessor` or `unknown` needs a target (the file its content goes to); name the rows that
+   have none here, since `--apply` refuses them without your yes.
 4. **Apply.** `adopt.py --apply` creates the branch `act-adopt`, moves `legacy` rows into the archive, and runs
-   `init.py`. Set the docs language here with `--language-docs`.
+   `init.py`. Set the docs language here with `--language-docs`. Rows without a target need
+   `--confirm-no-targets`, only with your yes.
 5. **Settings.** `adopt_config.py` carries values from an old `AI-CONFIG.md` into `docs/ai/config.md`.
 6. **Fill the content.** Open tasks, backlog items, and questions become entries; rule text becomes overrides,
    own rules, or proposals. Text is cut from the old files, never retyped.

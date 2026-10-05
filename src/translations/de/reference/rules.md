@@ -39,9 +39,9 @@ Assistent auch die wiederkehrenden Vorfälle, die dieses Muster abdeckt (eine Re
 als unpraktikabel, ein Workflow fehlt, ein Workaround ist nötig), selbst; Einzelheiten in `topics/feedback.md`.
 
 ## R-work-language
-<!-- source: 151d103ff8caacd2 -->
+<!-- source: 17eacb23b972ec15 -->
 Eine Sprache für die Doku, `.act/` auf Englisch
-summary: jeder docs/ai-Eintrag und jede neue Doku in language-docs, unabhängig von der Chat-Sprache; .act/ Englisch; Text von Menschen unübersetzt; Gerüst einmal übersetzt
+summary: jeder docs/ai-Eintrag und jede neue Doku in language-docs, unabhängig von der Chat-Sprache; .act/ Englisch; Text von Menschen unübersetzt; Gerüst einmal übersetzt, englische Fachbegriffe bleiben
 
 Alles, was der Assistent unter `docs/` schreibt, steht in `language-docs` aus `docs/ai/config.md` (Standard
 `en`) — Journal, Fragen, Aufgaben, Backlog, Inbox, Vorschläge und neue Dokumentation gleichermaßen, gleich in
@@ -53,8 +53,9 @@ Aufgabe. Eine Datei, deren Zeile 1 `<!-- act:default -->` lautet, ist Gerüst im
 Englisch, wird sie einmal übersetzt (der Inbox-Eintrag `*-translate-scaffold.md` listet die Dateien) — nur
 Überschriften, Tabellenköpfe, Statuswörter im Fließtext und Hinweistexte. Marken (`<!-- act:... -->`), Kopffelder und ihre
 Werte (`status: open|answered|done` bleibt Englisch, auch in Beispielen), Konfigurationsschlüssel und -werte,
-Code und Pfade bleiben, wie sie sind, denn die Mechanik liest diese, nie die Wörter. Danach entfällt die
-Markenzeile; ab dann gehört die Datei dem Projekt.
+Code und Pfade bleiben, wie sie sind, denn die Mechanik liest diese, nie die Wörter; ebenso gängige englische Fachbegriffe (Skill, Worker, Override,
+Inbox, Backlog, Board, Hook, Commit, Branch …), vor allem in Überschriften, höchstens einmal mit einer kurzen
+Erklärung im Text darunter. Danach entfällt die Markenzeile; ab dann gehört die Datei dem Projekt.
 
 ## R-work-second-check
 <!-- source: cbf17ab409923ebf -->

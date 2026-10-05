@@ -3,7 +3,7 @@ title: Eigene Regeln, Skills und Rollen
 description: Regeln des Templates abschalten, eigene ergänzen, Dateien des Templates unter docs/ai/local/ überschreiben, Skills und Rollen hinzufügen und in ein anderes Projekt mitnehmen.
 sidebar:
   order: 3
-sourceHash: 867dccb85da4a5a8a363eda73af54a778078ec086f4ff4be1909376a82e3d78a
+sourceHash: 61a8502eb9852480d97d78d9dd78cf4178f1b8bc1086aa7896d2ac049867e580
 ---
 
 Das Projekt überschreibt immer das Template. Du bearbeitest nie etwas unter `.act/`; ein Wächter (`template-write-guard`) verweigert dort Schreibzugriffe. Alles, was dir gehört, kommt nach `docs/ai/` und `docs/project/` und übersteht jedes Update.
@@ -33,11 +33,11 @@ Der Ordner enthält auch optionale eigene Dateien, zum Beispiel `reminders.md` (
 
 ## Eigene Skills
 
-Ein Skill ist ein Verzeichnis mit einer `SKILL.md`, die mit YAML-Frontmatter (`name`, `description`) beginnt und werkzeugneutrale Anweisungen enthält. Lege deinen eigenen unter `docs/ai/local/skills/<name>/SKILL.md` ab; ein von Hand platzierter Skill bekommt nicht automatisch Werkzeugkopien: Kopien (`.claude/skills/<name>/`, und `.agents/skills/<name>/` nur, wenn codex, copilot, gemini oder cursor eingerichtet ist) entstehen über `act-load-settings` oder die Übernahme. Der Skill ist in der Zwischenzeit über `/act <name>` erreichbar. Ein Skill-Name, den das Template schon mitliefert, ist ein Override dieses Skills, kein neuer. Die mitgelieferten Skills stehen in der [Skill-Referenz](/agentic-coding-template-docs/de/reference/skills/).
+Ein Skill ist ein Verzeichnis mit einer `SKILL.md`, die mit YAML-Frontmatter (`name`, `description`) beginnt und werkzeugneutrale Anweisungen enthält. Lege deinen eigenen unter `docs/ai/local/skills/<name>/SKILL.md` ab; seine Werkzeugkopien (`.claude/skills/<name>/`, und `.agents/skills/<name>/` nur, wenn codex, copilot, gemini oder cursor eingerichtet ist) schreibt `act-load-settings` beim Import. Ein von Hand platzierter Skill bekommt sie beim nächsten Sitzungsstart (mit `session-start-refresh` auf dem Standard `block`) oder `update.py`-Lauf, oder mit `python .act/scripts/unit_copies.py`. Eine Kopie, die du selbst bearbeitet hast, bleibt erhalten, eine gelöschte bleibt gelöscht. Bis dahin ist der Skill über `/act <name>` erreichbar. Ein Skill-Name, den das Template schon mitliefert, ist ein Override dieses Skills, kein neuer. Die mitgelieferten Skills stehen in der [Skill-Referenz](/agentic-coding-template-docs/de/reference/skills/).
 
 ## Eigene Rollen
 
-Eine eigene Rolle ist eine Datei `docs/ai/local/agents/<name>.md` mit ihren Regeln. Eine neue Rolle ist ihre eigene Brückenquelle und braucht Frontmatter (`name`, `description`, Tier/Reasoning, `tools`); nur ein Override einer Rolle des Templates ist reiner Text ohne Frontmatter. Tier und Reasoning (bei einem Skill: `reasoning` im Frontmatter, überschreibbar durch eine Zeile mit dem Namen des Skills) lassen sich auch in der Tabelle Roles von `docs/ai/config.md` setzen (siehe [Tiers und Reasoning](/agentic-coding-template-docs/de/concepts/reasoning/)); die werkzeugspezifische Datei unter `.claude/agents/` wird von init und update erzeugt, nicht bei jedem Sitzungsstart. Sobald eine solche Datei existiert, gehört ihr Text dir: Updates frischen nur ihre Zeilen `model` und `effort` auf. Die eingebauten Rollen sind unter [Rollen](/agentic-coding-template-docs/de/concepts/roles/) beschrieben.
+Eine eigene Rolle ist eine Datei `docs/ai/local/agents/<name>.md` mit ihren Regeln. Eine neue Rolle ist ihre eigene Brückenquelle und braucht Frontmatter (`name`, `description`, Tier/Reasoning, `tools`); nur ein Override einer Rolle des Templates ist reiner Text ohne Frontmatter. Tier und Reasoning (bei einem Skill: `reasoning` im Frontmatter, überschreibbar durch eine Zeile mit dem Namen des Skills) lassen sich auch in der Tabelle Roles von `docs/ai/config.md` setzen (siehe [Tiers und Reasoning](/agentic-coding-template-docs/de/concepts/reasoning/)); die werkzeugspezifische Datei unter `.claude/agents/` wird von init und update erzeugt; eine eigene Rolle bekommt sie unter dem Standard `session-start-refresh` auch beim Sitzungsstart. Sobald eine solche Datei existiert, gehört ihr Text dir: Updates frischen nur ihre Zeilen `model` und `effort` auf. Die eingebauten Rollen sind unter [Rollen](/agentic-coding-template-docs/de/concepts/roles/) beschrieben.
 
 ## In ein anderes Projekt mitnehmen
 

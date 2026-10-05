@@ -3,7 +3,7 @@ title: Sicherheitsprüfung
 description: Wonach die Sicherheitsprüfung vor einem Commit sucht - gefährliche Muster, verwundbare Abhängigkeiten, die tiefe Prüfung - und was jeder Wert von security-check ausführt.
 sidebar:
   order: 2
-sourceHash: 3c71d2f537e9cb72a68a9ca336bac723ac26349356bd7d5492d0622427afc052
+sourceHash: 286567e1a34cc12e7792c670e05a3cb5f298fa9370946db1959074b6b313340d
 ---
 
 Die Sicherheitsprüfung wird mit einem Schlüssel gesetzt, `security-check`, in der Tabelle Checks von `docs/ai/config.md`. Anders als die übrigen Prüfungen nimmt sie nicht `block`, `warn` oder `off`, sondern eine Stufe.
@@ -30,6 +30,9 @@ Das ist getrennt von `secret-scan`, einer regulären `block`/`warn`/`off`-Prüfu
 Eine Live-Abfrage bekannter Schwachstellen in deinen Abhängigkeiten. Sie nutzt `osv-scanner`, falls installiert, sonst `npm audit`, `composer audit` oder `pip-audit` für das passende Ökosystem. Zu den Lock- und Requirement-Dateien, die sie liest, gehören `package-lock.json`, `composer.lock`, `requirements.txt`, `go.mod` und `Cargo.lock`.
 
 - **Beim Commit**: für genau die Lock-Dateien, die dieser Commit berührt. Der Scan läuft im Hintergrund; ist er nicht fertig, wird der Commit einmal mit „dependency scan running" abgelehnt, und der erneute Versuch liest das Ergebnis, das für den Tag zwischengespeichert ist.
+- **Nach `git merge`, `git pull` oder `git cherry-pick`**: Die Lock-Dateien, die der Befehl hereingebracht hat, werden
+  gleich danach geprüft. Nichts wird aufgehalten; ein Befund landet als ein Bericht in der Inbox, einmal pro
+  Lock-Datei-Stand und Tag.
 - **Beim Sitzungsstart**: einmal am Tag über jede Lock-Datei im Projekt, gemeldet als eine Zeile.
 - **Was einen Commit aufhält**: ein nicht akzeptierter Befund der Schwere high oder critical, mit Paket, Version, Advisory-Id, Schwere und behobener Version. Eine geringere oder unbekannte Schwere wird nur vermerkt. `pip-audit` meldet keine Schwere, seine Befunde werden daher nur vermerkt.
 - **Einen Befund akzeptieren**: füge eine Zeile `- <advisory-id>: <reason>` in `docs/ai/local/security-accepted.md` ein, eine pro Zeile; `#`-Kommentare und Leerzeilen werden ignoriert.

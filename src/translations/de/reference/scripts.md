@@ -119,6 +119,10 @@ Listet die Skills des Projekts wie eine Man-Page (Name plus einzeilige Beschreib
 <!-- source: c7ee14df033437f0 -->
 Löst Tier/Reasoning einer Rolle -- nirgends sonst unter .act/ steht ein echter Modellname -- in ein konkretes Paar aus Modell-Alias und Effort für ein…
 
+## table:unit_copies.py
+<!-- source: 13ca1347c50f667b -->
+Werkzeugkopien für die eigenen Skills und Rollen eines Projekts — ein von Hand unter docs/ai/local/skills/&lt;name>/ geschriebener Skill bekommt seine Kopien unter…
+
 ## table:update.py
 <!-- source: e5451d99c921d588 -->
 Holt einen neueren Stand des Templates in ein bereits initialisiertes Projekt. Zehn Schritte, immer in derselben Reihenfolge: das Template in ein temporäres Verzeichnis holen…

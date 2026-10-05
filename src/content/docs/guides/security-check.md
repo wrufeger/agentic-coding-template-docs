@@ -29,6 +29,7 @@ This is separate from `secret-scan`, a regular `block`/`warn`/`off` check that s
 A live lookup of known vulnerabilities in your dependencies. It uses `osv-scanner` if installed, otherwise `npm audit`, `composer audit` or `pip-audit` for the matching ecosystem. Lock files and requirement files it reads include `package-lock.json`, `composer.lock`, `requirements.txt`, `go.mod` and `Cargo.lock`.
 
 - **On commit**: for exactly the lock files that commit touches. The scan runs in the background; if it has not finished, the commit is denied once with "dependency scan running", and the retry reads the result, which is cached for the day.
+- **After `git merge`, `git pull` or `git cherry-pick`**: the lock files the command brought in are checked right after it. Nothing is held up; a finding lands in the inbox as one report, once per lock-file state and day.
 - **At session start**: once a day over every lock file in the project, reported as one line.
 - **What holds a commit**: an unaccepted finding of severity high or critical, naming package, version, advisory id, severity and fixed version. A lower or unknown severity only notes. `pip-audit` reports no severity, so its findings only note.
 - **Accepting a finding**: add a line `- <advisory-id>: <reason>` to `docs/ai/local/security-accepted.md`, one per line; `#` comments and blank lines are ignored.

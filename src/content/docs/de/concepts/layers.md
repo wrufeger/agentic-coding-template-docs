@@ -3,7 +3,7 @@ title: Schichten und Overrides
 description: Wie Template-Schicht und Projekt-Schicht zusammenpassen und wie du eine Regel änderst, ohne sie beim Update zu verlieren.
 sidebar:
   order: 1
-sourceHash: ff468b63872a85d5d27c01349e78a6dcb981d3bde0ac9ad26bfd8dbc368bd189
+sourceHash: 55dbe5ffb7c1bd63b76f82d1a1800c163d550e644a94561e9372c6013ef81f6a
 ---
 
 ## Zwei Schichten
@@ -22,7 +22,8 @@ Ein Override ist eine eigene Fassung, die die des Templates ersetzt. Eine projek
 relative Pfad wird dort vor `.act/` gesucht, sodass eine Regeldatei, ein Skill-Ordner
 (`docs/ai/local/skills/<name>/`) oder ein Agent (`docs/ai/local/agents/<name>.md`) den des Templates überdeckt.
 `docs/ai/local/` gehört dir: Der Assistent schreibt dort nur auf deine ausdrückliche Anweisung. Ein Skill oder
-Agent, den du mit `act-load-settings` hinzufügst, landet ebenfalls dort.
+Agent, den du mit `act-load-settings` hinzufügst, landet ebenfalls dort; einer, den du dort von Hand anlegst,
+bekommt seine Werkzeugkopien beim nächsten Sitzungsstart (Standard `session-start-refresh: block`) oder Update.
 
 ## Regeln an- und ausschalten
 

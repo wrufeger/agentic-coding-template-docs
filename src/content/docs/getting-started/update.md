@@ -30,11 +30,15 @@ python .act/scripts/update.py             # the real run, asks for consent
 4. **Consent.** Nothing is replaced before you agree. `--yes` skips the prompt once you already agreed.
 5. **Replace `.act/`** as a whole.
 6. **Refresh the copies** outside `.act/`: unchanged skill copies and role bridges are replaced, copies you edited
-   are kept and reported.
+   are kept and reported. Own skills and roles under `docs/ai/local/` get their
+   copies here too.
 7. **Hooks and Git files.** Reconciles the hook entries in `.claude/settings.json` and the template blocks in
    `.gitattributes` and `.gitignore`.
 8. **Migrations.** Runs any that are due.
-9. **Doctor.** `doctor.py` checks for drift; findings land in `docs/ai/inbox/`, never as a silent fix.
+9. **Bridges and doctor.** First unedited generated bridges (`CLAUDE.md`, `AGENTS.md`, `docs/ai/rules.md`) are
+   refreshed; with `session-start-refresh` at `warn` or `off` in `docs/ai/config.md` § Checks they are only
+   reported ("would refresh … not written"). Then `doctor.py` checks for
+   drift; findings land in `docs/ai/inbox/`, never as a silent fix.
 10. **Lock and commit.** `.act-lock.json` is rewritten and a commit is made, unless you pass `--no-commit`.
 
 Then the assistant adds a journal line with the base-commit change and the number of findings.

@@ -12,7 +12,7 @@ scripts/check-translations.mjs; see README "Editing the site". -->
 Dies ist die Standard-`config.md` des Templates; Platzhalter in spitzen Klammern füllt `init` aus.
 
 ## Project
-<!-- source: bb182d670b1df63e -->
+<!-- source: 8bb73a7ccca1dfb7 -->
 | Schlüssel | Wert |
 | :--- | :--- |
 | `name` | <name> |
@@ -40,7 +40,9 @@ eingerichtet ist und die zugehörige Prüfung übersprungen wird (`R-code-commit
 `solo` vergibt der Assistent sie sofort und arbeitet weiter. In `team` vergibt sie nur,
 wer den Eintrag auf dem Default-Branch ablegt, sodass zwei Personen nie dieselbe Nummer vergeben können; bis dahin
 ist der Dateiname das, was man zitiert. Dateiname, Ablageort und Format sind in beiden Fällen gleich, man kann also
-jederzeit hin- und herwechseln — bereits vergebene IDs bleiben, nur spätere folgen dem neuen Wert. Die IDs sind
+jederzeit hin- und herwechseln — bereits vergebene IDs bleiben, nur spätere folgen dem neuen Wert. Bekannte Grenze: In einem reinen Pull-Request-Workflow, in dem der
+Default-Branch nie lokal ausgecheckt wird, vergibt niemand IDs, sodass auf Feature-Branches archivierte Einträge
+ohne ID bleiben. Die IDs sind
 `T<n>` (Aufgabe), `B<n>` (Backlog-Eintrag), `Q<n>` (Frage) und `U<n>` (Todo für dich); eine Meldung oder Notiz hat keine.
 
 ## Status line
@@ -137,7 +139,7 @@ so gelangt ein globales Token nicht an einen fremden Host. Ohne Eintrag laufen L
 `http://` erreicht wird, wird genauso behandelt, bis seine Adresse `https://` ist.
 
 ## Checks
-<!-- source: b314aeb0299e1726 -->
+<!-- source: 75013ba9d0cb8c68 -->
 Jede der folgenden Prüfungen läuft vor der Aktion, die sie nennt; `block` verweigert die Aktion, `warn` erlaubt sie
 mit einem Hinweis, `off` überspringt die Prüfung ganz. Eine Prüfung, die nur hinweist (markiert mit „never
 refuses“), behandelt `block` wie `warn`.
@@ -145,7 +147,7 @@ refuses“), behandelt `block` wie `warn`.
 | Prüfung | Wert | Schützt |
 | :--- | :--- | :--- |
 | `template-write-guard` | block | Schreibzugriffe unter `.act/` — stattdessen eine Projektfassung in `docs/ai/local/<same path>` ablegen |
-| `session-start-refresh` | block | baut die erzeugten Brücken und das Board beim Sitzungsstart neu; `warn` meldet ohne zu schreiben, `off` überspringt es |
+| `session-start-refresh` | block | baut die erzeugten Brücken und das Board beim Sitzungsstart neu; `warn` meldet nur, was es erneuern würde (einmal je Änderung, nicht bei jedem Start), und schreibt nichts, hier wie im Brücken-Schritt von `update.py`; `off` überspringt es, und `update.py` meldet dann ebenfalls nur |
 | `orchestrator-rules` | block | nur als Rückfall: solange `docs/ai/rules.md` die Orchestrator-Regeln nicht importiert (eine ältere, lokal geänderte Kopie), nennt sie der Sitzungsstart in Kürze; `off` überspringt es |
 | `worker-nesting-guard` | block | ein Sub-Agent, der `Agent`/`Task` aufruft (keine Sub-Sub-Agenten, `R-role-worker`) — `warn` meldet ohne zu sperren, `off` überspringt es |
 | `worker-write-scope` | block | ein Worker, der außerhalb der `Write scope:`-Zeile seines Auftrags schreibt (`R-cost-delegate`) — `warn` meldet ohne zu sperren, `off` überspringt es |
@@ -157,7 +159,7 @@ refuses“), behandelt `block` wie `warn`.
 | `worker-docs-ai` | block | ein Worker, der unter `docs/ai/` schreibt — dort schreibt nur der Orchestrator (`R-role-worker`) |
 | `worker-git-write` | block | ein Worker, der einen Git-Befehl ausführt, der Baum oder Verlauf ändert (`commit`, `add`, `stash`, `checkout`, `reset`, `restore`, `merge`, `rebase`, `clean`, `push`) (`R-role-worker`) |
 | `ide-mcp` | block | die eigenen Tools eines verbundenen IDE-MCP-Servers (`execute_terminal_command`, `apply_patch`, `execute_run_configuration`, ...), eingestuft als Shell/Schreiben/Ausführen ohne Ziel und genauso geprüft wie das passende Standard-Tool — ein Ziel, das sich nicht auswerten lässt, wird verweigert statt ungeprüft durchgelassen; `warn` meldet ohne zu sperren, `off` überspringt es (`topics/ide.md`) |
-| `worker-cap` | block | Tool-Aufrufe eines Workers über seine `Cap: <n>`-Zeile hinaus (ohne sie: `light` 10, `standard` 40, `elevated` 60, `high`/`expert` 80) — ein Hinweis beim Cap, Verweigerung ab dem 1,5-Fachen des Caps (`R-cost-delegate`) |
+| `worker-cap` | block | Tool-Aufrufe eines Workers über seine `Cap: <n>`-Zeile hinaus (ohne sie: `light` 10, `standard` 40, `elevated` 60, `high`/`expert` 80) — ein Hinweis beim Cap, Verweigerung ab dem 1,5-Fachen des Caps (`R-cost-delegate`); bekannte Grenze: Ein Aufruf, den diese Prüfungen erlauben, die Berechtigungsabfrage von Claude Code selbst dann aber ablehnt, zählt trotzdem mit, da der Hook vor dem Aufruf diese Ablehnung nie sieht |
 | `status-poll` | block | wiederholte Statusabfragen an einen laufenden Worker ohne echte Arbeit dazwischen — ab der zweiten in Folge verweigert (`R-cost-wait`) |
 | `encoding-hint` | block | Schreiben in eine Datei, die nicht UTF-8 ist — der erste Schreibzugriff je Sitzung und Datei wird einmal mit einem Hinweis gestoppt, die Wiederholung geht durch; `warn` weist erst nach dem Schreiben hin (`R-code-encoding`) |
 | `update-branch-hint` | warn | Update oder Einstellungsimport auf einem anderen Branch als dem Default-Branch: ein Hinweis, dass die anderen es erst mit dem Merge bekommen — verweigert nie, `block` zählt als `warn`, `off` lässt den Hinweis weg |

@@ -65,7 +65,8 @@ Ten fixed steps, each printed as `[n/10]`:
 10. Makes the first commit.
 
 `init.py` never overwrites a file the project already has. A `language-docs` other than English leaves the
-scaffold in English plus an inbox note asking the assistant to translate it once.
+scaffold in English plus an inbox note asking the assistant to translate it once;
+common English technical terms (Skill, Inbox, Hook, Branch …) stay, above all in headings.
 
 ## Your first session
 

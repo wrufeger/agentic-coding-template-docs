@@ -3,7 +3,7 @@ title: Update
 description: Einen neueren Stand des Templates mit act-update in ein Projekt holen.
 sidebar:
   order: 3
-sourceHash: 6395df366f3a88bec7bacb41cac9b1bb5ff788795ceca42738783b41fb4c8935
+sourceHash: 8e03b25624590962369be00f4b09733fbaa1d245412e16cc7a6dd18318563da7
 ---
 
 `act-update` holt einen neueren Stand des Templates in dein Projekt: Du siehst den Diff, du stimmst zu, und
@@ -33,11 +33,14 @@ python .act/scripts/update.py             # the real run, asks for consent
    zugestimmt hast.
 5. **`.act/` ersetzen**, als Ganzes.
 6. **Die Kopien auffrischen** außerhalb von `.act/`: unveränderte Skill-Kopien und Rollen-Brücken werden ersetzt,
-   von dir bearbeitete Kopien bleiben erhalten und werden gemeldet.
+   von dir bearbeitete Kopien bleiben erhalten und werden gemeldet. Eigene Skills und Rollen unter `docs/ai/local/` bekommen ihre Kopien
+   hier ebenfalls.
 7. **Hooks und Git-Dateien.** Gleicht die Hook-Einträge in `.claude/settings.json` und die Blöcke des Templates in
    `.gitattributes` und `.gitignore` ab.
 8. **Migrationen.** Führt alle fälligen aus.
-9. **Doctor.** `doctor.py` prüft auf Abweichungen; Befunde landen in `docs/ai/inbox/`, nie als stille Korrektur.
+9. **Brücken und Doctor.** Zuerst werden unbearbeitete erzeugte Brücken (`CLAUDE.md`, `AGENTS.md`,
+   `docs/ai/rules.md`) aufgefrischt; steht `session-start-refresh` in `docs/ai/config.md` § Checks auf `warn` oder
+   `off`, werden sie nur gemeldet („would refresh … not written“). Danach prüft `doctor.py` auf Abweichungen; Befunde landen in `docs/ai/inbox/`, nie als stille Korrektur.
 10. **Lock und Commit.** `.act-lock.json` wird neu geschrieben und ein Commit angelegt, außer du gibst
     `--no-commit` an.
 

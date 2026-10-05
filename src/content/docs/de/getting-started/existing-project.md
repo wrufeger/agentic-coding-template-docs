@@ -3,7 +3,7 @@ title: Bestehendes Projekt
 description: Ein Projekt mit eigener Doku oder eigenem KI-Setup mit act-adopt übernehmen.
 sidebar:
   order: 2
-sourceHash: 5d1b99709b47cbb7625cdd84c3f9cb547fb88591ce53cbc37d3391df673dda97
+sourceHash: d6b07b0dc87b3d2a6a32227e4a93ebfb5a8a981258df9684991c2f6108855e1d
 ---
 
 Ein Projekt, das schon Doku, eine `CLAUDE.md` oder ein älteres KI-Setup hat, läuft über `act-adopt`, nicht allein
@@ -30,9 +30,12 @@ Nichts ändert sich, bevor du einmal eine Tabelle freigibst, und kein Script com
    Die Sichtung nennt auch einen übrig gebliebenen Git-Remote, der auf das Template-Repository zeigt (das Update-Script
    eines früheren Templates hat ihn angelegt). Der Assistent schlägt vor, ihn zu entfernen, und tut es nur mit deinem Ja.
 2. **Tabelle vorschlagen.** Eine Zeile pro Quelle mit einer Aktion: `keep`, `adopt`, `legacy` oder `delete`.
-3. **Du gibst einmal frei.** Die ganze Tabelle in einem Durchgang. Du kannst jede Zeile ändern.
+3. **Du gibst einmal frei.** Die ganze Tabelle in einem Durchgang. Du kannst jede Zeile ändern. Eine `adopt`-Zeile der
+   Klasse `project-doc`, `ai-machinery`, `predecessor` oder `unknown` braucht ein Ziel (die Datei, in die ihr Inhalt
+   geht); nenne hier die Zeilen ohne Ziel, denn `--apply` lehnt sie ohne dein Ja ab.
 4. **Anwenden.** `adopt.py --apply` legt den Branch `act-adopt` an, verschiebt `legacy`-Zeilen ins Archiv und
-   führt `init.py` aus. Die Doku-Sprache stellst du hier mit `--language-docs` ein.
+   führt `init.py` aus. Die Doku-Sprache stellst du hier mit `--language-docs` ein. Zeilen ohne Ziel
+   brauchen `--confirm-no-targets`, nur mit deinem Ja.
 5. **Einstellungen.** `adopt_config.py` überträgt Werte aus einer alten `AI-CONFIG.md` nach `docs/ai/config.md`.
 6. **Inhalte füllen.** Offene Aufgaben, Backlog-Punkte und Fragen werden zu Einträgen; Regeltext wird zu
    Overrides, eigenen Regeln oder Vorschlägen. Text wird aus den alten Dateien ausgeschnitten, nie neu

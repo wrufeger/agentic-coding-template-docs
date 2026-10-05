@@ -20,7 +20,8 @@ writes into `.act/`.
 A project-specific version of anything under `.act/` goes to `docs/ai/local/<same path>`. The same relative path
 is looked up there before `.act/`, so a rule file, a skill folder (`docs/ai/local/skills/<name>/`), or an agent
 (`docs/ai/local/agents/<name>.md`) shadows the template's. `docs/ai/local/` is yours: the assistant writes there
-only on your explicit instruction. A skill or agent you add with `act-load-settings` lands there too.
+only on your explicit instruction. A skill or agent you add with `act-load-settings` lands there too; one you
+create by hand there gets its tool copies at the next session start (default `session-start-refresh: block`) or update.
 
 ## Switching rules on and off
 

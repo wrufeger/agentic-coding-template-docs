@@ -3,7 +3,7 @@ title: Neues Projekt
 description: Ein neues Projekt aus dem Template einrichten, mit dem Assistenten oder von Hand.
 sidebar:
   order: 1
-sourceHash: ca9a1d63ced9b42ed5c96e0d1b76e13cf0b233c653dc40bacd1f3eed0ae6885f
+sourceHash: 3ab4c029cbd08b78df77167e1e2ff4866e3dc0157bdea079c40b87e5a1cf55ed
 ---
 
 ## Das Template holen
@@ -68,7 +68,8 @@ Zehn feste Schritte, jeder ausgegeben als `[n/10]`:
 10. Macht den ersten Commit.
 
 `init.py` überschreibt nie eine Datei, die das Projekt schon hat. Eine `language-docs` außer Englisch lässt das
-Gerüst auf Englisch und legt eine Inbox-Notiz an, die den Assistenten bittet, es einmal zu übersetzen.
+Gerüst auf Englisch und legt eine Inbox-Notiz an, die den Assistenten bittet, es einmal zu übersetzen;
+gängige englische Fachbegriffe (Skill, Inbox, Hook, Branch …) bleiben stehen, vor allem in Überschriften.
 
 ## Deine erste Sitzung
 
