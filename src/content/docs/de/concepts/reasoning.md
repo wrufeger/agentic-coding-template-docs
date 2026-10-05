@@ -3,7 +3,7 @@ title: Tiers und Reasoning
 description: Wie Rollen eine Modellkapazität (Tier) und eine Reasoning-Stufe bekommen, die -high-Varianten, Overrides und Caps.
 sidebar:
   order: 5
-sourceHash: bf8bee759db577f8ddb266ef767f74eef9e122a17b1705f3c1eefe176bb634c1
+sourceHash: 3a0c760f0d1d1a740d6a2adb2984779e130e7ffd70df692ac6567737b9f8ff00
 ---
 
 Jede Worker-Rolle hat einen **Tier** (wie viel Modellkapazität) und eine **Reasoning**-Stufe (wie viel sie vor der Antwort nachdenkt). Beides steht in einer werkzeugneutralen Skala in der Definition der Rolle. Ein echter Modellname erscheint nur in `.act/tiers.json` und wird angewendet, wenn die Datei der Rolle für dein Werkzeug erzeugt wird.
@@ -50,6 +50,10 @@ Die Tabelle Roles am Ende von `docs/ai/config.md` ist standardmäßig leer. Fül
 ```
 
 `Tier` und `Reasoning` überschreiben die Werte des Templates; ein gefülltes `Model` legt das Modell direkt fest und gewinnt gegenüber `Tier`. Die eigene Rolle eines Projekts (siehe [Eigene Regeln, Skills und Rollen](/agentic-coding-template-docs/de/guides/own-skills-and-rules/)) wird dort auf dieselbe Weise benannt. Die erzeugten Dateien werden beim Sitzungsstart und bei jedem Update aufgefrischt; angefasst werden nur ihre Zeilen `model` und `effort`, nie deine eigenen Ergänzungen im Text der Rolle.
+
+## Reasoning pro Skill
+
+Ein Skill kann im Frontmatter `reasoning: <level>` tragen (ein Wert der obigen Skala), um diese Denkstufe für die Dauer seines Laufs anzufordern. In der Claude-Code-Kopie unter `.claude/skills/` wird daraus die Zeile `effort:`; die Spiegelung unter `.agents/skills/` bleibt unverändert, und ein Skill ohne den Schlüssel erbt die Sitzung. Um sie für ein Projekt zu ändern, trägst du in der Tabelle Roles eine Zeile ein, die den Skill in der Spalte `Role` nennt (zum Beispiel `act-prepare`); dort zählt nur `Reasoning`.
 
 ## Caps
 

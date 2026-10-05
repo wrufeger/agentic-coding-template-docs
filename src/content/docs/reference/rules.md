@@ -6,7 +6,7 @@ sidebar:
 ---
 
 :::note
-Generated from template version 2.0.0 (commit 5d257d0) — do not edit by hand. Regenerate with `npm run gen`.
+Generated from template version 2.0.0 (commit ba52704) — do not edit by hand. Regenerate with `npm run gen`.
 :::
 
 35 rules in 7 files. Rule IDs `R-<area>-<name>` are stable and never reassigned. The shared files load for every role; the orchestrator files only for the main session.
@@ -39,7 +39,9 @@ Summary: project changes beat template defaults; overrides live under docs/ai/lo
 
 A rule or file the project has changed always wins over the template's version. Never
 edit anything under `.act/` directly; a project-specific version goes into
-`docs/ai/local/<same path>` instead. An unchecked rule, group or set in `docs/ai/rules.md` or
+`docs/ai/local/<same path>` instead. `docs/ai/config.md` describes the project; secrets and per-machine
+deviations live in the environment, which overrides the file for one run, and the session start names
+every override in effect. An unchecked rule, group or set in `docs/ai/rules.md` or
 `docs/project/coding_rules.md` is off, and a `replaces` line wins over a rule's template text
 whether its box is checked or not — both even when the file with the template text is loaded. A
 bug IN the template itself — a script, skill or rule under
@@ -439,7 +441,9 @@ Summary: every outside request answered, even a refusal, without jumping the que
 
 A request arriving from outside the conversation with the human (another session, a waiting worker,
 a system expecting a reply) is always answered, even if the answer is a refusal. It does not jump
-the queue ahead of current work, but it is never left hanging either.
+the queue ahead of current work, but it is never left hanging either. A reply promised, or a
+counter-check expected from another session, is filed as a todo (`entries.py new todo`) with `for:`
+naming whom or what it waits for (or `all`), so the promise outlives the session.
 
 ## Cost rules
 

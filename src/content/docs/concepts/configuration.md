@@ -9,7 +9,7 @@ sidebar:
 
 ## Groups
 
-- **Project**: name, owner, `language-chat` and `language-docs`, `stack`, the lint/typecheck/test `commands`, the `tools` you use and the `mode` (`solo` or `team`, see [Work entries](/agentic-coding-template-docs/concepts/work-entries/)). `language-chat` is the language the assistant talks to you in (`auto` follows your messages); `language-docs` is the language of everything it writes under `docs/`. `.act/` stays English either way. A command set to `(not set)` skips the matching check before a commit.
+- **Project**: name, owner, `language-chat` and `language-docs`, `stack`, the lint/typecheck/test `commands`, the `tools` you use and the `mode` (`solo` or `team`, see [Work entries](/agentic-coding-template-docs/concepts/work-entries/)). `language-chat` is the language the assistant talks to you in (`auto` follows your messages); `language-docs` is the language of everything it writes under `docs/`. `.act/` stays English either way. A command set to `(not set)` skips the matching check before a commit. `run` is the command that starts the application; `(not set)` means none is recorded.
 - **Board**: `board` chooses where the generated board goes (`docs`, `shared`, `local`); `board-others` toggles the section for tasks assigned to other people.
 - **Inbox**: `inbox-decisions` decides where an open decision waits. With `immediate` it goes into the inbox as soon as it is booked; with `at-start` a backlog entry may keep it until work on it starts.
 - **Output depth**: `output-depth` (`verbose`, `normal`, `sparse`) controls how much the assistant writes in chat, not what your tool displays.
@@ -19,7 +19,7 @@ sidebar:
 - **Logging**: `logging` and `log-level` write every agent action to `ai.log` at the project root, not versioned, handy to follow along in a second terminal.
 - **Feedback**: voluntary feedback to the template author, see [Sending feedback](/agentic-coding-template-docs/guides/feedback/).
 - **Tips**: `tips` (`never`, `occasionally`, `regularly`) controls how often the session start shows a tip. Your own reminders in `docs/ai/local/reminders.md` are not affected.
-- **Roles**: per-role overrides of tier and reasoning, see [Tiers and reasoning](/agentic-coding-template-docs/concepts/reasoning/).
+- **Roles**: per-role (and per-skill) overrides of tier and reasoning, see [Tiers and reasoning](/agentic-coding-template-docs/concepts/reasoning/).
 
 ## Checks: block, warn, off
 
@@ -34,6 +34,10 @@ Each row of the checks table names a guard that runs before the action it descri
 A check marked in the table as "never refuses" treats `block` as `warn`. One check is different: `security-check` takes `off`, `local`, `deps` or `full`, see [The security check](/agentic-coding-template-docs/guides/security-check/).
 
 Turning a check down is your decision. Checks such as `secret-scan` or `git-reset-hard` protect against things that cannot be undone; lower them only with a reason.
+
+## File and environment
+
+`config.md` describes the **project** and is versioned. Secrets and per-machine or per-run deviations belong in the environment (for example `AGENTIC_FEEDBACK_URL` or `ACT_FORGE_API_URL`), which overrides the file for that run and never the other way round. The session start names every environment override that is active, names only, never values.
 
 ## Changing the file
 

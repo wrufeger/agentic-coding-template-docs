@@ -22,12 +22,14 @@ Ergebnis ohne Beleg ist „nicht überprüft“, nicht „erledigt“ — das wi
 wird hinterfragt, statt ihm zuliebe zuzustimmen.
 
 ## R-work-override
-<!-- source: bede36a7d73cd039 -->
+<!-- source: d45c9dd598816658 -->
 Das Projekt überschreibt das Template
 summary: Änderungen des Projekts haben Vorrang vor Template-Vorgaben; Overrides liegen unter docs/ai/local
 
 Eine Regel oder Datei, die das Projekt geändert hat, gilt immer vor der Fassung des Templates. Nie etwas direkt
-unter `.act/` ändern; eine projektspezifische Fassung kommt stattdessen nach `docs/ai/local/<same path>`. Eine
+unter `.act/` ändern; eine projektspezifische Fassung kommt stattdessen nach `docs/ai/local/<same path>`.
+`docs/ai/config.md` beschreibt das Projekt; Secrets und Abweichungen pro Rechner liegen in der Umgebung, die die
+Datei für einen Lauf überschreibt, und der Sitzungsstart nennt jeden wirksamen Override. Eine
 abgewählte Regel, Gruppe oder ein abgewählter Satz in `docs/ai/rules.md` oder `docs/project/coding_rules.md` ist
 aus, und eine `replaces`-Zeile gilt vor dem Template-Text einer Regel, ob deren Kästchen angekreuzt ist oder
 nicht — beides auch dann, wenn die Datei mit dem Template-Text geladen ist. Ein Fehler IM Template selbst — ein
@@ -389,13 +391,15 @@ Text, den der Mensch geschrieben hat (Antworten, Kommentare, Entscheidungen), wi
 gelöscht — nur darunter kommentiert.
 
 ## R-human-external
-<!-- source: 00c989fc683cfddc -->
+<!-- source: 0fb62b1c9bfbe08c -->
 Jede externe Anfrage bekommt eine Antwort
 summary: jede Anfrage von außen wird beantwortet, auch mit einer Absage, ohne sich vorzudrängeln
 
 Eine Anfrage, die von außerhalb des Gesprächs mit dem Menschen eintrifft (eine andere Sitzung, ein wartender
 Worker, ein System, das eine Antwort erwartet), wird immer beantwortet, auch wenn die Antwort eine Absage ist.
-Sie drängt sich nicht vor die laufende Arbeit, bleibt aber auch nie unbeantwortet liegen.
+Sie drängt sich nicht vor die laufende Arbeit, bleibt aber auch nie unbeantwortet liegen. Eine versprochene
+Antwort oder eine von einer anderen Sitzung erwartete Gegenprüfung wird als Todo (`entries.py new todo`) mit `for:`
+angelegt, das nennt, auf wen oder was sie wartet (oder `all`), damit das Versprechen die Sitzung überlebt.
 
 ## rules/orchestrator/30-cost.md
 <!-- source: 168f98ee85b769d2 -->

@@ -20,7 +20,7 @@ The project always overrides the template. You never edit anything under `.act/`
 - **Switch a rule off**: remove its cross. The file is still loaded whole, but an unchecked rule counts as off.
 - **Switch a whole area off**: delete its `@` import line.
 - **Replace a rule's wording**: under `## Overrides`, add a bullet of the form ``- replaces `R-...`: <your version>`` naming the rule and your version (lines starting with `<!--` are skipped). A `replaces` line wins over the template text whether the rule is checked or not.
-- **Add your own rules**: under `## Own rules`, one item per rule that has no counterpart in the template.
+- **Add your own rules**: under `## Own rules`, one item per rule that has no counterpart in the template. An indented list directly below an own rule (or a `replaces` line) belongs to it and is read as part of its text.
 
 Keep the marks (`<!-- act:overrides -->`, `<!-- act:own-rules -->`) where they are; the mechanism finds the sections through them. `python .act/scripts/rules.py --imports` shows what is actually loaded. Coding rule sets work the same way in `docs/project/coding_rules.md`. The rule IDs are in the [rules reference](/agentic-coding-template-docs/reference/rules/) and the [coding rules reference](/agentic-coding-template-docs/reference/coding-rules/).
 
@@ -36,7 +36,7 @@ A skill is a directory with a `SKILL.md` that starts with YAML frontmatter (`nam
 
 ## Own roles
 
-An own role is a file `docs/ai/local/agents/<name>.md` with its rules. A new role is its own bridge source and needs frontmatter (`name`, `description`, tier/reasoning, `tools`); only an override of a template role is plain text without frontmatter. Tier and reasoning can also be set in the Roles table of `docs/ai/config.md` (see [Tiers and reasoning](/agentic-coding-template-docs/concepts/reasoning/)); the tool-specific file under `.claude/agents/` is created by init and update, not at every session start. Once such a file exists, its text is yours: updates only refresh its `model` and `effort` lines. The built-in roles are described in [Roles](/agentic-coding-template-docs/concepts/roles/).
+An own role is a file `docs/ai/local/agents/<name>.md` with its rules. A new role is its own bridge source and needs frontmatter (`name`, `description`, tier/reasoning, `tools`); only an override of a template role is plain text without frontmatter. Tier and reasoning (of a skill: `reasoning` in its frontmatter, overridable by a row with the skill's name) can also be set in the Roles table of `docs/ai/config.md` (see [Tiers and reasoning](/agentic-coding-template-docs/concepts/reasoning/)); the tool-specific file under `.claude/agents/` is created by init and update, not at every session start. Once such a file exists, its text is yours: updates only refresh its `model` and `effort` lines. The built-in roles are described in [Roles](/agentic-coding-template-docs/concepts/roles/).
 
 ## Taking it to another project
 
@@ -46,9 +46,10 @@ Two skills carry your deviations from the template to another project.
 
 - `--all` also lists the unchanged rules.
 - `--with-scripts`, `--with-checklists`, `--with-agents`, `--with-skills` add the files from `docs/ai/local/`; any of them produces a `.zip` instead of a `.md`.
+- `--with-topics` adds the topic rules under `docs/ai/local/rules/topics/`: a topic of your own as `[+] <name>.md`, an override of a template topic as `[~] <name>.md` with a fingerprint of the template topic it overrides. Whole files, so it also produces a `.zip`.
 - `--strict` aborts instead of substituting a placeholder; use it when the file leaves your own hands.
 - `--out PATH` chooses the location; the default is `.act-local/export/`. `--profile` writes to your personal profile instead.
 
 The script scans every value for credentials, mail addresses, IP addresses, local paths and internal hosts and replaces a hit with a visible `<setup:KIND>` placeholder. It reports the finding count; skim the file before sending it anywhere.
 
-**`act-load-settings`** imports such a file. `python .act/scripts/settings_load.py plan` shows what would happen and writes nothing; with no file named, it takes everything in `.act-local/import/`. `apply` then writes what is clear. Overlaps with your own rules are judged, not applied silently, and anything unresolved lands in one inbox entry. Bundled scripts, skills and roles are shown to you before they are written, and a skill or role that shares a name with a template one, or asks for risky frontmatter (hooks, MCP servers, permission modes), is reported and never written.
+**`act-load-settings`** imports such a file. `python .act/scripts/settings_load.py plan` shows what would happen and writes nothing; with no file named, it takes everything in `.act-local/import/`. `apply` then writes what is clear. Overlaps with your own rules are judged, not applied silently, and anything unresolved lands in one inbox entry. Bundled scripts, skills and roles are shown to you before they are written, and a skill or role that shares a name with a template one, or asks for risky frontmatter (hooks, MCP servers, permission modes), is reported and never written. Own topic rules and topic overrides go to `docs/ai/local/rules/topics/<name>.md`: a topic already there with different content is reported as changed and left alone; an override whose template topic no longer exists is reported as dead and not written; one whose template topic changed since the export is reported as changed-since-export, to review by hand.

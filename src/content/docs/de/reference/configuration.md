@@ -6,10 +6,10 @@ sidebar:
 ---
 
 :::note
-Diese Seite wird aus dem Template 2.0.0 (Commit 5d257d0) erzeugt; die deutschen Texte stammen aus einem Katalog unter `src/translations/de/reference/`. Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
+Diese Seite wird aus dem Template 2.0.0 (Commit ba52704) erzeugt; die deutschen Texte stammen aus einem Katalog unter `src/translations/de/reference/`. Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
 :::
 
-`init` trägt die folgenden Werte aus dem ein, was es gefragt oder erkannt hat. Sie lassen sich jederzeit ändern — nichts davon erfordert einen Neuaufbau; `.act/hooks/dispatch.py` liest diese Datei beim Sitzungsstart.
+`init` trägt die folgenden Werte aus dem ein, was es gefragt oder erkannt hat. Sie lassen sich jederzeit ändern — nichts davon erfordert einen Neuaufbau; `.act/hooks/dispatch.py` liest diese Datei beim Sitzungsstart. Diese Datei beschreibt das **Projekt** und ist versioniert. Secrets und Abweichungen pro Rechner oder pro Lauf gehören in die Umgebung, die diese Datei für den jeweiligen Lauf überschreibt, nie umgekehrt; der Sitzungsstart nennt jeden aktiven Override aus der Umgebung (nur die Namen, nie die Werte).
 
 Dies ist die Standard-`config.md` des Templates; Platzhalter in spitzen Klammern füllt `init` aus.
 
@@ -25,6 +25,7 @@ Dies ist die Standard-`config.md` des Templates; Platzhalter in spitzen Klammern
 | `commands` | &lt;lint-command>, &lt;typecheck-command>, &lt;test-command> |
 | `tools` | &lt;tool-list> |
 | `mode` | &lt;mode> |
+| `run` | (not set) |
 
 `language-chat` ist die Sprache, in der der Assistent spricht: `auto` (Standard) folgt den eigenen
 Nachrichten des Owners, ein Code wie `de` legt sie fest. `language-docs` ist die Sprache von allem, was der
@@ -34,6 +35,8 @@ gilt für beide.
 
 `commands` ist Lint, Typecheck, Test, in dieser Reihenfolge; `(not set)` heißt, dass für diesen Platz kein Befehl
 eingerichtet ist und die zugehörige Prüfung übersprungen wird (`R-code-commit`).
+
+`run` ist der Befehl, der die Anwendung startet; `(not set)` heißt, dass keiner hinterlegt ist, ebenso bei einer config.md ohne die Zeile.
 
 `mode` ist `solo` oder `team` und ändert **eine** Sache: wann ein Eintrag seine kurze ID bekommt. In
 `solo` vergibt der Assistent sie sofort und arbeitet weiter. In `team` vergibt sie nur,
@@ -206,3 +209,4 @@ in `docs/ai/local/reminders.md` sind von diesem Schlüssel nicht betroffen.
 
 Standardmäßig leer: jede Rolle läuft mit dem Tier/Reasoning, das das Template mitliefert. Eine Zeile füllen, um
 Tier und/oder Reasoning einer Rolle zu überschreiben, oder `Model` direkt setzen — ein gefülltes `Model` hat Vorrang vor `Tier`.
+Der Name eines Skills in der Spalte `Role` (z. B. `act-prepare`) überschreibt das eigene `reasoning` dieses Skills für dieses Projekt; dort zählt nur `Reasoning`.

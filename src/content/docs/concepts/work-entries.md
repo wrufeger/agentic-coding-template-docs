@@ -30,7 +30,7 @@ The inbox is the one place where something waits for you. Each file starts with 
 | `report` | none | a tool's read-only report, for example from `doctor` or an adoption | `open` → `done` (read) |
 | `note` | none | your own note; the assistant replies below it | `open` → `answered` → `done` |
 
-An entry without a `kind` counts as `todo`. The `for:` field says whom an entry is addressed to: `all` or a person's workspace identity. A `done` entry is moved to the archive, whatever its kind.
+An entry without a `kind` counts as `todo`. The `for:` field says whom an entry is addressed to: `all` or a person's workspace identity. A `done` entry is moved to the archive, whatever its kind. A reply the assistant has promised, or a counter-check it expects from another session, is filed as a `todo` with `for:` naming whom or what it waits for (or `all`), so the promise outlives the session; `act-commit` asks "anyone waiting?" before it reports.
 
 The assistant creates entries with `python .act/scripts/entries.py new <kind> <title>`; the [scripts reference](/agentic-coding-template-docs/reference/scripts/) lists every option.
 

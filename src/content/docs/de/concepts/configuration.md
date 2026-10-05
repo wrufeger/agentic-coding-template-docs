@@ -3,14 +3,14 @@ title: Konfiguration
 description: docs/ai/config.md steuert den Arbeitsablauf - seine Gruppen und was block, warn und off für Prüfungen bedeuten.
 sidebar:
   order: 4
-sourceHash: 2ba3c7b3e1f2fb5614f82ffcdfe8ab6a04c22c51cc7f091780023f12ead31e14
+sourceHash: f2e00ae91c4218e51ed972e87da193b7b86d2ac9cba151230e22ec04fc90313c
 ---
 
 `docs/ai/config.md` ist die Datei, die steuert, wie am Projekt gearbeitet wird. Sie besteht aus Markdown-Tabellen, ein Abschnitt pro Thema. `init` trägt die Werte ein, die es erfragt oder erkannt hat; du änderst sie jederzeit. Nichts braucht einen Neuaufbau: Der Hook beim Sitzungsstart liest die Datei und meldet, was sich seit dem letzten Abgleich geändert hat. Jeder Schlüssel mit seinen erlaubten Werten steht in der [Konfigurationsreferenz](/agentic-coding-template-docs/de/reference/configuration/); diese Seite erklärt, wofür die Gruppen da sind.
 
 ## Gruppen
 
-- **Project**: Name, Owner, `language-chat` und `language-docs`, `stack`, die `commands` für Lint/Typecheck/Test, die `tools`, die du nutzt, und der `mode` (`solo` oder `team`, siehe [Inbox, Aufgaben und Journal](/agentic-coding-template-docs/de/concepts/work-entries/)). `language-chat` ist die Sprache, in der der Assistent mit dir spricht (`auto` folgt deinen Nachrichten); `language-docs` ist die Sprache von allem, was er unter `docs/` schreibt. `.act/` bleibt in beiden Fällen Englisch. Ein Befehl mit `(not set)` überspringt die zugehörige Prüfung vor einem Commit.
+- **Project**: Name, Owner, `language-chat` und `language-docs`, `stack`, die `commands` für Lint/Typecheck/Test, die `tools`, die du nutzt, und der `mode` (`solo` oder `team`, siehe [Inbox, Aufgaben und Journal](/agentic-coding-template-docs/de/concepts/work-entries/)). `language-chat` ist die Sprache, in der der Assistent mit dir spricht (`auto` folgt deinen Nachrichten); `language-docs` ist die Sprache von allem, was er unter `docs/` schreibt. `.act/` bleibt in beiden Fällen Englisch. Ein Befehl mit `(not set)` überspringt die zugehörige Prüfung vor einem Commit. `run` ist der Befehl, der die Anwendung startet; `(not set)` heißt, dass keiner hinterlegt ist.
 - **Board**: `board` wählt, wohin das erzeugte Board geht (`docs`, `shared`, `local`); `board-others` schaltet den Abschnitt für Aufgaben um, die anderen Personen zugewiesen sind.
 - **Inbox**: `inbox-decisions` bestimmt, wo eine offene Entscheidung wartet. Mit `immediate` landet sie in der Inbox, sobald sie verbucht ist; mit `at-start` darf ein Backlog-Eintrag sie behalten, bis die Arbeit daran beginnt.
 - **Output depth**: `output-depth` (`verbose`, `normal`, `sparse`) steuert, wie viel der Assistent im Chat schreibt, nicht was dein Werkzeug anzeigt.
@@ -20,7 +20,7 @@ sourceHash: 2ba3c7b3e1f2fb5614f82ffcdfe8ab6a04c22c51cc7f091780023f12ead31e14
 - **Logging**: `logging` und `log-level` schreiben jede Agenten-Aktion nach `ai.log` im Projektwurzelverzeichnis, nicht versioniert, praktisch zum Mitverfolgen in einem zweiten Terminal.
 - **Feedback**: freiwilliges Feedback an den Autor des Templates, siehe [Feedback](/agentic-coding-template-docs/de/guides/feedback/).
 - **Tips**: `tips` (`never`, `occasionally`, `regularly`) steuert, wie oft der Sitzungsstart einen Tipp zeigt. Deine eigenen Erinnerungen in `docs/ai/local/reminders.md` bleiben davon unberührt.
-- **Roles**: Overrides von Tier und Reasoning pro Rolle, siehe [Tiers und Reasoning](/agentic-coding-template-docs/de/concepts/reasoning/).
+- **Roles**: Overrides von Tier und Reasoning pro Rolle (und pro Skill), siehe [Tiers und Reasoning](/agentic-coding-template-docs/de/concepts/reasoning/).
 
 ## Prüfungen: block, warn, off
 
@@ -35,6 +35,10 @@ Jede Zeile der Prüfungstabelle benennt einen Wächter, der vor der Aktion läuf
 Eine Prüfung, die in der Tabelle als „never refuses" markiert ist, behandelt `block` wie `warn`. Eine Prüfung ist anders: `security-check` nimmt `off`, `local`, `deps` oder `full`, siehe [Sicherheitsprüfung](/agentic-coding-template-docs/de/guides/security-check/).
 
 Eine Prüfung herunterzustufen ist deine Entscheidung. Prüfungen wie `secret-scan` oder `git-reset-hard` schützen vor Dingen, die sich nicht rückgängig machen lassen; senke sie nur mit Grund.
+
+## Datei und Umgebung
+
+`config.md` beschreibt das **Projekt** und ist versioniert. Secrets und Abweichungen pro Rechner oder pro Lauf gehören in die Umgebung (zum Beispiel `AGENTIC_FEEDBACK_URL` oder `ACT_FORGE_API_URL`); sie überschreibt die Datei für diesen Lauf, nie umgekehrt. Der Sitzungsstart nennt jeden aktiven Override aus der Umgebung, nur die Namen, nie die Werte.
 
 ## Die Datei ändern
 

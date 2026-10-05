@@ -6,10 +6,10 @@ sidebar:
 ---
 
 :::note
-Diese Seite wird aus dem Template 2.0.0 (Commit 5d257d0) erzeugt; die deutschen Texte stammen aus einem Katalog unter `src/translations/de/reference/`. Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
+Diese Seite wird aus dem Template 2.0.0 (Commit ba52704) erzeugt; die deutschen Texte stammen aus einem Katalog unter `src/translations/de/reference/`. Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
 :::
 
-26 Skills. Ein Skill ist eine wiederverwendbare Prozedur, die der Assistent auf Anfrage oder dann ausführt, wenn seine Beschreibung zur Situation passt.
+28 Skills. Ein Skill ist eine wiederverwendbare Prozedur, die der Assistent auf Anfrage oder dann ausführt, wenn seine Beschreibung zur Situation passt.
 
 ## act
 
@@ -40,6 +40,12 @@ Quelle: `.act/skills/act-audit-docs/SKILL.md`
 Behebt einen gemeldeten Bug - reproduzieren, Ursache eingrenzen, dann die Behebung mit einem Test belegen, der vor der Änderung rot und danach grün ist. Verwenden, wenn ein Bug gemeldet wird, etwas kaputt ist oder gebeten wird, ein bestimmtes Verhalten zu debuggen.
 
 Quelle: `.act/skills/act-bug/SKILL.md`
+
+## act-check-translations
+
+Prüft die Übersetzungsdateien eines Projekts auf Vollständigkeit und Konsistenz - fehlende, überzählige und leere Schlüssel, nicht passende Platzhalter, im Code verwendete, aber nicht definierte und definierte, aber unbenutzte Schlüssel - und arbeitet die Befunde ab. Verwenden, wenn gebeten wird, Übersetzungen oder i18n zu prüfen, ob alle Sprachen vollständig sind, oder nach dem Hinzufügen einer Sprache oder neuer UI-Texte.
+
+Quelle: `.act/skills/act-check-translations/SKILL.md`
 
 ## act-commit
 
@@ -79,7 +85,7 @@ Quelle: `.act/skills/act-doctor/SKILL.md`
 
 ## act-export-settings
 
-Schreibt die eigenen Regelabweichungen dieses Projekts, optional auch eigene Scripts/Checklisten/Agents/Skills, in eine portable Settings-Datei für ein anderes Projekt oder zur Durchsicht vor dem Teilen. Verwenden, um das Setup dieses Projekts an ein neues Projekt zu übergeben oder um zu prüfen, was ein Settings-Export preisgeben würde, bevor er irgendwohin geht.
+Schreibt die eigenen Regelabweichungen dieses Projekts, optional auch eigene Scripts/Checklisten/Agents/Skills/Topics, in eine portable Settings-Datei für ein anderes Projekt oder zur Durchsicht vor dem Teilen. Verwenden, um das Setup dieses Projekts an ein neues Projekt zu übergeben oder um zu prüfen, was ein Settings-Export preisgeben würde, bevor er irgendwohin geht.
 
 Quelle: `.act/skills/act-export-settings/SKILL.md`
 
@@ -142,6 +148,12 @@ Quelle: `.act/skills/act-refactor/SKILL.md`
 Bereitet ein neues Release vor - Voraussetzungen prüfen, eine Semantic Version wählen, aus den Commits einen lesbaren Changelog erzeugen, taggen. Verwenden, wenn gebeten wird, ein Release vorzubereiten, eine neue Version zu veröffentlichen oder einen Changelog zu erzeugen.
 
 Quelle: `.act/skills/act-release/SKILL.md`
+
+## act-seo
+
+Prüft die Seiten eines Projekts im Code auf grundlegende Suchmaschinenoptimierung - Title und Description, Überschriften, lang, Canonical, Open Graph, Alt-Texte von Bildern, interne Links, robots.txt und Sitemap - und arbeitet die Befunde ab. Verwenden, wenn gebeten wird, SEO zu prüfen, warum Seiten schlecht gefunden werden, oder vor dem Start einer Website.
+
+Quelle: `.act/skills/act-seo/SKILL.md`
 
 ## act-setup
 

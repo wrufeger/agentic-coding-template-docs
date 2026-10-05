@@ -6,7 +6,7 @@ sidebar:
 ---
 
 :::note
-Diese Seite wird aus dem Template 2.0.0 (Commit 5d257d0) erzeugt; die deutschen Texte stammen aus einem Katalog unter `src/translations/de/reference/`. Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
+Diese Seite wird aus dem Template 2.0.0 (Commit ba52704) erzeugt; die deutschen Texte stammen aus einem Katalog unter `src/translations/de/reference/`. Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
 :::
 
 Eine Zeile je Script unter `.act/scripts/`; die Abschnitte je Script weiter unten sind jeweils die eigene `--help`-Ausgabe des Scripts, nicht von Hand abgetippt. Neu erzeugen mit `python .act/scripts/script_docs.py`, nachdem die Argumente eines Scripts geändert wurden — `--check` erkennt Abweichungen, und `doctor.py` meldet sie als Befund.
@@ -28,6 +28,7 @@ Eine Zeile je Script unter `.act/scripts/`; die Abschnitte je Script weiter unte
 | `feedback_privacy.py` | Die Datenschutzprüfungen, die entscheiden, ob ein String als Teil einer Feedback-Nutzlast das Projekt verlassen darf (.act/scripts/feedback.py) — Muster… | library |
 | [`forge.py`](#forgepy) | Ein kleiner REST-Client für den Git-Host des Projekts (GitHub, GitHub Enterprise, GitLab.com und selbst gehostetes GitLab) — das eine Script, das die Skills… | skills `act-pr`, `act-issue`, `act-integrations` (reads are direct; every write shows a preview and needs `--apply` after the human's "yes" (`topics/live-systems.md`)) |
 | `frontmatter.py` | Ein gemeinsamer Frontmatter-Parser für jeden „---\n...\n---\n“-Block unter .act/ und docs/ai/local/ -- früher waren es zwei: der von tiers.py… | library |
+| [`i18n_check.py`](#i18n_checkpy) | Prüft die Übersetzungsdateien eines Projekts auf Vollständigkeit und Konsistenz — die mechanische Hälfte des Skills `act-check-translations`. Nur Code… | skill `act-check-translations` |
 | [`ideas.py`](#ideaspy) | Die Ideen-Datei je Person `docs/ai/concept/ideas-<identity>.md` — eine versionierte Datei für jede Person eines Projekts, von dieser Person geschrieben… | direct (session start and init call it; run by hand to record entries as processed) |
 | [`init.py`](#initpy) | Macht aus einem Checkout dieses Templates ein Projekt („here, in this clone“) oder dockt an ein bestehendes oder leeres Verzeichnis an („--target“). Zehn Schritte… | direct |
 | [`integrations.py`](#integrationspy) | Ermittelt, welche Wege von diesem Projekt zu seinem Repo-Host und Issue-Tracker führen (REST-Zugriff über forge.py, MCP-Server) und was jeder… | skill `act-integrations` (`status` alone is direct) |
@@ -37,6 +38,7 @@ Eine Zeile je Script unter `.act/scripts/`; die Abschnitte je Script weiter unte
 | [`script_docs.py`](#script_docspy) | Erzeugt .act/scripts/README.md — eine Referenz für jedes Script unter .act/scripts/, gebaut aus der eigenen `--help`-Ausgabe jedes Scripts plus einem… | direct |
 | [`security_deep.py`](#security_deeppy) | Sicherheitsprüfung „Art C“: ein tiefer, sprachübergreifender Scan mit Semgrep über die Dateien, die seit einem Ref (Standard: das neueste Tag) geändert wurden, oder das ganze… | direct (used by skill `act-release` with `security-check: full`) |
 | [`security_scan.py`](#security_scanpy) | Sicherheitsprüfung Art B: eine Live-Abfrage nach Schwachstellen in Bibliotheken anhand der Lock-Dateien, die ein Ökosystem tatsächlich hat, entweder als manueller Befehl… | direct (also run before a commit that touches a lock file and daily at session start, with `security-check: deps`/`full`) |
+| [`seo_check.py`](#seo_checkpy) | SEO-Prüfungen nur im Code über HTML, Templates, Markdown-Seiten und Framework-Konfiguration eines Projekts — die mechanische Hälfte des Skills `act-seo`. Liest… | skill `act-seo` |
 | [`settings_export.py`](#settings_exportpy) | `act-export-settings` — schreibt die eigenen Regelabweichungen des Projekts (und, mit einem Schalter, lokale Scripte/Checklisten) in eine portable Einstellungsdatei… | skill `act-export-settings` |
 | `settings_format.py` | Datenmodell, Parser und Serialisierer für die Einstellungsdatei („settings.md“) — der portable Schnappschuss der eigenen Regelabweichungen eines Projekts (und, in… | library |
 | [`settings_load.py`](#settings_loadpy) | `act-load-settings` — importiert eine portable Einstellungsdatei (oder mehrere) in dieses Projekt: das Gegenstück zu settings_export.py. Führt dieselben… | skill `act-load-settings` |
@@ -506,6 +508,24 @@ options:
   --json            print one JSON document instead of text
 ```
 
+## i18n_check.py
+
+Call: skill `act-check-translations`
+
+```text
+usage: i18n_check.py [-h] [--root ROOT] [--base BASE] [--json] [--no-code]
+
+Check translation files for missing, extra, empty and mismatching keys and for keys used in code
+but not defined.
+
+options:
+  -h, --help   show this help message and exit
+  --root ROOT  project root (default: current directory)
+  --base BASE  base locale (default: en, else the largest)
+  --json       print the report as JSON
+  --no-code    skip the used/unused key check against source code
+```
+
 ## ideas.py
 
 Call: direct (session start and init call it; run by hand to record entries as processed)
@@ -678,13 +698,30 @@ options:
   --json      with --deps: print the result as JSON instead of text
 ```
 
+## seo_check.py
+
+Call: skill `act-seo`
+
+```text
+usage: seo_check.py [-h] [--root ROOT] [--json]
+
+Code-only SEO checks: title, description, headings, lang, canonical, Open Graph, image alt,
+internal links, robots.txt and sitemap.
+
+options:
+  -h, --help   show this help message and exit
+  --root ROOT  project root (default: current directory)
+  --json       print the report as JSON
+```
+
 ## settings_export.py
 
 Call: skill `act-export-settings`
 
 ```text
 usage: settings_export.py [-h] [--all] [--with-scripts] [--with-checklists] [--with-agents]
-                          [--with-skills] [--with-files] [--strict] [--out PATH] [--profile]
+                          [--with-skills] [--with-topics] [--with-files] [--strict] [--out PATH]
+                          [--profile]
 
 Write the project's rule deviations (and, with a switch, local scripts/checklists) to a portable
 settings file.
@@ -696,8 +733,10 @@ options:
   --with-checklists  include docs/ai/local/checklists/ (forces --with-files)
   --with-agents      include docs/ai/local/agents/, the project's own roles (forces --with-files)
   --with-skills      include docs/ai/local/skills/, the project's own skills (forces --with-files)
+  --with-topics      include docs/ai/local/rules/topics/, own topic rules and overrides of
+                     template topics (forces --with-files)
   --with-files       write a .zip even without --with-scripts/--with-checklists/--with-
-                     agents/--with-skills
+                     agents/--with-skills/--with-topics
   --strict           abort on any finding instead of substituting a placeholder
   --out PATH         output path (default: .act-local/export/act-settings-<date>.md|.zip)
   --profile          write to the Owner's profile (platform config dir) instead of --out/the

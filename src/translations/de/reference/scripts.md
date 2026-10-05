@@ -55,6 +55,10 @@ Ein kleiner REST-Client für den Git-Host des Projekts (GitHub, GitHub Enterpris
 <!-- source: d5e574c6e2ab4c9a -->
 Ein gemeinsamer Frontmatter-Parser für jeden „---\n...\n---\n“-Block unter .act/ und docs/ai/local/ -- früher waren es zwei: der von tiers.py…
 
+## table:i18n_check.py
+<!-- source: 8238d909d48803ef -->
+Prüft die Übersetzungsdateien eines Projekts auf Vollständigkeit und Konsistenz — die mechanische Hälfte des Skills `act-check-translations`. Nur Code…
+
 ## table:ideas.py
 <!-- source: b2df8059a1b0ea78 -->
 Die Ideen-Datei je Person `docs/ai/concept/ideas-<identity>.md` — eine versionierte Datei für jede Person eines Projekts, von dieser Person geschrieben…
@@ -90,6 +94,10 @@ Sicherheitsprüfung „Art C“: ein tiefer, sprachübergreifender Scan mit Semg
 ## table:security_scan.py
 <!-- source: 5bb99ae4ad45d9af -->
 Sicherheitsprüfung Art B: eine Live-Abfrage nach Schwachstellen in Bibliotheken anhand der Lock-Dateien, die ein Ökosystem tatsächlich hat, entweder als manueller Befehl…
+
+## table:seo_check.py
+<!-- source: 0f59373b6b4c9139 -->
+SEO-Prüfungen nur im Code über HTML, Templates, Markdown-Seiten und Framework-Konfiguration eines Projekts — die mechanische Hälfte des Skills `act-seo`. Liest…
 
 ## table:settings_export.py
 <!-- source: 36814737f8168627 -->

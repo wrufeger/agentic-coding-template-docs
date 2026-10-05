@@ -6,10 +6,10 @@ sidebar:
 ---
 
 :::note
-Generated from template version 2.0.0 (commit 5d257d0) — do not edit by hand. Regenerate with `npm run gen`.
+Generated from template version 2.0.0 (commit ba52704) — do not edit by hand. Regenerate with `npm run gen`.
 :::
 
-`init` fills in the values below from what it asked or detected. Change them any time — nothing here needs a rebuild; `.act/hooks/dispatch.py` reads this file at session start.
+`init` fills in the values below from what it asked or detected. Change them any time — nothing here needs a rebuild; `.act/hooks/dispatch.py` reads this file at session start. This file describes the **project** and is versioned. Secrets and per-machine or per-run deviations belong in the environment, which overrides this file for that run and never the other way round; the session start names every environment override that is active (names only, never values).
 
 This is the template's default `config.md`; placeholders in angle brackets are filled in by `init`.
 
@@ -25,6 +25,7 @@ This is the template's default `config.md`; placeholders in angle brackets are f
 | `commands` | &lt;lint-command>, &lt;typecheck-command>, &lt;test-command> |
 | `tools` | &lt;tool-list> |
 | `mode` | &lt;mode> |
+| `run` | (not set) |
 
 `language-chat` is the language the assistant talks in: `auto` (default) follows the owner's own
 messages, a code such as `de` fixes it. `language-docs` is the language of everything the
@@ -34,6 +35,9 @@ counts for both.
 
 `commands` is lint, typecheck, test, in this order; `(not set)` means no command is set up for that
 slot, and the matching check is skipped (`R-code-commit`).
+
+`run` is the command that starts the application; `(not set)` means none is recorded, and so does a
+config.md without the row.
 
 `mode` is `solo` or `team`, and it changes **one** thing: when an entry gets its short ID. In
 `solo` the assistant assigns it right away and carries on. In `team` only
@@ -208,3 +212,4 @@ in `docs/ai/local/reminders.md` are not affected by this key.
 
 Empty by default: every role runs the tier/reasoning the template ships. Fill a row to override
 one role's tier and/or reasoning, or set `Model` outright — a filled `Model` wins over `Tier`.
+A skill's name in the `Role` column (e.g. `act-prepare`) overrides that skill's own `reasoning` level for this project; only `Reasoning` counts there.

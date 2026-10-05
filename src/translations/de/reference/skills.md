@@ -23,6 +23,10 @@ Prüft docs/project gegen den tatsächlichen Code und bringt veraltete Einträge
 <!-- source: 78a421c2fe67cd2d -->
 Behebt einen gemeldeten Bug - reproduzieren, Ursache eingrenzen, dann die Behebung mit einem Test belegen, der vor der Änderung rot und danach grün ist. Verwenden, wenn ein Bug gemeldet wird, etwas kaputt ist oder gebeten wird, ein bestimmtes Verhalten zu debuggen.
 
+## act-check-translations
+<!-- source: 9f8fd106755dc4fc -->
+Prüft die Übersetzungsdateien eines Projekts auf Vollständigkeit und Konsistenz - fehlende, überzählige und leere Schlüssel, nicht passende Platzhalter, im Code verwendete, aber nicht definierte und definierte, aber unbenutzte Schlüssel - und arbeitet die Befunde ab. Verwenden, wenn gebeten wird, Übersetzungen oder i18n zu prüfen, ob alle Sprachen vollständig sind, oder nach dem Hinzufügen einer Sprache oder neuer UI-Texte.
+
 ## act-commit
 <!-- source: a936bd2d52472989 -->
 Schließt eine akzeptierte Aufgabe ab - Beleg prüfen, archivieren, Journal aktualisieren, per Pathspec committen. Verwenden direkt nach der Abnahme einer Aufgabe, wenn ihr Beleg (ein Testlauf, ein externer Aufruf, ein Commit) vorliegt.
@@ -48,8 +52,8 @@ Erzeugt drei bis vier Design-Varianten als Vorschaubilder, aus einer Beschreibun
 Gleicht Projekt- und Template-Stand ab - mechanische Prüfungen nach jedem Update (veraltete Overrides, tote IDs, verwaiste Bridges), inhaltliche Prüfungen nur auf Wunsch oder für Regeln, die ein Update gerade geändert hat. Verwenden, um Abweichungen vom Template zu prüfen, nach einem Update oder wenn gefragt wird, ob lokale Overrides noch sinnvoll sind.
 
 ## act-export-settings
-<!-- source: 035925f9801d4fac -->
-Schreibt die eigenen Regelabweichungen dieses Projekts, optional auch eigene Scripts/Checklisten/Agents/Skills, in eine portable Settings-Datei für ein anderes Projekt oder zur Durchsicht vor dem Teilen. Verwenden, um das Setup dieses Projekts an ein neues Projekt zu übergeben oder um zu prüfen, was ein Settings-Export preisgeben würde, bevor er irgendwohin geht.
+<!-- source: 1da58a6b676e0184 -->
+Schreibt die eigenen Regelabweichungen dieses Projekts, optional auch eigene Scripts/Checklisten/Agents/Skills/Topics, in eine portable Settings-Datei für ein anderes Projekt oder zur Durchsicht vor dem Teilen. Verwenden, um das Setup dieses Projekts an ein neues Projekt zu übergeben oder um zu prüfen, was ein Settings-Export preisgeben würde, bevor er irgendwohin geht.
 
 ## act-feedback
 <!-- source: 743942cf99e1a9b2 -->
@@ -90,6 +94,10 @@ Strukturiert bestehenden Code um, ohne sein Verhalten zu ändern - Ziel und Umfa
 ## act-release
 <!-- source: 2839617af97c921c -->
 Bereitet ein neues Release vor - Voraussetzungen prüfen, eine Semantic Version wählen, aus den Commits einen lesbaren Changelog erzeugen, taggen. Verwenden, wenn gebeten wird, ein Release vorzubereiten, eine neue Version zu veröffentlichen oder einen Changelog zu erzeugen.
+
+## act-seo
+<!-- source: 7ee13523db0a0e7d -->
+Prüft die Seiten eines Projekts im Code auf grundlegende Suchmaschinenoptimierung - Title und Description, Überschriften, lang, Canonical, Open Graph, Alt-Texte von Bildern, interne Links, robots.txt und Sitemap - und arbeitet die Befunde ab. Verwenden, wenn gebeten wird, SEO zu prüfen, warum Seiten schlecht gefunden werden, oder vor dem Start einer Website.
 
 ## act-setup
 <!-- source: 44af45079767f98c -->

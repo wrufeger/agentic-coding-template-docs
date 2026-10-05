@@ -6,10 +6,10 @@ sidebar:
 ---
 
 :::note
-Generated from template version 2.0.0 (commit 5d257d0) — do not edit by hand. Regenerate with `npm run gen`.
+Generated from template version 2.0.0 (commit ba52704) — do not edit by hand. Regenerate with `npm run gen`.
 :::
 
-26 skills. A skill is a reusable procedure the assistant runs on request or when its description matches the situation.
+28 skills. A skill is a reusable procedure the assistant runs on request or when its description matches the situation.
 
 ## act
 
@@ -40,6 +40,12 @@ Source: `.act/skills/act-audit-docs/SKILL.md`
 Fix a reported bug - reproduce it, localize the cause, then prove the fix with a test that is red before the change and green after. Use when a bug is reported, something is broken, or asked to debug specific behavior.
 
 Source: `.act/skills/act-bug/SKILL.md`
+
+## act-check-translations
+
+Check a project's translation files for completeness and consistency - missing, extra and empty keys, placeholder mismatches, keys used in code but not defined, defined but unused - and work through the findings. Use when asked to check translations or i18n, whether all languages are complete, or after adding a language or new UI text.
+
+Source: `.act/skills/act-check-translations/SKILL.md`
 
 ## act-commit
 
@@ -79,7 +85,7 @@ Source: `.act/skills/act-doctor/SKILL.md`
 
 ## act-export-settings
 
-Write this project's own rule deviations, and optionally its own scripts/checklists/agents/skills, to a portable settings file for another project or for review before sharing. Use to hand this project's setup to a new project, or to check what a settings export would reveal before sending it anywhere.
+Write this project's own rule deviations, and optionally its own scripts/checklists/agents/skills/topics, to a portable settings file for another project or for review before sharing. Use to hand this project's setup to a new project, or to check what a settings export would reveal before sending it anywhere.
 
 Source: `.act/skills/act-export-settings/SKILL.md`
 
@@ -142,6 +148,12 @@ Source: `.act/skills/act-refactor/SKILL.md`
 Prepare a new release - check preconditions, pick a semantic version, generate a readable changelog from commits, tag it. Use when asked to prepare a release, publish a new version, or generate a changelog.
 
 Source: `.act/skills/act-release/SKILL.md`
+
+## act-seo
+
+Check a project's pages for basic search-engine optimization in the code - title and description, headings, lang, canonical, Open Graph, image alt text, internal links, robots.txt and sitemap - and work through the findings. Use when asked to check SEO, why pages are poorly found, or before launching a site.
+
+Source: `.act/skills/act-seo/SKILL.md`
 
 ## act-setup
 

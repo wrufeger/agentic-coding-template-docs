@@ -3,7 +3,7 @@ title: Inbox, Aufgaben und Journal
 description: Was in docs/ai/ liegt - Inbox, Aufgaben, Backlog, Journal, Archiv, Ideen, das Board und die Statuszeile.
 sidebar:
   order: 3
-sourceHash: c73e31090c3397f797cec79824fb4fc606ac7ea906f601aca7644e1b351111d8
+sourceHash: a987967ba349f5a3e18a661e578431cc7378672256d7fbfc5cd0e13a52db1fef
 ---
 
 `docs/ai/` ist das gemeinsame Arbeitsgedächtnis von dir und dem Assistenten. Alles darin ist eine einfache Datei, eine Datei pro Eintrag, versioniert mit dem Projekt. Übersichten wie das Board werden aus diesen Dateien erzeugt und nie von Hand gepflegt.
@@ -31,7 +31,7 @@ Die Inbox ist der eine Ort, an dem etwas auf dich wartet. Jede Datei beginnt mit
 | `report` | keine | der schreibgeschützte Bericht eines Werkzeugs, zum Beispiel von `doctor` oder einer Übernahme | `open` → `done` (gelesen) |
 | `note` | keine | deine eigene Notiz; der Assistent antwortet darunter | `open` → `answered` → `done` |
 
-Ein Eintrag ohne `kind` zählt als `todo`. Das Feld `for:` sagt, an wen ein Eintrag gerichtet ist: `all` oder die Workspace-Identität einer Person. Ein Eintrag mit `done` wandert ins Archiv, egal welcher Art.
+Ein Eintrag ohne `kind` zählt als `todo`. Das Feld `for:` sagt, an wen ein Eintrag gerichtet ist: `all` oder die Workspace-Identität einer Person. Ein Eintrag mit `done` wandert ins Archiv, egal welcher Art. Eine Antwort, die der Assistent versprochen hat, oder eine Gegenprüfung, die er von einer anderen Sitzung erwartet, wird als `todo` angelegt, mit `for:` für die Person oder Stelle, auf die es wartet (oder `all`); so überlebt das Versprechen die Sitzung. `act-commit` fragt vor dem Bericht „Wartet jemand?“.
 
 Der Assistent legt Einträge mit `python .act/scripts/entries.py new <kind> <title>` an; die [Script-Referenz](/agentic-coding-template-docs/de/reference/scripts/) listet alle Optionen.
 

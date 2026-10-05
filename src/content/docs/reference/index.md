@@ -6,15 +6,15 @@ sidebar:
 ---
 
 :::note
-Generated from template version 2.0.0 (commit 5d257d0) — do not edit by hand. Regenerate with `npm run gen`.
+Generated from template version 2.0.0 (commit ba52704) — do not edit by hand. Regenerate with `npm run gen`.
 :::
 
-These pages are generated from the `.act/` directory of this repository, which is the pinned template state: template version 2.0.0, commit 5d257d0. Nothing here is written by hand, so the pages cannot drift from the template.
+These pages are generated from the `.act/` directory of this repository, which is the pinned template state: template version 2.0.0, commit ba52704. Nothing here is written by hand, so the pages cannot drift from the template.
 
 ## Pages
 
-- [Skills](/agentic-coding-template-docs/reference/skills/): 26 skills
-- [Scripts](/agentic-coding-template-docs/reference/scripts/): 24 scripts with command-line help
+- [Skills](/agentic-coding-template-docs/reference/skills/): 28 skills
+- [Scripts](/agentic-coding-template-docs/reference/scripts/): 26 scripts with command-line help
 - [Configuration](/agentic-coding-template-docs/reference/configuration/): 13 sections of `docs/ai/config.md`
 - [Rules](/agentic-coding-template-docs/reference/rules/): 35 rules
 - [Topics](/agentic-coding-template-docs/reference/topics/): 6 detail pages

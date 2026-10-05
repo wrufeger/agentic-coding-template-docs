@@ -3,7 +3,7 @@ title: Bestehendes Projekt
 description: Ein Projekt mit eigener Doku oder eigenem KI-Setup mit act-adopt übernehmen.
 sidebar:
   order: 2
-sourceHash: c631bd317df72620d4579cff7b6ca847401d3bfabef648f9d6cedee1cd558b2a
+sourceHash: 5d1b99709b47cbb7625cdd84c3f9cb547fb88591ce53cbc37d3391df673dda97
 ---
 
 Ein Projekt, das schon Doku, eine `CLAUDE.md` oder ein älteres KI-Setup hat, läuft über `act-adopt`, nicht allein
@@ -57,7 +57,7 @@ Die Ids alter Einträge werden nicht wiederverwendet: die reservierten Ids stehe
 Team-Modus bekommst du nur einen Hinweis.
 
 Deine Formulierungen bleiben, wie sie sind: Titel und Texte werden aus dem alten Text kopiert, nie
-zusammengefasst oder übersetzt. `init.py` führt seine Hook-Einträge in `.claude/settings.json` zusammen und lässt
+zusammengefasst oder übersetzt. Einzige Ausnahme ist ein Titel über 80 Zeichen: `adopt_entries.py` kürzt ihn auf seinen ersten Satz, sonst auf einen Schnitt an einer Wortgrenze mit „…“, und der volle alte Text steht am Anfang des Eintrags. `init.py` führt seine Hook-Einträge in `.claude/settings.json` zusammen und lässt
 deine eigenen Einträge stehen.
 
 ## Ohne die vollständige Übernahme

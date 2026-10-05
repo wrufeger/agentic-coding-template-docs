@@ -50,6 +50,10 @@ The Roles table at the end of `docs/ai/config.md` is empty by default. Fill a ro
 
 `Tier` and `Reasoning` override the template's values; a filled `Model` sets the model outright and wins over `Tier`. A project's own role (see [Own rules, skills and roles](/agentic-coding-template-docs/guides/own-skills-and-rules/)) is named there the same way. The generated files are refreshed at session start and on every update; only their `model` and `effort` lines are touched, never your own additions in the role's text.
 
+## Reasoning per skill
+
+A skill may carry `reasoning: <level>` in its frontmatter (a value of the scale above) to ask for that thinking level while it runs. In the Claude Code copy under `.claude/skills/` the line becomes `effort:`; the `.agents/skills/` mirror stays verbatim, and a skill without the key inherits the session. To change it for one project, add a row to the Roles table that names the skill (for example `act-prepare`) in the `Role` column; only `Reasoning` counts there.
+
 ## Caps
 
 Every assignment to a worker names its tier, an estimate and a cap on tool calls (`Cap: <n>`). The `worker-cap` check enforces it mechanically: the worker gets one note on reaching the cap and is refused from 1.5 times the cap. Without a `Cap:` line the tier's default applies (table above); without a tier, `standard`.
