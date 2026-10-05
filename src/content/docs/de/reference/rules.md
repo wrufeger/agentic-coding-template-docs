@@ -6,7 +6,7 @@ sidebar:
 ---
 
 :::note
-Diese Seite wird aus dem Template 2.0.0 (Commit ba52704) erzeugt; die deutschen Texte stammen aus einem Katalog unter `src/translations/de/reference/`. Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
+Diese Seite wird aus dem Template 2.0.0 (Commit 1829319) erzeugt; die deutschen Texte stammen aus einem Katalog unter `src/translations/de/reference/`. Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
 :::
 
 35 Regeln in 7 Dateien. Die Regel-IDs `R-<area>-<name>` sind stabil und werden nie neu vergeben. Die gemeinsamen Dateien laden für jede Rolle; die Orchestrator-Dateien nur für die Hauptsitzung.

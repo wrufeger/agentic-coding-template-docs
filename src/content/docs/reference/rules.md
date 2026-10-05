@@ -6,7 +6,7 @@ sidebar:
 ---
 
 :::note
-Generated from template version 2.0.0 (commit ba52704) — do not edit by hand. Regenerate with `npm run gen`.
+Generated from template version 2.0.0 (commit 1829319) — do not edit by hand. Regenerate with `npm run gen`.
 :::
 
 35 rules in 7 files. Rule IDs `R-<area>-<name>` are stable and never reassigned. The shared files load for every role; the orchestrator files only for the main session.

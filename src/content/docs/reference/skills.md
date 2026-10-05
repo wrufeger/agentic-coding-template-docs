@@ -6,7 +6,7 @@ sidebar:
 ---
 
 :::note
-Generated from template version 2.0.0 (commit ba52704) — do not edit by hand. Regenerate with `npm run gen`.
+Generated from template version 2.0.0 (commit 1829319) — do not edit by hand. Regenerate with `npm run gen`.
 :::
 
 28 skills. A skill is a reusable procedure the assistant runs on request or when its description matches the situation.

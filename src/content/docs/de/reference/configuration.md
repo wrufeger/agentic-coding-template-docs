@@ -6,7 +6,7 @@ sidebar:
 ---
 
 :::note
-Diese Seite wird aus dem Template 2.0.0 (Commit ba52704) erzeugt; die deutschen Texte stammen aus einem Katalog unter `src/translations/de/reference/`. Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
+Diese Seite wird aus dem Template 2.0.0 (Commit 1829319) erzeugt; die deutschen Texte stammen aus einem Katalog unter `src/translations/de/reference/`. Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
 :::
 
 `init` trägt die folgenden Werte aus dem ein, was es gefragt oder erkannt hat. Sie lassen sich jederzeit ändern — nichts davon erfordert einen Neuaufbau; `.act/hooks/dispatch.py` liest diese Datei beim Sitzungsstart. Diese Datei beschreibt das **Projekt** und ist versioniert. Secrets und Abweichungen pro Rechner oder pro Lauf gehören in die Umgebung, die diese Datei für den jeweiligen Lauf überschreibt, nie umgekehrt; der Sitzungsstart nennt jeden aktiven Override aus der Umgebung (nur die Namen, nie die Werte).

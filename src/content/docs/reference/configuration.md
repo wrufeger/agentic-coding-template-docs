@@ -6,7 +6,7 @@ sidebar:
 ---
 
 :::note
-Generated from template version 2.0.0 (commit ba52704) — do not edit by hand. Regenerate with `npm run gen`.
+Generated from template version 2.0.0 (commit 1829319) — do not edit by hand. Regenerate with `npm run gen`.
 :::
 
 `init` fills in the values below from what it asked or detected. Change them any time — nothing here needs a rebuild; `.act/hooks/dispatch.py` reads this file at session start. This file describes the **project** and is versioned. Secrets and per-machine or per-run deviations belong in the environment, which overrides this file for that run and never the other way round; the session start names every environment override that is active (names only, never values).

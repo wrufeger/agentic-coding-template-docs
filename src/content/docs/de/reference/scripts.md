@@ -6,7 +6,7 @@ sidebar:
 ---
 
 :::note
-Diese Seite wird aus dem Template 2.0.0 (Commit ba52704) erzeugt; die deutschen Texte stammen aus einem Katalog unter `src/translations/de/reference/`. Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
+Diese Seite wird aus dem Template 2.0.0 (Commit 1829319) erzeugt; die deutschen Texte stammen aus einem Katalog unter `src/translations/de/reference/`. Nicht von Hand ändern, neu erzeugen mit `npm run gen`.
 :::
 
 Eine Zeile je Script unter `.act/scripts/`; die Abschnitte je Script weiter unten sind jeweils die eigene `--help`-Ausgabe des Scripts, nicht von Hand abgetippt. Neu erzeugen mit `python .act/scripts/script_docs.py`, nachdem die Argumente eines Scripts geändert wurden — `--check` erkennt Abweichungen, und `doctor.py` meldet sie als Befund.
