@@ -28,7 +28,10 @@ the owner's word.
   file in a group folder; a new group is a new folder plus an entry there with a German label
   (`translations.de`).
 - The landing page is `src/content/docs/index.mdx` (and `de/index.mdx`).
-- Reference pages are generated: change the template or `scripts/gen-reference.mjs`, then `npm run gen`.
+- Reference pages are generated: change the template or `scripts/gen-reference.mjs`, then `npm run gen`. Each page
+  names the template commit it comes from (`template.commit` in `.act-lock.json`, linked to GitHub) — `sync` takes the
+  tip of the template's `main`, not the last release, so the release number is never shown. Without a commit the
+  generator stops instead of writing a placeholder.
 - German reference texts live in a catalog, `src/translations/de/reference/<page>.md`: one `## <id>` section per entry
   with `<!-- source: <hash> -->` of its English text. `npm run translations:skeleton` adds entries for new ids
   (English text, marked `<!-- todo: translate -->`, never overwriting); translate the text, remove the marker, run
@@ -39,5 +42,7 @@ the owner's word.
 - After changing an English page, `npm run check:translations` lists the stale German page; after updating it,
   run `node scripts/check-translations.mjs --stamp <de-file>`.
 - German wording follows `docs/project/german-glossary.md`.
-- Preview with `npm run dev` (http://localhost:4321/agentic-coding-template-docs/), check with `npm run build`.
+- Preview with `npm run dev` (http://localhost:4321/agentic-coding-template-docs/), check with `npm run build`. A dev
+  server left running across a `sync` can keep serving old pages from its content cache: stop it and start it again;
+  if it still shows old text, delete `.astro/data-store.json` first.
 - Look and feel (title, logo, social links, custom CSS) are set in `astro.config.mjs`, see the Starlight docs.
