@@ -35,9 +35,9 @@
   },
   "template": {
     "version": "2.0.0",
-    "commit": "5d257d0fbe788a03fdf8e820dc13666bc0d73b74",
+    "commit": "ba52704981309910c4bc86b6ea0c0e1aa974e80f",
     "source": "D:/dev/rufeger/agentic-coding-template",
-    "manifest_sha256": "9717cbedc2691f25cf7c3c6fda210a126c5fbcd60510205fbcaf6d72dfc0b3d2"
+    "manifest_sha256": "16e196c460925126ffc5fa368dee9b8b24fe23c344367f8e8f10f6413e9e14ec"
   },
   "copies": {
     ".claude/skills/act/SKILL.md": {
@@ -58,7 +58,7 @@
     },
     ".claude/skills/act-commit/SKILL.md": {
       "source": ".act/skills/act-commit/SKILL.md",
-      "sha256": "30725af73f2a770f798992f18c72ffbd2a6bc6e66148b2eb3c9a7c569c5b090f"
+      "sha256": "f2125bcd946b439afee49960e2c0cc93dab190dfc7703a7203105cbeae5170ab"
     },
     ".claude/skills/act-deps/SKILL.md": {
       "source": ".act/skills/act-deps/SKILL.md",
@@ -82,7 +82,7 @@
     },
     ".claude/skills/act-export-settings/SKILL.md": {
       "source": ".act/skills/act-export-settings/SKILL.md",
-      "sha256": "535b4a0090fd82d005128bd813bf82937b199df671b34d1fc1562e5da0c4ed42"
+      "sha256": "e15e44fe764048bcba31a24aa1816e43e1e0500c3f756d19039d9622c7c900e7"
     },
     ".claude/skills/act-feedback/SKILL.md": {
       "source": ".act/skills/act-feedback/SKILL.md",
@@ -102,7 +102,7 @@
     },
     ".claude/skills/act-load-settings/SKILL.md": {
       "source": ".act/skills/act-load-settings/SKILL.md",
-      "sha256": "b61ed2cbaac75ccf048c76c3f685ea2d89b5d69b4996127b5a63a5cedbe89a59"
+      "sha256": "68dcde743d195d61f9c4e6f05ea94bdb5632ca7367e86d75c94765f2e1794fbd"
     },
     ".claude/skills/act-perf/SKILL.md": {
       "source": ".act/skills/act-perf/SKILL.md",
@@ -139,6 +139,14 @@
     ".claude/skills/act-update/SKILL.md": {
       "source": "docs/ai/local/skills/act-update/SKILL.md",
       "sha256": "e3e490e5027c97893d95a77b024d35f6a12968eecfd612c8e37cf8ab31414f93"
+    },
+    ".claude/skills/act-check-translations/SKILL.md": {
+      "source": ".act/skills/act-check-translations/SKILL.md",
+      "sha256": "e37f51f54b436b12953e2ca4120fff585a5319d50b54b9bab1644976c6af5057"
+    },
+    ".claude/skills/act-seo/SKILL.md": {
+      "source": ".act/skills/act-seo/SKILL.md",
+      "sha256": "88a627e28eba30eb6ba2480008f694f9377ffcacbd0b1ad92bf1b6b680f129ec"
     }
   },
   "removed_by_user": [],
