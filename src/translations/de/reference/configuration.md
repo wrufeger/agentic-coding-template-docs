@@ -98,7 +98,7 @@ Nötige — keinen Zwischenstand, eine Antwort je Frage; `verbose` schreibt Antw
 verstanden wurde, Gründe, Hinweise zu selbst geschriebenem Code und worauf zu achten ist.
 
 ## Session length
-<!-- source: eb80fadf3c49ae5c -->
+<!-- source: 8011482b686f2762 -->
 | Schlüssel | Wert |
 | :--- | :--- |
 | `context-hint` | 150000 |
@@ -110,11 +110,10 @@ der Assistent einen einmaligen Hinweis, an der nächsten Aufgabengrenze `/clear`
 vorzuschlagen (`R-work-handover`); die Statuszeile zeigt die Größe in jedem Fall als `ctx <n>k`. Jeder Schritt
 einer langen Sitzung sendet den ganzen Kontext erneut, eine frische Sitzung nach einer abgeschlossenen Aufgabe
 ist daher die größte Ersparnis überhaupt. `task-wait-hours`: Eine begonnene Aufgabe gilt in der Statuszeile und
-auf dem Board als *wartend* statt als *laufend*, sobald ihre letzte Stand-Zeile älter als diese Stundenzahl ist,
-außerdem, solange ein offenes Inbox-Todo oder eine offene Frage ihre ID nennt (Berichte und Notizen zählen nicht), oder
-wenn ihre letzte Stand-Zeile mit `entries.py state <id> --wait` geschrieben wurde. Ohne datierte Stand-Zeile
-zählt stattdessen der `started:`-Zeitpunkt der Aufgabe. Ein fehlender oder fehlerhafter Wert gilt als der
-Standard.
+auf dem Board als *wartend* statt als *laufend*, sobald eine dieser Bedingungen zutrifft: Ihre letzte Stand-Zeile
+wurde mit `entries.py state <id> --wait` geschrieben; diese Zeile ist älter als diese Stundenzahl (ohne datierte
+Stand-Zeile zählt stattdessen der `started:`-Zeitpunkt der Aufgabe); oder ein offenes Inbox-Todo oder eine offene
+Frage nennt ihre ID (Berichte und Notizen zählen nicht). Ein fehlender oder fehlerhafter Wert gilt als der Standard.
 
 ## Dependencies
 <!-- source: e93a0ba1929e8873 -->
