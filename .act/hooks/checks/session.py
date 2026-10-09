@@ -44,7 +44,7 @@ from .common import _check_mode
 from .danger_scan import _security_check_level
 
 __all__ = [
-    "_current_branch", "_STATUS_RE", "_count_inbox_waiting",
+    "_current_branch", "_STATUS_RE", "_count_inbox_waiting", "_count_inbox_open",
     "_DOCS_AUDIT_TITLE_PREFIX", "_LEDGER_HEADING_RE", "_LEDGER_CREATED_RE",
     "_LEDGER_DATE_IN_NAME_RE", "_parse_docs_audit_due", "_ledger_entry_date",
     "_last_ledger_entry_with_prefix", "_last_docs_audit_entry", "_commits_since", "_docs_audit_note",
@@ -66,7 +66,7 @@ __all__ = [
     "_chat_language_line", "_orchestrator_short_lines", "_orchestrator_rules_imported",
     "CONTEXT_LIMIT", "_fit_context", "_human_line", "_old_imports_note", "_changed_bridge_note",
     "_ideas_pending", "_ideas_note", "_ideas_ensure_notes",
-    "refresh_session",
+    "_compact_note", "refresh_session",
 ]
 
 # ---------------------------------------------------------------------------
@@ -87,6 +87,22 @@ def _current_branch(root: Path) -> str:
 
 
 _STATUS_RE = re.compile(r"^status:\s*(\S+)", re.IGNORECASE)
+
+
+def _count_inbox_open(root: Path) -> int:
+    """Open inbox entries addressed to this identity or to everyone -- the very number the status
+    line shows as "waiting for you" (statusline._waiting_summary()), loaded by path so the two can
+    never count differently. 0 when the status line module or the board cannot be used."""
+    import importlib.util
+    path = Path(__file__).resolve().parent.parent / "statusline.py"
+    spec = importlib.util.spec_from_file_location("_act_statusline", path)
+    if spec is None or spec.loader is None:
+        return 0
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    if getattr(module, "board", None) is None or getattr(module, "actlib", None) is None:
+        return 0
+    return module._waiting_summary(root)[0]
 
 
 def _count_inbox_waiting(root: Path) -> int:
@@ -1133,12 +1149,78 @@ _ENV_OVERRIDES = (
 )
 
 
+_COMPACT_TASKS_LIMIT = 5
+_TASK_ID_RE = re.compile(r"^([A-Za-z]+\d+)-")
+_STATE_STAMP_RE = re.compile(r"^State (\d{4}-\d{2}-\d{2} \d{2}:\d{2})")
+
+
+def _board_file_hint(root: Path) -> str:
+    """The board file this project actually uses (`board` in config.md, decided the way board.py
+    does): docs/ai/board.md for `docs` and `shared`, .act-local/board-<branch>.md for `local`."""
+    import board
+    mode = actlib.read_config(root).get("board", "").strip().lower() or "docs"
+    if mode == "local":
+        branch = board.get_branch(root)
+        return f".act-local/board-{board.sanitize_branch(branch) if branch is not None else 'no-git'}.md"
+    return "docs/ai/board.md"
+
+
+def _compact_note(root: Path) -> str:
+    """After a compaction (SessionStart `source: compact`) the summary may have lost detail:
+    name the open tasks with their last working-state line (.act-local/state/, the data the board
+    shows) and point to the board, so the state is re-read before work continues. The task with
+    the most recent state line comes first (then started ones, then the rest); at most _COMPACT_TASKS_LIMIT are listed."""
+    import board  # deferred like update above: a session start never pays for it otherwise
+    lines = [
+        "[act] context was compacted -- the summary may have lost detail. Before continuing, re-read "
+        f"the state of the open task(s) (full list: {_board_file_hint(root)}):"
+    ]
+    tasks_dir = root / board.TASKS_DIR
+    files = sorted(p for p in tasks_dir.glob("*.md") if p.name.lower() != "readme.md") if tasks_dir.is_dir() else []
+    entries: list[tuple[bool, str, str]] = []
+    for path in files:
+        try:
+            started = "started:" in actlib.header_block(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError):
+            started = False
+        id_match = _TASK_ID_RE.match(path.name)
+        label = id_match.group(1) if id_match else path.stem
+        title = board._first_heading(path) or path.stem
+        last_state = board._last_state_line(root, path.name)
+        stamp_match = _STATE_STAMP_RE.match(last_state or "")
+        stamp = stamp_match.group(1) if stamp_match else ""
+        entries.append((started, stamp, f"- {label} {title}" + (f" -- state: {last_state}" if last_state else " -- no state recorded")))
+    entries.sort(key=lambda item: not item[0])  # stable: started tasks first ...
+    entries.sort(key=lambda item: item[1], reverse=True)  # ... then the most recent last state line first
+    if not entries:
+        lines.append("- no open task on file")
+    lines.extend(text if len(text) <= 300 else text[:299] + "…" for _started, _stamp, text in entries[:_COMPACT_TASKS_LIMIT])
+    if len(entries) > _COMPACT_TASKS_LIMIT:
+        lines.append(f"- (+{len(entries) - _COMPACT_TASKS_LIMIT} more on the board)")
+    return "\n".join(lines)
+
+
 def _env_override_note() -> Optional[str]:
     """One note naming every active environment override, or None when none is set."""
     active = [name for name in _ENV_OVERRIDES if os.environ.get(name, "").strip()]
     if not active:
         return None
     return "[act] note: environment overrides active: " + ", ".join(active)
+
+
+_OUTPUT_DEPTHS = ("verbose", "normal", "sparse")
+
+
+def _output_depth_line(config: dict[str, str]) -> Optional[str]:
+    """Names `output-depth` once when it is not `normal` (levels: R-human-chat); an unknown value
+    falls back to `normal` and says so. Nothing for `normal` or an empty value."""
+    value = str(config.get("output-depth", "")).strip()
+    if not value or value.lower() == "normal":
+        return None
+    if value.lower() in _OUTPUT_DEPTHS:
+        return f"[act] output depth: {value.lower()} (docs/ai/config.md; levels in R-human-chat)"
+    return (f"[act] output depth: {value!r} is not one of {' | '.join(_OUTPUT_DEPTHS)} — "
+            f"treated as normal (docs/ai/config.md)")
 
 
 def _chat_language_line(config: dict[str, str]) -> Optional[str]:
@@ -1453,8 +1535,8 @@ def _chat_language_short(config: dict[str, str]) -> str:
 
 
 def _human_line(state: dict) -> Optional[str]:
-    """The one `systemMessage` line: rule files loaded, chat language, and the inbox entries
-    answered but not yet processed (the status line's own count)."""
+    """The one `systemMessage` line: rule files loaded, chat language, and the inbox: entries
+    answered but not yet processed, and the open ones (the status line's "waiting for you" count)."""
     if not state:
         return None
     parts: list[str] = []
@@ -1464,8 +1546,10 @@ def _human_line(state: dict) -> Optional[str]:
                      + (f", {unresolved} import(s) not found" if unresolved else ""))
     if "chat" in state:
         parts.append(f"chat: {state['chat']}")
-    if "inbox" in state:
-        parts.append(f"inbox: {state['inbox']} to process")
+    answered = state.get("inbox", 0)
+    open_count = state.get("inbox_open", 0)
+    if answered or open_count:
+        parts.append(f"inbox: {answered} answered to process, {open_count} open")
     if state.get("ideas"):
         parts.append(f"ideas: {state['ideas']} new")
     if state.get("old_imports"):
@@ -1556,6 +1640,12 @@ def _collect_session(payload: dict, state: dict, rules_text: dict) -> bool:
         language_line = None
     if language_line:
         print(language_line)
+    try:
+        depth_line = _output_depth_line(config)
+    except Exception:
+        depth_line = None  # informational only, must never block the session
+    if depth_line:
+        print(depth_line)
 
     try:
         env_note = _env_override_note()
@@ -1570,6 +1660,14 @@ def _collect_session(payload: dict, state: dict, rules_text: dict) -> bool:
         audit_note = None  # informational only, must never block the session
     if audit_note:
         print(audit_note)
+
+    if payload.get("source") == "compact":
+        try:
+            compact_note = _compact_note(root)
+        except Exception:
+            compact_note = None  # informational only, must never block the session
+        if compact_note:
+            print(compact_note)
 
     ideas_rel, ideas_keys = _ideas_pending(root)
     state["ideas"] = len(ideas_keys)
@@ -1604,6 +1702,10 @@ def _collect_session(payload: dict, state: dict, rules_text: dict) -> bool:
     except Exception:
         pass
     state["inbox"] = waiting
+    try:
+        state["inbox_open"] = _count_inbox_open(root)
+    except Exception:
+        state["inbox_open"] = 0
 
     # The session owner's own ideas file (and the folder README) created on first use — in a
     # project that predates the ideas files, or for a second person who just joined.
