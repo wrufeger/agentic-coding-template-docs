@@ -3,7 +3,7 @@ title: Feedback
 description: Freiwilliges Feedback an den Autor des Templates - die Modi, Takt und Scope, was nie gesendet wird und wo die lokale Kopie bleibt.
 sidebar:
   order: 1
-sourceHash: 08e307fe84e2e9e749eeb9e96a7531d3eab49cccfbbeb48ce52ea732f9b62328
+sourceHash: 95c94fe765ebfb8651856aba8cc7a098448d2739aa3eb01f9f5f838d88884d3a
 ---
 
 Du kannst dem Autor des Templates als Feedback melden, was der Arbeitsweise gutgetan hat oder fehlte. Feedback ist freiwillig, betrifft **nur die Arbeitsweise, nie dein Projekt**, und alles, was den Rechner verlässt, wird auch lokal aufbewahrt.
@@ -39,14 +39,14 @@ Ein von Hand geschriebener Befund landet immer im Ausgang, egal welcher Scope gi
 
 ## Zwei Wege zum Senden
 
-1. **Ein Satz nach dem Auslöser**, zum Beispiel `feedback: das Update hat eine Datei liegen lassen`. Dieser Satz ist die Nachricht selbst, unverändert gesendet, auch mit `feedback: off`. Mit `off` verlassen nur der Text und der eigene Commit-Hash des Templates das Projekt, sonst nichts. Bei jedem anderen Modus geht die Projekt-Id mit, damit sich mehrere Nachrichten desselben Projekts unterscheiden lassen, aber nie die Repository-URL.
+1. **Ein Satz nach dem Auslöser**, zum Beispiel `feedback: das Update hat eine Datei liegen lassen`. Dieser Satz ist die Nachricht selbst, unverändert gesendet, auch mit `feedback: off`. Nur der Text, der eigene Commit-Hash des Templates und eine zufällige Projekt-Kennung verlassen das Projekt, in jedem Modus, nie die Repository-URL oder sonst etwas. Mit der Projekt-Kennung lassen sich mehrere Nachrichten desselben Projekts unterscheiden. Wenn du eine Antwort möchtest, nenne in derselben Anfrage eine Antwortadresse: Der Assistent gibt sie mit `feedback.py --direct "<text>" --contact <adresse>` mit. Sie geht nur mit dieser einen Nachricht und bleibt in deren lokaler Kopie, wird nie für eine spätere Nachricht wiederverwendet und nie anderswo hergenommen, etwa aus deinen Git-Einstellungen.
 2. **Der Auslöser allein** (der Skill `act-feedback`). Der Assistent geht durch `.act/`, die erzeugten Dateien und `docs/ai/`, schreibt pro Befund einen Eintrag (zwei bis sechs Sätze), zeigt den Stapel mit `feedback.py --plan` vorab und sendet ihn nach deinem Modus und Takt.
 
-Ein Fehler in des Templates selbst (ein Script oder Skill, der fehlschlägt, zwei Regeln, die sich widersprechen, eine Regel, die nie greift) wird gespeichert und, wo die Einwilligung es erlaubt, sofort gesendet, am Takt vorbei. Die Einwilligung umgeht er trotzdem nie: Mit `feedback: off` bleibt er im Ausgang.
+Ein Fehler im Template selbst (ein Script oder Skill, der fehlschlägt, zwei Regeln, die sich widersprechen, eine Regel, die nie greift) wird gespeichert und, wo die Einwilligung es erlaubt, sofort gesendet, am Takt vorbei. Die Einwilligung umgeht er trotzdem nie: Mit `feedback: off` bleibt er im Ausgang.
 
 ## Was nie gesendet wird
 
-Jede Zeichenkette, die das Projekt verlassen könnte, läuft zuerst durch eine Datenschutzprüfung: zugangsdatenähnliche Wörter, Mailadressen, IP-Adressen, absolute Pfade, lange Hex-Werte und jede URL außer dem Feedback-Endpunkt oder github.com. Ein Treffer wird **nicht stillschweigend entfernt**. Es wird nichts gesendet, und der Grund wird gemeldet, damit der Eintrag ohne diesen Teil neu geschrieben werden kann. Nichts über dein Projekt gehört ohnehin in einen Eintrag: keine Namen, Pfade, Zahlen, kein Code und keine Personen, und kein Lob, nur was konkret geholfen hat oder fehlte.
+Jede Zeichenkette, die das Projekt verlassen könnte, läuft zuerst durch eine Datenschutzprüfung: zugangsdatenähnliche Wörter, Mailadressen (einzige Ausnahme ist eine Antwortadresse, die du selbst genannt hast; sie muss die schlichte Form `name@host.tld` haben), IP-Adressen, absolute Pfade, lange Hex-Werte und jede URL außer dem Feedback-Endpunkt oder github.com. Ein Treffer wird **nicht stillschweigend entfernt**. Es wird nichts gesendet, und der Grund wird gemeldet, damit der Eintrag ohne diesen Teil neu geschrieben werden kann. Nichts über dein Projekt gehört ohnehin in einen Eintrag: keine Namen, Pfade, Zahlen, kein Code und keine Personen, und kein Lob, nur was konkret geholfen hat oder fehlte.
 
 ## Die lokale Kopie
 

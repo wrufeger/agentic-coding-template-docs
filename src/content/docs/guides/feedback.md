@@ -38,14 +38,14 @@ A finding written by hand always goes into the outbox, whatever the scope.
 
 ## Two ways to send
 
-1. **A sentence after the trigger**, for example `feedback: the update left a file behind`. That sentence is the message itself, sent unchanged, even with `feedback: off`. With `off`, only the text and the template's own commit hash leave the project, nothing else. With any other mode, the project id goes along so several messages from one project can be told apart, but never the repository URL.
+1. **A sentence after the trigger**, for example `feedback: the update left a file behind`. That sentence is the message itself, sent unchanged, even with `feedback: off`. Only the text, the template's own commit hash and a random project id leave the project, whatever the mode, never the repository URL or anything else. The project id lets several messages from one project be told apart. If you want an answer, name a reply address in the same request: the assistant adds it with `feedback.py --direct "<text>" --contact <address>`. It goes with this one message only and stays in its local copy, is never reused for a later message and never taken from anywhere else, such as your Git settings.
 2. **The trigger alone** (the skill `act-feedback`). The assistant goes through `.act/`, the generated files and `docs/ai/`, writes one entry per finding (two to six sentences), previews the batch with `feedback.py --plan` and sends it under your mode and cadence.
 
 A bug in the template itself (a script or skill that fails, two rules that contradict each other, a rule that never fires) is stored and, where consent allows, sent at once, bypassing the cadence. It still never bypasses consent: with `feedback: off` it stays in the outbox.
 
 ## What is never sent
 
-Every string that could leave the project runs through a privacy check first: credential-like words, mail addresses, IP addresses, absolute paths, long hex values and any URL other than the feedback endpoint or github.com. A match is **not silently stripped**. Nothing is sent, and the reason is reported so the entry can be rewritten without that part. Nothing about your project belongs in an entry anyway: no names, paths, numbers, code or people, and no praise, only what concretely helped or was missing.
+Every string that could leave the project runs through a privacy check first: credential-like words, mail addresses (the one exception is a reply address you named yourself, which must be a plain `name@host.tld`), IP addresses, absolute paths, long hex values and any URL other than the feedback endpoint or github.com. A match is **not silently stripped**. Nothing is sent, and the reason is reported so the entry can be rewritten without that part. Nothing about your project belongs in an entry anyway: no names, paths, numbers, code or people, and no praise, only what concretely helped or was missing.
 
 ## The local copy
 

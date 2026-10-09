@@ -198,7 +198,7 @@ Projektwurzelverzeichnis (nicht versioniert) — um live mitzuverfolgen, z. B. i
 `log-level`: `DEBUG` \| `INFO` \| `WARN` \| `ERROR`. Details: `.act/rules/topics/logging.md`.
 
 ## Feedback
-<!-- source: 45264bf2783aa47d -->
+<!-- source: c0a406b5e97bf2a0 -->
 | Schlüssel | Wert |
 | :--- | :--- |
 | `feedback` | <feedback-mode> |
@@ -211,7 +211,8 @@ Freiwilliges Feedback an den Template-Autor über die Arbeitsweise, nie über da
 Metriken, `b` Regel- und Strukturänderungen, `c` Tool-Nutzung (Zähler der seit dem letzten Senden genutzten Template-Skills/-Scripte; deine eigenen nur als ein `own`-Zähler). Die vollständige Kopie jeder gesendeten Nutzlast bleibt
 lokal (`.act-local/feedback/sent/`, per gitignore ausgeschlossen) — jedes Senden bekommt zudem eine Zeile im Journal
 (Datum, Art, Anzahl der Einträge, Schema-Version, nie Inhalt). Eine Nachricht, die du selbst schreibst
-(`feedback: <text>`), geht immer raus, auch bei `off`. Details: `.act/rules/topics/feedback.md`.
+(`feedback: <text>`), geht immer raus, auch bei `off`, zusammen mit dem Template-Commit und der
+zufälligen Projekt-Kennung (eine Antwortadresse nur, wenn du eine nennst). Details: `.act/rules/topics/feedback.md`.
 
 ## Tips
 <!-- source: 1a90246f22239098 -->
