@@ -86,13 +86,35 @@ alles Wartende zeigt. `at-start`: ein Backlog-Eintrag darf seine offenen Entsche
 sie immer in der Inbox (`R-human-ask`).
 
 ## Output depth
-<!-- source: 286c0b8258438ed0 -->
+<!-- source: dc45974e3bef2bb0 -->
 | Schlüssel | Wert |
 | :--- | :--- |
 | `output-depth` | normal |
 
 `verbose` \| `normal` \| `sparse`. Steuert, was der Assistent im Chat *schreibt*, nicht, was die
-eigene Oberfläche des Werkzeugs anzeigt — die Anzeigeeinstellungen je Werkzeug stehen in `docs/README.md`.
+eigene Oberfläche des Werkzeugs anzeigt — die Anzeigeeinstellungen je Werkzeug stehen in `docs/README.md`. Definiert in
+`R-human-chat`: `normal` ist kompakt und auf den Punkt (Stichpunkte statt Absätzen); `sparse` gibt nur das
+Nötige — keinen Zwischenstand, eine Antwort je Frage; `verbose` schreibt Antworten aus — die Frage, wie sie
+verstanden wurde, Gründe, Hinweise zu selbst geschriebenem Code und worauf zu achten ist.
+
+## Session length
+<!-- source: eb80fadf3c49ae5c -->
+| Schlüssel | Wert |
+| :--- | :--- |
+| `context-hint` | 150000 |
+| `task-wait-hours` | 12 |
+
+`context-hint`: eine Token-Anzahl oder `off`. Erreicht der Kontext der Sitzung (die Eingabe ihres letzten
+Modellaufrufs, aus dem Transkript gelesen) diesen Wert, und erneut bei jedem weiteren Vielfachen davon, bekommt
+der Assistent einen einmaligen Hinweis, an der nächsten Aufgabengrenze `/clear` oder eine neue Sitzung
+vorzuschlagen (`R-work-handover`); die Statuszeile zeigt die Größe in jedem Fall als `ctx <n>k`. Jeder Schritt
+einer langen Sitzung sendet den ganzen Kontext erneut, eine frische Sitzung nach einer abgeschlossenen Aufgabe
+ist daher die größte Ersparnis überhaupt. `task-wait-hours`: Eine begonnene Aufgabe gilt in der Statuszeile und
+auf dem Board als *wartend* statt als *laufend*, sobald ihre letzte Stand-Zeile älter als diese Stundenzahl ist,
+außerdem, solange ein offenes Inbox-Todo oder eine offene Frage ihre ID nennt (Berichte und Notizen zählen nicht), oder
+wenn ihre letzte Stand-Zeile mit `entries.py state <id> --wait` geschrieben wurde. Ohne datierte Stand-Zeile
+zählt stattdessen der `started:`-Zeitpunkt der Aufgabe. Ein fehlender oder fehlerhafter Wert gilt als der
+Standard.
 
 ## Dependencies
 <!-- source: e93a0ba1929e8873 -->

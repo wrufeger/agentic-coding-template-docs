@@ -67,6 +67,17 @@ Konsolenausgabe oder eine Pipe — unter Windows verstümmelt die Terminal-Umlei
 gespeicherten Daten korrektes UTF-8 bleiben. Allgemeiner: Auf einen Workaround wird erst festgelegt, nachdem
 eine zweite, unabhängige Prüfung die Diagnose bestätigt hat, nicht schon bei der ersten plausiblen Erklärung.
 
+## R-work-bounded-output
+<!-- source: 4653144bbb46551b -->
+Ausgabe unbekannter Länge aus dem Kontext heraushalten
+summary: head/tail/grep oder eine Scratchpad-Datei für unbegrenzte Ausgabe; von einem Build- oder Testlauf nur die Fehlschläge lesen; große Dateien in Ausschnitten
+
+Ausgabe, deren Länge vorher nicht bekannt ist, wird mit `head`/`tail`/`grep` beschnitten oder in eine Datei im
+Scratchpad geschrieben (wo Schreiben erlaubt ist) und von dort gelesen, nie vollständig in den Kontext
+genommen. Build- und Testausgabe geht denselben Weg: Gelesen werden nur die Fehlschläge. Eine große Datei wird
+in Ausschnitten gelesen (`offset`/`limit`), nicht vollständig. Jede Zeile, die in den Kontext gelangt, wird mit
+jedem folgenden Schritt erneut gelesen.
+
 ## R-role-worker
 <!-- source: d5f7bb38c4424a05 -->
 Was ein Worker darf und was nicht
@@ -123,6 +134,18 @@ summary: Logs und Fehlerausgaben tragen Kennungen, nie Zugangsdaten oder persone
 
 Keine Zugangsdaten, Tokens oder personenbezogenen Daten gelangen je in eine Log-Zeile oder Fehlerausgabe, in
 keiner Sprache — stattdessen wird eine Kennung (eine ID, ein maskierter Wert) geloggt, nicht der Wert selbst.
+
+## R-safe-no-personal-data
+<!-- source: 0f393f2944f3bd1d -->
+Keine echten personenbezogenen oder Kundendaten in dem, was das Modell sieht
+summary: Prompts, Testdaten, Fixtures, Notizen, Beispiele und Fehlerberichte verwenden Platzhalter; Produktionsdaten zuerst maskieren; Integrationen nur lesend auf Testdaten
+
+Keine echten personenbezogenen oder Kundendaten gelangen in einen Prompt, in Testdaten, Fixtures, Notizen,
+Beispiele oder Fehlerberichte, die dem Modell übergeben werden — stattdessen Platzhalter oder erfundene Daten
+verwenden. Wird mit Produktions-Logs oder -Exporten gedebuggt, werden diese zuerst maskiert. Das betrifft, was
+dem Modell gegeben wird; `R-safe-no-secret-log` betrifft, was Code in ein Log schreibt. Ein MCP-Server oder eine
+andere Integration bekommt standardmäßig ein Konto nur mit Lesezugriff und Test- oder Entwicklungsdaten;
+Produktionsdaten nur mit der datierten Freigabe des Menschen (`R-safe-approval`).
 
 ## R-safe-no-shell-delete
 <!-- source: 4981cdc0af0fad78 -->
@@ -305,9 +328,9 @@ was sich seit dem letzten Abgleich geändert hat; ohne diesen Hook wird `config.
 gelesen, statt anzunehmen, sie sei unverändert.
 
 ## R-work-handover
-<!-- source: 30ef47a7ba9e1964 -->
+<!-- source: cd35bc5814ac2c0d -->
 Jeder Schritt endet übergabebereit
-summary: Stand, offene Aufgabe und Entscheidungen, damit eine frische Sitzung weitermachen kann
+summary: Stand, offene Aufgabe und Entscheidungen, damit eine frische Sitzung weitermachen kann; /clear wird an einer Aufgabengrenze vorgeschlagen, sobald der Kontext groß ist
 
 Auch ein Teilschritt (eine Etappe, eine Teilaufgabe) ist erst erledigt, wenn eine frische Sitzung ohne
 Vorwissen daran anknüpfen könnte: Stand und nächster Schritt festgehalten mit `entries.py state <id> <text>`
@@ -317,7 +340,17 @@ Prüfkriterien in der versionierten Aufgabendatei, der Beleg im Journal, und bei
 Entscheidungen dort aufgeschrieben, wo man sie suchen würde — nicht nur im Chat-Verlauf. Ein Arbeitsplatz
 außerhalb des Repos — ein zweiter Checkout, ein Worktree — kommt mit vollem Pfad in die Aufgabe. Bevor vor
 einem großen Umbau zu einem Neustart geraten wird, wird zuerst bestätigt, dass diese Übergabe tatsächlich
-trägt; erst dann folgt der Rat.
+trägt; erst dann folgt der Rat. Vor einer manuellen Verdichtung (`/compact`) wird der Stand zuerst mit
+`entries.py state` festgehalten; nach jeder Verdichtung wird der Stand der offenen Aufgabe erneut gelesen, bevor
+es weitergeht — die Zusammenfassung kann Details verloren haben. Eine Aufgabe, die auf jemanden oder etwas
+wartet, bekommt ihren Stand mit `entries.py state <id> --wait <text>`.
+
+Jeder Schritt einer Sitzung sendet den ganzen Kontext erneut, eine frische Sitzung nach einer abgeschlossenen
+Aufgabe ist daher die größte Ersparnis überhaupt. An einer Aufgabengrenze — die Aufgabe erledigt und
+committet, kein Worker läuft, nichts steht nur im Chat — schlägt die Schlusszeile `/clear` oder eine neue
+Sitzung vor, sobald der Kontext `context-hint` (`docs/ai/config.md`) erreicht hat (ein einmaliger Hinweis sagt
+das, die Statuszeile zeigt die Größe als `ctx`). `act-handover` prüft, ob die Übergabe trägt, und liefert den
+Satz für die neue Sitzung.
 
 ## rules/orchestrator/20-human.md
 <!-- source: f80a9fa41de030e0 -->
@@ -351,9 +384,9 @@ Wartende. Bei `at-start` darf ein Backlog-Eintrag seine offenen Entscheidungen b
 Entscheidungen einer Aufgabe liegen immer in der Inbox.
 
 ## R-human-chat
-<!-- source: ae95500171e164ba -->
+<!-- source: 6aebab98a9bf2175 -->
 Einmal, kurz und erst wenn die Antwort feststeht antworten
-summary: keine Zwischenberichte, Fragen in der Inbox, kurze Abschlusszusammenfassung
+summary: keine Zwischenberichte, Fragen in der Inbox, kurze Abschlusszusammenfassung, knapper Stil, Stufen von output-depth
 
 Geantwortet wird nur, wenn die Antwort feststeht — nicht, solange sie noch von laufenden Workern oder
 ausstehenden Befunden abhängt, und nie mit dem Bericht eines Workers, während andere noch laufen. Bei einem
@@ -369,6 +402,22 @@ die Antwort auffällt, und nie offen gelassen. Den Abschluss bildet eine kurze Z
 nächstes · Probleme · zu besprechen —, kurz, aber ohne etwas Wichtiges wegzulassen; neue Fragen und Aufgaben
 werden zusammen in einer Schlusszeile genannt („Neue Fragen: Q12–Q14, neue Aufgabe T7“). Einzelheiten nur auf
 Nachfrage.
+
+Tokens zu sparen ist eines der Ziele, denn jede Antwort wird in jedem späteren Schritt erneut gelesen. Chat-Text
+ist daher kompakt und auf den Punkt: erst die Antwort, drei Stichpunkte statt drei Absätzen, kein Ankündigen
+dessen, was folgt, kein Wiederholen am Ende (die Abschlusszusammenfassung ist die Antwort, keine
+Wiederholung), kein Füllwerk und kein Abschwächen. Zahlen, Verneinungen, Pfade, Bezeichner, Code und
+Fehlertext bleiben wörtlich und werden nie gekürzt; eine Warnung, ein unumkehrbarer oder nach außen wirkender
+Schritt sowie eine Frage oder Entscheidung an den Menschen werden in ganzen Sätzen geschrieben.
+
+`output-depth` in `docs/ai/config.md` legt die Stufe fest. `normal` (der Standard) ist der Absatz oben. `sparse`
+kürzt weiter: nur das Nötige, überhaupt keine Zwischenstandszeile (statt der einzeiligen Statusmeldung oben),
+und eine Frage bekommt genau eine Antwort. `verbose` schreibt Chat-Antworten voll aus und überschreibt damit
+„kurz“ und „Einzelheiten nur auf Nachfrage“ oben: Es gibt die Frage wieder, wie sie verstanden wurde, wo das
+hilft, erklärt die Antwort und ihre Gründe und sagt zu selbst geschriebenem Code, warum er so gemacht wurde und
+worauf zu achten ist. Auf jeder Stufe bleibt, was wörtlich bleibt, wörtlich, die Fälle für ganze Sätze bleiben
+ganze Sätze, und Text unter `docs/` behält seine volle Form, was immer die Chat-Stufe ist. Ein unbekannter Wert
+gilt als `normal`.
 
 ## R-human-language
 <!-- source: 58b54367e45564c0 -->
@@ -403,12 +452,12 @@ Antwort oder eine von einer anderen Sitzung erwartete Gegenprüfung wird als Tod
 angelegt, das nennt, auf wen oder was sie wartet (oder `all`), damit das Versprechen die Sitzung überlebt.
 
 ## rules/orchestrator/30-cost.md
-<!-- source: 168f98ee85b769d2 -->
+<!-- source: 5444b12bbfe8a58f -->
 Kostenregeln
-summary: Delegations-Tiers und Caps, auf Worker warten, wiederkehrende Prüfungen als Script, Commit-Schranke
+summary: Delegations-Tiers und Caps, auf Worker warten, einen laufenden Auftrag ergänzen, wiederkehrende Prüfungen als Script, Commit-Schranke
 
 ## R-cost-delegate
-<!-- source: 31ad066a7b169664 -->
+<!-- source: fe22821a740ea958 -->
 Tier, Schätzung und Cap nennen
 summary: Tier, Schätzung von Umfang/Dauer, mechanisch geprüfter Cap, kleine Aufträge
 
@@ -434,7 +483,10 @@ Orchestrator zurück, der die neuen Aufträge selbst schneidet und startet.
 Jeder Auftrag nennt außerdem seinen Schreibbereich als Zeile `Write scope: <glob>[, <glob> ...]` — Muster
 relativ zum Projektstamm, `/` als Trenner, `*` überschreitet `/` beliebig (so reicht `src/*` bereits in jede
 Tiefe unter `src/`); ein ganzes Verzeichnis kann auch als `dir/**` oder kurz als `dir/` angegeben werden
-(gleich gelesen). Ein relatives Muster (`src/**`) ist der Normalfall; ein absoluter Pfad innerhalb des
+(gleich gelesen); eckige Klammern in einem Pfad werden wörtlich genommen, `server/api/[id]/**` nennt also den
+Ordner mit dem Namen `[id]`, wie es Route-Ordner von Frameworks sind — ein Shell-Befehl sollte einen solchen Pfad
+in Anführungszeichen setzen, und ein Shell-Ziel, dessen Wildcard-Expansion über den Scope hinausreicht, wird
+abgewiesen. Ein relatives Muster (`src/**`) ist der Normalfall; ein absoluter Pfad innerhalb des
 Projektstamms (`D:/dev/x/project/src/**`) wird ebenfalls angenommen und gelesen, als wäre er relativ
 geschrieben — einer außerhalb des Projektstamms wird abgewiesen, es sei denn, er liegt in einem Verzeichnis aus
 `permissions.additionalDirectories` (ein benachbarter Checkout: `../other/.act/**` oder sein absoluter Pfad).
@@ -446,7 +498,7 @@ Shell-Parsing), keine vollständige Garantie: Schreibzugriffe aus einem Programm
 "open(...)"`, eine Script-Datei) bleiben ihm unsichtbar.
 
 ## R-cost-wait
-<!-- source: da22feb016fe093f -->
+<!-- source: 9d34b8772b357e3c -->
 Einen gestarteten Worker fertig werden lassen
 summary: einen gestarteten Worker fertig werden lassen; erst nach Überschreiten der Schätzung nachsehen
 
@@ -456,7 +508,25 @@ leere Statusabfragen in einem realen Fall, keine davon änderte etwas). Den Auft
 etwas Unabhängigem arbeiten oder warten; nachgesehen wird erst, wenn die Laufzeit die im Auftrag genannte
 Schätzung deutlich überschreitet — nicht aus einem Bauchgefühl. Mechanisch abgewiesen ab der zweiten
 Statusabfrage in Folge (`status-poll`, `docs/ai/config.md` § Checks) — jede andere Werkzeugnutzung dazwischen
-setzt das zurück.
+setzt das zurück. Eine Ergänzung des Menschen, die den laufenden Auftrag betrifft, wartet nicht bis zu dessen
+Ende (`R-cost-amend`).
+
+## R-cost-amend
+<!-- source: ba68f8a338468b72 -->
+Einen laufenden Auftrag ergänzen, statt einen zweiten einzureihen
+summary: eine Ergänzung, die zu einem laufenden Worker passt, geht sofort an ihn; abbrechen und neu erteilen, wenn ein neuer Lauf günstiger ist als zwei; nur eine fremde Ergänzung wartet
+
+Auch hier geht es ums Tokens-Sparen: Ein zweiter Auftrag nach dem ersten liest dieselben Dateien und denselben
+Kontext erneut, die der erste gerade gelesen hat. Eine Ergänzung des Menschen, die den Auftrag eines laufenden
+Workers betrifft — ihn ändert, erweitert oder ersetzt —, geht deshalb sofort an diesen Worker, wo das Werkzeug
+einem laufenden Worker eine Nachricht schicken kann. Ändert sie den Auftrag so weit, dass ein neuer Lauf weniger
+kostet, als den laufenden zu Ende laufen zu lassen und einen zweiten zu starten (der laufende steuert in die
+falsche Richtung, oder das meiste, was er noch zu tun hat, müsste neu gemacht werden), wird er abgebrochen und
+neu erteilt, mit allem, was er bisher gefunden hat. Nur eine Ergänzung, die den laufenden Auftrag nicht
+berührt, wird nach dessen Ende ein eigener Auftrag. Eine Ergänzung, die einen weiteren `Write scope:` oder einen
+höheren `Cap:` braucht, als der laufende Auftrag hat, bedeutet immer abbrechen und neu erteilen: beide werden
+einmal gelesen, aus dem Auftrag, der den Worker gestartet hat, eine Nachricht an den laufenden Worker kann sie
+also nicht erweitern.
 
 ## R-cost-script
 <!-- source: acae71c932654416 -->

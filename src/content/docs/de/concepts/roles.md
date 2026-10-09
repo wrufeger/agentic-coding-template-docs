@@ -3,7 +3,7 @@ title: Rollen und Worker
 description: Der Orchestrator, die Worker-Rollen, Tiers, Caps, Write Scope und was ein Worker nicht darf.
 sidebar:
   order: 2
-sourceHash: 7031b0e5c52114807c8fc1e9bf753c4c17e6ae67f7e07c1e716fbdddc5f4db7c
+sourceHash: 8d88dae39fd71f46110a96b9548d400b64f0841c1bb77adf77716613401208cd
 ---
 
 ## Orchestrator und Worker
@@ -43,7 +43,7 @@ abbildet, heute nur für Claude Code. Um eine einzelne Rolle zu ändern, füllst
 Jeder Auftrag nennt sein Tier, eine Schätzung und ein Cap als `Cap: <n>` Tool-Aufrufe. Ohne Angabe gilt der
 Standardwert des Tiers: `light` 10, `standard` 40, `elevated` 60, `high` und `expert` 80. Der Worker bekommt am
 Cap einen Hinweis und wird ab dem 1,5-Fachen des Caps abgewiesen. Außerdem nennt der Auftrag seinen Write Scope als `Write scope:`
-aus Pfaden relativ zum Projekt; `Write scope: none` heißt nur lesend; ein Bereich `dir/**` deckt auch das Anlegen von `dir` selbst ab. Beides prüfen Hooks mechanisch (`worker-cap`,
+aus Pfaden relativ zum Projekt; `Write scope: none` heißt nur lesend; ein Bereich `dir/**` deckt auch das Anlegen von `dir` selbst ab. Eckige Klammern in einem Muster werden wörtlich gelesen, `server/api/[id]/**` meint also den Ordner namens `[id]`, und ein Shell-Befehl, dessen Platzhalter über den Bereich hinausreicht, wird abgelehnt. Beides prüfen Hooks mechanisch (`worker-cap`,
 `worker-write-scope` in `docs/ai/config.md` § Checks, jeweils `block`, `warn` oder `off`).
 
 ## Was ein Worker nicht darf
@@ -60,4 +60,4 @@ Ein Worker, der dieselbe Aufgabe zweimal nicht schafft, bekommt keinen dritten i
 Orchestrator schärft den Auftrag einmal nach oder übergibt ihn mit dem vollständigen Fehlerkontext an
 `expert-solver`. Nach dem Annehmen, Nacharbeiten oder Eskalieren eines Ergebnisses hält er den Ausgang mit
 `usage.py --outcome` fest; ab genug solchen Einträgen schlägt `doctor.py` ein anderes Tier vor, und du
-entscheidest. Der Orchestrator fragt außerdem einen laufenden Worker nicht wiederholt ab.
+entscheidest. Der Orchestrator fragt außerdem einen laufenden Worker nicht wiederholt ab. Eine Ergänzung von dir, die zu einem laufenden Auftrag passt, geht sofort an diesen Worker, oder der Worker wird gestoppt und neu beauftragt, wenn ein neuer Lauf günstiger ist als zwei. Ein größerer Write Scope oder ein höherer Cap heißt immer neu beauftragen, weil beide nur einmal beim Start des Workers gelesen werden.

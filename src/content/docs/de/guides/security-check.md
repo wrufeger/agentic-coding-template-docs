@@ -3,7 +3,7 @@ title: Sicherheitsprüfung
 description: Wonach die Sicherheitsprüfung vor einem Commit sucht - gefährliche Muster, verwundbare Abhängigkeiten, die tiefe Prüfung - und was jeder Wert von security-check ausführt.
 sidebar:
   order: 2
-sourceHash: 286567e1a34cc12e7792c670e05a3cb5f298fa9370946db1959074b6b313340d
+sourceHash: 531f0c5367a1122c2368ee45b4b015588e7123493b527791b087f01a60789a66
 ---
 
 Die Sicherheitsprüfung wird mit einem Schlüssel gesetzt, `security-check`, in der Tabelle Checks von `docs/ai/config.md`. Anders als die übrigen Prüfungen nimmt sie nicht `block`, `warn` oder `off`, sondern eine Stufe.
@@ -23,7 +23,7 @@ Bei `git commit` werden die hinzugefügten Zeilen nach Konstrukten wie `eval`/`e
 - Eine Zeile mit `act:allow-danger` ist ausgenommen.
 - Dokumentation (`.md`, `.txt`, `.rst`) und alles unter `.act/` wird nie gescannt.
 
-Das ist getrennt von `secret-scan`, einer regulären `block`/`warn`/`off`-Prüfung, die einen Commit stoppt, dessen vorgemerkter Diff einen Schlüssel, Token, privaten Schlüssel, eine `.env`-Datei oder eine Zuweisung mit hoher Entropie enthält. Eine Zeile mit `act:allow-secret` ist ausgenommen.
+Das ist getrennt von `secret-scan`, einer regulären `block`/`warn`/`off`-Prüfung, die einen Commit stoppt, dessen vorgemerkter Diff einen Schlüssel, Token, privaten Schlüssel, eine `.env`-Datei oder eine Zuweisung mit hoher Entropie enthält. Sie erkennt außerdem Zugangsdaten in einem URL-Query-String, einen Schlüssel in einfachen Anführungszeichen (`{'token': '...'}`), einen PHP-Array-Eintrag (`'token' => '...'`), einen Literal-Fallback hinter einer Umgebungsvariablen-Abfrage (`os.environ.get("API_TOKEN", "...")`, `process.env.API_TOKEN || "..."`) und ein Zugangsdaten-Paar in einem Wert in Anführungszeichen. Eine Zeile mit `act:allow-secret` ist ausgenommen.
 
 ## Abhängigkeitslücken (`deps`, `full`)
 

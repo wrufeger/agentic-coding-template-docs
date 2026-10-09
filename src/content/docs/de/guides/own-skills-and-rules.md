@@ -3,7 +3,7 @@ title: Eigene Regeln, Skills und Rollen
 description: Regeln des Templates abschalten, eigene ergänzen, Dateien des Templates unter docs/ai/local/ überschreiben, Skills und Rollen hinzufügen und in ein anderes Projekt mitnehmen.
 sidebar:
   order: 3
-sourceHash: 61a8502eb9852480d97d78d9dd78cf4178f1b8bc1086aa7896d2ac049867e580
+sourceHash: 2129521fcd1f495504cbe27aac5fb541631f5fad7339eccb5454177482475fbe
 ---
 
 Das Projekt überschreibt immer das Template. Du bearbeitest nie etwas unter `.act/`; ein Wächter (`template-write-guard`) verweigert dort Schreibzugriffe. Alles, was dir gehört, kommt nach `docs/ai/` und `docs/project/` und übersteht jedes Update.
@@ -33,7 +33,7 @@ Der Ordner enthält auch optionale eigene Dateien, zum Beispiel `reminders.md` (
 
 ## Eigene Skills
 
-Ein Skill ist ein Verzeichnis mit einer `SKILL.md`, die mit YAML-Frontmatter (`name`, `description`) beginnt und werkzeugneutrale Anweisungen enthält. Lege deinen eigenen unter `docs/ai/local/skills/<name>/SKILL.md` ab; seine Werkzeugkopien (`.claude/skills/<name>/`, und `.agents/skills/<name>/` nur, wenn codex, copilot, gemini oder cursor eingerichtet ist) schreibt `act-load-settings` beim Import. Ein von Hand platzierter Skill bekommt sie beim nächsten Sitzungsstart (mit `session-start-refresh` auf dem Standard `block`) oder `update.py`-Lauf, oder mit `python .act/scripts/unit_copies.py`. Eine Kopie, die du selbst bearbeitet hast, bleibt erhalten, eine gelöschte bleibt gelöscht. Bis dahin ist der Skill über `/act <name>` erreichbar. Ein Skill-Name, den das Template schon mitliefert, ist ein Override dieses Skills, kein neuer. Die mitgelieferten Skills stehen in der [Skill-Referenz](/agentic-coding-template-docs/de/reference/skills/).
+Ein Skill ist ein Verzeichnis mit einer `SKILL.md`, die mit YAML-Frontmatter (`name`, `description`) beginnt und werkzeugneutrale Anweisungen enthält. Lege deinen eigenen unter `docs/ai/local/skills/<name>/SKILL.md` ab; seine Werkzeugkopien (`.claude/skills/<name>/`, und `.agents/skills/<name>/` nur, wenn codex, copilot, gemini oder cursor eingerichtet ist) schreibt `act-load-settings` beim Import. Ein von Hand platzierter Skill bekommt sie beim nächsten Sitzungsstart (mit `session-start-refresh` auf dem Standard `block`) oder `update.py`-Lauf, oder mit `python .act/scripts/unit_copies.py`. Eine Kopie, die du selbst bearbeitet hast, bleibt erhalten, eine gelöschte bleibt gelöscht. Bis dahin ist der Skill über `/act <name>` erreichbar. Ein Skill-Name, den das Template schon mitliefert, ist ein Override dieses Skills, kein neuer. Schreibe die `description` mit dem Auslöser zuerst („Use when ...“, 15 bis 55 Wörter, keine Aufzählung von Schritten), denn sie ist alles, was ein Agent sieht, bevor er den Skill lädt; `python .act/scripts/skills.py --check` prüft sie, und `doctor` meldet bei deinen eigenen Skills eine fehlende oder zu lange Beschreibung. Ein langer Skill hält den Kernablauf in `SKILL.md` und legt Details in `references/<topic>.md` ab, die nur bei Bedarf geladen werden. Die mitgelieferten Skills stehen in der [Skill-Referenz](/agentic-coding-template-docs/de/reference/skills/).
 
 ## Eigene Rollen
 

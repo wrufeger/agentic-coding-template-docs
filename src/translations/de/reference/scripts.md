@@ -31,6 +31,10 @@ Rein lesende Sichtung der Dokumentation und des KI-Werkzeug-Materials eines best
 <!-- source: 4bb21fb40b4a4068 -->
 Erzeugt das Board — einen vollständig abgeleiteten Schnappschuss (aktueller Branch, letzter Commit, Änderungsstand, jüngste Journal-Einträge, eine Liste „Waiting for you“…
 
+## table:context_size.py
+<!-- source: d62daa6d3fd3b671 -->
+Kontextgröße der laufenden Claude-Code-Sitzung, für die Statuszeile („ctx 127k“) und für den einmaligen /clear-Hinweis…
+
 ## table:doctor.py
 <!-- source: 3cf9de477dcfd1f4 -->
 Mechanische Hälfte des Abgleich-Skills `act-doctor` — die günstigen Prüfungen, die nach jedem Update und auf Anforderung laufen, ohne ein Modell in der…
@@ -54,6 +58,10 @@ Ein kleiner REST-Client für den Git-Host des Projekts (GitHub, GitHub Enterpris
 ## table:frontmatter.py
 <!-- source: d5e574c6e2ab4c9a -->
 Ein gemeinsamer Frontmatter-Parser für jeden „---\n...\n---\n“-Block unter .act/ und docs/ai/local/ -- früher waren es zwei: der von tiers.py…
+
+## table:handover.py
+<!-- source: ff19cd6a8442e4cc -->
+Beantwortet „Kann diese Sitzung jetzt verlassen werden?“ mechanisch und rein lesend: uncommittete Änderungen, begonnene Aufgaben ohne Stand-Zeile, Inbox…
 
 ## table:i18n_check.py
 <!-- source: 8238d909d48803ef -->

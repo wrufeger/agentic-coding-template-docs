@@ -3,7 +3,7 @@ title: Inbox, Aufgaben und Journal
 description: Was in docs/ai/ liegt - Inbox, Aufgaben, Backlog, Journal, Archiv, Ideen, das Board und die Statuszeile.
 sidebar:
   order: 3
-sourceHash: a987967ba349f5a3e18a661e578431cc7378672256d7fbfc5cd0e13a52db1fef
+sourceHash: a5c311e6881a24ec7a44fd51fbac53edcdfa1ceb1c339a1303672602edfa69c8
 ---
 
 `docs/ai/` ist das gemeinsame Arbeitsgedächtnis von dir und dem Assistenten. Alles darin ist eine einfache Datei, eine Datei pro Eintrag, versioniert mit dem Projekt. Übersichten wie das Board werden aus diesen Dateien erzeugt und nie von Hand gepflegt.
@@ -39,7 +39,7 @@ Auf Notizen antwortet der Assistent in einem angehängten Block von höchstens d
 
 ## Aufgaben, Backlog, Journal
 
-- **Aufgaben** (`T7`): eine Datei pro offener Aufgabe mit Ziel und Prüfkriterien. Die erste Arbeitsstand-Zeile (`entries.py state T7 <text>`) oder `entries.py start T7` schreibt `started:` in den Kopf; das Board markiert die Aufgabe dann als laufend. Der aktuelle Arbeitsstand selbst liegt im per gitignore ausgeschlossenen `.act-local/state/`, nicht in der Aufgabendatei. Der Kopf `for:` sagt, wessen Aufgabe es ist; `all` oder kein Feld bedeutet geteilt.
+- **Aufgaben** (`T7`): eine Datei pro offener Aufgabe mit Ziel und Prüfkriterien. Die erste Arbeitsstand-Zeile (`entries.py state T7 <text>`) oder `entries.py start T7` schreibt `started:` in den Kopf; das Board markiert die Aufgabe dann als laufend (oder wartend, siehe unten). Der aktuelle Arbeitsstand selbst liegt im per gitignore ausgeschlossenen `.act-local/state/`, nicht in der Aufgabendatei. Der Kopf `for:` sagt, wessen Aufgabe es ist; `all` oder kein Feld bedeutet geteilt.
 - **Backlog** (`B5`): eine Idee oder ein Änderungswunsch, der noch nicht gebaut ist. Er wird zur Aufgabe, sobald die Arbeit daran beginnt. Mit `inbox-decisions: at-start` kann ein Eintrag bis zum Arbeitsbeginn `decision: open` tragen (siehe [Konfiguration](/agentic-coding-template-docs/de/concepts/configuration/)).
 - **Journal**: eine Datei pro Schritt, benannt `YYYY-MM-DD-<slug>.md`. Journal-Einträge bekommen nie eine kurze Id.
 
@@ -60,7 +60,7 @@ Jede Person hat ihre eigene Datei `docs/ai/concept/ideas-<identity>.md`, wobei `
 
 Das **Board** ist ein erzeugter Schnappschuss: Branch, jüngste Journal-Einträge, was auf dich wartet, offene Aufgaben, offene Entscheidungen im Backlog und das Backlog selbst. Es wird beim Sitzungsstart neu geschrieben und nach Git-Befehlen, die den ausgecheckten Stand ändern. Wohin es geht, hängt vom Schlüssel `board` ab: `docs` (Standard, `docs/ai/board.md`, per gitignore ausgeschlossen), `shared` (zusätzlich ein versioniertes `docs/ai/board-<identity>.md`, beim Commit geschrieben) oder `local` (unter `.act-local/`). Eine zweite erzeugte Datei, `.act-local/inbox-<identity>.md`, sammelt den vollen Text jedes offenen Eintrags, der an dich gerichtet ist, sodass eine Datei zum Lesen genügt.
 
-Die **Statuszeile** von Claude Code zeigt eine Zeile unter dem Chat, zum Beispiel `act · Q103 Q104 · tasks: 1 running, 4 new`. Offene Fragen und Todos erscheinen mit Id, Berichte und Notizen als Anzahl pro Art. Um sie dauerhaft abzuschalten, setze in `.claude/settings.json` einen eigenen `statusLine`-Befehl; das Template ersetzt nie einen Eintrag, den sie nicht selbst erzeugt hat.
+Die **Statuszeile** von Claude Code zeigt eine Zeile unter dem Chat, zum Beispiel `act · Q103 Q104 · tasks: 1 run, 1 wait, 4 new · ctx 127k`. `ctx` ist die Größe des Kontexts der Sitzung. Eine begonnene Aufgabe gilt als wartend, und das Board markiert sie mit „(waiting)“, wenn ihre letzte Arbeitsstand-Zeile mit `entries.py state <id> --wait` geschrieben wurde, älter als `task-wait-hours` ist oder ein offenes Todo oder eine offene Frage sie nennt (siehe [Konfiguration](/agentic-coding-template-docs/de/concepts/configuration/)). Offene Fragen und Todos erscheinen mit Id, Berichte und Notizen als Anzahl pro Art. Um sie dauerhaft abzuschalten, setze in `.claude/settings.json` einen eigenen `statusLine`-Befehl; das Template ersetzt nie einen Eintrag, den sie nicht selbst erzeugt hat.
 
 ## Solo- und Team-Modus
 

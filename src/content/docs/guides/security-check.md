@@ -22,7 +22,7 @@ On `git commit`, the added lines are scanned for constructs such as `eval`/`exec
 - A line carrying `act:allow-danger` is exempt.
 - Documentation (`.md`, `.txt`, `.rst`) and everything under `.act/` are never scanned.
 
-This is separate from `secret-scan`, a regular `block`/`warn`/`off` check that stops a commit whose staged diff holds a key, token, private key, `.env` file or high-entropy assignment. A line carrying `act:allow-secret` is exempt.
+This is separate from `secret-scan`, a regular `block`/`warn`/`off` check that stops a commit whose staged diff holds a key, token, private key, `.env` file or high-entropy assignment. It also catches a credential in a URL query string, a single-quoted key (`{'token': '...'}`), a PHP array entry (`'token' => '...'`), a literal fallback after an environment lookup (`os.environ.get("API_TOKEN", "...")`, `process.env.API_TOKEN || "..."`) and a credential pair inside a quoted value. A line carrying `act:allow-secret` is exempt.
 
 ## Dependency gaps (`deps`, `full`)
 

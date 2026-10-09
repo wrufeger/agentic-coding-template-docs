@@ -38,7 +38,7 @@ Notes get a reply in one appended block of at most three lines of text, never in
 
 ## Tasks, backlog, journal
 
-- **Tasks** (`T7`): one file per open task with the goal and the check criteria. The first working-state line (`entries.py state T7 <text>`) or `entries.py start T7` writes `started:` into the header; the board then marks the task as running. The current working state itself lives in the gitignored `.act-local/state/`, not in the task file. The `for:` header says whose task it is; `all` or no field means shared.
+- **Tasks** (`T7`): one file per open task with the goal and the check criteria. The first working-state line (`entries.py state T7 <text>`) or `entries.py start T7` writes `started:` into the header; the board then marks the task as running (or waiting, see below). The current working state itself lives in the gitignored `.act-local/state/`, not in the task file. The `for:` header says whose task it is; `all` or no field means shared.
 - **Backlog** (`B5`): an idea or change request that is not built yet. It becomes a task when work on it starts. With `inbox-decisions: at-start` an entry may carry `decision: open` until work begins (see [Configuration](/agentic-coding-template-docs/concepts/configuration/)).
 - **Journal**: one file per step, named `YYYY-MM-DD-<slug>.md`. Journal entries never get a short id.
 
@@ -59,7 +59,7 @@ Every person has their own file `docs/ai/concept/ideas-<identity>.md`, where `<i
 
 The **board** is a generated snapshot: branch, recent journal entries, what is waiting for you, open tasks, open decisions in the backlog and the backlog itself. It is rewritten at session start and after git commands that change the checked-out state. Where it goes depends on the `board` key: `docs` (default, `docs/ai/board.md`, gitignored), `shared` (additionally a versioned `docs/ai/board-<identity>.md`, written at commit time) or `local` (under `.act-local/`). A second generated file, `.act-local/inbox-<identity>.md`, collects the full text of every open entry addressed to you, so one file is enough to read.
 
-The **status line** of Claude Code shows one line under the chat, for example `act · Q103 Q104 · tasks: 1 running, 4 new`. Open questions and todos appear by id, reports and notes as a count per kind. To turn it off for good, set your own `statusLine` command in `.claude/settings.json`; the template never replaces an entry it did not generate.
+The **status line** of Claude Code shows one line under the chat, for example `act · Q103 Q104 · tasks: 1 run, 1 wait, 4 new · ctx 127k`. `ctx` is the size of the session's context. A started task counts as waiting, and the board marks it "(waiting)", when its last state line was written with `entries.py state <id> --wait`, is older than `task-wait-hours`, or an open todo or question names it (see [Configuration](/agentic-coding-template-docs/concepts/configuration/)). Open questions and todos appear by id, reports and notes as a count per kind. To turn it off for good, set your own `statusLine` command in `.claude/settings.json`; the template never replaces an entry it did not generate.
 
 ## Solo and team mode
 
