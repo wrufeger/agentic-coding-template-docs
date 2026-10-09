@@ -19,8 +19,8 @@ Was auch immer deine erste Nachricht ist, der Assistent startet den Skill `act-s
 vorhanden ist, fragt, wohin das Projekt kommt, zeigt den Plan und führt ihn aus. Zum Beispiel:
 
 ```text
-Set up a new project right here.
-Set up a new project in ../shop-api.
+Erstelle hier im Verzeichnis ein neues Projekt.
+Erstelle ein neues Projekt in ../shop-api.
 ```
 
 Jede Sprache funktioniert. Es gibt zwei Wege:
@@ -73,6 +73,6 @@ gängige englische Fachbegriffe (Skill, Inbox, Hook, Branch …) bleiben stehen,
 
 ## Deine erste Sitzung
 
-Öffne das Projekt in deinem Assistenten und sag `continue`. Der Assistent liest das Board und die Inbox. Fang
-mit den init-Notizen in `docs/ai/inbox/` an, und probiere dann eine Idee (`Idea: export the orders as CSV`), einen
-Fehler (`Bug: login fails with an umlaut`) oder `Which skills are there?`. Die Einstellungen stehen in `docs/ai/config.md`.
+Öffne das Projekt in deinem Assistenten und sag `weiter`. Der Assistent liest das Board und die Inbox. Fang
+mit den init-Notizen in `docs/ai/inbox/` an, und probiere dann eine Idee (`Idee: die Bestellungen als CSV exportieren`),
+einen Fehler (`Bug: Login scheitert an einem Umlaut`) oder `Welche Skills gibt es?`. Die Einstellungen stehen in `docs/ai/config.md`.

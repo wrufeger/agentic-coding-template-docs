@@ -39,7 +39,7 @@ Ein von Hand geschriebener Befund landet immer im Ausgang, egal welcher Scope gi
 
 ## Zwei Wege zum Senden
 
-1. **Ein Satz nach dem Auslöser**, zum Beispiel `feedback: the update left a file behind`. Dieser Satz ist die Nachricht selbst, unverändert gesendet, auch mit `feedback: off`. Mit `off` verlassen nur der Text und der eigene Commit-Hash des Templates das Projekt, sonst nichts. Bei jedem anderen Modus geht die Projekt-Id mit, damit sich mehrere Nachrichten desselben Projekts unterscheiden lassen, aber nie die Repository-URL.
+1. **Ein Satz nach dem Auslöser**, zum Beispiel `feedback: das Update hat eine Datei liegen lassen`. Dieser Satz ist die Nachricht selbst, unverändert gesendet, auch mit `feedback: off`. Mit `off` verlassen nur der Text und der eigene Commit-Hash des Templates das Projekt, sonst nichts. Bei jedem anderen Modus geht die Projekt-Id mit, damit sich mehrere Nachrichten desselben Projekts unterscheiden lassen, aber nie die Repository-URL.
 2. **Der Auslöser allein** (der Skill `act-feedback`). Der Assistent geht durch `.act/`, die erzeugten Dateien und `docs/ai/`, schreibt pro Befund einen Eintrag (zwei bis sechs Sätze), zeigt den Stapel mit `feedback.py --plan` vorab und sendet ihn nach deinem Modus und Takt.
 
 Ein Fehler in des Templates selbst (ein Script oder Skill, der fehlschlägt, zwei Regeln, die sich widersprechen, eine Regel, die nie greift) wird gespeichert und, wo die Einwilligung es erlaubt, sofort gesendet, am Takt vorbei. Die Einwilligung umgeht er trotzdem nie: Mit `feedback: off` bleibt er im Ausgang.

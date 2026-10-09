@@ -17,7 +17,7 @@ braucht einen Assistenten.
 Assistenten und sag:
 
 ```text
-Take over my existing project in ~/dev/shop. It already has a CLAUDE.md and its own docs.
+Übernimm mein bestehendes Projekt in ~/dev/shop. Es hat schon eine CLAUDE.md und eigene Doku.
 ```
 
 Nichts ändert sich, bevor du einmal eine Tabelle freigibst, und kein Script committet etwas.

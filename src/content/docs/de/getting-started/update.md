@@ -8,7 +8,7 @@ sourceHash: 8e03b25624590962369be00f4b09733fbaa1d245412e16cc7a6dd18318563da7
 
 `act-update` holt einen neueren Stand des Templates in dein Projekt: Du siehst den Diff, du stimmst zu, und
 `python .act/scripts/update.py` erledigt den Rest. Es gibt keinen Merge und nichts, was du von Hand auflösen
-müsstest. Sag `Check for a template update` oder führe das Script selbst aus.
+müsstest. Sag `Prüfe, ob es ein Template-Update gibt` oder führe das Script selbst aus.
 
 ## Bevor du anfängst
 

@@ -13,6 +13,11 @@ read, not easier. So:
 2. **A German word is used where German developers use it themselves** (Rollen, Regeln, Aufgaben, Einstellungen).
 3. **One term, one word** across every page: the same title wording in the sidebar, the page and the links.
 4. Code, commands, flags, paths, config keys and values, ids and skill/role names never change.
+5. **Example chat input is translated**, since a German user types German: what the reader would say to the
+   assistant (`Erstelle hier im Verzeichnis ein neues Projekt.`, `weiter`, the trigger phrases in the skills
+   catalog) appears in German. Names inside it stay as rule 4 says — script, skill, rule and role names, paths,
+   ids, a trigger keyword such as `feedback:` — and so do English terms per rule 1. Script output and messages
+   quoted from the template stay English, because that is what the reader will see.
 
 ## Terms
 

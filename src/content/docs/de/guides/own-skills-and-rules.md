@@ -29,7 +29,7 @@ Lass die Marken (`<!-- act:overrides -->`, `<!-- act:own-rules -->`) stehen, wo 
 
 `docs/ai/local/` spiegelt `.act/`: Eine Datei mit demselben relativen Pfad gewinnt gegenüber der Fassung des Templates. `docs/ai/local/<path>` wird vor `.act/<path>` gesucht. Um eine Skill-Datei des Templates zu ändern, kopiere sie nach `docs/ai/local/skills/<name>/<file>` und bearbeite die Kopie; die Projektkopie wird dann aus deinem Override erzeugt. Der Ordner gehört dir, und der Assistent schreibt dort nur, wenn du es ihm sagst.
 
-Der Ordner enthält auch optionale eigene Dateien, zum Beispiel `reminders.md` (eine Zeile „erinnere mich" pro Zeile, mit optionalem Takt) und `security-accepted.md` (siehe [Sicherheitsprüfung](/agentic-coding-template-docs/de/guides/security-check/)).
+Der Ordner enthält auch optionale eigene Dateien, zum Beispiel `reminders.md` (eine Zeile „erinnere mich“ pro Zeile, mit optionalem Takt) und `security-accepted.md` (siehe [Sicherheitsprüfung](/agentic-coding-template-docs/de/guides/security-check/)).
 
 ## Eigene Skills
 

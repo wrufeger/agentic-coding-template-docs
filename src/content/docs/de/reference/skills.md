@@ -99,19 +99,19 @@ Quelle: `.act/skills/act-feedback/SKILL.md`
 
 ## act-idea
 
-Nimmt eine Idee, ein Feature oder einen Änderungswunsch auf - prüfen, was existiert, Optionen mit Empfehlung darlegen, eine Entscheidung einholen, dann Aufwand und fehlende Werkzeuge schätzen und als Backlog-Eintrag und Aufgabe ablegen. Verwenden, wenn ein Feature oder eine Änderung vorgeschlagen wird oder bei "can we add X", "it would be good if", "change request".
+Nimmt eine Idee, ein Feature oder einen Änderungswunsch auf - prüfen, was existiert, Optionen mit Empfehlung darlegen, eine Entscheidung einholen, dann Aufwand und fehlende Werkzeuge schätzen und als Backlog-Eintrag und Aufgabe ablegen. Verwenden, wenn ein Feature oder eine Änderung vorgeschlagen wird oder bei „können wir X ergänzen“, „es wäre gut, wenn“, „Änderungswunsch“.
 
 Quelle: `.act/skills/act-idea/SKILL.md`
 
 ## act-integrations
 
-Prüft, welche Wege von diesem Projekt zu seinem Repo-Host und Issue-Tracker führen (REST-Token, MCP-Server), was jeder kann, und hält es in docs/project/integrations.md fest. Lesende Proben, nie ein Schreibzugriff. Schlägt auf Wunsch auch MCP-Server aus dem Katalog (.act/mcp-catalog.md) vor, z. B. bei "which MCP servers fit?", und richtet einen erst nach einem Ja ein. Verwenden, wenn gefragt wird, welcher GitHub/GitLab-Zugriff besteht, vor act-pr oder act-issue, wenn die Datei fehlt oder älter als 30 Tage ist, nachdem sich ein Token oder MCP-Server geändert hat, oder wenn der Mensch fragt, welche MCP-Server oder Tools zum Projekt passen.
+Prüft, welche Wege von diesem Projekt zu seinem Repo-Host und Issue-Tracker führen (REST-Token, MCP-Server), was jeder kann, und hält es in docs/project/integrations.md fest. Lesende Proben, nie ein Schreibzugriff. Schlägt auf Wunsch auch MCP-Server aus dem Katalog (.act/mcp-catalog.md) vor, z. B. bei „welche MCP-Server passen?“, und richtet einen erst nach einem Ja ein. Verwenden, wenn gefragt wird, welcher GitHub/GitLab-Zugriff besteht, vor act-pr oder act-issue, wenn die Datei fehlt oder älter als 30 Tage ist, nachdem sich ein Token oder MCP-Server geändert hat, oder wenn der Mensch fragt, welche MCP-Server oder Tools zum Projekt passen.
 
 Quelle: `.act/skills/act-integrations/SKILL.md`
 
 ## act-issue
 
-Liest, erstellt, kommentiert und schließt Issues und Stories von GitHub oder GitLab und startet die Arbeit daran. Verwenden bei "show issues", "show my open stories", "show issue 42", zum Erstellen, Kommentieren oder Schließen eines Issues oder bei "start work on issue 42".
+Liest, erstellt, kommentiert und schließt Issues und Stories von GitHub oder GitLab und startet die Arbeit daran. Verwenden bei „zeig die Issues“, „zeig meine offenen Stories“, „zeig Issue 42“, zum Erstellen, Kommentieren oder Schließen eines Issues oder bei „fang mit Issue 42 an“.
 
 Quelle: `.act/skills/act-issue/SKILL.md`
 
@@ -129,13 +129,13 @@ Quelle: `.act/skills/act-perf/SKILL.md`
 
 ## act-pr
 
-Bereitet einen Pull Request (GitHub) oder Merge Request (GitLab) aus dem Diff gegen den Zielbranch vor und legt ihn erst nach dem ausdrücklichen Ja des Menschen an. Verwenden, wenn gebeten wird, einen Pull Request zu öffnen, einen Merge Request anzulegen, eine PR-Beschreibung zu schreiben oder bei "send this branch for review".
+Bereitet einen Pull Request (GitHub) oder Merge Request (GitLab) aus dem Diff gegen den Zielbranch vor und legt ihn erst nach dem ausdrücklichen Ja des Menschen an. Verwenden, wenn gebeten wird, einen Pull Request zu öffnen, einen Merge Request anzulegen, eine PR-Beschreibung zu schreiben oder bei „schick diesen Branch ins Review“.
 
 Quelle: `.act/skills/act-pr/SKILL.md`
 
 ## act-prepare
 
-Bereitet einen größeren Block so vor, dass er ohne Unterbrechung läuft - recherchieren, was existiert, in Aufgaben schneiden, Bereitschaft prüfen, dann alles Offene in einem Bündel fragen. Verwenden beim Planen eines Features, bei "plan this out", vor einem Block, der unbeaufsichtigt laufen soll, oder wenn der Mensch sagt, dass er nicht da ist.
+Bereitet einen größeren Block so vor, dass er ohne Unterbrechung läuft - recherchieren, was existiert, in Aufgaben schneiden, Bereitschaft prüfen, dann alles Offene in einem Bündel fragen. Verwenden beim Planen eines Features, bei „plane das durch“, vor einem Block, der unbeaufsichtigt laufen soll, oder wenn der Mensch sagt, dass er nicht da ist.
 
 Quelle: `.act/skills/act-prepare/SKILL.md`
 
@@ -159,7 +159,7 @@ Quelle: `.act/skills/act-seo/SKILL.md`
 
 ## act-setup
 
-Richtet diesen Checkout als Projekt ein oder dockt ihn an ein bereits bestehendes an - das Erste, was in einem frischen Template-Klon läuft, und immer, wenn der Besitzer bittet, ein Projekt einzurichten, zu initialisieren oder zu installieren. Auslöser sind unter anderem "setup", "initialize", "install", "richte ... ein", "neues Projekt".
+Richtet diesen Checkout als Projekt ein oder dockt ihn an ein bereits bestehendes an - das Erste, was in einem frischen Template-Klon läuft, und immer, wenn der Besitzer bittet, ein Projekt einzurichten, zu initialisieren oder zu installieren. Auslöser sind unter anderem „Setup“, „initialisieren“, „installieren“, „richte ... ein“, „neues Projekt“.
 
 Quelle: `.act/skills/act-setup/SKILL.md`
 
