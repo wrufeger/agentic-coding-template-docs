@@ -13,7 +13,7 @@ sidebar:
 - **Board**: `board` chooses where the generated board goes (`docs`, `shared`, `local`); `board-others` toggles the section for tasks assigned to other people.
 - **Inbox**: `inbox-decisions` decides where an open decision waits. With `immediate` it goes into the inbox as soon as it is booked; with `at-start` a backlog entry may keep it until work on it starts.
 - **Output depth**: `output-depth` (`verbose`, `normal`, `sparse`) controls how much the assistant writes in chat, not what your tool displays.
-- **Session length**: `context-hint` (a token count, default 150000, or `off`) is the context size at which the assistant suggests `/clear` or a new session at the next task boundary; `task-wait-hours` (default 12) is how long a started task may stay quiet before it counts as waiting.
+- **Session length**: `context-hint` (a token count, default 180000, or `off`) is the context size at which the assistant suggests `/clear` or a new session at the next task boundary; `task-wait-hours` (default 12) is how long a started task may stay quiet before it counts as waiting.
 - **Dependencies** and **Docs audit**: `dependency-check` and `docs-audit-due` control the reminders to run `act-deps` and `act-audit-docs`.
 - **Git hosting**: `target-branch`, `forge` and `forge-host` tell the pull-request skill where to go. github.com and gitlab.com receive the token without being named; a self-hosted host only after you have named it.
 - **Checks**: mechanical guards that run before an action (below).

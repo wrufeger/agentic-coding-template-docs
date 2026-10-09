@@ -98,10 +98,10 @@ Nötige — keinen Zwischenstand, eine Antwort je Frage; `verbose` schreibt Antw
 verstanden wurde, Gründe, Hinweise zu selbst geschriebenem Code und worauf zu achten ist.
 
 ## Session length
-<!-- source: 8011482b686f2762 -->
+<!-- source: 4ec434267b9b9f9d -->
 | Schlüssel | Wert |
 | :--- | :--- |
-| `context-hint` | 150000 |
+| `context-hint` | 180000 |
 | `task-wait-hours` | 12 |
 
 `context-hint`: eine Token-Anzahl oder `off`. Erreicht der Kontext der Sitzung (die Eingabe ihres letzten

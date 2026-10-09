@@ -3,7 +3,7 @@ title: Konfiguration
 description: docs/ai/config.md steuert den Arbeitsablauf - seine Gruppen und was block, warn und off für Prüfungen bedeuten.
 sidebar:
   order: 4
-sourceHash: dfb0af4652e39ac9105a00d05bbd9dfe43a87d7850e6c2bcd50603b4752dd787
+sourceHash: d8f6bac0ab2d54c6d14428ceca751bf059d6104bdbf8e1c3ad6ddfd02a362e43
 ---
 
 `docs/ai/config.md` ist die Datei, die steuert, wie am Projekt gearbeitet wird. Sie besteht aus Markdown-Tabellen, ein Abschnitt pro Thema. `init` trägt die Werte ein, die es erfragt oder erkannt hat; du änderst sie jederzeit. Nichts braucht einen Neuaufbau: Der Hook beim Sitzungsstart liest die Datei und meldet, was sich seit dem letzten Abgleich geändert hat. Jeder Schlüssel mit seinen erlaubten Werten steht in der [Konfigurationsreferenz](/agentic-coding-template-docs/de/reference/configuration/); diese Seite erklärt, wofür die Gruppen da sind.
@@ -14,7 +14,7 @@ sourceHash: dfb0af4652e39ac9105a00d05bbd9dfe43a87d7850e6c2bcd50603b4752dd787
 - **Board**: `board` wählt, wohin das erzeugte Board geht (`docs`, `shared`, `local`); `board-others` schaltet den Abschnitt für Aufgaben um, die anderen Personen zugewiesen sind.
 - **Inbox**: `inbox-decisions` bestimmt, wo eine offene Entscheidung wartet. Mit `immediate` landet sie in der Inbox, sobald sie verbucht ist; mit `at-start` darf ein Backlog-Eintrag sie behalten, bis die Arbeit daran beginnt.
 - **Output depth**: `output-depth` (`verbose`, `normal`, `sparse`) steuert, wie viel der Assistent im Chat schreibt, nicht was dein Werkzeug anzeigt.
-- **Session length**: `context-hint` (eine Token-Zahl, Standard 150000, oder `off`) ist die Kontextgröße, ab der der Assistent an der nächsten Aufgabengrenze `/clear` oder eine neue Sitzung vorschlägt; `task-wait-hours` (Standard 12) ist die Zeit, die eine begonnene Aufgabe ruhen darf, bevor sie als wartend gilt.
+- **Session length**: `context-hint` (eine Token-Zahl, Standard 180000, oder `off`) ist die Kontextgröße, ab der der Assistent an der nächsten Aufgabengrenze `/clear` oder eine neue Sitzung vorschlägt; `task-wait-hours` (Standard 12) ist die Zeit, die eine begonnene Aufgabe ruhen darf, bevor sie als wartend gilt.
 - **Dependencies** und **Docs audit**: `dependency-check` und `docs-audit-due` steuern die Erinnerungen, `act-deps` und `act-audit-docs` auszuführen.
 - **Git hosting**: `target-branch`, `forge` und `forge-host` sagen dem Pull-Request-Skill, wohin er gehen soll. github.com und gitlab.com bekommen den Token, ohne genannt zu werden; ein selbst gehosteter Host erst, nachdem du ihn genannt hast.
 - **Checks**: mechanische Wächter, die vor einer Aktion laufen (siehe unten).
