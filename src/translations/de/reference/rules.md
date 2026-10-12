@@ -94,9 +94,9 @@ Aufgabe besser aufteilen, sagt er das in seinem Ergebnis und der Orchestrator en
 Stelle weiß, wer was, wo und wie lange tut.
 
 ## rules/shared/10-safety.md
-<!-- source: afedcb3ddb0e12d8 -->
+<!-- source: c911f9d4b03b6011 -->
 Sicherheitsregeln
-summary: Freigabe vor Unumkehrbarem, Secrets, Löschen, Sperren der Schutzmechanismen, fremde Inhalte
+summary: Freigabe vor Unumkehrbarem, Secrets in Diffs und beim Lesen, Löschen, verworfene Git-Arbeit, Git-Hooks und -Konfiguration, Sperren der Schutzmechanismen, fremde Inhalte
 
 Gemeinsame Sicherheitsregeln, die jede Rolle lädt. Die IDs (`R-<area>-<name>`) sind stabil und werden nie neu
 vergeben.
@@ -126,6 +126,21 @@ summary: Diff-Scan auf Key-/Token-Muster und .env-Dateien vor jedem Commit
 Vor einem Commit wird der Diff gegen bekannte Secret-Muster geprüft: Key-/Token-Formate, private Schlüssel,
 `.env`-Dateien im Diff, Zuweisungen mit hoher Entropie. Ein Treffer stoppt den Commit und wird gemeldet — nie
 stillschweigend entfernt.
+
+## R-safe-no-secret-read
+<!-- source: 8785ccfb3b68f3c9 -->
+Nie eine Secret-Datei in den Kontext lesen
+summary: keine .env, kein privater Schlüssel, keine Cloud-/Registry-Zugangsdatei in einem Read, Grep oder Befehl; die .env.example-Familie ist frei; mechanisch geprüft
+
+Keine Secret-Datei lesen — `.env` und ihre Varianten, private Schlüssel (`id_rsa`, `*.pem`, `*.key`,
+Keystores), Cloud- und Registry-Zugangsdaten (`~/.ssh`, `~/.aws`, `~/.config/gcloud`, `.npmrc`,
+`.netrc` …) — mit Read, Grep oder einem Bash/PowerShell-Befehl wie `cat`, `grep` oder `Get-Content`:
+Was in den Kontext gelangt, wird mit jedem weiteren Schritt mitgesendet. Die nicht geheimen Werte, die man
+braucht, beim Eigentümer erfragen oder `.env.example`, `.env.sample` oder `.env.template` lesen; öffentliche
+Schlüssel (`*.pub`) bleiben frei. Gilt für Orchestrator und Worker gleichermaßen. Mechanisch geprüft durch
+`secret-read` (`docs/ai/config.md` § Checks); der Eigentümer kann es dort auf `warn` oder `off` setzen, oder
+für einen Lauf mit `ACT_SECRET_READ` in der Umgebung. Grenze: Ein Programm, das die Datei selbst öffnet
+(`python script.py`, `docker run --env-file`), bleibt für die Prüfung unsichtbar.
 
 ## R-safe-no-secret-log
 <!-- source: 0ab72e3f4d5b4f62 -->
@@ -165,6 +180,46 @@ unversionierten Dateien, die `git reset --hard` ebenfalls stillschweigend übers
 ausgeführt: stattdessen `git stash -u` oder `git reset --soft` verwenden. Zuerst mit `git log -1` oder `git
 reflog` prüfen, was verworfen würde. Nie Git-Experimente in einem Arbeitsbaum mit offenen Änderungen machen.
 Mechanisch geprüft durch `git-reset-hard` (`docs/ai/config.md` § Checks).
+
+## R-safe-git-discard
+<!-- source: 2a995d83125cf609 -->
+Auch mit anderen Git-Befehlen keine Arbeit verwerfen
+summary: kein clean -f, kein Ordner-Checkout/-Restore bei Änderungen, kein stash drop/clear, kein Force-Push auf den Default-Branch, kein branch -D eines nicht gemergten Branches
+
+Neben `git reset --hard` werfen diese Git-Befehle Arbeit ohne Weg zurück weg: `git clean -f` (oder
+`git clean` mit abgeschaltetem `clean.requireForce`), wenn `git clean -n` mit denselben Schaltern etwas
+auflistet; `git checkout -- <folder>`, `git checkout .`, `git restore <folder>`, `git checkout -f`,
+`git switch -f`, solange das Ziel nicht committete Änderungen hat; `git stash drop` und `git stash clear`; ein
+erzwungener Push (`-f`, `--force-with-lease`, `+refspec`, `--mirror`) auf den Default-Branch oder dessen
+Löschen auf dem Remote (`git push origin :main`, `--delete`); `git branch -D` eines Branches, den `git branch
+--no-merged` auflistet, und `git branch -M`/`-C` über einen solchen. Einzelne Dateien bleiben frei. Ein Aufruf,
+der zu lang zum rechtzeitigen Prüfen ist, oder eine Prüfung, die fehlschlägt, wird abgewiesen — kleinere
+Aufrufe verwenden. Stattdessen committen, `git stash` nutzen oder den Eigentümer es tun lassen. Mechanisch
+geprüft durch `git-discard` (`docs/ai/config.md` § Checks).
+
+## R-safe-git-metadata
+<!-- source: 62b009095ee68859 -->
+Keine Schreibzugriffe auf Hooks, Repository-Konfiguration oder Claude-Einstellungen
+summary: kein Schreiben in .git/hooks oder .git/config, kein Git-Config-Schlüssel, der Code ausführt, keine folderOpen-Task; Worker auch nicht in .claude-Einstellungen, Rollen, Skills, .vscode/tasks.json, .devcontainer, .envrc, .mcp.json
+
+Niemand schreibt `.git/hooks/**` oder `.git/config` (auch `config.worktree`, Submodul- und
+Linked-Worktree-Git-Verzeichnisse) und kopiert nichts hinein — weder mit einem Datei-Tool noch mit einem
+Shell-Befehl, noch mit `git config`, `git -c` oder `GIT_CONFIG_KEY_<n>` für einen Schlüssel, der ein Programm
+startet (`core.hooksPath`, `core.fsmonitor`, `core.sshCommand`, ein `!`-Alias, `include.path`, ein Filter, ein
+Textconv- oder Credential-Helper, eine `ext::`-Remote-URL, `protocol.allow=always` …), und `GIT_CONFIG_GLOBAL`,
+`GIT_CONFIG_SYSTEM` oder `GIT_CONFIG`, die auf `.git/config` zeigen, zählen wie `--file`; `git init --template`
+wird genauso abgewiesen. Ein Hook oder ein solcher Schlüssel läuft beim nächsten Git-Befehl, an jeder anderen
+Prüfung vorbei und über die Sitzung hinaus. Ein Worker schreibt außerdem nie `.claude/settings*.json`,
+`.claude/agents/**`, `.claude/skills/**` oder `.claude/commands/**`, weder im Projekt noch in `~/.claude`; der
+Orchestrator ändert sie auf Wunsch des Menschen. Lesen, `git config --get`/`--list`, `--global`/`--system` und
+das Entfernen von Einstellungen bleiben frei. Auch Dateien, die beim Öffnen des Ordners Code starten, sind
+erfasst: Ein Worker schreibt nie `.vscode/tasks.json`, `.devcontainer/**`, `.devcontainer.json`, `.envrc` oder
+`.mcp.json` (Datei-Tool oder Shell, auch durch Kopieren in ihr Verzeichnis), und niemand schreibt
+`.vscode/tasks.json` mit einem Shell-Befehl oder fügt mit einem Datei-Tool einer `.vscode/tasks.json` oder einer
+`*.code-workspace` eine Task hinzu, die bei `folderOpen` läuft (beurteilt am Text, den die Änderung erzeugt);
+eine solche Datei schreibt der Mensch selbst. Grenze: Was ein Programm oder Script selbst schreibt
+(`pre-commit install`, `python -c "open(...)"`), bleibt für die Prüfung unsichtbar. Mechanisch geprüft durch
+`git-metadata-guard` (`docs/ai/config.md` § Checks).
 
 ## R-safe-block
 <!-- source: 8c36e9d227e0c07e -->
@@ -301,13 +356,16 @@ die Inbox, auch eine, die nur im Chat fiel. Ändert sich das Projekt in einer We
 wird `config.md` im selben Schritt aktualisiert.
 
 ## R-work-session-start
-<!-- source: fe7d5b0dc25e2d59 -->
+<!-- source: 46c42ff34b4ac8b4 -->
 Neustarts selbst prüfen; „weiter“ heißt arbeiten
 summary: einen erzwungenen Neustart überprüfen; ein bloßes „weiter“ heißt, weiterzuarbeiten
 
 Nach einem erzwungenen Neustart (nötig, damit ein Hook, eine Werkzeugeinstellung oder eine neue Regeldatei
 wirkt) wird ungefragt geprüft, ob es geklappt hat, und das Ergebnis gemeldet. Ein bloßes „weiter“ oder „mach
-weiter“ heißt: den aktuellen Stand lesen und von dort weiterarbeiten — keine Rückfrage an den Menschen.
+weiter“ heißt: den aktuellen Stand lesen und von dort weiterarbeiten — keine Rückfrage an den Menschen. Ist
+`board-at-start` an (`docs/ai/config.md`), enthält der Sitzungsstart einen Board-Auszug (wartende Einträge,
+offene Aufgaben mit ihrem Stand): Ein bloßes „weiter“ arbeitet damit und liest nur die genannte Aufgabe und
+ihren Stand weiter.
 
 ## R-work-idea-first
 <!-- source: b4861f60678e98d9 -->
@@ -457,7 +515,7 @@ Kostenregeln
 summary: Delegations-Tiers und Caps, auf Worker warten, einen laufenden Auftrag ergänzen, wiederkehrende Prüfungen als Script, Commit-Schranke
 
 ## R-cost-delegate
-<!-- source: fe22821a740ea958 -->
+<!-- source: 2089ccfa49c75e3f -->
 Tier, Schätzung und Cap nennen
 summary: Tier, Schätzung von Umfang/Dauer, mechanisch geprüfter Cap, kleine Aufträge
 
@@ -480,7 +538,7 @@ hinaus, statt einen Worker fortzusetzen, dessen Kontext schon voll ist; reines L
 `light`. Nur der Orchestrator startet Worker; der Vorschlag eines Workers, seine Aufgabe zu teilen, geht an den
 Orchestrator zurück, der die neuen Aufträge selbst schneidet und startet.
 
-Jeder Auftrag nennt außerdem seinen Schreibbereich als Zeile `Write scope: <glob>[, <glob> ...]` — Muster
+Jeder Auftrag nennt außerdem seinen Write Scope als Zeile `Write scope: <glob>[, <glob> ...]` — Muster
 relativ zum Projektstamm, `/` als Trenner, `*` überschreitet `/` beliebig (so reicht `src/*` bereits in jede
 Tiefe unter `src/`); ein ganzes Verzeichnis kann auch als `dir/**` oder kurz als `dir/` angegeben werden
 (gleich gelesen); eckige Klammern in einem Pfad werden wörtlich genommen, `server/api/[id]/**` nennt also den
@@ -496,6 +554,26 @@ prüft ihn mechanisch, ebenso wie der Cap mechanisch statt aus dem Gedächtnis g
 Bash-Befehl ist das bestmöglich (erfasst Umleitungen und die gängigen Schreibbefehle, kein vollständiges
 Shell-Parsing), keine vollständige Garantie: Schreibzugriffe aus einem Programm heraus (`python -c
 "open(...)"`, eine Script-Datei) bleiben ihm unsichtbar.
+
+Worker, die gleichzeitig laufen, bekommen getrennte Write Scopes; Aufträge mit überschneidenden Write Scopes
+laufen nacheinander. `worker-scope-overlap` (`docs/ai/config.md` § Checks) weist einen Start ab, dessen Write Scope
+sich mit dem eines noch laufenden Workers überschneidet: `none` überschneidet sich mit nichts, eine fehlende
+`Write scope:`-Zeile zählt als alles, und die Überschneidung wird vorsichtig aus dem festen Anfangsverzeichnis
+der Muster geschätzt. Ein beendeter Worker oder ein fehlgeschlagener Start gibt seinen Write Scope frei, ein
+abgestürzter Worker tut das nach drei Stunden oder wenn seine Datei unter `.act-local/worker-scopes/` gelöscht
+wird. Grenze: Ein mit einer Nachricht (`SendMessage`) fortgesetzter Worker ist für die Prüfung unsichtbar,
+sobald er beendet ist, der Orchestrator hält die Write Scopes also selbst auseinander. Wer einen Worker anhält und
+neu beauftragt (`R-cost-amend`), löscht zuerst dessen Datei dort, falls sie noch steht.
+
+Ein Auftrag, der das Ergebnis eines anderen Workers liest, nennt es in einer eigenen Zeile, `Depends on: <whose
+result>`. Der Orchestrator startet ihn erst, nachdem dieser Worker beendet ist — nur eine Regel, denn ein Hook
+kann einen Start abweisen, aber nicht warten.
+
+Sollen mehrere Worker dasselbe Material lesen, liest der Orchestrator es einmal und schreibt, was er gefunden
+hat, nach `.act-local/notes/brief-<slug>.md` (Quelle, Stand, Verweise als `<path>:<line>`) und nennt diese Datei
+in jedem Auftrag. Die Worker lesen die Notiz statt der Quellen und schlagen nur nach, was darin fehlt. Die
+Notiz ist der eigene Text des Orchestrators, kein fremder Inhalt (`R-safe-foreign-text`): Die Eintags-Regel
+gilt für die Quellen, auf denen sie beruht, die Notiz selbst nur für die Worker dieses einen Starts.
 
 ## R-cost-wait
 <!-- source: 9d34b8772b357e3c -->
@@ -537,17 +615,22 @@ Wiederkehrende Zähl- oder Statusarbeit (Dateizahlen, Zustandsprüfungen) wird b
 danach nur noch ausgeführt, nicht erneut an einen Worker delegiert.
 
 ## R-code-commit
-<!-- source: 6294deff165d15cd -->
+<!-- source: d6b6284ec5b707b6 -->
 Committen ist allein Sache des Orchestrators
-summary: Commits nur per Pfadangabe, nach Lint/Typecheck/Tests, wo konfiguriert
+summary: Commits nur per Pfadangabe, nach Lint/Typecheck/Tests, wo konfiguriert; Reviewer-Urteil CONDITIONAL wird in die Inbox abgelegt
 
 Nur abgenommene Arbeit wird committet, gestaged per Pfadangabe — nie `git add -A`, `git add .` oder `git commit
 -a`. Lint, Typecheck und Tests laufen zuerst, aber nur dort, wo das Projekt sie eingerichtet hat (die eigene
 Prüfung einer IDE zählt als Beleg, nicht als konfigurierter Lint) und keine Regel die Prüfung für diesen Fall
 aussetzt. Ein fehlendes Werkzeug ist kein Grund, auf der Stelle eines zu installieren oder Tests zu ergänzen —
 höchstens ein einmaliger Hinweis, dass es fehlt. Der `reviewer` läuft einmal je Aufgabe vor der Abnahme, nicht
-nach jedem Schritt; bei einer trivialen Änderung (Tippfehler, nur Doku) überspringt der Orchestrator ihn und
-sagt das. Nach einem BLOCK prüft der Orchestrator die Korrekturen selbst — eine zweite Prüfung nur bei einem
+nach jedem Schritt, und endet mit einem Urteil: `ALLOW`, `CONDITIONAL` oder `BLOCK`; bei einer trivialen
+Änderung (Tippfehler, nur Doku) überspringt der Orchestrator ihn und sagt das. `CONDITIONAL` heißt: annehmbar,
+sobald eine benannte Bedingung erfüllt ist, die sich nicht im selben Schritt prüfen lässt (ein Lauf, der erst nach
+dem Commit möglich ist, eine Messung, eine Freigabe); ein bekannter Bug oder ein verfehlter Teil des Auftrags ist
+immer `BLOCK`, ebenso ein `CONDITIONAL` ohne erkennbare Bedingung oder mit mehr als einer. Bei `CONDITIONAL`
+committet der Orchestrator, legt die Bedingung im selben Schritt als `todo` oder `question` in die Inbox
+(`entries.py new …`) und nennt deren ID in der Commit-Nachricht (`act-commit`). Nach einem BLOCK prüft der Orchestrator die Korrekturen selbst — eine zweite Prüfung nur bei einem
 kritischen Befund.
 
 ## _intro

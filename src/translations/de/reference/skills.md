@@ -56,7 +56,7 @@ Verwenden, um Abweichungen vom Template zu prüfen, nach einem Update oder wenn 
 Verwenden, um das Setup dieses Projekts an ein neues Projekt zu übergeben oder um zu prüfen, was ein Settings-Export preisgeben würde, bevor er irgendwohin geht. Schreibt die eigenen Regelabweichungen des Projekts, optional auch Scripts, Checklisten, Agents, Skills und Topics, in eine portable Settings-Datei.
 
 ## act-feedback
-<!-- source: f3d982d523e5df56 -->
+<!-- source: 18bcdebf2108fe16 -->
 Verwenden, wenn gebeten wird, Feedback zu senden, „ans Template zurückzumelden“ oder bei „feedback: <Text>“, oder wenn eine Regel, ein Workflow, ein Script oder ein Skill des Templates selbst geholfen hat, versagt hat oder fehlte, auch bei einem Bug im Template. Sendet ein Muster zur Arbeitsmethode an den Template-Autor, nie Projektspezifisches.
 
 ## act-handover
@@ -64,7 +64,7 @@ Verwenden, wenn gebeten wird, Feedback zu senden, „ans Template zurückzumelde
 Verwenden, wenn der Mensch die Sitzung übergeben oder verlassen will - „übergib“, „kann ich die Sitzung schließen“, „ist /clear sicher“, „neue Sitzung“. Prüft, dass nichts verloren geht, behebt, was sich beheben lässt, und endet mit dem Satz, der in die neue Sitzung einzugeben ist. Löscht nie von sich aus.
 
 ## act-idea
-<!-- source: 3fdcc62d4bca529d -->
+<!-- source: 82c3e3a95d5f8d77 -->
 Verwenden, wenn ein Feature, eine Idee oder ein Änderungswunsch vorgeschlagen wird: „können wir X ergänzen“, „es wäre gut, wenn“, „Änderungswunsch“. Prüft, was existiert, legt Optionen mit Empfehlung dar und legt nach der Entscheidung eine Aufwandsschätzung als Backlog-Eintrag und Aufgabe ab. Nicht zum Planen eines entschiedenen Blocks - dafür act-prepare.
 
 ## act-integrations
@@ -110,6 +110,10 @@ Verwenden, um in einem frischen Template-Klon ein Projekt einzurichten, oder wen
 ## act-slides
 <!-- source: 15036eac26e40702 -->
 Verwenden, wenn eine Präsentation, Folien zum Projekt, ein Vortrag oder ein Schulungs-Deck gewünscht werden. Erzeugt die Folien als versioniertes Markdown aus der vorhandenen Doku und exportiert sie nach HTML oder PDF.
+
+## act-teach
+<!-- source: 9a6fb965cb4d150a -->
+Verwenden, wenn der Mensch ein Thema lernen will, am besten am Code des Projekts - „bring mir ... bei“, „ich will ... lernen“, „erkläre ... als Lektion“. Schreibt kurze Markdown-Lektionen mit Übungen und einem Lernprotokoll. Nicht für eine einzelne Frage - die wird im Chat beantwortet; nicht für Folien - dafür act-slides.
 
 ## act-test-gap
 <!-- source: 7afe0e3b15df3a11 -->

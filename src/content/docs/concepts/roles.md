@@ -17,7 +17,7 @@ directly. Naming a role in the chat (`reviewer`, `explorer`) is an instruction t
 | :--- | :--- |
 | `builder` | Implementation: code, migration, tests, config. |
 | `explorer` | Read-only research across many files; findings as `path:line`. |
-| `reviewer` | Adversarial review before acceptance; ALLOW or BLOCK. |
+| `reviewer` | Adversarial review before acceptance; ALLOW, CONDITIONAL or BLOCK. |
 | `doc-writer` | Edits to `docs/project/`, never `docs/ai/`. |
 | `test-writer` | Tests for existing code, or test-first from a concept. |
 | `quick-check` | Fixed, read-only lookups without judgment. |
@@ -41,7 +41,7 @@ Every assignment states its tier, an estimate, and a cap as `Cap: <n>` tool call
 applies: `light` 10, `standard` 40, `elevated` 60, `high` and `expert` 80. The worker gets one note at the cap
 and is refused from 1.5 times the cap. It also states a `Write scope:` of paths relative to the project;
 `Write scope: none` means read-only; a scope `dir/**` also covers creating `dir` itself. Brackets in a pattern are read literally, so `server/api/[id]/**` names the folder called `[id]`, and a shell command whose wildcard reaches outside the scope is refused. Both are checked mechanically by hooks (`worker-cap`, `worker-write-scope`
-in `docs/ai/config.md` § Checks, each `block`, `warn`, or `off`).
+in `docs/ai/config.md` § Checks, each `block`, `warn`, or `off`). Workers running at the same time need separate write scopes: `worker-scope-overlap` refuses a start whose scope overlaps that of a worker still running. An assignment that reads another worker's result names it as `Depends on:` and starts only after that worker has ended.
 
 ## What a worker may not do
 

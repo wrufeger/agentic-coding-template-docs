@@ -67,13 +67,13 @@ Führt eine feste Reihe lesender Abfragen aus und liefert das rohe Ergebnis, ohn
 `R-role-worker` an.
 
 ## reviewer
-<!-- source: db27b9e02fbc6b4e -->
-Kritische Prüfung vor einem Commit — Bugs, Stil und Aufgabentreue — sowie ALLOW/BLOCK bei einem markierten Safeguard-Aufruf.
+<!-- source: 35c0619920838a5d -->
+Kritische Prüfung vor einem Commit — Bugs, Stil und Aufgabentreue, Urteil ALLOW, CONDITIONAL oder BLOCK — sowie ALLOW/BLOCK bei einem markierten Safeguard-Aufruf.
 
 ## reviewer#about
-<!-- source: b1a43d753b082121 -->
-Kritische Prüfung vor einem Commit, dazu ALLOW/BLOCK bei einem markierten Tool-Aufruf. Wendet
-`R-role-worker` an.
+<!-- source: 70d72536205f8b85 -->
+Kritische Prüfung vor einem Commit mit dem Urteil ALLOW, CONDITIONAL oder BLOCK, dazu ein getrenntes
+ALLOW/BLOCK bei einem markierten Tool-Aufruf. Wendet `R-role-worker` an.
 
 ## test-writer
 <!-- source: e6dbc3c49677ea08 -->
