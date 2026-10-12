@@ -13,7 +13,9 @@ code already answers, so research comes before the question round, never after.
 1. **Bound the scope** — what's in, what's explicitly not, both written down.
 2. **Research what exists, in parallel** — several `explorer` roles in one message: what already
    exists, which files are affected, does anything in `docs/project/decisions.md` conflict, where
-   does the code differ from the docs.
+   does the code differ from the docs. Also grep `docs/project/learnings/` (headers `area:`,
+   `tags:`) for the topic and read only the hits; a note whose `retire_when` is met gets reported,
+   not followed.
 3. **Cut it into tasks or stories.** Each task: one-sentence goal, checkable acceptance criterion,
    steps as bullets. Something bigger with its own justification becomes a story
    (`docs/project/stories/`, where the project uses them); the rest is a task under
@@ -28,7 +30,8 @@ code already answers, so research comes before the question round, never after.
    entry's `decision: open` points get asked; under `immediate` they are already in the inbox —
    still check the backlog entries in scope for any left over.
 6. **Record the answers**: ADR in `docs/project/decisions.md`, open points cleared, tasks marked
-   ready. A question left open keeps its task on hold — never started "on best guess".
+   ready. A question left open keeps its task on hold — never started "on best guess". A decision
+   that should be looked at again may carry an optional line `revisit: YYYY-MM-DD` under its ADR.
 7. **Lay out the order**: what runs when and in parallel, checkpoints, rough duration — the plan
    the block runs on while the human is away.
 

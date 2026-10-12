@@ -35,9 +35,9 @@
   },
   "template": {
     "version": "2.1.0",
-    "commit": "e5b6a55b67c57dbe759bf0a8c22216fef3f8cbd0",
+    "commit": "aa4918a3d1f8a7d1aad85be5f8431d0db2504d68",
     "source": "D:/dev/rufeger/agentic-coding-template",
-    "manifest_sha256": "06a90e93ffb059747cb3d8c8e71f151163c3806c9c202f38332023d969403e21"
+    "manifest_sha256": "76f2444e45e0ffdf5daaf5cf2624ed4eef0834e91cf6aaf29b18f548c5e9b9ea"
   },
   "copies": {
     ".claude/skills/act/SKILL.md": {
@@ -50,15 +50,15 @@
     },
     ".claude/skills/act-audit-docs/SKILL.md": {
       "source": ".act/skills/act-audit-docs/SKILL.md",
-      "sha256": "a7a62b6900ca46ef7a369d797aaf0dba4833014ac61e511d9d31c72fae6e62df"
+      "sha256": "db08b0a40c67785147c7e911170a8e9088a2b9852e054b56b32c5a1dfecb6039"
     },
     ".claude/skills/act-bug/SKILL.md": {
       "source": ".act/skills/act-bug/SKILL.md",
-      "sha256": "cb8190d9584219933ff198d942a8027bd06b47afdfd333dddeb34a8dca1d1cea"
+      "sha256": "402d04d6da62770675077f0ec989066d1cc6d9822b757e307f13a57064fec4e0"
     },
     ".claude/skills/act-commit/SKILL.md": {
       "source": ".act/skills/act-commit/SKILL.md",
-      "sha256": "ac703e6cb6889b07819fce226a4285dfd50d4b8f3b1ecc4e7ad5d42d181ffe72"
+      "sha256": "6a6b63cc28be7b49d5964ee8351f15801f5270a1441df2ae8fa963bd0dc468f2"
     },
     ".claude/skills/act-deps/SKILL.md": {
       "source": ".act/skills/act-deps/SKILL.md",
@@ -78,7 +78,7 @@
     },
     ".claude/skills/act-doctor/SKILL.md": {
       "source": ".act/skills/act-doctor/SKILL.md",
-      "sha256": "d3864d8c9d20cdad7b1bdbe0fef4919277dd3e4afccdc7c2a2216f3746bee432"
+      "sha256": "277435d02dea860c9e7e2af2573be55bb70ddb2b5564155f07f1fddab7e2723b"
     },
     ".claude/skills/act-export-settings/SKILL.md": {
       "source": ".act/skills/act-export-settings/SKILL.md",
@@ -86,11 +86,11 @@
     },
     ".claude/skills/act-feedback/SKILL.md": {
       "source": ".act/skills/act-feedback/SKILL.md",
-      "sha256": "8cdcec180379134340a69246ae21002a2a11577d658f770ccda2fd9f93271c8e"
+      "sha256": "e339d5af01fa27384a6fca63cf0cb15d09da534317dea5a78572b5acf0c46832"
     },
     ".claude/skills/act-idea/SKILL.md": {
       "source": ".act/skills/act-idea/SKILL.md",
-      "sha256": "417e24cee4eb2cc6ca07a84ad9bbef31326c1368a0ce910017a5d2de48d74291"
+      "sha256": "f0f85f2de8d0f35843a9bf773c870eadf35300fd53b615c3a676f51ca06bca9c"
     },
     ".claude/skills/act-integrations/SKILL.md": {
       "source": ".act/skills/act-integrations/SKILL.md",
@@ -106,7 +106,7 @@
     },
     ".claude/skills/act-perf/SKILL.md": {
       "source": ".act/skills/act-perf/SKILL.md",
-      "sha256": "328fa2e17cd92e809b9ce206761c32808a81f7e6eb76712018b2d9ed80207b2e"
+      "sha256": "9578244277c9479cac4be25e4f1bcfc4f148080e5bb5c2c1bc52bcf8c5e5f7ce"
     },
     ".claude/skills/act-pr/SKILL.md": {
       "source": ".act/skills/act-pr/SKILL.md",
@@ -114,11 +114,11 @@
     },
     ".claude/skills/act-prepare/SKILL.md": {
       "source": ".act/skills/act-prepare/SKILL.md",
-      "sha256": "b2ac8dbb5a4e9cb48c40f797a6c3031cc3e00b664ee5e3fb03fe57c58a7f3dc6"
+      "sha256": "44e9269947753dc05677435c4b50bb287aa26fa5cdc1222190bbdc3d1f1aa25d"
     },
     ".claude/skills/act-refactor/SKILL.md": {
       "source": ".act/skills/act-refactor/SKILL.md",
-      "sha256": "4a692a8c7bbab60da3512be7ce668f528d84e0fe5bed3a29f8954d4b8d7be51b"
+      "sha256": "f020b6d643fef749df5b89abbc41aacc1ba0fce5fcf6c63a959bab742e50668c"
     },
     ".claude/skills/act-release/SKILL.md": {
       "source": ".act/skills/act-release/SKILL.md",
@@ -175,6 +175,26 @@
     ".claude/skills/act-setup/references/python-install.md": {
       "source": ".act/skills/act-setup/references/python-install.md",
       "sha256": "4abc110d6b9661dcb5a300d76ceffd16719dac19ba63aa5849b98de389718f0a"
+    },
+    ".claude/skills/act-audit-docs/references/workflow.md": {
+      "source": ".act/skills/act-audit-docs/references/workflow.md",
+      "sha256": "63a4d0012cd1e764df4c9cd2211177506c6d2ca1ad64e4d2a98800ea2a0116d6"
+    },
+    ".claude/skills/act-audit-docs/workflow.js": {
+      "source": ".act/skills/act-audit-docs/workflow.js",
+      "sha256": "766733313e94a85a93bf8ac75c21f605918bd393847aa2a5b521f12002987bb4"
+    },
+    ".claude/skills/act-teach/references/lesson-template.md": {
+      "source": ".act/skills/act-teach/references/lesson-template.md",
+      "sha256": "2496d1723c467702a07bcc6c4fa6808263097ccae3b44f2e55623e3fda4d7e32"
+    },
+    ".claude/skills/act-teach/references/topic-template.md": {
+      "source": ".act/skills/act-teach/references/topic-template.md",
+      "sha256": "5f3112e522a2e72426a65257d27abe5fc41bd980f6618e78200df29225ae8e1b"
+    },
+    ".claude/skills/act-teach/SKILL.md": {
+      "source": ".act/skills/act-teach/SKILL.md",
+      "sha256": "59d3596b5de86528601daa6319e512fc8c76fe91f67b584353eba104fecd7573"
     }
   },
   "removed_by_user": [],

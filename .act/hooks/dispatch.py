@@ -120,7 +120,11 @@
 #                 project .act/ pulled in without update.py — each best-effort and independently
 #                 gated, see checks.session.refresh_session()), then the fixed-format status line
 #                 "[act] branch=<name>[ · inbox: <n> waiting][ · ideas: <n> new][ · feedback due] ·
-#                 board updated[ · rules: <n>][ · role-bridges refreshed: <n>]", and finally, as a deliberate postscript after
+#                 board updated[ · rules: <n>][ · role-bridges refreshed: <n>]", then, unless
+#                 `board-at-start` is off, an optional board excerpt ("[act] board excerpt ..." plus the
+#                 board's "Waiting for you" and "Open tasks" sections, about 2,000 characters, a cut
+#                 marked) that is shortened or dropped before anything else when the 10,000-character
+#                 cap gets near, and finally, as a deliberate postscript after
 #                 that status line, an optional "a template update is available" note — always a
 #                 *previous* SessionStart's finding, consumed from .act-local/update-check-
 #                 result.json, never something looked up during this run (see
@@ -319,6 +323,7 @@ del _compat_module
 # that can deny stays ahead of these two unless it specifically needs to see their denial first.
 _PRE_TOOL_USE_CHECKS = (
     ("write_guard", "check_write_guard"),                 # check 1  — .act/ template write-guard
+    ("git_metadata_guard", "check_git_metadata_guard"),   # .git/hooks, .git/config, git config keys that run code; worker: .claude/ settings
     ("nesting_guard", "check_worker_nesting_guard"),      # check 1b — no sub-sub-agents (R-role-worker)
     ("write_scope", "check_worker_write_scope"),          # check 1c — per-worker write scope (R-cost-delegate)
     ("worker_docs_ai", "check_worker_docs_ai"),           # worker writes under docs/ai/ (R-role-worker)
@@ -326,11 +331,17 @@ _PRE_TOOL_USE_CHECKS = (
     ("mcp_ide", "check_mcp_ide"),                          # IDE MCP tool calls, classified and reused
     ("commit_pathspec", "check_commit_pathspec"),         # git add -A / . / commit -a (R-code-commit)
     ("git_reset_hard", "check_git_reset_hard"),           # git reset --hard on a dirty tree (R-safe-git-reset)
+    ("git_discard", "check_git_discard"),                 # clean -f, checkout/restore of a folder, stash drop, force push to the default branch, branch -D (R-safe-git-discard)
     ("recursive_delete", "check_recursive_delete"),       # rm -r and friends (R-safe-no-shell-delete)
+    ("secret_read", "check_secret_read"),                 # reading a secret file (.env, keys, cloud credentials) into the context
     ("secret_scan", "check_secret_scan"),                 # secrets in the diff before commit (R-safe-no-secret-diff)
     ("danger_scan", "check_danger_scan"),                 # dangerous patterns in the diff before commit (security-check)
     ("deps_scan", "check_deps_scan"),                     # dependency vulnerabilities in a touched lock file (security-check)
     ("encoding_hint", "check_encoding_hint"),             # non-UTF-8 target, note only (R-code-encoding)
+    ("worker_scope_overlap", "check_worker_scope_overlap"),  # a worker start whose Write scope overlaps a running worker's (R-cost-delegate) —
+                                                          # after every check that could still refuse the start: it records the start's
+                                                          # scope, and a later refusal would leave that entry standing (worker_cap and
+                                                          # status_poll never refuse the orchestrator's own Agent/Task call)
     ("worker_cap", "check_worker_cap"),                   # tool calls beyond the worker's cap (R-cost-delegate) — last on purpose, see above
     ("status_poll", "check_status_poll"),                 # repeated status queries (R-cost-wait) — last on purpose, see above
 )
@@ -364,6 +375,7 @@ _OBSERVERS = (
                                  # lost — only a hookSpecificOutput.additionalContext JSON object
                                  # on stdout reaches the model (checks/tips.py's observe() prints
                                  # exactly that, never bare text)
+    ("worker_scope_overlap", "observe"),  # SubagentStop drops the finished worker's write-scope entry
     ("context_hint", "observe"),  # one-time /clear hint per context-size step on UserPromptSubmit;
                                   # prints the same kind of object as tips — main() merges both
 )
@@ -373,7 +385,7 @@ _OBSERVERS = (
 # call instead of letting it through: exit code 1 would count as "not blocking" for the harness,
 # so a broken guard would silently open the door it is meant to keep shut. Every other check
 # fails open with one line on stderr — a broken convenience check must not stop all work.
-_FAIL_CLOSED = {"write_guard", "nesting_guard", "write_scope", "mcp_ide"}
+_FAIL_CLOSED = {"write_guard", "git_metadata_guard", "nesting_guard", "write_scope", "mcp_ide"}
 # Only tools that can write or start a worker are refused by a broken guard — reading stays
 # possible, so the assistant can still look into what broke.
 _FAIL_CLOSED_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit", "Bash", "PowerShell", "Agent", "Task"}
