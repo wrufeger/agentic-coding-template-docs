@@ -50,6 +50,8 @@ in `docs/ai/config.md` § Checks, each `block`, `warn`, or `off`). Workers runni
 - Git is read-only (`status`, `diff`, `log`, `show`).
 - Never start another worker. If a task should be split, it says so and the orchestrator decides.
 - Return a result plus evidence in at most 40 lines, no raw dumps.
+- Mark every assumption as an assumption; the orchestrator confirms it, asks you, or records it, and never leaves it only in the report.
+- Fix a failing check in the code, never by deleting, skipping or loosening the check; the `reviewer` blocks that unless the reason is named.
 
 ## Failure and cost
 

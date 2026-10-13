@@ -3,7 +3,7 @@ title: Rollen und Worker
 description: Der Orchestrator, die Worker-Rollen, Tiers, Caps, Write Scope und was ein Worker nicht darf.
 sidebar:
   order: 2
-sourceHash: d475f08a4476db2082b5a3d3c2ed9975d30778292e2121c0b4b66010707742d3
+sourceHash: 906bd1fe7287754f297c715651410d3708d690ac538f99e722c5643f3d1e8839
 ---
 
 ## Orchestrator und Worker
@@ -53,6 +53,8 @@ aus Pfaden relativ zum Projekt; `Write scope: none` heißt nur lesend; ein Berei
 - Git ist nur lesend (`status`, `diff`, `log`, `show`).
 - Nie einen weiteren Worker starten. Sollte eine Aufgabe geteilt werden, sagt er das, und der Orchestrator entscheidet.
 - Ein Ergebnis samt Beleg in höchstens 40 Zeilen liefern, keine Rohdaten.
+- Jede Annahme als Annahme kennzeichnen; der Orchestrator bestätigt sie, fragt dich oder hält sie fest, nie nur im Bericht.
+- Eine fehlschlagende Prüfung im Code beheben, nie durch Löschen, Überspringen oder Lockern der Prüfung; der `reviewer` sperrt das, wenn kein Grund genannt ist.
 
 ## Scheitern und Kosten
 

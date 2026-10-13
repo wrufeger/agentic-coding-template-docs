@@ -13,13 +13,15 @@ stabil und werden nie neu vergeben, auch wenn sich der Wortlaut später ändert.
 Schicht: `10-safety.md`, `20-code.md`.
 
 ## R-work-evidence
-<!-- source: e67147800746934c -->
+<!-- source: cec819124e90cdaa -->
 Erledigt nur mit Beleg
-summary: Testlauf, Commit-Hash oder externer Aufruf als Nachweis; nicht Überprüftes benennen
+summary: Testlauf, CI-Lauf, Log-Auszug, Screenshot, Commit-Hash oder externer Aufruf als Nachweis; jede erreichbare Rückkopplung vor der des Menschen; nicht Überprüftes benennen
 
-„Erledigt“ gilt nur, wenn ein Testlauf, ein Commit-Hash oder ein externer Aufruf das Ergebnis belegt. Ein
-Ergebnis ohne Beleg ist „nicht überprüft“, nicht „erledigt“ — das wird offen gesagt, und ein fehlerhafter Plan
-wird hinterfragt, statt ihm zuliebe zuzustimmen.
+„Erledigt“ gilt nur, wenn ein Beleg das Ergebnis zeigt: ein Testlauf, ein CI-Lauf, ein Log-Auszug oder ein
+Screenshot der laufenden Anwendung, ein Commit-Hash oder ein externer Aufruf. Bevor eine Prüfung an den Menschen
+übergeben wird, ist jede erreichbare Rückkopplung gelaufen — Tests, CI-Status, Logs, die laufende Anwendung
+(`run` in `docs/ai/config.md`). Ein Ergebnis ohne Beleg ist „nicht überprüft“, nicht „erledigt“ — das wird offen
+gesagt, und ein fehlerhafter Plan wird hinterfragt, statt ihm zuliebe zuzustimmen.
 
 ## R-work-override
 <!-- source: d45c9dd598816658 -->
@@ -79,12 +81,12 @@ in Ausschnitten gelesen (`offset`/`limit`), nicht vollständig. Jede Zeile, die 
 jedem folgenden Schritt erneut gelesen.
 
 ## R-role-worker
-<!-- source: d5f7bb38c4424a05 -->
+<!-- source: 225549f68dc39923 -->
 Was ein Worker darf und was nicht
-summary: begrenzter Auftrag, Beleg, keine Commits, kein docs/ai/, Git nur lesend, keine Sub-Worker
+summary: begrenzter Auftrag, Beleg und markierte Annahmen, keine Commits, kein docs/ai/, Git nur lesend, keine Sub-Worker
 
 Ein Worker (Sub-Agent) arbeitet nach einem begrenzten Auftrag und liefert ein Ergebnis **samt Beleg**, höchstens
-40 Zeilen, keine Rohdaten. Er committet nie, schreibt nie nach `docs/ai/` und fragt den Menschen nie direkt — offene
+40 Zeilen, keine Rohdaten, jede getroffene Annahme als **Annahme** (assumption) markiert. Er committet nie, schreibt nie nach `docs/ai/` und fragt den Menschen nie direkt — offene
 Fragen gibt er mit seinem Ergebnis zurück. Spricht der Mensch einen Worker direkt an, nimmt dieser die Frage nicht
 auf: Er antwortet nur „bitte den Orchestrator fragen“ und arbeitet an seinem Auftrag weiter. Nach dem Stand
 gefragt, antwortet er sofort mit Fakten: erledigt, offen, unerwartet. Der Git-Zugriff ist nur lesend (`status`,
@@ -241,9 +243,9 @@ Abrufzeit, per gitignore ausgeschlossen, je Arbeitsplatz) und wird vor der Wiede
 er älter als einen Tag ist.
 
 ## rules/shared/20-code.md
-<!-- source: 371fe7d72a1c4aeb -->
+<!-- source: 33fa0ce45cc1205d -->
 Code-Regeln
-summary: englische Bezeichner, Encoding erhalten, installierte Werkzeuge, installierte Versionen
+summary: englische Bezeichner, Encoding erhalten, installierte Werkzeuge, installierte Versionen, Prüfungen unangetastet
 
 Gemeinsame Code-Regeln, die jede Rolle lädt. Die IDs (`R-<area>-<name>`) sind stabil und werden nie neu vergeben.
 
@@ -283,6 +285,19 @@ Regeln gelten für die **tatsächlich installierte** Version einer Sprache, eine
 Bibliothek. Vor einer versionsabhängigen Regel wird die Version aus den Projektdateien geprüft (Lockfile,
 `package.json`, `composer.json`, `pyproject.toml`, `pom.xml`, `go.mod`, Projektdatei) und die Regel darauf
 abgestimmt; eine Regel für eine Version, die das Projekt nicht hat, wird nicht angewendet.
+
+## R-code-checks-intact
+<!-- source: 65b6d6f69f47152f -->
+Den Code korrigieren, nicht die Prüfung
+summary: ein fehlschlagender Test, Lint- oder Typ-Check wird im Code behoben, nie durch Löschen, Überspringen, Aufweichen oder Stummschalten; eine falsche Prüfung wird benannt und in einem eigenen Schritt geändert
+
+Ein fehlschlagender Test, Lint- oder Typ-Check wird im geprüften Code zum Bestehen gebracht, nie dadurch, dass
+die Prüfung geschwächt wird: kein gelöschter oder übersprungener Test (`skip`, `xfail`, `.only`, `@Disabled`,
+`t.Skip` …), keine aufgeweichte Zusicherung (Assertion), kein aufgeweichter Erwartungswert, keine aufgeweichte
+Toleranz oder Zeitgrenze, keine Unterdrückung (`# noqa`, `# type: ignore`, `@ts-ignore`, `eslint-disable` …),
+keine Datei, Regel oder Schwelle, die in der Konfiguration einer Prüfung herausgenommen oder gesenkt wird —
+es sei denn, der Auftrag verlangt genau das. Eine Prüfung, die selbst falsch ist, wird im Bericht mit dem Grund
+benannt und in einem eigenen Schritt geändert, nie innerhalb der Korrektur, die sie grün haben musste.
 
 ## rules/orchestrator/00-role.md
 <!-- source: 9f94e72fecfe8ff9 -->
@@ -368,12 +383,13 @@ offene Aufgaben mit ihrem Stand): Ein bloßes „weiter“ arbeitet damit und li
 ihren Stand weiter.
 
 ## R-work-idea-first
-<!-- source: b4861f60678e98d9 -->
+<!-- source: 37a8e347705146f7 -->
 Erst das Konzept, dann der Code
-summary: Konzept mit Optionen und Entscheidung vor dem Bauen, Ausnahmen laut nennen
+summary: Konzept mit Optionen, Fehlerfällen und einem Rückweg sowie Entscheidung vor dem Bauen, Ausnahmen laut nennen
 
-Eine Idee, ein Feature oder ein Änderungswunsch bekommt zuerst ein kurzes Konzept mit Optionen und einer
-Entscheidung und wird erst dann gebaut — nicht umgekehrt. Bei etwas Kleinem darf das entfallen, aber das wird
+Eine Idee, ein Feature oder ein Änderungswunsch bekommt zuerst ein kurzes Konzept mit Optionen — die empfohlene
+mit ihren Fehlerfällen und ihrem Rückweg (`act-idea`) — und einer Entscheidung und wird erst dann gebaut —
+nicht umgekehrt. Bei etwas Kleinem darf das entfallen, aber das wird
 laut gesagt, damit der Mensch widersprechen kann.
 
 ## R-work-config
@@ -386,16 +402,18 @@ was sich seit dem letzten Abgleich geändert hat; ohne diesen Hook wird `config.
 gelesen, statt anzunehmen, sie sei unverändert.
 
 ## R-work-handover
-<!-- source: cd35bc5814ac2c0d -->
+<!-- source: 67631ddb803ea512 -->
 Jeder Schritt endet übergabebereit
-summary: Stand, offene Aufgabe und Entscheidungen, damit eine frische Sitzung weitermachen kann; /clear wird an einer Aufgabengrenze vorgeschlagen, sobald der Kontext groß ist
+summary: Stand, offene Aufgabe, Entscheidungen und akzeptierte Annahmen, damit eine frische Sitzung weitermachen kann; /clear wird an einer Aufgabengrenze vorgeschlagen, sobald der Kontext groß ist
 
 Auch ein Teilschritt (eine Etappe, eine Teilaufgabe) ist erst erledigt, wenn eine frische Sitzung ohne
 Vorwissen daran anknüpfen könnte: Stand und nächster Schritt festgehalten mit `entries.py state <id> <text>`
 (`.act-local/state/`, auf dem Board sichtbar; der erste markiert die Aufgabe als `started:` — eine Notiz zu einer
 noch nicht begonnenen Aufgabe kommt stattdessen in die Aufgabendatei), die offene Aufgabe mit Ziel und
 Prüfkriterien in der versionierten Aufgabendatei, der Beleg im Journal, und beim Bauen getroffene
-Entscheidungen dort aufgeschrieben, wo man sie suchen würde — nicht nur im Chat-Verlauf. Ein Arbeitsplatz
+Entscheidungen dort aufgeschrieben, wo man sie suchen würde — nicht nur im Chat-Verlauf. Eine Annahme, auf der das Ergebnis eines akzeptierten Workers beruht, wird bestätigt,
+dem Menschen in der Inbox vorgelegt oder mit dem Stand der Aufgabe festgehalten — nie nur im Bericht des Workers
+belassen. Ein Arbeitsplatz
 außerhalb des Repos — ein zweiter Checkout, ein Worktree — kommt mit vollem Pfad in die Aufgabe. Bevor vor
 einem großen Umbau zu einem Neustart geraten wird, wird zuerst bestätigt, dass diese Übergabe tatsächlich
 trägt; erst dann folgt der Rat. Vor einer manuellen Verdichtung (`/compact`) wird der Stand zuerst mit

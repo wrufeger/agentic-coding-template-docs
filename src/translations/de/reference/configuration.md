@@ -136,14 +136,15 @@ unter `docs/learn/<topic>/` in `language-docs`, versioniert und von `act-audit-d
 unter `.act-local/learn/<topic>/`.
 
 ## Dependencies
-<!-- source: e93a0ba1929e8873 -->
+<!-- source: f412620dbdf64968 -->
 | Schlüssel | Wert |
 | :--- | :--- |
-| `dependency-check` | once |
+| `dependency-check` | regularly |
 
-`never` \| `once` \| `regularly`. `once` (Standard) legt direkt nach `init` einen einmaligen Inbox-Eintrag an,
-der bittet, `act-deps` auszuführen, danach nur noch auf Anforderung; `regularly` weist stattdessen beim Sitzungsstart
-darauf hin, wenn der letzte `act-deps`-Lauf (ein Journal-Eintrag mit dem Titel `act-deps: ...`) älter als 30 Tage ist;
+`never` \| `once` \| `regularly`. `regularly` (Standard) weist beim Sitzungsstart darauf hin, wenn noch kein
+`act-deps`-Lauf verzeichnet ist („no `act-deps` run on record yet“, einmalig), und danach, wenn der letzte Lauf
+(ein Journal-Eintrag mit dem Titel `act-deps: ...`) älter als 30 Tage ist; `once` legt stattdessen direkt nach
+`init` einen einmaligen Inbox-Eintrag an, der bittet, `act-deps` auszuführen, danach nur noch auf Anforderung;
 `never` tut keines von beidem — der Skill selbst läuft in jedem Fall weiterhin auf ausdrückliche Anforderung.
 
 ## Docs audit
