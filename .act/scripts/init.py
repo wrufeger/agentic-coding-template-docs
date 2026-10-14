@@ -12,10 +12,11 @@
 #          AGENTS.md still carrying the template's own bootstrap marker is replaced by its project
 #          bridge here too, see _bootstrap_entry_files/TEMPLATE_BOOTSTRAP_MARKER -- --target never
 #          has one to replace), append .gitattributes/.gitignore, retire the template's own
-#          README(s) and LICENSE (skipped in --target mode -- nothing of the template's own there
-#          to decide, only .act/ was copied in), write the lock/cache state, and make the first
-#          commit. Never overwrites a file the project already has; anything that needs a decision
-#          but can't be asked (non-interactive run) is written to docs/ai/inbox/ instead of guessed.
+#          README(s), CHANGELOG.md and LICENSE (skipped in --target mode -- nothing of the
+#          template's own there to decide, only .act/ was copied in), write the lock/cache state,
+#          and make the first commit. Never overwrites a file the project already has; anything
+#          that needs a decision but can't be asked (non-interactive run) is written to
+#          docs/ai/inbox/ instead of guessed.
 #          A `language-docs` other than English leaves the scaffold English (marked `act:default`)
 #          plus one inbox entry asking to translate it (R-work-language) — init has no model to do
 #          that itself. Stdlib only.
@@ -46,7 +47,7 @@ import tempfile
 import uuid
 from datetime import date
 from pathlib import Path
-from typing import NamedTuple, Optional, TypedDict, Union
+from typing import Callable, NamedTuple, Optional, TypedDict, Union
 
 import actlib
 import entries
@@ -2242,7 +2243,7 @@ def step_git_files(root: Path, plan: bool) -> tuple[list[str], list[Path]]:
 
 
 # ---------------------------------------------------------------------------
-# Step 8 — template's own files (README / LICENSE)
+# Step 8 — template's own files (README / CHANGELOG / LICENSE)
 # ---------------------------------------------------------------------------
 
 # First line of a README the template wrote for itself -- .github/README.md (GitHub's landing
@@ -2252,6 +2253,16 @@ def step_git_files(root: Path, plan: bool) -> tuple[list[str], list[Path]]:
 # only says the file started as the template's; whether it still matches the template is checked
 # separately, so an edit made after the marker was written is never silently discarded.
 TEMPLATE_README_MARKER = "<!-- act:template-readme -->"
+# First line of the template's own CHANGELOG.md (changes to the template itself, shown on its GitHub
+# page). A project keeps its own changelog, so step 8 removes the template's under the same
+# verified-match condition as its READMEs; a CHANGELOG.md without this marker is the project's own.
+TEMPLATE_CHANGELOG_MARKER = "<!-- act:template-changelog -->"
+# First line of the community files the template ships for its own GitHub repository under .github/
+# (code of conduct, contributing guide, security policy, pull request template: Markdown; issue forms
+# and their config: YAML). A project has its own policies, so step 8 removes them under the same
+# verified-match condition as the READMEs; a file in .github/ without a marker is the project's own.
+TEMPLATE_COMMUNITY_MARKERS = ("<!-- act:template-community -->", "# act:template-community")
+_COMMUNITY_PATTERNS = (".github/*.md", ".github/ISSUE_TEMPLATE/*.yml", ".github/ISSUE_TEMPLATE/*.yaml")
 
 
 def _has_marker(path: Path, marker: str) -> bool:
@@ -2408,14 +2419,28 @@ def _bootstrap_entry_files(
     return messages, force
 
 
-def _step_own_readmes(
+def _community_files(root: Path) -> list[str]:
+    """Paths (relative, `/`-separated) of the files under .github/ whose first line carries one of
+    TEMPLATE_COMMUNITY_MARKERS -- the template's own community files; unmarked files are not listed."""
+    found: list[str] = []
+    for pattern in _COMMUNITY_PATTERNS:
+        for path in sorted(root.glob(pattern)):
+            if path.is_file() and any(_has_marker(path, marker) for marker in TEMPLATE_COMMUNITY_MARKERS):
+                found.append(path.relative_to(root).as_posix())
+    return found
+
+
+def _step_own_docs(
     root: Path, plan: bool, cfg: ProjectConfig, template_commit: str, notes: list[str]
 ) -> list[str]:
+    community_removed: set[Path] = set()  # removed here, or (under plan) about to be
+
     def remove_github_readme(plan: bool) -> str:
         github_readme = root / ".github" / "README.md"
         github_dir = github_readme.parent
         if plan:
-            others = [p for p in github_dir.iterdir() if p != github_readme]
+            others = [p for p in github_dir.rglob("*") if p.is_file() and p != github_readme
+                      and p not in community_removed]
             if not others:
                 return ".github/README.md would be removed (template's own), .github/ would be removed (now empty)"
             return ".github/README.md would be removed (template's own)"
@@ -2441,7 +2466,46 @@ def _step_own_readmes(
         _write_new_file(root / "README.md", text)
         return "README.md replaced with a project skeleton"
 
-    return [
+    def remove_changelog(plan: bool) -> str:
+        if plan:
+            return "CHANGELOG.md would be removed (template's own)"
+        (root / "CHANGELOG.md").unlink()
+        return "CHANGELOG.md removed (template's own)"
+
+    def remove_community_file(rel_path: str) -> Callable[[bool], str]:
+        def _do(inner_plan: bool) -> str:
+            community_removed.add(root / rel_path)
+            if inner_plan:
+                return f"{rel_path} would be removed (template's own)"
+            (root / rel_path).unlink()
+            return f"{rel_path} removed (template's own)"
+        return _do
+
+    # The community files go before the README, so that .github/ is empty -- and removed with the
+    # README -- when they were the last other content; if the README is kept, the now empty
+    # .github/ISSUE_TEMPLATE/ and .github/ are cleaned up below.
+    community_messages: list[str] = []
+    for rel_path in _community_files(root):
+        marker = next(m for m in TEMPLATE_COMMUNITY_MARKERS if _has_marker(root / rel_path, m))
+        community_messages.append(_retire_template_readme(
+            root, plan, rel_path, template_commit,
+            "github-community-" + rel_path.removeprefix(".github/").replace("/", "-") + ".template",
+            notes, remove_community_file(rel_path), marker=marker,
+        ))
+    for leftover in (root / ".github" / "ISSUE_TEMPLATE", root / ".github"):
+        if not leftover.is_dir() or not community_removed:
+            continue
+        if plan:
+            now_empty = all(p in community_removed for p in leftover.rglob("*") if p.is_file())
+        else:
+            now_empty = not any(leftover.iterdir())
+        if now_empty:
+            if not plan:
+                leftover.rmdir()
+            verb = "would be removed" if plan else "removed"
+            community_messages.append(f"{leftover.relative_to(root).as_posix()}/ {verb} (now empty)")
+
+    return community_messages + [
         _retire_template_readme(
             root, plan, ".github/README.md", template_commit,
             "github-README.template.md", notes, remove_github_readme,
@@ -2450,13 +2514,17 @@ def _step_own_readmes(
             root, plan, "README.md", template_commit,
             "README.template.md", notes, replace_root_readme,
         ),
+        _retire_template_readme(
+            root, plan, "CHANGELOG.md", template_commit,
+            "CHANGELOG.template.md", notes, remove_changelog, marker=TEMPLATE_CHANGELOG_MARKER,
+        ),
     ]
 
 
 def step_own_files(
     root: Path, plan: bool, interactive: bool, cfg: ProjectConfig, template_commit: str, notes: list[str]
 ) -> str:
-    parts = _step_own_readmes(root, plan, cfg, template_commit, notes)
+    parts = _step_own_docs(root, plan, cfg, template_commit, notes)
 
     license_path = root / "LICENSE"
     if not license_path.is_file():
@@ -3065,7 +3133,7 @@ def main(argv: list[str]) -> int:
     # carry-over below (Weg C / owner profile) may edit docs/ai/rules.md or coding_rules.md; step 9
     # records these instead of re-hashing the edited files (see step_lock_and_cache). Nothing else
     # between here and step 9 touches a generated file: step 7 writes .gitignore/.gitattributes,
-    # step 8 README.md/LICENSE only.
+    # step 8 README.md/CHANGELOG.md/LICENSE only.
     generated_hashes = {rel: actlib.generated_hash(path) for rel, path in generated.items() if path.is_file()}
     translate_path, translate_message = step_translate_note(root, plan, cfg)
     if translate_message:
@@ -3096,18 +3164,29 @@ def main(argv: list[str]) -> int:
     gitfiles_messages, touched_gitfiles = step_git_files(root, plan)
     _print_step(7, "; ".join(gitfiles_messages))
 
-    # README.md/LICENSE at the repo root, whatever step 8 below did with them (replaced, kept
-    # as-is, or left as the project's own) -- always re-added to the new commit here, in-place
-    # only: step 2's orphan rebuild of 'main' drops every path from the index, including these two,
-    # so leaving them out of `commit_paths` would leave them as untracked residue after step 10's
-    # pathspec commit even though nothing about them needs a human decision (found in a
-    # probe, tests/probes/t76-bootstrap; --target never touches them, same reasoning as step 8).
+    # README.md/CHANGELOG.md/LICENSE at the repo root, whatever step 8 below did with them (replaced,
+    # removed, kept as-is, or left as the project's own) -- always re-added to the new commit here
+    # if still there, in-place only: step 2's orphan rebuild of 'main' drops every path from the
+    # index, including these, so leaving them out of `commit_paths` would leave them as untracked
+    # residue after step 10's pathspec commit even though nothing about them needs a human decision
+    # (found in a probe, tests/probes/t76-bootstrap; --target never touches them, same reasoning as
+    # step 8).
     own_root_files: list[Path] = []
     if is_target:
         _print_step(8, "skipped in --target mode (docking onto an existing project, nothing of the template's own to decide)")
     else:
-        _print_step(8, step_own_files(root, plan, interactive, cfg, verify_commit, notes))
-        own_root_files = [p for p in (root / "README.md", root / "LICENSE") if p.is_file()]
+        own_files_message = step_own_files(root, plan, interactive, cfg, verify_commit, notes)
+        _print_step(8, own_files_message)
+        # Under --plan nothing is removed yet: a file step 8 only *would* remove is no commit path,
+        # or step 10's preview would list a file step 8 just announced as gone.
+        planned_removals = {
+            part.split(" ", 1)[0] for part in own_files_message.split("; ") if " would be removed" in part
+        }
+        own_root_files = [
+            p for p in (root / "README.md", root / "CHANGELOG.md", root / "LICENSE",
+                        *(root / rel for rel in _community_files(root)))
+            if p.is_file() and p.relative_to(root).as_posix() not in planned_removals
+        ]
 
     _print_step(9, step_lock_and_cache(root, plan, template_origin, template_commit, generated, copies, generated_hashes,
                                         lock_existed_before=lock_existed_before))
