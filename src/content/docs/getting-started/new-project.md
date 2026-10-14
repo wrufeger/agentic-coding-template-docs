@@ -60,7 +60,9 @@ Ten fixed steps, each printed as `[n/10]`:
 6. Writes the skeleton: `docs/ai/` (`config.md`, `rules.md`, `concept/`, inbox, work folders), `docs/project/coding_rules.md`,
    `docs/README.md`, the bridge files, skill copies, and the hook entries in `.claude/settings.json`.
 7. Appends template blocks to `.gitattributes` and `.gitignore`.
-8. In place only: retires the template's own README and LICENSE.
+8. In place only: retires the template's own README, `CHANGELOG.md`, and community files under `.github/`
+   (contributing, security, code of conduct, accessibility, issue and pull request templates), and asks whether to keep
+   its LICENSE.
 9. Writes `.act-lock.json` (the recorded template source and version) and `.act/MANIFEST.json`.
 10. Makes the first commit.
 

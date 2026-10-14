@@ -3,7 +3,7 @@ title: Neues Projekt
 description: Ein neues Projekt aus dem Template einrichten, mit dem Assistenten oder von Hand.
 sidebar:
   order: 1
-sourceHash: 3ab4c029cbd08b78df77167e1e2ff4866e3dc0157bdea079c40b87e5a1cf55ed
+sourceHash: 756c8531b8b588637a3661fd0cd312907df8d52bb6efdf2cd8ca07b2c5dcb7b5
 ---
 
 ## Das Template holen
@@ -63,7 +63,9 @@ Zehn feste Schritte, jeder ausgegeben als `[n/10]`:
 6. Schreibt das Gerüst: `docs/ai/` (`config.md`, `rules.md`, `concept/`, Inbox, Arbeitsordner), `docs/project/coding_rules.md`,
    `docs/README.md`, die Brückendateien, Skill-Kopien und die Hook-Einträge in `.claude/settings.json`.
 7. Hängt Blöcke des Templates an `.gitattributes` und `.gitignore` an.
-8. Nur im Klon: legt README und LICENSE des Templates still.
+8. Nur im Klon: legt die eigenen Dateien des Templates still: README, `CHANGELOG.md` und die Community-Dateien unter
+   `.github/` (Beitragshinweise, Sicherheit, Verhaltenskodex, Barrierefreiheit, Vorlagen für Issues und Pull Requests),
+   und fragt, ob seine LICENSE bleibt.
 9. Schreibt `.act-lock.json` (die festgehaltene Quelle und Version des Templates) und `.act/MANIFEST.json`.
 10. Macht den ersten Commit.
 

@@ -533,7 +533,7 @@ Kostenregeln
 summary: Delegations-Tiers und Caps, auf Worker warten, einen laufenden Auftrag ergänzen, wiederkehrende Prüfungen als Script, Commit-Schranke
 
 ## R-cost-delegate
-<!-- source: 2089ccfa49c75e3f -->
+<!-- source: 482a0b70673ca714 -->
 Tier, Schätzung und Cap nennen
 summary: Tier, Schätzung von Umfang/Dauer, mechanisch geprüfter Cap, kleine Aufträge
 
@@ -566,7 +566,9 @@ abgewiesen. Ein relatives Muster (`src/**`) ist der Normalfall; ein absoluter Pf
 Projektstamms (`D:/dev/x/project/src/**`) wird ebenfalls angenommen und gelesen, als wäre er relativ
 geschrieben — einer außerhalb des Projektstamms wird abgewiesen, es sei denn, er liegt in einem Verzeichnis aus
 `permissions.additionalDirectories` (ein benachbarter Checkout: `../other/.act/**` oder sein absoluter Pfad).
-`Write scope: none` heißt nur lesend, keinerlei Schreibzugriff. Fehlt die Zeile, gilt keine Einschränkung über
+`Write scope: none` heißt nur lesend: kein Schreibzugriff im Projekt, nur in das temporäre Verzeichnis des Systems
+als ausgeschriebener Pfad (`/tmp/...` in Bash oder sein absoluter Pfad) — dorthin darf jeder Worker schreiben,
+gleich welcher Scope, es sei denn, das Projekt selbst liegt darin. Fehlt die Zeile, gilt keine Einschränkung über
 den eigenen `.act/`-Schreibschutz des Templates hinaus. `worker-write-scope` (`docs/ai/config.md` § Checks)
 prüft ihn mechanisch, ebenso wie der Cap mechanisch statt aus dem Gedächtnis geprüft wird — bei einem
 Bash-Befehl ist das bestmöglich (erfasst Umleitungen und die gängigen Schreibbefehle, kein vollständiges

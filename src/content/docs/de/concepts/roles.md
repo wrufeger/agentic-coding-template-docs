@@ -3,7 +3,7 @@ title: Rollen und Worker
 description: Der Orchestrator, die Worker-Rollen, Tiers, Caps, Write Scope und was ein Worker nicht darf.
 sidebar:
   order: 2
-sourceHash: 906bd1fe7287754f297c715651410d3708d690ac538f99e722c5643f3d1e8839
+sourceHash: 33781e57d445180b14e886ed59530ee5bd7dea5a2f51865b84d9e11a9600571e
 ---
 
 ## Orchestrator und Worker
@@ -43,7 +43,7 @@ abbildet, heute nur für Claude Code. Um eine einzelne Rolle zu ändern, füllst
 Jeder Auftrag nennt sein Tier, eine Schätzung und ein Cap als `Cap: <n>` Tool-Aufrufe. Ohne Angabe gilt der
 Standardwert des Tiers: `light` 10, `standard` 40, `elevated` 60, `high` und `expert` 80. Der Worker bekommt am
 Cap einen Hinweis und wird ab dem 1,5-Fachen des Caps abgewiesen. Außerdem nennt der Auftrag seinen Write Scope als `Write scope:`
-aus Pfaden relativ zum Projekt; `Write scope: none` heißt nur lesend; ein Bereich `dir/**` deckt auch das Anlegen von `dir` selbst ab. Eckige Klammern in einem Muster werden wörtlich gelesen, `server/api/[id]/**` meint also den Ordner namens `[id]`, und ein Shell-Befehl, dessen Platzhalter über den Bereich hinausreicht, wird abgelehnt. Beides prüfen Hooks mechanisch (`worker-cap`,
+aus Pfaden relativ zum Projekt; `Write scope: none` heißt nur lesend im Projekt. In das temporäre Verzeichnis des Systems darf jeder Worker, gleich welcher Scope, trotzdem schreiben, wenn der Pfad ausgeschrieben ist (`/tmp/...` in Bash oder sein absoluter Pfad), es sei denn, das Projekt selbst liegt dort. Ein Bereich `dir/**` deckt auch das Anlegen von `dir` selbst ab. Eckige Klammern in einem Muster werden wörtlich gelesen, `server/api/[id]/**` meint also den Ordner namens `[id]`, und ein Shell-Befehl, dessen Platzhalter über den Bereich hinausreicht, wird abgelehnt. Beides prüfen Hooks mechanisch (`worker-cap`,
 `worker-write-scope` in `docs/ai/config.md` § Checks, jeweils `block`, `warn` oder `off`). Gleichzeitig laufende Worker brauchen getrennte Write Scopes: `worker-scope-overlap` lehnt einen Start ab, dessen Bereich sich mit dem eines noch laufenden Workers überschneidet. Ein Auftrag, der das Ergebnis eines anderen Workers liest, nennt diesen als `Depends on:` und startet erst, wenn jener Worker fertig ist.
 
 ## Was ein Worker nicht darf
