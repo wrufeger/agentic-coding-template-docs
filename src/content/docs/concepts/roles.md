@@ -57,5 +57,5 @@ in `docs/ai/config.md` § Checks, each `block`, `warn`, or `off`). Workers runni
 
 A worker that fails the same task twice gets no third identical attempt: the orchestrator sharpens the assignment
 once, or hands it to `expert-solver` with the full failure context. After accepting, reworking, or escalating a
-result it records the outcome with `usage.py --outcome`; from enough of them `doctor.py` proposes a different tier,
+result it records the outcome with `usage.py --outcome`; from enough reworks among them `doctor.py` proposes a higher tier,
 and you decide. The orchestrator also does not poll a running worker. An addition from you that fits a running assignment goes to that worker at once, or the worker is stopped and reassigned when one new run is cheaper than two. A wider write scope or a higher cap always means reassign, since both are read once when the worker starts.

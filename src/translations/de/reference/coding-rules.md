@@ -224,7 +224,7 @@ Regeln für Nuxt-Projekte. Gruppen-IDs (`CR-nuxt-<name>`) sind stabil und werden
 Gruppe, deren Zweck nicht mehr gilt, bekommt eine neue ID und wird in diesem Kopf als `retired:` aufgeführt.
 
 ## CR-nuxt-basics
-<!-- source: beb284259423da23 -->
+<!-- source: 8d1f533d6f468732 -->
 Bewährte Nuxt-Standards
 summary: Verzeichnisstruktur, Datenabruf, typisierte Handler, Runtime-Konfiguration, Fallstricke
 
@@ -274,9 +274,13 @@ summary: Verzeichnisstruktur, Datenabruf, typisierte Handler, Runtime-Konfigurat
     Daten des vorigen. Für Zustand, der den Request überleben muss, `useState` verwenden.
   - Formulare mit `@submit.prevent` brauchen zusätzlich `method="post"` (siehe `CR-vue-basics`).
   - **Windows:** Ein abgebrochener Dev-Server kann seinen Port belegt halten; der nächste Start weicht auf
-    den nächsten freien Port aus, und HMR-/WebSocket-Fehler folgen. Den laufenden Prozess beenden
-    (`netstat -ano | findstr :3000`, `taskkill /PID <pid> /F`; `lsof -i :3000`, `kill <pid>`), statt einen
-    eigenen HMR-Port zu konfigurieren.
+    den nächsten freien Port aus, und HMR-/WebSocket-Fehler folgen. Ist es ein Server, den der Assistent
+    selbst gestartet hat, genau diesen Prozess beenden, statt einen eigenen HMR-Port zu konfigurieren. Die
+    lauschende PID findet `(Get-NetTCPConnection -LocalPort <port> -State Listen).OwningProcess` oder
+    `netstat -ano | findstr /C:":<port> " | findstr LISTENING` — ein schlichtes `findstr ":<port> "`
+    trifft auch längere Portnummern, und Zeilen ohne `LISTENING` gehören zu Clients —, dann
+    `taskkill /PID <pid> /F`; anderswo `lsof -iTCP:<port> -sTCP:LISTEN`, `kill <pid>`. Ein Server auf dem
+    Port des Eigentümers gehört ihm: erst fragen (`R-safe-dev-server`).
 
 ## CR-nuxt-root-folders
 <!-- source: a3ad57821a6f8362 -->

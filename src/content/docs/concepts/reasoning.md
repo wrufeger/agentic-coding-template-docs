@@ -58,4 +58,4 @@ A skill may carry `reasoning: <level>` in its frontmatter (a value of the scale 
 
 Every assignment to a worker names its tier, an estimate and a cap on tool calls (`Cap: <n>`). The `worker-cap` check enforces it mechanically: the worker gets one note on reaching the cap and is refused from 1.5 times the cap. Without a `Cap:` line the tier's default applies (table above); without a tier, `standard`.
 
-The assistant records after each result whether it was accepted, reworked or escalated. When a role and tier show many reworks, `doctor` proposes a higher tier; with none over many results, a lower one. It is only ever a proposal, never a live change; you decide.
+The assistant records after each result whether it was accepted, reworked or escalated. When a role and tier show many reworks, `doctor` proposes a higher tier. It never proposes a lower one: accepted results do not show that a cheaper tier would have done as well. It is only ever a proposal, never a live change; you decide.

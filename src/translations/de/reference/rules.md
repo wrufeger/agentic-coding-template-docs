@@ -96,9 +96,9 @@ Aufgabe besser aufteilen, sagt er das in seinem Ergebnis und der Orchestrator en
 Stelle weiß, wer was, wo und wie lange tut.
 
 ## rules/shared/10-safety.md
-<!-- source: c911f9d4b03b6011 -->
+<!-- source: c1a297f73b0a5b0a -->
 Sicherheitsregeln
-summary: Freigabe vor Unumkehrbarem, Secrets in Diffs und beim Lesen, Löschen, verworfene Git-Arbeit, Git-Hooks und -Konfiguration, Sperren der Schutzmechanismen, fremde Inhalte
+summary: Freigabe vor Unumkehrbarem, Secrets in Diffs und beim Lesen, Löschen, verworfene Git-Arbeit, Git-Hooks und -Konfiguration, der Dev-Server des Eigentümers, Sperren der Schutzmechanismen, fremde Inhalte
 
 Gemeinsame Sicherheitsregeln, die jede Rolle lädt. Die IDs (`R-<area>-<name>`) sind stabil und werden nie neu
 vergeben.
@@ -223,6 +223,26 @@ eine solche Datei schreibt der Mensch selbst. Grenze: Was ein Programm oder Scri
 (`pre-commit install`, `python -c "open(...)"`), bleibt für die Prüfung unsichtbar. Mechanisch geprüft durch
 `git-metadata-guard` (`docs/ai/config.md` § Checks).
 
+## R-safe-dev-server
+<!-- source: fd35fa0dec476013 -->
+Der Dev-Server des Eigentümers gehört ihm
+summary: für Tests gestartete Server laufen auf eigenen Ports; den laufenden Server des Eigentümers mitbenutzen, aber nie ohne Rückfrage beenden, neu starten oder verschieben; keine Prozesse nach Namen beenden
+
+Ein Server, den der Assistent für Tests, eine Browser-Prüfung oder einen Screenshot startet (ein Playwright-
+`webServer`, `npm run dev`, `vite`, `php -S` …), läuft nie auf einem der Default-Ports des Projekts — die
+gehören dem Eigentümer. Der Default-Port eines Servers ist der, den `run` in `docs/ai/config.md` oder die
+Framework-Config setzt, sonst der Default des Frameworks; ein Projekt mit Frontend und API hat je einen. Der
+Testserver nimmt den Port aus `docs/project/testing.md`, sonst seinen Default plus 100, und wird nach der
+Arbeit wieder beendet. Eine Test-Config, die selbst einen Server auf einem Default-Port startet, sobald dort
+nichts antwortet (ein Playwright-`webServer` mit der Default-Adresse), verstößt ebenso gegen diese Regel —
+sie gehört auf den Testport gerichtet. Einen Server, den der Eigentümer schon laufen hat, darf der Assistent so
+mitbenutzen, wie er ist, aber nie beenden, neu starten oder auf einen anderen Port verschieben. Braucht eine
+Aktion genau das — der Port ist belegt, eine Config-Änderung verlangt einen Neustart, der Prozess hängt —,
+erst den Eigentümer fragen und warten; ein Worker gibt die Frage mit seinem Ergebnis zurück. Vor dem Beenden
+eines Prozesses per Port oder PID an lauschendem Port und Befehlszeile prüfen, dass es ein Testserver ist,
+den der Assistent gestartet hat, in dieser oder einer früheren Sitzung; im Zweifel fragen. Nie Prozesse nach
+Namen beenden (`taskkill /IM node.exe`, `Stop-Process -Name node`, `pkill node`).
+
 ## R-safe-block
 <!-- source: 8c36e9d227e0c07e -->
 Eine Sperre des Schutzmechanismus nicht umformulieren und neu versuchen
@@ -328,7 +348,7 @@ geht er mit vollem Kontext an die Expertenrolle (ursprünglicher Auftrag, beide 
 Ausgabe, bereits ausgeschlossene Ursachen).
 
 ## R-role-outcome
-<!-- source: 13f1f324255798b4 -->
+<!-- source: 66c838140edd3a82 -->
 Jedes Worker-Ergebnis festhalten
 summary: usage.py --outcome nach jeder Abnahme/Nacharbeit/Eskalation speist den Tier-Vorschlag, nie eine Live-Änderung
 
@@ -337,7 +357,8 @@ Unmittelbar nachdem das Ergebnis eines Workers abgenommen, nachgearbeitet oder e
 `R-cost-delegate` zugewiesen, oder `""`, wenn keiner angegeben war). Kein Hook kann das ersetzen:
 `SubagentStop` feuert vor dieser Entscheidung. `doctor.py --inbox` macht aus dem Muster einen Vorschlag, nie
 eine Live-Änderung: 8+ Ergebnisse für eine Rolle/ein Tier mit 40 % und mehr Nacharbeit/Eskalation legen ein
-höheres Tier nahe, 20+ ohne solche ein niedrigeres — der Mensch entscheidet.
+höheres Tier nahe — der Mensch entscheidet. Ein niedrigeres Tier wird nie vorgeschlagen: Abgenommene
+Ergebnisse zeigen nicht, dass ein günstigeres Tier es ebenso gut gemacht hätte.
 
 ## rules/orchestrator/00-role.md#Role assignment — which role for what
 <!-- source: 3cf3816ffe6719f5 -->
