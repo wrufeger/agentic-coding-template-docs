@@ -35,9 +35,9 @@
   },
   "template": {
     "version": "2.1.0",
-    "commit": "bc90fdc458c75044855fde587052b98df51b590d",
+    "commit": "983c35a1fc8b8d301b7712dcbebc8da1ec9e5b68",
     "source": "D:/dev/rufeger/agentic-coding-template",
-    "manifest_sha256": "4b1276eaf5f86e92b80e031a3425c89381b33cab48ce04062e74047a1d38ed62"
+    "manifest_sha256": "8d001d293975a893f6548c9a4ac725726ef762d6b47f437616be245945ef3c19"
   },
   "copies": {
     ".claude/skills/act/SKILL.md": {
@@ -207,5 +207,8 @@
   "migrations_applied": [
     "001-one-inbox",
     "002-todo-ids"
-  ]
+  ],
+  "settings_applied": {
+    "enableArtifact": false
+  }
 }
