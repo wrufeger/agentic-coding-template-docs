@@ -3,7 +3,7 @@ title: Konfiguration
 description: docs/ai/config.md steuert den Arbeitsablauf - seine Gruppen und was block, warn und off für Prüfungen bedeuten.
 sidebar:
   order: 4
-sourceHash: 751570e8ba617f7a4bc60c7fe48ffc477875263910ecdae82e0631e6972289e8
+sourceHash: 7dc47f313602a0ae6fd14d11ef337b576ebc1977adfe2d1eeeede450a78cfac2
 ---
 
 `docs/ai/config.md` ist die Datei, die steuert, wie am Projekt gearbeitet wird. Sie besteht aus Markdown-Tabellen, ein Abschnitt pro Thema. `init` trägt die Werte ein, die es erfragt oder erkannt hat; du änderst sie jederzeit. Nichts braucht einen Neuaufbau: Der Hook beim Sitzungsstart liest die Datei und meldet, was sich seit dem letzten Abgleich geändert hat. Jeder Schlüssel mit seinen erlaubten Werten steht in der [Konfigurationsreferenz](/agentic-coding-template-docs/de/reference/configuration/); diese Seite erklärt, wofür die Gruppen da sind.
@@ -14,7 +14,7 @@ sourceHash: 751570e8ba617f7a4bc60c7fe48ffc477875263910ecdae82e0631e6972289e8
 - **Board**: `board` wählt, wohin das erzeugte Board geht (`docs`, `shared`, `local`); `board-others` schaltet den Abschnitt für Aufgaben um, die anderen Personen zugewiesen sind.
 - **Inbox**: `inbox-decisions` bestimmt, wo eine offene Entscheidung wartet. Mit `immediate` landet sie in der Inbox, sobald sie verbucht ist; mit `at-start` darf ein Backlog-Eintrag sie behalten, bis die Arbeit daran beginnt.
 - **Output depth**: `output-depth` (`verbose`, `normal`, `sparse`) steuert, wie viel der Assistent im Chat schreibt, nicht was dein Werkzeug anzeigt.
-- **Session length**: `context-hint` (eine Token-Zahl, Standard 180000, oder `off`) ist die Kontextgröße, ab der der Assistent an der nächsten Aufgabengrenze `/clear` oder eine neue Sitzung vorschlägt; `task-wait-hours` (Standard 12) ist die Zeit, die eine begonnene Aufgabe ruhen darf, bevor sie als wartend gilt. `board-at-start` (`on` oder `off`, Standard `on`) gibt dem Sitzungsstart einen Auszug des Boards mit.
+- **Session length**: `context-hint` (eine Token-Zahl, Standard 180000, oder `off`) ist die Kontextgröße, ab der der Assistent an der nächsten Aufgabengrenze `/clear` oder eine neue Sitzung vorschlägt; `task-wait-hours` (Standard 12) ist die Zeit, die eine begonnene Aufgabe ruhen darf, bevor sie als wartend gilt. `board-at-start` (`on` oder `off`, Standard `on`) gibt dem Sitzungsstart einen Auszug des Boards mit. `artifacts` (`on` oder `off`, Standard `off`) auf `off` hält Claude Code davon ab, das Werkzeug `Artifact` zu laden, etwa 13.700 Token weniger bei jedem Sitzungsstart.
 - **Teaching**: `teach-lessons` (`local`, `docs`) legt fest, wo `act-teach` seine Lektionen ablegt: `local` unter `.act-local/learn/` nur für dich, `docs` versioniert unter `docs/learn/` für das Team. Der Lernstand bleibt in beiden Fällen lokal.
 - **Dependencies** und **Docs audit**: `dependency-check` und `docs-audit-due` steuern die Erinnerungen, `act-deps` und `act-audit-docs` auszuführen. Neue Projekte bekommen `dependency-check: regularly`: Der Sitzungsstart weist einmal darauf hin, dass noch kein `act-deps`-Lauf verbucht ist, danach wieder, sobald der letzte älter als 30 Tage ist. `once` legt stattdessen nach `init` einmalig einen Inbox-Eintrag an; bereits gesetzte Werte bleiben.
 - **Git hosting**: `target-branch`, `forge` und `forge-host` sagen dem Pull-Request-Skill, wohin er gehen soll. github.com und gitlab.com bekommen den Token, ohne genannt zu werden; ein selbst gehosteter Host erst, nachdem du ihn genannt hast.

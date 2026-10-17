@@ -33,7 +33,8 @@ python .act/scripts/update.py             # the real run, asks for consent
    are kept and reported. Own skills and roles under `docs/ai/local/` get their
    copies here too.
 7. **Hooks and Git files.** Reconciles the hook entries in `.claude/settings.json` and the template blocks in
-   `.gitattributes` and `.gitignore`.
+   `.gitattributes` and `.gitignore`, and sets `"enableArtifact": false` there unless `artifacts: on` is in
+   `docs/ai/config.md`. An existing project therefore starts without the `Artifact` tool after the update.
 8. **Migrations.** Runs any that are due.
 9. **Bridges and doctor.** First unedited generated bridges (`CLAUDE.md`, `AGENTS.md`, `docs/ai/rules.md`) are
    refreshed; with `session-start-refresh` at `warn` or `off` in `docs/ai/config.md` § Checks they are only

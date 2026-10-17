@@ -3,7 +3,7 @@ title: Update
 description: Einen neueren Stand des Templates mit act-update in ein Projekt holen.
 sidebar:
   order: 3
-sourceHash: 8e03b25624590962369be00f4b09733fbaa1d245412e16cc7a6dd18318563da7
+sourceHash: 293ea2c32e98c4c8fd358c9746dc7e79f97d367def1cb49960f41b38c614e4cf
 ---
 
 `act-update` holt einen neueren Stand des Templates in dein Projekt: Du siehst den Diff, du stimmst zu, und
@@ -36,7 +36,8 @@ python .act/scripts/update.py             # the real run, asks for consent
    von dir bearbeitete Kopien bleiben erhalten und werden gemeldet. Eigene Skills und Rollen unter `docs/ai/local/` bekommen ihre Kopien
    hier ebenfalls.
 7. **Hooks und Git-Dateien.** Gleicht die Hook-Einträge in `.claude/settings.json` und die Blöcke des Templates in
-   `.gitattributes` und `.gitignore` ab.
+   `.gitattributes` und `.gitignore` ab und setzt dort `"enableArtifact": false`, außer `docs/ai/config.md` hat
+   `artifacts: on`. Ein bestehendes Projekt startet nach dem Update deshalb ohne das Werkzeug `Artifact`.
 8. **Migrationen.** Führt alle fälligen aus.
 9. **Brücken und Doctor.** Zuerst werden unbearbeitete erzeugte Brücken (`CLAUDE.md`, `AGENTS.md`,
    `docs/ai/rules.md`) aufgefrischt; steht `session-start-refresh` in `docs/ai/config.md` § Checks auf `warn` oder

@@ -3,7 +3,7 @@ title: Neues Projekt
 description: Ein neues Projekt aus dem Template einrichten, mit dem Assistenten oder von Hand.
 sidebar:
   order: 1
-sourceHash: 756c8531b8b588637a3661fd0cd312907df8d52bb6efdf2cd8ca07b2c5dcb7b5
+sourceHash: 1d556513b6f399a9ca054de0b69572644f41f42574be2fa71f18851c0c72cbd9
 ---
 
 ## Das Template holen
@@ -61,7 +61,7 @@ Zehn feste Schritte, jeder ausgegeben als `[n/10]`:
 4. Schreibt deine Workspace-Identität und den lokalen Import-Ordner `.act-local/import/`.
 5. Dünnt die Brücken auf die gewählten Werkzeuge aus.
 6. Schreibt das Gerüst: `docs/ai/` (`config.md`, `rules.md`, `concept/`, Inbox, Arbeitsordner), `docs/project/coding_rules.md`,
-   `docs/README.md`, die Brückendateien, Skill-Kopien und die Hook-Einträge in `.claude/settings.json`.
+   `docs/README.md`, die Brückendateien, Skill-Kopien und die Hook-Einträge in `.claude/settings.json` (mit `"enableArtifact": false`, außer bei `artifacts: on`).
 7. Hängt Blöcke des Templates an `.gitattributes` und `.gitignore` an.
 8. Nur im Klon: legt die eigenen Dateien des Templates still: README, `CHANGELOG.md` und die Community-Dateien unter
    `.github/` (Beitragshinweise, Sicherheit, Verhaltenskodex, Barrierefreiheit, Vorlagen für Issues und Pull Requests),
