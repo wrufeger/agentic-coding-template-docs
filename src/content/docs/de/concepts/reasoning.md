@@ -3,7 +3,7 @@ title: Tiers und Reasoning
 description: Wie Rollen eine Modellkapazität (Tier) und eine Reasoning-Stufe bekommen, die -high-Varianten, Overrides und Caps.
 sidebar:
   order: 5
-sourceHash: 0608a1a12dd5ac63afebf6b65448bf4dafc2c7f0ee9b9544a5a56301b5ea355d
+sourceHash: 11f93382f53e53a5d3223a7ddb041a38ec443f807f55ecaba19ba4690c3a1e93
 ---
 
 Jede Worker-Rolle hat einen **Tier** (wie viel Modellkapazität) und eine **Reasoning**-Stufe (wie viel sie vor der Antwort nachdenkt). Beides steht in einer werkzeugneutralen Skala in der Definition der Rolle. Ein echter Modellname erscheint nur in `.act/tiers.json` und wird angewendet, wenn die Datei der Rolle für dein Werkzeug erzeugt wird.
@@ -57,6 +57,6 @@ Ein Skill kann im Frontmatter `reasoning: <level>` tragen (ein Wert der obigen S
 
 ## Caps
 
-Jeder Auftrag an einen Worker nennt seinen Tier, eine Schätzung und einen Cap für Tool-Aufrufe (`Cap: <n>`). Die Prüfung `worker-cap` erzwingt ihn mechanisch: Der Worker bekommt beim Erreichen des Caps einen Hinweis und wird ab dem 1,5-fachen Cap abgewiesen. Ohne Zeile `Cap:` gilt der Standard des Tiers (Tabelle oben); ohne Tier `standard`.
+Jeder Auftrag an einen Worker nennt seinen Tier, eine Schätzung und einen Cap für Tool-Aufrufe (`Cap: <n>`). Die Schätzung steht in Minuten und `tkn`, nie in Personentagen: `~<n> min · ~<n> tkn fresh · ~<n> tkn cache` samt der Annahme dahinter. `act-idea`, `act-prepare` und der Assistent stützen sie auf `usage.py --estimates`, wo Messwerte vorliegen (siehe [Rollen](/agentic-coding-template-docs/de/concepts/roles/)). Die Prüfung `worker-cap` erzwingt ihn mechanisch: Der Worker bekommt beim Erreichen des Caps einen Hinweis und wird ab dem 1,5-fachen Cap abgewiesen. Ohne Zeile `Cap:` gilt der Standard des Tiers (Tabelle oben); ohne Tier `standard`.
 
 Der Assistent vermerkt nach jedem Ergebnis, ob es angenommen, nachgearbeitet oder eskaliert wurde. Zeigen eine Rolle und ein Tier viele Nacharbeiten, schlägt `doctor` einen höheren Tier vor. Einen niedrigeren schlägt er nie vor: Angenommene Ergebnisse zeigen nicht, dass ein günstigerer Tier es ebenso gut gemacht hätte. Es ist immer nur ein Vorschlag, nie eine Änderung im laufenden Betrieb; du entscheidest.

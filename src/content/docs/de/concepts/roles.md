@@ -3,7 +3,7 @@ title: Rollen und Worker
 description: Der Orchestrator, die Worker-Rollen, Tiers, Caps, Write Scope und was ein Worker nicht darf.
 sidebar:
   order: 2
-sourceHash: ffe1ac60f6b72a056256d30d9b7fa1a01cfccde7caca8c7fd11f1d62c8bdd38e
+sourceHash: 95acd75c37868a74b2e5c210cefa4a3430ccbd13579751b22b77f8f9dc9bd091
 ---
 
 ## Orchestrator und Worker
@@ -62,4 +62,4 @@ Ein Worker, der dieselbe Aufgabe zweimal nicht schafft, bekommt keinen dritten i
 Orchestrator schärft den Auftrag einmal nach oder übergibt ihn mit dem vollständigen Fehlerkontext an
 `expert-solver`. Nach dem Annehmen, Nacharbeiten oder Eskalieren eines Ergebnisses hält er den Ausgang mit
 `usage.py --outcome` fest; ab genug Nacharbeiten darunter schlägt `doctor.py` ein höheres Tier vor, und du
-entscheidest. Der Orchestrator fragt außerdem einen laufenden Worker nicht wiederholt ab. Eine Ergänzung von dir, die zu einem laufenden Auftrag passt, geht sofort an diesen Worker, oder der Worker wird gestoppt und neu beauftragt, wenn ein neuer Lauf günstiger ist als zwei. Ein größerer Write Scope oder ein höherer Cap heißt immer neu beauftragen, weil beide nur einmal beim Start des Workers gelesen werden.
+entscheidest. Wenn ein Worker endet, liest der Nutzungszähler außerdem sein Transkript und hält Dauer, Schritte und Token (`fresh` und `cache`) je Rolle und Tier in `.act-local/usage.json` fest, jeweils die letzten 50 Läufe. `usage.py --estimates` zeigt Median und 80. Perzentil je Rolle und Tier; `usage.py --backfill` liest die vorhandenen Transkripte eines Projekts einmal ein. Die Zahlen bleiben lokal und gehen nie mit dem Feedback hinaus; nur Claude Code. Der Orchestrator fragt außerdem einen laufenden Worker nicht wiederholt ab. Eine Ergänzung von dir, die zu einem laufenden Auftrag passt, geht sofort an diesen Worker, oder der Worker wird gestoppt und neu beauftragt, wenn ein neuer Lauf günstiger ist als zwei. Ein größerer Write Scope oder ein höherer Cap heißt immer neu beauftragen, weil beide nur einmal beim Start des Workers gelesen werden.

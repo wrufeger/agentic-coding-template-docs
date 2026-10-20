@@ -11,7 +11,7 @@ sidebar:
 
 - **Project**: name, owner, `language-chat` and `language-docs`, `stack`, the lint/typecheck/test `commands`, the `tools` you use and the `mode` (`solo` or `team`, see [Work entries](/agentic-coding-template-docs/concepts/work-entries/)). `language-chat` is the language the assistant talks to you in (`auto` follows your messages); `language-docs` is the language of everything it writes under `docs/`. `.act/` stays English either way. A command set to `(not set)` skips the matching check before a commit. `run` is the command that starts the application; `(not set)` means none is recorded.
 - **Board**: `board` chooses where the generated board goes (`docs`, `shared`, `local`); `board-others` toggles the section for tasks assigned to other people.
-- **Inbox**: `inbox-decisions` decides where an open decision waits. With `immediate` it goes into the inbox as soon as it is booked; with `at-start` a backlog entry may keep it until work on it starts.
+- **Inbox**: `inbox-decisions` decides where an open decision waits. With `immediate` it goes into the inbox as soon as it is booked; with `at-start` a backlog entry may keep it until work on it starts. `quick-capture` (`on` or `off`, default `on`) lets the `UserPromptSubmit` hook file a chat message that begins with `todo:`, `note:` or `idea:` without a model turn, see [Work entries](/agentic-coding-template-docs/concepts/work-entries/).
 - **Output depth**: `output-depth` (`verbose`, `normal`, `sparse`) controls how much the assistant writes in chat, not what your tool displays.
 - **Session length**: `context-hint` (a token count, default 180000, or `off`) is the context size at which the assistant suggests `/clear` or a new session at the next task boundary; `task-wait-hours` (default 12) is how long a started task may stay quiet before it counts as waiting. `board-at-start` (`on` or `off`, default `on`) adds an excerpt of the board to the session start. `artifacts` (`on` or `off`, default `off`) set to `off` keeps Claude Code from loading the `Artifact` tool, about 13,700 tokens saved per session start.
 - **Teaching**: `teach-lessons` (`local`, `docs`) sets where `act-teach` keeps its lessons: `local` under `.act-local/learn/` for you alone, `docs` versioned under `docs/learn/` for the team. The learning record stays local either way.
@@ -19,7 +19,7 @@ sidebar:
 - **Git hosting**: `target-branch`, `forge` and `forge-host` tell the pull-request skill where to go. github.com and gitlab.com receive the token without being named; a self-hosted host only after you have named it.
 - **Checks**: mechanical guards that run before an action (below).
 - **Logging**: `logging` and `log-level` write every agent action to `ai.log` at the project root, not versioned, handy to follow along in a second terminal.
-- **Feedback**: voluntary feedback to the template author, see [Sending feedback](/agentic-coding-template-docs/guides/feedback/).
+- **Feedback**: voluntary feedback to the template author; new projects start with `feedback: confirm`, so nothing is sent without your yes. See [Sending feedback](/agentic-coding-template-docs/guides/feedback/).
 - **Tips**: `tips` (`never`, `occasionally`, `regularly`) controls how often the session start shows a tip. Your own reminders in `docs/ai/local/reminders.md` are not affected.
 - **Roles**: per-role (and per-skill) overrides of tier and reasoning, see [Tiers and reasoning](/agentic-coding-template-docs/concepts/reasoning/).
 

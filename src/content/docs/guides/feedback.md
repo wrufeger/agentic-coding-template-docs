@@ -20,7 +20,7 @@ Three keys in the Feedback section of `docs/ai/config.md` control it:
 | `automatic` | the payload is sent without asking |
 | `manual` | entries are collected but never sent on their own; only the `act-feedback` skill sends |
 
-`python .act/scripts/feedback.py --enable [--mode off|confirm|automatic|manual]` sets the mode; `--enable` without `--mode` means `automatic`, which sends without asking; `--disable` turns it off.
+New projects start with `confirm` whenever nobody chooses: a run without a terminal (as `act-setup` and `act-adopt` run it), an empty answer or three invalid ones; `off` stays one edit away. A `config.md` without the key still counts as `off`. `python .act/scripts/feedback.py --enable [--mode off|confirm|automatic|manual]` sets the mode; `--enable` without `--mode` means `automatic`, which sends without asking; `--disable` turns it off.
 
 ## Cadence and scope
 
@@ -50,6 +50,7 @@ Every string that could leave the project runs through a privacy check first: cr
 ## The local copy
 
 - Every send writes a full copy of its payload to `.act-local/feedback/sent/` (gitignored, never leaves your checkout). Pending entries and bookkeeping live next to it in `.act-local/feedback/`.
+- Worker measurements (`usage.py --estimates`) stay in `.act-local/usage.json` and are never part of a payload.
 - The project's journal gets one line per send: date, kind, number of entries and schema version, never content or titles.
 
 See also the [configuration reference](/agentic-coding-template-docs/reference/configuration/) for the three keys, and [Configuration](/agentic-coding-template-docs/concepts/configuration/) for how the file works.

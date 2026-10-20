@@ -3,15 +3,15 @@ title: Neues Projekt
 description: Ein neues Projekt aus dem Template einrichten, mit dem Assistenten oder von Hand.
 sidebar:
   order: 1
-sourceHash: 1d556513b6f399a9ca054de0b69572644f41f42574be2fa71f18851c0c72cbd9
+sourceHash: 1494da2087402afda103836a243a5350f3b222f1a7deb21703516e14b8700173
 ---
 
 ## Das Template holen
 
 Klone [das Template-Repository](https://github.com/wrufeger/agentic-coding-template) oder nutze auf GitHub
 **Use this template**, und öffne den Ordner dann in deinem Assistenten: Claude Code, Codex, GitHub Copilot,
-Cursor oder Gemini CLI. Du brauchst Python 3.9 oder neuer; der Assistent prüft das und erklärt die Installation,
-falls es fehlt.
+Cursor oder Gemini CLI. Du brauchst Python 3.9 oder neuer und Git 2.25 oder neuer; der Assistent prüft Python und
+erklärt die Installation, falls es fehlt.
 
 ## Mit dem Assistenten: `act-setup`
 
@@ -34,7 +34,8 @@ Jede Sprache funktioniert. Es gibt zwei Wege:
 
 Der Assistent führt die Befehle selbst aus. Er hat kein Terminal, in dem er dir Fragen stellen könnte, also
 übernimmt `init.py` die Standardwerte und schreibt jeden offenen Punkt (Name, Owner, Stack, Werkzeuge) in die
-Inbox. Du gehst diese Notiz mit dem Assistenten durch, und die Antworten kommen in `docs/ai/config.md`.
+Inbox. Du gehst diese Notiz mit dem Assistenten durch, und die Antworten kommen in `docs/ai/config.md`. Ohne Antwort steht `feedback` auf `confirm`: Jede Nachricht an den
+Template-Autor wird gezeigt und erst nach deinem Ja gesendet. `off` ist mit einer Änderung in `docs/ai/config.md` gesetzt.
 
 ## Von Hand: `init.py`
 
@@ -70,7 +71,8 @@ Zehn feste Schritte, jeder ausgegeben als `[n/10]`:
 10. Macht den ersten Commit.
 
 `init.py` überschreibt nie eine Datei, die das Projekt schon hat. Eine `language-docs` außer Englisch lässt das
-Gerüst auf Englisch und legt eine Inbox-Notiz an, die den Assistenten bittet, es einmal zu übersetzen;
+Gerüst auf Englisch. `act-setup` übersetzt es im selben Lauf; nach einem einfachen `init.py` bittet eine Inbox-Notiz den
+Assistenten, es einmal zu übersetzen;
 gängige englische Fachbegriffe (Skill, Inbox, Hook, Branch …) bleiben stehen, vor allem in Überschriften.
 
 ## Deine erste Sitzung

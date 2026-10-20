@@ -9,7 +9,8 @@ sidebar:
 
 Clone [the template repository](https://github.com/wrufeger/agentic-coding-template), or use **Use this template**
 on GitHub, then open the folder in your assistant: Claude Code, Codex, GitHub Copilot, Cursor, or Gemini CLI. You
-need Python 3.9 or newer; the assistant checks for it and explains the installation if it is missing.
+need Python 3.9 or newer and Git 2.25 or newer; the assistant checks for Python and explains the installation
+if it is missing.
 
 ## With the assistant: `act-setup`
 
@@ -31,7 +32,8 @@ Any language works. There are two ways:
 
 The assistant runs the commands itself. It has no terminal to ask you questions in, so `init.py` takes its
 defaults and writes every open point (name, owner, stack, tools) to the inbox. You go through that note with
-the assistant and the answers go into `docs/ai/config.md`.
+the assistant and the answers go into `docs/ai/config.md`. Without an answer, `feedback` defaults to `confirm`: every
+message to the template author is shown and sent only after your yes. `off` is one edit away in `docs/ai/config.md`.
 
 ## By hand: `init.py`
 
@@ -67,7 +69,8 @@ Ten fixed steps, each printed as `[n/10]`:
 10. Makes the first commit.
 
 `init.py` never overwrites a file the project already has. A `language-docs` other than English leaves the
-scaffold in English plus an inbox note asking the assistant to translate it once;
+scaffold in English. `act-setup` translates it in the same run; after a plain `init.py` an inbox note asks the
+assistant to do it once;
 common English technical terms (Skill, Inbox, Hook, Branch …) stay, above all in headings.
 
 ## Your first session

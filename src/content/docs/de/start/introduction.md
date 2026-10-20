@@ -3,7 +3,7 @@ title: Einführung
 description: Was das Template ist, für wen sie gedacht ist und wie sie in einem Bild funktioniert.
 sidebar:
   order: 1
-sourceHash: 96b3eed654b8cf45ebc7c0bea76a6c62b6c60da05b476fab4dc797afd1a02f02
+sourceHash: 079deb52a3dcac38f9c502d56623ab620e74aa4d042efb6c09e805941ed10f45
 ---
 
 Das Agentic-Coding-Template, kurz *act*, ist ein Satz von Dateien, den du in ein Projekt legst, damit dein
@@ -17,7 +17,8 @@ Sub-Agenten, Hooks und Scripts. Es funktioniert in einem neuen und in einem bere
 - **Ein Vorgehen mit Belegen.** Eine Idee bekommt ein Konzept mit Optionen, bevor sie gebaut wird. Ein Ergebnis
   gilt nur als fertig, wenn ein Testlauf, ein Commit oder ein Aufruf nach außen es belegt.
 - **Der Stand im Repository.** Aufgaben, Backlog, Fragen, Inbox und Journal liegen in `docs/ai/`, sodass jede
-  Sitzung am Board weitermachen kann.
+  Sitzung am Board weitermachen kann. Eine Chat-Nachricht, die mit `todo:`, `note:` oder `idea:` beginnt, legt ein Hook
+  ohne Modell-Durchlauf ab.
 - **Wiederkehrende Arbeit als Skills.** Ein Skill ist eine schlichte `SKILL.md`, der jeder Assistent folgen kann,
   zum Beispiel `act-bug`, `act-commit`, `act-release`. Siehe die [Skills-Referenz](/agentic-coding-template-docs/de/reference/skills/).
 
@@ -63,6 +64,7 @@ Jedes Projekt bekommt `AGENTS.md` und die Skill-Kopien unter `.agents/skills/`.
 
 ## Voraussetzungen
 
-Python 3.9 oder neuer, nur Standardbibliothek, für die Einrichtung, die Scripts und die Hooks. Weiter mit:
+Python 3.9 oder neuer, nur Standardbibliothek, für die Einrichtung, die Scripts und die Hooks, dazu Git 2.25
+oder neuer. Weiter mit:
 [ein neues Projekt starten](/agentic-coding-template-docs/de/getting-started/new-project/) oder
 [ein bestehendes übernehmen](/agentic-coding-template-docs/de/getting-started/existing-project/).

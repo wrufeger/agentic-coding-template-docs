@@ -11,7 +11,7 @@ sidebar:
 
 ## Before you start
 
-Commit or finish open work first (`git status` should be clean). The template's address lives in
+Commit or finish open work first (`git status` should be clean). Updating needs Git 2.25 or newer. The template's address lives in
 `.act-lock.json` (`template.source`); `--source` and `--ref` pick another source or a tag. The source recorded there
 comes first: a git remote named `template` is used only if the lock names no source, and the script says which one it
 took. If the fetch fails, the message names the source, where it came from, and the way out (`--source`, `--ref`).
@@ -35,14 +35,30 @@ python .act/scripts/update.py             # the real run, asks for consent
 7. **Hooks and Git files.** Reconciles the hook entries in `.claude/settings.json` and the template blocks in
    `.gitattributes` and `.gitignore`, and sets `"enableArtifact": false` there unless `artifacts: on` is in
    `docs/ai/config.md`. An existing project therefore starts without the `Artifact` tool after the update.
-8. **Migrations.** Runs any that are due.
+8. **Migrations.** Runs any that are due. Each rewrites an affected file once and leaves it alone after.
 9. **Bridges and doctor.** First unedited generated bridges (`CLAUDE.md`, `AGENTS.md`, `docs/ai/rules.md`) are
    refreshed; with `session-start-refresh` at `warn` or `off` in `docs/ai/config.md` § Checks they are only
    reported ("would refresh … not written"). Then `doctor.py` checks for
    drift; findings land in `docs/ai/inbox/`, never as a silent fix.
 10. **Lock and commit.** `.act-lock.json` is rewritten and a commit is made, unless you pass `--no-commit`.
 
+If the template has no newer state, `--plan` and the real run both say "nothing to update". A bridge file whose content
+would not change is not rewritten. A large update no longer fails on Windows with `WinError 206`.
+
 Then the assistant adds a journal line with the base-commit change and the number of findings.
+
+## Upgrading to 2.2.0
+
+From v2.1.0, run `act-update` as usual; nothing else is needed. `--plan` first lists what will happen.
+
+- **Migrations `003` and `004`** move the header of every inbox entry (`003`) and of every task, backlog item,
+  journal entry and archived entry under `docs/ai/work/` (`004`) into YAML frontmatter between two `---` lines.
+  `docs/ai/work/archive/legacy/` and every `README.md` stay as they are. Hand-written entries in the old form keep
+  working.
+- **Git 2.25 or newer** is required for the update.
+- **The `Artifact` tool is off** after the update. `artifacts: on` in `docs/ai/config.md` keeps it.
+- **Quick capture** is on: a chat message that begins with `todo:`, `note:` or `idea:` is filed by a hook without a
+  model turn. `quick-capture: off` in `docs/ai/config.md` switches it off.
 
 ## Downgrade guard
 

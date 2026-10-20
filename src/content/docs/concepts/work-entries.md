@@ -21,7 +21,7 @@ Workers (sub-agents) never write to `docs/ai/`; only the main assistant does (se
 
 ## Inbox
 
-The inbox is the one place where something waits for you. Each file starts with header fields (`id`, `kind`, `for`, `status`, `created`) and has one of four kinds:
+The inbox is the one place where something waits for you. Each file opens with YAML frontmatter between two `---` lines (`id`, `kind`, `for`, `status`, `created`), so Markdown editors and forges show the fields as metadata, and has one of four kinds. Tasks, backlog items, journal entries and the archive use the same frontmatter; entries in the older plain header form are still read, and `act-update` rewrites existing ones once:
 
 | `kind` | Id | What it is | Status flow |
 | :--- | :--- | :--- | :--- |
@@ -32,19 +32,21 @@ The inbox is the one place where something waits for you. Each file starts with 
 
 An entry without a `kind` counts as `todo`. The `for:` field says whom an entry is addressed to: `all` or a person's workspace identity. A `done` entry is moved to the archive, whatever its kind. A reply the assistant has promised, or a counter-check it expects from another session, is filed as a `todo` with `for:` naming whom or what it waits for (or `all`), so the promise outlives the session; `act-commit` asks "anyone waiting?" before it reports.
 
+A chat message that begins with `todo:`, `note:` or `idea:` (any letter case) is a quick capture: with `quick-capture` on (the default), the `UserPromptSubmit` hook files it without a model turn, so it costs no tokens and does not interrupt a running task. `todo:` and `note:` become inbox entries marked `triage: open`; `idea:` becomes a new section in your ideas file (below). The assistant processes each `triage: open` entry right after the answered ones: it decides whom a todo is for or turns it into a backlog item, or replies below a note. Where the hook does not run, the assistant files the message itself (rule `R-human-capture`).
+
 The assistant creates entries with `python .act/scripts/entries.py new <kind> <title>`; the [scripts reference](/agentic-coding-template-docs/reference/scripts/) lists every option.
 
 Notes get a reply in one appended block of at most three lines of text, never inside your own words. Your words are never edited or deleted, only commented on underneath.
 
 ## Tasks, backlog, journal
 
-- **Tasks** (`T7`): one file per open task with the goal and the check criteria. The first working-state line (`entries.py state T7 <text>`) or `entries.py start T7` writes `started:` into the header; the board then marks the task as running (or waiting, see below). The current working state itself lives in the gitignored `.act-local/state/`, not in the task file. The `for:` header says whose task it is; `all` or no field means shared.
+- **Tasks** (`T7`): one file per open task with the goal and the check criteria. The first working-state line (`entries.py state T7 <text>`) or `entries.py start T7` writes `started:` into the frontmatter; the board then marks the task as running (or waiting, see below). The current working state itself lives in the gitignored `.act-local/state/`, not in the task file. The `for:` field says whose task it is; `all` or no field means shared.
 - **Backlog** (`B5`): an idea or change request that is not built yet. It becomes a task when work on it starts. With `inbox-decisions: at-start` an entry may carry `decision: open` until work begins (see [Configuration](/agentic-coding-template-docs/concepts/configuration/)).
 - **Journal**: one file per step, named `YYYY-MM-DD-<slug>.md`. Journal entries never get a short id.
 
 ## Archive
 
-Finished tasks, backlog items, processed inbox entries and decided proposals move to `docs/ai/work/archive/` under their old name, so the history stays readable and the overviews stay generated. The assistant does this when it closes out an accepted task (`act-commit`).
+Finished tasks, backlog items, processed inbox entries and decided proposals move to `docs/ai/work/archive/` under their old name, so the history stays readable and the overviews stay generated. The assistant does this when it closes out an accepted task (`act-commit`); a task, backlog item or inbox entry goes in one step with `entries.py archive <id|file>`, and an inbox entry gets `status: done`. A decided proposal is moved by hand to `docs/ai/work/archive/proposals/`. Images and other files the entry links beside itself (a pasted `img.png`) move along, generic or already taken names get the entry id in front (`Q12-img.png`), and links are rewritten. A file that another Markdown file under `docs/` still links is copied instead of moved. Everything is planned before the first write, so a failure leaves nothing half-done. `doctor` reports files under `docs/ai/inbox/` and `docs/ai/concept/` that no Markdown file links (kind `orphan-file`), for example a picture left behind after archiving by hand.
 
 ## Ideas file
 

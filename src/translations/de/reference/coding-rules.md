@@ -214,7 +214,7 @@ summary: standardmäßig JUnit 5/AssertJ, Testnamen beschreiben das Verhalten, k
 - Nie mit `Thread.sleep` warten; stattdessen auf die tatsächliche Bedingung warten.
 
 ## nuxt
-<!-- source: de51014c7dacc9f2 -->
+<!-- source: 7f4eab86966cf3c4 -->
 Coding-Regeln — Nuxt
 summary: Verzeichniskonventionen, Datenabruf, Runtime-Konfiguration, SSR-Modus, Tooling
 
@@ -222,6 +222,12 @@ requires: vue, typescript
 
 Regeln für Nuxt-Projekte. Gruppen-IDs (`CR-nuxt-<name>`) sind stabil und werden nie neu vergeben; eine
 Gruppe, deren Zweck nicht mehr gilt, bekommt eine neue ID und wird in diesem Kopf als `retired:` aufgeführt.
+
+Auf Nuxt 5 ergänzt der Satz `nuxt5` (`.act/coding/nuxt5.md`) diesen. `init` prüft ihn, wenn `package.json` `nuxt` in
+Hauptversion 5 nennt. Fehlt die Zeile des Satzes in `docs/project/coding_rules.md` in einem Nuxt-5-Projekt (eines,
+das vor dem Satz eingerichtet wurde), vor Arbeit an Nuxt-Code `.act/coding/nuxt5.md` lesen und vorschlagen,
+`- [x] use: .act/coding/nuxt5.md` samt seinen Gruppen hinzuzufügen; eine abgewählte Zeile ist die Entscheidung des
+Eigentümers.
 
 ## CR-nuxt-basics
 <!-- source: 8d1f533d6f468732 -->
@@ -335,6 +341,110 @@ summary: standardmäßig vitest/Playwright, aber die Suite, die das Projekt ausf
   verwenden (siehe `R-code-tools`).
 - Welche Test-Suiten das Projekt tatsächlich hat, die existieren und laufen; eine Änderung, die sie bricht,
   ist nicht fertig.
+
+## nuxt5
+<!-- source: 06bf90338447a673 -->
+Coding-Regeln — Nuxt 5
+summary: Nightly-Kanal, Module, Nitro 3/h3 v2, typisiertes Routing und `$fetch`, Unhead 3, Prüfungen nach jedem Update
+
+requires: nuxt
+
+Regeln für Projekte auf Nuxt 5, geschrieben gegen den Nightly-Kanal vor dem stabilen Release. Sie ergänzen
+`CR-nuxt-*` und ersetzen davon nichts. `init` prüft diesen Satz, wenn `package.json` `nuxt` in Hauptversion 5
+nennt (`^5.0.0`, `npm:nuxt-nightly@5x`). Gruppen-IDs (`CR-nuxt5-<name>`) sind stabil und werden nie neu vergeben;
+eine Gruppe, deren Zweck nicht mehr gilt, bekommt eine neue ID und wird in diesem Kopf als `retired:` aufgeführt.
+
+## CR-nuxt5-channel
+<!-- source: 51978dc5be3ac792 -->
+Nightly-Kanal und Versionen
+summary: `nuxt-nightly@5x` als Tag, die Lockfile als einzige Festlegung, Hauptversionen im Gleichschritt mit Nuxt, DevTools ausdrücklich
+
+- Bis zum stabilen Release `nuxt` als `"npm:nuxt-nightly@5x"` eintragen — ein Tag, nie eine Build-Nummer. Schreibt
+  `npm install` eine feste Version, sie von Hand auf `@5x` zurücksetzen und erneut installieren; nur die Lockfile
+  hält den Stand fest.
+- Mit `npm update nuxt` vorrücken, als eigener Commit, danach die volle Prüfung aus `CR-nuxt5-checks`.
+- Direkte Abhängigkeiten, die Nuxt mitbringt, bleiben auf derselben Hauptversion wie Nuxt (z. B. `vue-router` 5,
+  `@unhead/vue` 3); nach jedem Update zeigt `npm ls <package>` je Paket eine Kopie.
+- Mindestens Node 22.21 oder 24.11.
+- `@nuxt/devtools` ausdrücklich als devDependency installieren; nur im Dev-Server und nur mit `NUXT_DEVTOOLS=1`
+  ausführen, und jeden Browser einmal mit dem Code aus dem Dev-Terminal bestätigen. `devtools.disableAuthorization`
+  nie setzen.
+- Nach `dev` oder `build` den Diff von `package.json` lesen: Jeder Eintrag, den das Tooling von sich aus ergänzt
+  hat, ist einer, den du erklären kannst.
+
+## CR-nuxt5-modules
+<!-- source: 835f2cf50feedf49 -->
+Module unter Nuxt 5
+summary: `NUXT_B8013` heißt abgeschaltet, Pinia 4 mit seinem Peer, der i18n-Rückweg, die Nitro-v2-Brücke nur in Modulen
+
+- `NUXT_B8013` schaltet ein Modul ab, dessen Feld `compatibility` nicht passt, und zeigt nur eine Warnung: das
+  Feld vor dem Update prüfen, die Warnungen danach lesen.
+- Pinia 4: `@pinia/nuxt` 1 oder neuer, `@vue/devtools-api` ^8 als direkte Abhängigkeit.
+- `@nuxtjs/i18n` 10.6, solange es Nuxt 5 nicht unterstützt: `experimental.nitroViteEnvironment: false` und
+  `i18n.experimental.nitroContextDetection: false`; beides entfernen, sobald es das tut.
+- Die Nitro-v2-Brücke (`NUXT_B9003`) nie im eigenen Code nachbauen.
+
+## CR-nuxt5-server
+<!-- source: 9df75b2e2a6a67e5 -->
+Nitro 3 und h3 v2
+summary: ausdrückliche Imports aus `nuxt/server`, `event.req` als Web-Request, typisierte Bodies, `status`/`statusText`
+
+- In `server/` `defineEventHandler`, `readBody`, `getQuery`, `createError` … aus `nuxt/server` importieren und
+  Plugins mit `definePlugin` aus `nitro` definieren; `server/utils/` bleibt auto-importiert.
+- `event.req` ist der Web-`Request` (es gibt kein `event.node`); einen Multipart-Body mit `event.req.formData()`
+  lesen.
+- `readBody<T>()` mit einem eigenen `interface`, Fallback `.catch((): Body => ({}))`. Der Typ ist keine
+  Validierung — den Body wie bisher validieren (z. B. mit einer Schema-Bibliothek).
+- Eine Antwort am Rückgabewert typisieren (`const response: ApiThing = …; return response`), der Typ im
+  gemeinsamen Typen-Ordner (`CR-nuxt-root-folders`).
+- Fehler mit `createError({ status, statusText })`; `statusText` nur in ASCII (z. B. `'Unprocessable Entity'`),
+  lokalisierter Text kommt in `data`.
+- Im Client kommt `createError({ data })` unter `response._data.data` an; die Feldfehler einer 422 liegen unter
+  `…data.errors` (z. B. für `UForm.setErrors` von Nuxt UI).
+- `useRuntimeConfig()` ohne `event`.
+- Nach dem Umbenennen oder Entfernen eines Exports in `server/utils/` den eigenen Testserver neu starten (sein
+  Port, wie `R-safe-dev-server` es sagt), bevor Tests gegen ihn zählen; den Server des Eigentümers erst nach
+  Rückfrage. Kein Übergangs-Alias für den alten Namen. Nie `NUXT_IGNORE_LOCK` oder `NUXT_LOCK=0` setzen.
+- Jede Runtime-Abhängigkeit kommt in `package.json`, auch eine, die transitiv schon da ist.
+
+## CR-nuxt5-app
+<!-- source: d443b1433753402f -->
+Seiten, Routing, Datenabruf, Head
+summary: `import.meta.*`, `query` statt `params`, typisiertes `$fetch` und typisierte Routenziele, Unhead 3, kein `baseUrl`
+
+- `import.meta.*` statt `process.*` (`import.meta.client`, `import.meta.dev` …).
+- `query` statt `params` in den Optionen von `$fetch`/`useFetch`.
+- `$fetch` wird aus den erzeugten Server-Routen typisiert: Ein Wrapper, der freie Pfade annimmt, bekommt eine
+  eigene, enge Signatur (`type FreeFetch = <R>(request: string, options: FetchOptions) => Promise<R>`) und wandelt
+  `$fetch` mit `as unknown as FreeFetch` um, mit einem Kommentar, der sagt, warum.
+- Mit Typed Pages und `@nuxtjs/i18n` ist ein Seitenziel ein Routenname ohne Locale-Suffix:
+  `localePath({ name, params, query })` oder `<NuxtLinkLocale :to="{ name: … }">` — auch für `navigateTo`,
+  `router.push`, `NuxtLink` und ein `to` von Nuxt UI; ein schlichter Pfad bekommt kein Locale-Präfix und endet in
+  einer 404. Aus demselben Grund `definePageMeta({ redirect })` relativ zum aktuellen Pfad bauen.
+- Unhead 3: kein `hid`/`vmid`, mit `key` deduplizieren; ein Dev-Hinweis zu `og:*` oder zur Description ist ein
+  Befund.
+- Jede Seite setzt ihren Titel, eine öffentliche Seite auch ihre Description; die Fallbacks (Titel-Template,
+  `og:site_name`, Standard-Description) kommen in `app.vue` **und** `error.vue`, da Nuxt `error.vue` anstelle von
+  `app.vue` rendert. Ein fehlender Head-Wert wird weggelassen, nie als `undefined` übergeben —
+  `useSeoMeta({ description: undefined })` entfernt den Fallback.
+- Kein `compilerOptions.baseUrl` in `tsconfig.json` — Nuxt ignoriert es; Aliase kommen in `paths` und
+  `nuxt.config.ts` (`CR-nuxt-basics`).
+
+## CR-nuxt5-checks
+<!-- source: 798ac4a88878eb8b -->
+Prüfungen nach jedem Nuxt-Update
+summary: die volle Prüfkette, die Typfehlerliste verglichen statt gezählt, Warnungen, Kopien und `invalid` im Baum, ein Protokoll
+
+- Die Ausgabe des Typechecks vor dem Update sichern und danach die Fehler vergleichen — die Liste, nicht die Zahl.
+- Dann `npm run lint`, `typecheck`, `test`, `build`, `dev` (Hauptseiten antworten mit 200, keine Hydration-Warnung)
+  und `test:e2e`; `dev` als eigener Testserver (Port, wie `R-safe-dev-server` es sagt), danach beendet.
+- Die Warnungen lesen (`NUXT_B8013`, `NUXT_B9003`, `[unhead]`), auf doppelte Kopien prüfen,
+  `python .act/scripts/security_scan.py --deps` ausführen.
+- `npm ls --all 2>&1 | grep invalid`: eine veraltete Auflösung mit `npm update <package>` beheben; bereits bekannte
+  Einträge stehen im Upgrade-Log, nur neue melden.
+- Jeden Bruch in einem Upgrade-Log des Projekts festhalten (z. B. `docs/project/nuxt-5-upgrade.md`): das Symptom
+  kurz zitiert, die Ursache geprüft oder als **assumption** markiert, die Behebung, die Stelle. Eine allgemeine
+  Lehre wird eine eigene Regel in `docs/project/coding_rules.md` und geht per `act-feedback` ans Template.
 
 ## php
 <!-- source: 6d28e3173cec2ea7 -->

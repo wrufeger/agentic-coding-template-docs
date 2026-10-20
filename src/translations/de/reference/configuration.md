@@ -74,16 +74,24 @@ Abschnitt für Aufgaben, die anderen zugewiesen sind (`for:` im Aufgabenkopf); m
 committeten Boards der anderen auf. Leer bedeutet `on` bei `mode: team`, sonst `off`.
 
 ## Inbox
-<!-- source: fc852c30405eeb0e -->
+<!-- source: 71f2e7b9ceecde58 -->
 | Schlüssel | Wert |
 | :--- | :--- |
 | `inbox-decisions` | immediate |
+| `quick-capture` | on |
 
 `immediate` (Standard) \| `at-start`. `immediate`: jede offene Entscheidung und jeder Schritt, den nur eine Person
 tun kann und jetzt tun kann, kommt nach `docs/ai/inbox/`, sobald er verbucht wird, sodass die Inbox immer
 alles Wartende zeigt. `at-start`: ein Backlog-Eintrag darf seine offenen Entscheidungen behalten — Kopfzeile
 `decision: open`, auf dem Board gelistet —, bis die Arbeit daran beginnt (`act-prepare`); bei einer Aufgabe liegen
 sie immer in der Inbox (`R-human-ask`).
+
+`quick-capture`: `on` \| `off`. `on` (Standard; ein fehlender Schlüssel gilt als `on`): Eine Chat-Nachricht, die
+mit `todo:`, `note:` oder `idea:` beginnt, legt der `UserPromptSubmit`-Hook ohne Modell-Durchlauf ab, und sie erreicht das
+Modell nie — `todo:` und `note:` als Inbox-Einträge mit `triage: open` (der Assistent entscheidet, für wen ein Todo
+ist, oder beantwortet die Notiz), `idea:` als neuen Abschnitt in deiner `ideas-<identity>.md` (`R-human-capture`).
+`off`: Die Präfixe haben keine besondere Bedeutung. War eine Nachricht, die mit einem dieser Wörter beginnt, als
+Auftrag gemeint, die vom Hook genannte Datei löschen und die Nachricht ohne Präfix noch einmal senden.
 
 ## Output depth
 <!-- source: dc45974e3bef2bb0 -->

@@ -3,7 +3,7 @@ title: Feedback
 description: Freiwilliges Feedback an den Autor des Templates - die Modi, Takt und Scope, was nie gesendet wird und wo die lokale Kopie bleibt.
 sidebar:
   order: 1
-sourceHash: 95c94fe765ebfb8651856aba8cc7a098448d2739aa3eb01f9f5f838d88884d3a
+sourceHash: 29e2950e6a342943c526924eb39332385a010205f430eff5d800b8d39356407b
 ---
 
 Du kannst dem Autor des Templates als Feedback melden, was der Arbeitsweise gutgetan hat oder fehlte. Feedback ist freiwillig, betrifft **nur die Arbeitsweise, nie dein Projekt**, und alles, was den Rechner verlässt, wird auch lokal aufbewahrt.
@@ -21,7 +21,7 @@ Drei Schlüssel im Abschnitt Feedback von `docs/ai/config.md` steuern das:
 | `automatic` | die Nutzlast wird ohne Rückfrage gesendet |
 | `manual` | Einträge werden gesammelt, aber nie von selbst gesendet; nur der Skill `act-feedback` sendet |
 
-`python .act/scripts/feedback.py --enable [--mode off|confirm|automatic|manual]` setzt den Modus; `--enable` ohne `--mode` bedeutet `automatic`, das ohne Rückfrage sendet; `--disable` schaltet es ab.
+Neue Projekte starten mit `confirm`, wenn niemand wählt: bei einem Lauf ohne Terminal (so laufen `act-setup` und `act-adopt`), einer leeren Antwort oder dreimal ungültiger Eingabe; `off` bleibt eine Änderung entfernt. Eine `config.md` ohne den Schlüssel zählt weiterhin als `off`. `python .act/scripts/feedback.py --enable [--mode off|confirm|automatic|manual]` setzt den Modus; `--enable` ohne `--mode` bedeutet `automatic`, das ohne Rückfrage sendet; `--disable` schaltet es ab.
 
 ## Takt und Scope
 
@@ -51,6 +51,7 @@ Jede Zeichenkette, die das Projekt verlassen könnte, läuft zuerst durch eine D
 ## Die lokale Kopie
 
 - Jedes Senden schreibt eine vollständige Kopie seiner Nutzlast nach `.act-local/feedback/sent/` (per gitignore ausgeschlossen, verlässt nie deinen Checkout). Wartende Einträge und Buchführung liegen daneben in `.act-local/feedback/`.
+- Messwerte der Worker (`usage.py --estimates`) bleiben in `.act-local/usage.json` und sind nie Teil einer Nutzlast.
 - Das Journal des Projekts bekommt pro Senden eine Zeile: Datum, Art, Anzahl der Einträge und Schema-Version, nie Inhalt oder Titel.
 
 Siehe auch die [Konfigurationsreferenz](/agentic-coding-template-docs/de/reference/configuration/) für die drei Schlüssel und [Konfiguration](/agentic-coding-template-docs/de/concepts/configuration/) dafür, wie die Datei funktioniert.

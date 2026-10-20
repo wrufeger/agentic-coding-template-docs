@@ -3,7 +3,7 @@ title: Im Team arbeiten
 description: Team-Modus - Ids, die auf dem Standard-Branch vergeben werden, Adressierung mit for:, Dateien pro Person und was wie zu mergen ist.
 sidebar:
   order: 4
-sourceHash: 9c8b650bee77e44d15c8c01bbcc5d20d674acbc60e23e1e91b3d356c6a94e60c
+sourceHash: 87fa4f667f2164ba27ad6e6c5ae0b41606b07c6acde4c4a6358c9c24f53f973c
 ---
 
 Mehrere Personen können in einem Projekt arbeiten, jede mit eigenen Assistenten-Sitzungen, weil jeder Eintrag eine eigene Datei ist und jede persönliche Ansicht ebenfalls.
@@ -20,7 +20,7 @@ Im Modus `solo` gibt der Assistent einer Aufgabe (`T7`), einem Backlog-Eintrag (
 
 ## Adressieren mit for:
 
-Einträge und Aufgaben tragen einen Kopf `for:`: `all` für alle, oder eine Workspace-Identität, den Kurznamen in `.act-local/identity.json`. Eine Aufgabe wird für die aktuelle Identität angelegt, sofern du nicht `--for` übergibst; Todos, Berichte und Notizen sind standardmäßig `all`. Das Board listet deine und die geteilten Aufgaben, und mit eingeschaltetem `board-others` (im Team-Modus Standard) einen eigenen Abschnitt für Aufgaben, die anderen Personen zugewiesen sind. Deine Inbox-Ansicht `.act-local/inbox-<identity>.md` sammelt die offenen Einträge, die an dich oder an `all` gerichtet sind.
+Einträge und Aufgaben tragen ein Feld `for:`: `all` für alle, oder eine Workspace-Identität, den Kurznamen in `.act-local/identity.json`. Eine Aufgabe wird für die aktuelle Identität angelegt, sofern du nicht `--for` übergibst; Todos, Berichte und Notizen sind standardmäßig `all`, außer einem per Quick Capture abgelegten `todo:` oder `note:` (Chat-Nachricht mit diesem Präfix), das für den Schreibenden ist. Das Board listet deine und die geteilten Aufgaben, und mit eingeschaltetem `board-others` (im Team-Modus Standard) einen eigenen Abschnitt für Aufgaben, die anderen Personen zugewiesen sind. Deine Inbox-Ansicht `.act-local/inbox-<identity>.md` sammelt die offenen Einträge, die an dich oder an `all` gerichtet sind.
 
 ## Dateien pro Person
 
@@ -35,7 +35,7 @@ Mit `board: shared` lässt das versionierte Board jeder Person die anderen offen
 
 ## Was wie zu mergen ist
 
-- **Eintragsdateien** (Inbox, Aufgaben, Backlog, Journal) sind eine Datei pro Eintrag, sodass zwei Personen selten dieselbe Datei berühren. Das Journal und jeder neue Eintrag tragen einen Zeitstempel `created:`, sodass zwei Branches, die denselben Titel anlegen, nie einen stillen Merge identischer Dateien erzeugen.
+- **Eintragsdateien** (Inbox, Aufgaben, Backlog, Journal) sind eine Datei pro Eintrag, jede mit YAML-Frontmatter am Anfang, sodass zwei Personen selten dieselbe Datei berühren. Das Journal und jeder neue Eintrag tragen einen Zeitstempel `created:`, sodass zwei Branches, die denselben Titel anlegen, nie einen stillen Merge identischer Dateien erzeugen.
 - **Erzeugte Dateien** (`CLAUDE.md`, `AGENTS.md`, `docs/ai/rules.md`) sind in `.gitattributes` mit `merge=ours` markiert, ebenso `docs/ai/board-*.md`. Ist kein Merge-Treiber registriert (`git config merge.ours.driver true`), mergt Git normal; der Sitzungsstart leitet eine unveränderte Brücke neu ab, und der nächste Commit schreibt eine Board-Datei neu, sodass eine veraltete nie überlebt.
 - **`docs/ai/config.md` und deine eigenen Regeln** sind geteilte Projektentscheidungen; merge sie von Hand wie jede andere Quelldatei.
 - **Das Template aktualisieren**: Andere Branches bekommen ein Update nur mit dem Merge. Ein Update auf einem Branch, der nicht der Standard-Branch ist, gibt einen Hinweis, der das sagt.

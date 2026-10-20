@@ -455,12 +455,13 @@ Regeln für den Umgang mit dem Menschen
 summary: Reihenfolge der Inbox, gebündelte Fragen, kurze abschließende Chat-Antworten, Chat-Sprache, unantastbarer Text von Menschen, externe Anfragen
 
 ## R-human-inbox-first
-<!-- source: 7ddbcc6f5f4e4ccf -->
+<!-- source: 7ea9c7ea55aea0f1 -->
 Beantwortete Inbox-Einträge zuerst
 summary: beantwortete Inbox-Einträge vor anderer Arbeit abräumen
 
 Inbox-Einträge, die der Mensch schon beantwortet hat, werden vor allem anderen bearbeitet — eine ungelesene
-Antwort hält alles auf, was von ihr abhängt, statt dahinter festzuhängen.
+Antwort hält alles auf, was von ihr abhängt, statt dahinter festzuhängen. Ein Eintrag mit `triage: open` gilt hier
+als beantwortet (`R-human-capture`).
 
 ## R-human-ask
 <!-- source: ed8928dbf5d06f56 -->
@@ -480,8 +481,32 @@ Wartende. Bei `at-start` darf ein Backlog-Eintrag seine offenen Entscheidungen b
 `decision: open` markiert, und sie werden gefragt, wenn die Arbeit daran beginnt (`act-prepare`); die offenen
 Entscheidungen einer Aufgabe liegen immer in der Inbox.
 
+## R-human-capture
+<!-- source: b87491f319443625 -->
+Chat-Präfixe `todo:`, `note:`, `idea:` erfassen
+summary: eine Nachricht mit todo:/note:/idea: wird ein Inbox-Eintrag oder Ideen-Abschnitt; der Hook erledigt das, sonst legt das Modell sie sofort mit einer einzeiligen Antwort ab; triage: open wird direkt nach beantworteten Einträgen bearbeitet
+
+Eine Chat-Nachricht, die mit `todo:`, `note:` oder `idea:` beginnt (Groß-/Kleinschreibung egal), ist eine Erfassung,
+kein Auftrag. Ist `quick-capture` in `docs/ai/config.md` an (ein fehlender Schlüssel gilt als `on`), legt der
+`UserPromptSubmit`-Hook sie ab, und die Nachricht erreicht das Modell nie: `todo:` und `note:` werden ein
+Inbox-Eintrag (`kind: todo|note`, `for:` der Schreibende, `status: open`, Kopffeld `triage: open` direkt nach
+`status:`), `idea:` ein neuer Abschnitt am Ende der `docs/ai/concept/ideas-<identity>.md` des Schreibenden. Läuft
+der Hook nicht (anderes Werkzeug, Hook fehlt) und kommt trotzdem eine Nachricht mit so einem Präfix an, legt man
+sie selbst sofort genauso ab — den Eintrag mit `entries.py new` anlegen, den Wortlaut des Menschen als Text, dann
+die Zeile `triage: open` direkt nach `status:` einfügen (das kann der Befehl nicht schreiben); eine `idea:` kommt
+als neuer Abschnitt ans Ende der Ideen-Datei, der Text unverändert — und mit einer Zeile antworten, die die Datei
+nennt. Mit dem Todo selbst wird nicht begonnen. Ist `quick-capture` aus, haben die Präfixe keine besondere
+Bedeutung.
+
+Einträge mit `triage: open` gehören dir, gleich welcher Art: Sie werden direkt nach den beantworteten
+Inbox-Einträgen bearbeitet (`R-human-inbox-first`). Bei einem `todo`: entscheiden, für wen es ist, und `for:`
+setzen (der Schreibende, eine andere Identität oder `all`), oder es in einen Backlog-Eintrag verwandeln, der den
+Wortlaut behält, und die Inbox-Datei archivieren. Bei einer `note`: unter ihr in der festen Blockform der
+Inbox-README antworten, den Text des Menschen nie ändern, und `status: answered` setzen — sie wartet dann auf den
+Menschen, nicht auf dich. Zuletzt die Zeile `triage:` entfernen.
+
 ## R-human-chat
-<!-- source: 6aebab98a9bf2175 -->
+<!-- source: 917e9cadaffed8a6 -->
 Einmal, kurz und erst wenn die Antwort feststeht antworten
 summary: keine Zwischenberichte, Fragen in der Inbox, kurze Abschlusszusammenfassung, knapper Stil, Stufen von output-depth
 
@@ -495,9 +520,9 @@ weitergehen kann; jede andere Frage kommt als `kind: question` nach `docs/ai/inb
 `entries.py new question <title>`) und wird im Chat nicht wiederholt — eine Entscheidungsfrage wird *nur* als
 diese Inbox-Datei angelegt, der Chat nennt höchstens ihre ID (z. B. „siehe Q<n>“) und gibt die Frage selbst nie
 wieder. Ein Inbox-Eintrag, den der Mensch schon beantwortet hat, wird in dem Zug verbucht und archiviert, in dem
-die Antwort auffällt, und nie offen gelassen. Den Abschluss bildet eine kurze Zusammenfassung — erledigt ·
-nächstes · Probleme · zu besprechen —, kurz, aber ohne etwas Wichtiges wegzulassen; neue Fragen und Aufgaben
-werden zusammen in einer Schlusszeile genannt („Neue Fragen: Q12–Q14, neue Aufgabe T7“). Einzelheiten nur auf
+die Antwort auffällt (`entries.py archive <id>` — es nimmt eingefügte Bilder mit), und nie offen gelassen. Den
+Abschluss bildet eine kurze Zusammenfassung — erledigt · nächstes · Probleme · zu besprechen —, kurz, aber ohne
+etwas Wichtiges wegzulassen; neue Fragen und Aufgaben werden zusammen in einer Schlusszeile genannt („Neue Fragen: Q12–Q14, neue Aufgabe T7“). Einzelheiten nur auf
 Nachfrage.
 
 Tokens zu sparen ist eines der Ziele, denn jede Antwort wird in jedem späteren Schritt erneut gelesen. Chat-Text
@@ -554,17 +579,19 @@ Kostenregeln
 summary: Delegations-Tiers und Caps, auf Worker warten, einen laufenden Auftrag ergänzen, wiederkehrende Prüfungen als Script, Commit-Schranke
 
 ## R-cost-delegate
-<!-- source: 482a0b70673ca714 -->
+<!-- source: b9ee09617629cf31 -->
 Tier, Schätzung und Cap nennen
-summary: Tier, Schätzung von Umfang/Dauer, mechanisch geprüfter Cap, kleine Aufträge
+summary: Tier, Schätzung in Minuten und tkn fresh/cache, mechanisch geprüfter Cap, kleine Aufträge
 
 Jeder Auftrag an einen Worker nennt sein Tier ausdrücklich — `light` für Lesen/Zählen, `standard` für
 Umsetzung, `elevated` für Review/Sicherheitsbewertung, `expert` nur für eine Eskalation nach zwei gescheiterten
-Versuchen an derselben Aufgabe —, eine Schätzung für Umfang oder Dauer und einen Cap. Der Cap wird als eigenes
-`Cap: <n>` genannt und mechanisch geprüft, nicht aus dem Gedächtnis (`worker-cap`, `docs/ai/config.md` §
+Versuchen an derselben Aufgabe —, eine Schätzung in der festen Form `~<n> min · ~<n> tkn fresh · ~<n> tkn cache`
+(Minuten Wanduhrzeit; `fresh` = Input-, Cache-Schreib- und Output-Tokens, `cache` = Cache-Lese-Tokens; nie
+Personentage), gestützt auf `python .act/scripts/usage.py --estimates`, wo es gemessene Läufe dieser Rolle/dieses
+Tiers gibt — und einen Cap. Der Cap wird als eigenes `Cap: <n>` genannt und mechanisch geprüft, nicht aus dem Gedächtnis (`worker-cap`, `docs/ai/config.md` §
 Checks). `Cap:` wird entweder in einer eigenen Zeile erkannt oder direkt nach einem `·`/`|`/`;`/`,` weiter hinten
-in einer Zeile, ein kompakter Kopf funktioniert also auch, z. B. `Tier: standard · Estimate: 45–65 tool calls,
-~30 minutes · Cap: 95.` Fehlt die Zeile, gilt der Standard des Tiers: `light` 10, `standard` 40, `elevated` 60,
+in einer Zeile, ein kompakter Kopf funktioniert also auch, z. B. `Tier: standard · Estimate: ~30 min · ~400k tkn
+fresh · ~8M tkn cache · Cap: 95.` Fehlt die Zeile, gilt der Standard des Tiers: `light` 10, `standard` 40, `elevated` 60,
 `high`/`expert` 80; ohne `Cap:`- und ohne `Tier:`-Zeile gilt `standard`. Der Worker bekommt beim Erreichen des
 Caps einen Hinweis („cap reached — deliver your current state now“) und wird ab dem 1,5-Fachen des Caps
 abgewiesen — er schließt ab und berichtet, statt darüber hinauszudrängen. Braucht ein Auftrag mehr Reasoning,

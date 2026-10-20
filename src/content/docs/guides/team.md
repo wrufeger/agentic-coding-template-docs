@@ -19,7 +19,7 @@ In `solo` mode the assistant gives a task (`T7`), backlog item (`B5`), question 
 
 ## Addressing with for:
 
-Entries and tasks carry a `for:` header: `all` for everyone, or a workspace identity, the short name in `.act-local/identity.json`. A task is created for the current identity unless you pass `--for`; todos, reports and notes default to `all`. The board lists your tasks and shared ones, and with `board-others` on (the default in team mode) a separate section for tasks assigned to other people. Your inbox view `.act-local/inbox-<identity>.md` collects the open entries addressed to you or to `all`.
+Entries and tasks carry a `for:` field: `all` for everyone, or a workspace identity, the short name in `.act-local/identity.json`. A task is created for the current identity unless you pass `--for`; todos, reports and notes default to `all`, except a quick-captured `todo:` or `note:` (a chat message with that prefix), which is for its writer. The board lists your tasks and shared ones, and with `board-others` on (the default in team mode) a separate section for tasks assigned to other people. Your inbox view `.act-local/inbox-<identity>.md` collects the open entries addressed to you or to `all`.
 
 ## Per-person files
 
@@ -34,7 +34,7 @@ With `board: shared`, each person's versioned board lets the others see open tas
 
 ## What to merge how
 
-- **Entry files** (inbox, tasks, backlog, journal) are one file per entry, so two people rarely touch the same file. The journal and every new entry carry a `created:` timestamp, so two branches filing the same title never produce a silent merge of identical files.
+- **Entry files** (inbox, tasks, backlog, journal) are one file per entry, each opening with YAML frontmatter, so two people rarely touch the same file. The journal and every new entry carry a `created:` timestamp, so two branches filing the same title never produce a silent merge of identical files.
 - **Generated files** (`CLAUDE.md`, `AGENTS.md`, `docs/ai/rules.md`) are marked `merge=ours` in `.gitattributes`, and `docs/ai/board-*.md` too. If no merge driver is registered (`git config merge.ours.driver true`), git merges normally; the session start re-derives an unchanged bridge, and the next commit rewrites a board file, so a stale one never survives.
 - **`docs/ai/config.md` and your own rules** are shared project decisions; merge them by hand like any other source file.
 - **Updating the template**: other branches get an update only with the merge. An update on a non-default branch gives one note saying so.

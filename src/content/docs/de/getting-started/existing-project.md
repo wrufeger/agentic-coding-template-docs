@@ -3,7 +3,7 @@ title: Bestehendes Projekt
 description: Ein Projekt mit eigener Doku oder eigenem KI-Setup mit act-adopt übernehmen.
 sidebar:
   order: 2
-sourceHash: faace284a348db22fc2eed89da276ea78e6b3b7e4c6bb70f6074942ba34cea90
+sourceHash: 5780208ccae4af5cfb7212398c56de67f0488ad5109db8f90b117c4346198b47
 ---
 
 Ein Projekt, das schon Doku, eine `CLAUDE.md` oder ein älteres KI-Setup hat, läuft über `act-adopt`, nicht allein
@@ -62,6 +62,8 @@ Team-Modus bekommst du nur einen Hinweis.
 Deine Formulierungen bleiben, wie sie sind: Titel und Texte werden aus dem alten Text kopiert, nie
 zusammengefasst oder übersetzt. Einzige Ausnahme ist ein Titel über 80 Zeichen: `adopt_entries.py` kürzt ihn auf seinen ersten Satz, sonst auf einen Schnitt an einer Wortgrenze mit „…“, und der volle alte Text steht am Anfang des Eintrags. `init.py` führt seine Hook-Einträge in `.claude/settings.json` zusammen und lässt
 deine eigenen Einträge stehen. Ohne `artifacts: on` trägt er zusätzlich `"enableArtifact": false` ein.
+Bei einer `language-docs` außer Englisch übersetzt `act-adopt` das Gerüst im selben Lauf. `feedback` steht standardmäßig
+auf `confirm` (jede Nachricht wird gezeigt und erst nach deinem Ja gesendet).
 
 ## Ohne die vollständige Übernahme
 

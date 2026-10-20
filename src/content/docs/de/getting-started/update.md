@@ -3,7 +3,7 @@ title: Update
 description: Einen neueren Stand des Templates mit act-update in ein Projekt holen.
 sidebar:
   order: 3
-sourceHash: 293ea2c32e98c4c8fd358c9746dc7e79f97d367def1cb49960f41b38c614e4cf
+sourceHash: c231ff8de73665779804218a722102b3ca7e5f4620772050d6c7812c4804b1f6
 ---
 
 `act-update` holt einen neueren Stand des Templates in dein Projekt: Du siehst den Diff, du stimmst zu, und
@@ -12,7 +12,7 @@ müsstest. Sag `Prüfe, ob es ein Template-Update gibt` oder führe das Script s
 
 ## Bevor du anfängst
 
-Committe oder beende offene Arbeit zuerst (`git status` sollte sauber sein). Die Adresse des Templates steht in
+Committe oder beende offene Arbeit zuerst (`git status` sollte sauber sein). Das Update braucht Git 2.25 oder neuer. Die Adresse des Templates steht in
 `.act-lock.json` (`template.source`); mit `--source` und `--ref` wählst du eine andere Quelle oder ein Tag. Die dort
 eingetragene Quelle hat Vorrang: ein Git-Remote namens `template` wird nur genommen, wenn die Lock-Datei keine Quelle
 nennt, und das Script sagt, welche es genommen hat. Schlägt der Abruf fehl, nennt die Meldung die Quelle, woher sie
@@ -38,14 +38,30 @@ python .act/scripts/update.py             # the real run, asks for consent
 7. **Hooks und Git-Dateien.** Gleicht die Hook-Einträge in `.claude/settings.json` und die Blöcke des Templates in
    `.gitattributes` und `.gitignore` ab und setzt dort `"enableArtifact": false`, außer `docs/ai/config.md` hat
    `artifacts: on`. Ein bestehendes Projekt startet nach dem Update deshalb ohne das Werkzeug `Artifact`.
-8. **Migrationen.** Führt alle fälligen aus.
+8. **Migrationen.** Führt alle fälligen aus. Jede schreibt eine betroffene Datei einmal um und lässt sie danach in Ruhe.
 9. **Brücken und Doctor.** Zuerst werden unbearbeitete erzeugte Brücken (`CLAUDE.md`, `AGENTS.md`,
    `docs/ai/rules.md`) aufgefrischt; steht `session-start-refresh` in `docs/ai/config.md` § Checks auf `warn` oder
    `off`, werden sie nur gemeldet („would refresh … not written“). Danach prüft `doctor.py` auf Abweichungen; Befunde landen in `docs/ai/inbox/`, nie als stille Korrektur.
 10. **Lock und Commit.** `.act-lock.json` wird neu geschrieben und ein Commit angelegt, außer du gibst
     `--no-commit` an.
 
+Hat das Template keinen neueren Stand, melden `--plan` und der echte Lauf „nothing to update“. Eine Brückendatei, deren
+Inhalt gleich bliebe, wird nicht neu geschrieben. Ein großes Update scheitert unter Windows nicht mehr mit `WinError 206`.
+
 Danach ergänzt der Assistent eine Journalzeile mit der Änderung des Basis-Commits und der Zahl der Befunde.
+
+## Upgrade auf 2.2.0
+
+Von v2.1.0 aus führst du `act-update` wie gewohnt aus; mehr ist nicht nötig. `--plan` zeigt vorab, was geschieht.
+
+- **Migrationen `003` und `004`** verschieben den Kopf jedes Inbox-Eintrags (`003`) sowie jeder Aufgabe, jedes
+  Backlog-Eintrags, Journal-Eintrags und archivierten Eintrags unter `docs/ai/work/` (`004`) in ein YAML-Frontmatter
+  zwischen zwei `---`-Zeilen. `docs/ai/work/archive/legacy/` und jede `README.md` bleiben unverändert. Von Hand
+  geschriebene Einträge in der alten Form funktionieren weiter.
+- **Git 2.25 oder neuer** ist für das Update nötig.
+- **Das Werkzeug `Artifact` ist aus** nach dem Update. `artifacts: on` in `docs/ai/config.md` behält es.
+- **Quick capture** ist an: Eine Chat-Nachricht, die mit `todo:`, `note:` oder `idea:` beginnt, legt ein Hook ohne
+  Modell-Durchlauf ab. `quick-capture: off` in `docs/ai/config.md` schaltet es aus.
 
 ## Schutz vor Downgrade
 

@@ -16,7 +16,8 @@ scripts. It works in a new project and in one that already exists.
 - **A process with evidence.** An idea gets a concept with options before it is built. A result counts as done
   only with a test run, a commit, or an outside call as proof.
 - **State in the repository.** Tasks, backlog, questions, inbox, and journal sit in `docs/ai/`, so every
-  session can continue from the board.
+  session can continue from the board. A chat message that begins with `todo:`, `note:` or `idea:` is filed by a hook
+  without a model turn.
 - **Recurring work as skills.** A skill is a plain `SKILL.md` that any assistant can follow, for example
   `act-bug`, `act-commit`, `act-release`. See the [skills reference](/agentic-coding-template-docs/reference/skills/).
 
@@ -60,6 +61,7 @@ The tools in use are the `tools` key in `docs/ai/config.md`, default `claude-cod
 
 ## Requirements
 
-Python 3.9 or newer, standard library only, for the setup, the scripts, and the hooks. Next:
+Python 3.9 or newer, standard library only, for the setup, the scripts, and the hooks, and Git 2.25 or newer.
+Next:
 [start a new project](/agentic-coding-template-docs/getting-started/new-project/) or
 [adopt an existing one](/agentic-coding-template-docs/getting-started/existing-project/).
