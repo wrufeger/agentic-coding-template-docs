@@ -1,8 +1,10 @@
+---
 id: U1
 kind: todo
 for: all
 status: open
 created: 2026-10-04T22:36:23
+---
 
 # Check dependencies once
 

@@ -1,8 +1,10 @@
+---
 id: U2
 kind: todo
 for: wolfgang-rufeger
 status: open
 created: 2026-10-04T22:36:23
+---
 
 # Open points from `init.py` (non-interactive run)
 

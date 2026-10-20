@@ -170,6 +170,21 @@ def _git(args: list[str], cwd: Path, check: bool = True) -> subprocess.Completed
     return result
 
 
+def _git_add_paths(rels: list[str], cwd: Path) -> None:
+    """`git add` for `rels` with the paths on stdin (`--pathspec-from-file`, Git 2.25 or newer): a
+    long list passed as arguments fails on Windows (WinError 206, about 32,000 characters). An empty
+    list is refused: git would read it as "no pathspec" and stage the whole tree."""
+    if not rels:
+        raise ValueError("git add: empty path list, refusing to stage the whole tree")
+    args = ["add", "--pathspec-from-file=-", "--pathspec-file-nul"]
+    result = subprocess.run(
+        ["git", *args], cwd=cwd, capture_output=True, text=True, encoding="utf-8",
+        input="".join(f"{rel}\0" for rel in rels),
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"git {' '.join(args)} failed: {result.stderr.strip()}")
+
+
 def _print_step(n: int, text: str) -> None:
     print(f"[{n}/10] {text}")
 
@@ -268,6 +283,11 @@ _FEEDBACK_ON_MODES = ("confirm", "automatic")
 # Anything that plainly means "no" also means "off" -- never required to type the exact word.
 _FEEDBACK_OFF_ALIASES = ("off", "n", "no", "nein", "aus", "0")
 _FEEDBACK_MAX_ATTEMPTS = 3
+# What config.md gets wherever nobody chooses: `confirm` still shows every payload and asks before
+# each send, so nothing leaves the project without a yes.
+_FEEDBACK_DEFAULT = "confirm"
+# Stable start of the init-notes line; adopt_config.py finds and drops the line by this prefix.
+FEEDBACK_NOTE_PREFIX = "Feedback to the template author is `confirm` (default)"
 
 
 def _ask_feedback_mode(root: Path, interactive: bool, notes: list[str]) -> str:
@@ -277,41 +297,43 @@ def _ask_feedback_mode(root: Path, interactive: bool, notes: list[str]) -> str:
     `docs/ai/config.md` already exists, since an established project already made its own choice
     there and the writer in step_materialize never overwrites it anyway (covers both a repeat
     `init` and `--target` docking onto an already set-up project). `interactive` is already
-    False for both `--non-interactive` and `--plan` (see main()), so both take the same "stays
-    off, note left behind" branch already used by this function's other questions — nothing here
+    False for both `--non-interactive` and `--plan` (see main()), so both take the same "default,
+    note left behind" branch already used by this function's other questions — nothing here
     ever sends anything, it only decides what the config.md row will say.
 
-    Only `confirm`/`automatic`/an off-alias is accepted (case-insensitive); an empty answer or
-    anything else re-asks instead of defaulting to anything -- consent must be typed, never
-    assumed from a stray keystroke (found in review). After `_FEEDBACK_MAX_ATTEMPTS` bad
-    answers it gives up and stays off, same as the non-interactive case."""
+    The default is `confirm`: it shows the full payload and asks before every send. It is what
+    gets written wherever nobody chooses -- a run without a terminal (`act-setup`, `act-adopt`),
+    an empty answer, or `_FEEDBACK_MAX_ATTEMPTS` invalid answers. `off` (or an alias) and
+    `automatic` stay explicit choices (case-insensitive)."""
     if (root / "docs" / "ai" / "config.md").is_file():
-        return "off"
+        # The project's own choice, as feedback.py reads it (no row counts as off).
+        return actlib.read_config(root).get("feedback") or "off"
     if not interactive:
         notes.append(
-            "Feedback to the template author is off (default) — turn it on any time in "
-            "docs/ai/config.md § Feedback (see TIP-feedback-on)."
+            f"{FEEDBACK_NOTE_PREFIX}: nothing is sent without showing it and asking first. "
+            "Switch it to `off` any time in docs/ai/config.md § Feedback."
         )
-        return "off"
+        return _FEEDBACK_DEFAULT
     print()
     print("Report back to the template author about the working method?")
     print("- Entries: a short written summary plus a few closed-list settings — never file names/paths, code, or this project's own text.")
     print("- With the default scope (feedback-scope: a,b,c), a send also adds usage numbers: commit/date counts, days active, file count and size, `ai.log` line counts if logging is on, a random project id (persists across sends, not tied to you), this project's template base commit, and with scope c which template skills/scripts were used since the last send (your own ones only as a count). Narrow this with `feedback-scope`.")
-    print("- confirm (recommended): shows the full payload and asks before every send. automatic: sends without asking.")
+    print("- confirm (default): shows the full payload and asks before every send. automatic: sends without asking.")
     print("- Every actual send is also kept locally under '.act-local/feedback/sent/' (gitignored).")
     print("- Off again any time: docs/ai/config.md § Feedback.")
     for _attempt in range(_FEEDBACK_MAX_ATTEMPTS):
-        raw = _ask("Feedback mode - confirm (recommended) / automatic / off", "", True).strip().lower()
+        raw = _ask("Feedback mode - confirm / automatic / off", _FEEDBACK_DEFAULT, True).strip().lower()
         if raw in _FEEDBACK_OFF_ALIASES:
             return "off"
         if raw in _FEEDBACK_ON_MODES:
             return raw
         print("Please answer 'confirm', 'automatic', or 'off' (or n/no) — nothing else is accepted.")
     notes.append(
-        "Feedback question left unanswered after 3 tries — stays off. Turn it on any time in "
-        "docs/ai/config.md § Feedback (see TIP-feedback-on)."
+        "Feedback question left unanswered after 3 tries — "
+        "feedback stays `confirm` (default): nothing is sent without showing it and asking first. "
+        "Switch it to `off` any time in docs/ai/config.md § Feedback."
     )
-    return "off"
+    return _FEEDBACK_DEFAULT
 
 
 def _language(key: str, given: Optional[str], prompt_text: str, default: str, interactive: bool,
@@ -809,8 +831,15 @@ def step_thin_bridges(tools: list[str]) -> tuple[dict[str, BridgeSpec], str]:
 # Only used to order *enabled* sets in the generated file; every set the template actually
 # ships under .act/coding/ is included either way, checked or not, even one missing here.
 CODING_SET_DETECTION_ORDER = [
-    "nuxt", "vue", "typescript", "tailwind", "php", "python", "go", "java", "csharp", "bash", "sql",
+    "nuxt", "nuxt5", "vue", "typescript", "tailwind", "php", "python", "go", "java", "csharp", "bash", "sql",
 ]
+
+# A `nuxt` version spec at major 5 also checks the `nuxt5` set: a range ("^5.0.0", "~5.1", ">=5", "=5.0.0",
+# "5.0.0-rc.1", "workspace:^5.0.0") or the nightly alias ("npm:nuxt-nightly@5x"). "latest", a tag, a git spec or
+# a "||" list says nothing certain about the major and leaves `nuxt` alone; so does the free-text stack hint
+# unless it says "Nuxt 5" ("nuxt5", "Nuxt v5", "nuxt@5x").
+_NUXT5_SPEC = re.compile(r"^(?:npm:nuxt(?:-nightly)?@|workspace:)?(?:[\^~=]|>=?)?\s*v?5(?:[.x-]|$)", re.IGNORECASE)
+_NUXT5_STACK_HINT = re.compile(r"\bnuxt[\s@-]*v?5(?:x|\b)")
 
 
 # Database access libraries per ecosystem: a project depending on one of these writes SQL (directly or
@@ -878,6 +907,8 @@ def _detect_coding_sets(root: Path, stack_hint: str, known: set[str]) -> set[str
                     deps.update(section)
     if "nuxt" in deps:
         detected.add("nuxt")
+        if isinstance(deps["nuxt"], str) and _NUXT5_SPEC.match(deps["nuxt"].strip()):
+            detected.add("nuxt5")
     if "vue" in deps:
         detected.add("vue")
     if "typescript" in deps or (root / "tsconfig.json").is_file():
@@ -905,6 +936,8 @@ def _detect_coding_sets(root: Path, stack_hint: str, known: set[str]) -> set[str
     for name in known:
         if name in stack_lower:
             detected.add(name)
+    if _NUXT5_STACK_HINT.search(stack_lower):
+        detected.add("nuxt5")
 
     return {name for name in detected if name in known}
 
@@ -1343,7 +1376,7 @@ def _config_tokens(cfg: ProjectConfig) -> dict[str, str]:
         # Used by .act/bridges/docs-readme.md's "Data as of" column — the day the index itself
         # (and the files it lists) was first written, not a live-updating value.
         "<today>": date.today().isoformat(),
-        # .act/skeleton/config.md § Feedback's `feedback` row — defaults to "off" via
+        # .act/skeleton/config.md § Feedback's `feedback` row — defaults to "confirm" via
         # ProjectConfig["feedback_mode"] itself (_ask_feedback_mode's every return path).
         "<feedback-mode>": cfg["feedback_mode"],
     }
@@ -1440,7 +1473,7 @@ def _merge_settings_hooks(
     if plan:
         return f"{_relative_label(dest, root)}: would add/update {', '.join(parts)}{note_text}", False
     dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_text(json.dumps(new_current, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    actlib.overwrite_text(dest, json.dumps(new_current, indent=2, ensure_ascii=False) + "\n")
     book()
     return f"{_relative_label(dest, root)}: added/updated {', '.join(parts)}{note_text}", True
 
@@ -2707,7 +2740,7 @@ def step_commit(root: Path, plan: bool, no_commit: bool, paths: list[Path],
         return "nothing to commit"
     if plan:
         return f"would commit {len(rels)} path(s): {', '.join(rels)}"
-    _git(["add", "--", *rels], cwd=root)
+    _git_add_paths(rels, cwd=root)
     diff = _git(["diff", "--cached", "--name-only"], cwd=root)
     if not diff.stdout.strip():
         return "nothing staged, no commit made"
@@ -3101,8 +3134,8 @@ def main(argv: list[str]) -> int:
     cfg = step_config(root, interactive, notes,
                       {"language-docs": args.language_docs, "language-chat": args.language_chat})
     # `--plan` never prompts (`interactive` above is already False for it), so `feedback_mode` is
-    # always "off" here even when a real (non-plan) run at a real terminal would ask -- say that
-    # honestly instead of implying "off" is the actual answer. Docking
+    # always the default "confirm" here even when a real (non-plan) run at a real terminal would
+    # ask -- say that honestly instead of implying "confirm" is the actual answer. Docking
     # `--target` onto a project that already has docs/ai/config.md is unaffected: it would not ask
     # either way (see _ask_feedback_mode), so no relabeling there.
     feedback_display = repr(cfg["feedback_mode"])

@@ -1,7 +1,9 @@
+---
 kind: report
 for: all
 status: open
 created: 2026-10-04T23:42:40
+---
 
 # Migration 001 (one inbox) — left for a human
 

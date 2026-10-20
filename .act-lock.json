@@ -34,10 +34,10 @@
     ]
   },
   "template": {
-    "version": "2.1.0",
-    "commit": "983c35a1fc8b8d301b7712dcbebc8da1ec9e5b68",
+    "version": "2.2.0",
+    "commit": "3bde8a093bc6ba997b010e2efefefe39d3c9953d",
     "source": "D:/dev/rufeger/agentic-coding-template",
-    "manifest_sha256": "8d001d293975a893f6548c9a4ac725726ef762d6b47f437616be245945ef3c19"
+    "manifest_sha256": "89c603b732af385b2b4fdd1e34a50df08c37460ddbf27f3283dbf25773ea5184"
   },
   "copies": {
     ".claude/skills/act/SKILL.md": {
@@ -58,7 +58,7 @@
     },
     ".claude/skills/act-commit/SKILL.md": {
       "source": ".act/skills/act-commit/SKILL.md",
-      "sha256": "6a6b63cc28be7b49d5964ee8351f15801f5270a1441df2ae8fa963bd0dc468f2"
+      "sha256": "e62cd00ab55247bb517392e79eaf7ac53d09e3b75e2ff560af7ffc5ad0f6d918"
     },
     ".claude/skills/act-deps/SKILL.md": {
       "source": ".act/skills/act-deps/SKILL.md",
@@ -90,7 +90,7 @@
     },
     ".claude/skills/act-idea/SKILL.md": {
       "source": ".act/skills/act-idea/SKILL.md",
-      "sha256": "3eb6400a487b7d0ac5c36149a2d2dcc8f78c7b2f4675857033e2ba0a3de266a1"
+      "sha256": "7de3291b8601bb4b4ea09919743172d677d2be4316a772d31194b52401c74d27"
     },
     ".claude/skills/act-integrations/SKILL.md": {
       "source": ".act/skills/act-integrations/SKILL.md",
@@ -114,7 +114,7 @@
     },
     ".claude/skills/act-prepare/SKILL.md": {
       "source": ".act/skills/act-prepare/SKILL.md",
-      "sha256": "abf26fd89ea5df39e013fe17ceb2a657dcfc10d40865e03d42418da1f76e6bc3"
+      "sha256": "25d3397176ad4461573dc412de1bf9eb565ecb7f35912cf9faffd96fe06054ec"
     },
     ".claude/skills/act-refactor/SKILL.md": {
       "source": ".act/skills/act-refactor/SKILL.md",
@@ -126,7 +126,7 @@
     },
     ".claude/skills/act-setup/SKILL.md": {
       "source": ".act/skills/act-setup/SKILL.md",
-      "sha256": "ecda4155df07930958d4b78b528815f151f344ed2f79ce45ab6ff8015267f211"
+      "sha256": "c92c0d8084abfd0611df021e3dfdd74a9aa7b93e4bd470949598596f1c96546c"
     },
     ".claude/skills/act-slides/SKILL.md": {
       "source": ".act/skills/act-slides/SKILL.md",
@@ -206,7 +206,9 @@
   },
   "migrations_applied": [
     "001-one-inbox",
-    "002-todo-ids"
+    "002-todo-ids",
+    "003-inbox-frontmatter",
+    "004-work-frontmatter"
   ],
   "settings_applied": {
     "enableArtifact": false

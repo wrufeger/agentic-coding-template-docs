@@ -6,25 +6,38 @@ and archived.
 | `kind` | id | who creates it | lifecycle |
 | :--- | :--- | :--- | :--- |
 | `question` | `Q<n>` | assistant (`entries.py new question`) | `open` -> `answered` (reply below the question) -> `done` -> archive |
-| `todo` | `U<n>` | assistant or human; a task for a human, filed only once it is actionable (code pushed, questions answered) — also a tool's own action item: `init` (open points, the translate-scaffold hint), settings import (`setup-required`, a contradiction), `update` (locally-edited files it reset) | `open` -> `done` -> archive |
+| `todo` | `U<n>` | assistant or human; a task for a human, filed only once it is actionable (code pushed, questions answered) — also a tool's own action item: `init` (open points, the translate-scaffold hint), settings import (`setup-required`, a contradiction), `update` (locally-edited files it reset); also a chat message starting `todo:` (filed by the `UserPromptSubmit` hook, `quick-capture` in `config.md`) | `open` -> `done` -> archive |
 | `report` | none | a tool's own read-only report of what it found or did: `doctor --inbox`, `act-adopt` (adoption report) | `open` -> `done` (read) -> archive |
-| `note` | none | human; the assistant replies below it | `open` -> `answered` -> `done` -> archive |
+| `note` | none | human; the assistant replies below it; also a chat message starting `note:` (filed by the hook, `quick-capture` in `config.md`) | `open` -> `answered` -> `done` -> archive |
 
 An entry without `kind:` counts as `todo`.
+
+An entry with `triage: open` was captured from a chat message beginning `todo:` or `note:` and is the
+assistant's to process, whatever its status: a `todo` gets its `for:` decided (or becomes a backlog entry), a
+`note` gets a reply below it and `status: answered`; then the `triage:` line is removed. An answered `note`
+waits for the human.
 
 Which kind a tool writes follows what it asks of the reader, not who wrote it: nothing but reading
 is asked -> `report`; some action is needed (configure, decide, pick up a hint) -> `todo`.
 
-Each file opens with header fields, in this order (a field a given entry does not use is left out):
+Each file opens with header fields as YAML frontmatter — between two `---` lines, then a blank line and
+the `# Title` — in this order (a field a given entry does not use is left out):
 
 ```text
+---
 id: Q<n>            # questions (Q<n>) and todos (U<n>) only
 formerly: T<n>        # an id the entry had in an older numbering (adoption, --formerly)
 kind: todo          # question | todo | report | note; omitted = todo
 for: all            # or a workspace identity - who it is addressed to
 status: open        # open -> answered -> done
+triage: open        # only on an entry captured from a chat prefix (todo:/note:); the assistant removes it once it has dealt with the entry
 created: 2026-09-25T18:30
+---
 ```
+
+An older entry without the two `---` lines (header fields straight at the top) is read the same way;
+`act-update` converts every entry still in the inbox once, and tasks, backlog, journal and archive entries under
+`docs/ai/work/` the same way.
 
 File names: an entry with an id is `<ID>-<slug>.md` (e.g. `Q<n>-...md`, `U<n>-...md`); one without
 (report, note) is `<kind>-<YYYYMMDD-HHMM>-<slug>.md` (e.g. `report-20260925-1830-adoption.md`). A
@@ -34,7 +47,11 @@ on the default branch. A todo from before ids existed (`todo-<YYYYMMDD-HHMM>-<sl
 by the same `assign`.
 
 `done` is finished and gets archived to `docs/ai/work/archive/`, whatever its `kind` —
-questions included.
+questions included. Archive with `python .act/scripts/entries.py archive <id|file>`: it sets
+`status: done`, moves the entry, and takes along the files it links beside itself (an image pasted
+into the entry lands next to it as `img.png`). A generic or already taken name gets the id in front
+(`Q<n>-img.png`) and the links are rewritten. `doctor` reports a file here that no Markdown file
+under `docs/` links.
 
 ## `note` entries
 

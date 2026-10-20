@@ -7,7 +7,8 @@ summary: inbox order, bundled questions, short final chat answers, chat language
 summary: clearing answered inbox entries before other work
 
 Process inbox entries the human has already answered before starting anything else — an
-answer left unread blocks whatever depends on it from stalling behind it.
+answer left unread blocks whatever depends on it from stalling behind it. An entry marked
+`triage: open` counts as answered here (`R-human-capture`).
 
 ## `R-human-ask` — Bundle questions; never decide one yourself
 
@@ -26,6 +27,29 @@ waiting. With `at-start`, a backlog entry may keep its open decisions, marked `d
 its header, and they are asked when work on it starts (`act-prepare`); a task's open decisions are
 always in the inbox.
 
+## `R-human-capture` — Chat prefixes `todo:`, `note:`, `idea:` capture
+
+summary: a message starting todo:/note:/idea: becomes an inbox entry or ideas section; the hook does it, otherwise the model files it at once with a one-line answer; triage: open is processed right after answered entries
+
+A chat message that begins with `todo:`, `note:` or `idea:` (any letter case) is a capture, not an
+assignment. With `quick-capture` on in `docs/ai/config.md` (a missing key counts as `on`) the
+`UserPromptSubmit` hook files it and the message never reaches the model: `todo:` and `note:`
+become an inbox entry (`kind: todo|note`, `for:` the writer, `status: open`, header field
+`triage: open` right after `status:`), `idea:` a new section at the end of the writer's
+`docs/ai/concept/ideas-<identity>.md`. Where the hook does not run (another tool, hook missing) and
+a message with such a prefix arrives anyway, file it yourself at once the same way — create the entry
+with `entries.py new`, the human's wording as the body, then insert the line `triage: open` directly
+after `status:` (the command cannot write it); an `idea:` goes as a new section at
+the end of the ideas file, text untouched — and answer with one line naming the file. Do not start
+on the todo itself. With `quick-capture` off, the prefixes mean nothing special.
+
+Entries with `triage: open` are yours, whatever their kind: handle them right after the answered
+inbox entries (`R-human-inbox-first`). A `todo`: decide whom it is for and set `for:` (the writer,
+another identity, or `all`), or turn it into a backlog entry that keeps the wording and archive the
+inbox file. A `note`: reply below it in the fixed block form of the inbox README, never editing the
+human's text, and set `status: answered` — it then waits for the human, not for you. Finally remove
+the `triage:` line.
+
 ## `R-human-chat` — Answer once, briefly, when the answer is final
 
 summary: no interim reports, questions in the inbox, short closing summary, terse style, output-depth levels
@@ -39,9 +63,10 @@ below follows. In chat, ask only the question work cannot continue without; ever
 goes to `docs/ai/inbox/` as `kind: question` (one file per question, `entries.py new question
 <title>`) and is not repeated in chat — a decision question is created *only* as that inbox file,
 chat names at most its id (e.g. "see Q<n>"), never restates the question itself. An inbox entry
-the human has already answered is booked and archived in the same turn that notices the answer,
-never left open. Close with a short summary — done · next · problems · to discuss — short, but
-without dropping anything that matters, and name new questions and tasks together in one closing
+the human has already answered is booked and archived in the same turn that notices the answer
+(`entries.py archive <id>` — it takes pasted images along), never left open. Close with a
+short summary — done · next · problems · to discuss — short, but without dropping anything that
+matters, and name new questions and tasks together in one closing
 line ("New questions: Q12–Q14, new task T7"). Details only on request.
 
 Saving tokens is one of the goals, since every answer is read again in each later step. So chat

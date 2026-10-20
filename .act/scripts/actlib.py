@@ -131,7 +131,7 @@ def _write_json_merged(path: Path, data: dict) -> dict:
     merged.update(data)
     if existing is not None and merged == existing:
         return merged  # nothing changed: leave the file (and a versioned one's git status) alone
-    path.write_text(json.dumps(merged, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    overwrite_text(path, json.dumps(merged, indent=2, ensure_ascii=False) + "\n")
     return merged
 
 
@@ -1041,7 +1041,7 @@ def write_settings_booking(root: Path, booking: Optional[dict]) -> None:
     else:
         new_lock.pop(SETTINGS_BOOKED_KEY, None)
     if new_lock != lock or not lock_path.is_file():
-        lock_path.write_text(json.dumps(new_lock, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        overwrite_text(lock_path, json.dumps(new_lock, indent=2, ensure_ascii=False) + "\n")
 
 
 def _classify_block_lines(
@@ -1178,18 +1178,66 @@ def normalize_tool(name: str) -> str:
 _HEADER_FIELD_RE = re.compile(r"^[A-Za-z][A-Za-z-]*:\s")
 
 
+FRONTMATTER_DELIMITER = "---"
+
+
+def split_header(text: str) -> tuple[str, str]:
+    """Split `text` into (head, body) with head + body == text exactly. The head is the file's
+    header with its line endings (and a leading UTF-8 BOM), the body everything after it, blank
+    separator line included. Two forms are read alike: the plain form (a leading run of "key:
+    value" lines, ended by a blank line or the first line that is not a field, typically the
+    Markdown heading) and frontmatter (a `---` line as the very first line, field lines, the first
+    following `---` line closing it, which is part of the head too). Frontmatter counts only when
+    every line between the two delimiters is a field line or blank; otherwise the file has no
+    header at all. A `---` further down, such as a reply block in an inbox entry's body followed
+    by `status: done`, is never a header, so a value can't be spoofed from there."""
+    start = 1 if text.startswith("\ufeff") else 0  # a hand-saved UTF-8 BOM is not content
+    lines = text[start:].split("\n")
+    count = 0
+    if lines[0].rstrip() == FRONTMATTER_DELIMITER:
+        for index in range(1, len(lines)):
+            line = lines[index]
+            if line.rstrip() == FRONTMATTER_DELIMITER:
+                count = index + 1
+                break
+            if line.strip() and not _HEADER_FIELD_RE.match(line.rstrip("\r")):
+                break
+    else:
+        while count < len(lines) and lines[count].strip() and _HEADER_FIELD_RE.match(lines[count].rstrip("\r")):
+            count += 1
+    head_length = start + sum(len(line) + 1 for line in lines[:count])
+    return text[:head_length], text[head_length:]
+
+
+def is_frontmatter(head: str) -> bool:
+    """True if `head`, as split_header() returned it, is a frontmatter block (opens with `---`)."""
+    return head.removeprefix("\ufeff").startswith(FRONTMATTER_DELIMITER)
+
+
 def header_block(text: str) -> str:
-    """The file's leading run of "key: value" header lines (e.g. "id:", "status:", "for:",
-    "created:") — stops at the first blank line or any line that is not itself a header field,
-    typically the first Markdown heading. Every place that reads such a field searches this
-    substring, never the whole file, so a value can never be spoofed by an example, a fenced code
-    block, or another file's header merely quoted in a journal entry (`entries.py`, `board.py`)."""
-    lines: list[str] = []
-    for line in text.removeprefix("\ufeff").splitlines():  # a hand-saved UTF-8 BOM is not content
-        if not line.strip() or not _HEADER_FIELD_RE.match(line):
-            break
-        lines.append(line)
-    return "\n".join(lines)
+    """The file's header fields as "key: value" lines (e.g. "id:", "status:", "for:", "created:"),
+    joined by "\\n", without any frontmatter delimiters; split_header() says which two forms are
+    read and what ends a header. Every place that reads such a field searches this substring,
+    never the whole file, so a value can never be spoofed by an example, a fenced code block, or
+    another file's header merely quoted in a journal entry (`entries.py`, `board.py`)."""
+    head = split_header(text)[0]
+    lines = [line.rstrip("\r") for line in head.removeprefix("\ufeff").split("\n")]
+    return "\n".join(line for line in lines if _HEADER_FIELD_RE.match(line))
+
+
+def writes_frontmatter(kind: str) -> bool:
+    """True if an entry of this kind is written with its header as frontmatter: every kind
+    entries.py writes (INBOX_KINDS and the `inbox` alias, task, backlog, ledger). The one place
+    that decides it. Every writer asks here, every reader accepts both forms regardless."""
+    return kind in INBOX_KINDS or kind in ("inbox", "task", "backlog", "ledger")
+
+
+def format_header(fields: list[str], frontmatter: bool) -> str:
+    """Render header `fields` (each a "key: value" line) as text ending in a newline: between
+    `---` lines when `frontmatter`, else as the plain run of lines. The caller adds the blank
+    separator line and the heading."""
+    lines = [FRONTMATTER_DELIMITER, *fields, FRONTMATTER_DELIMITER] if frontmatter else list(fields)
+    return "\n".join(lines) + "\n"
 
 
 def sha256_file(path: Path) -> str:
@@ -1201,6 +1249,27 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def overwrite_text(path: Path, text: str, newline: Optional[str] = None) -> None:
+    """Write `text` to `path` as UTF-8, creating the parent folder and replacing any existing content.
+    On Windows `open(path, "w")` truncates through CREATE_ALWAYS, which the system refuses for a file
+    carrying the Hidden attribute (PermissionError 13) — editors and older tools often set it on
+    dotfiles such as `.gitignore`. An existing file is therefore opened with "r+" and cut with
+    `truncate()`, which also keeps its attributes. `newline` is passed to `open()` as is."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    mode = "r+" if sys.platform == "win32" and path.is_file() else "w"
+    try:
+        with open(path, mode, encoding="utf-8", newline=newline) as handle:
+            handle.write(text)
+            if mode == "r+":
+                handle.truncate()
+    except PermissionError as exc:
+        if sys.platform == "win32":
+            raise PermissionError(
+                exc.errno, f"{exc.strerror}: {path} — if the file is read-only or hidden, clear the "
+                f"attribute first with: attrib -R -H \"{path}\"") from exc
+        raise
+
+
 def write_text_lf(path: Path, text: str) -> None:
     """Write `text` to `path` as UTF-8 with `\\n` line endings regardless of platform default.
     Every generated bridge and scaffold/docs file must come out the same way `.gitattributes`
@@ -1208,9 +1277,7 @@ def write_text_lf(path: Path, text: str) -> None:
     generated" hash comparison in .act-local/cache.json flips on nothing but the checkout's own
     line endings. `open()`'s own `newline` parameter has always accepted this value, unlike
     `Path.write_text(..., newline=...)` (Python 3.10+), which this project's floor (3.9) lacks."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8", newline="\n") as handle:
-        handle.write(text)
+    overwrite_text(path, text, newline="\n")
 
 
 def normalized_sha256(path: Path) -> str:
