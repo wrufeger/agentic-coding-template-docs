@@ -96,9 +96,9 @@ Aufgabe besser aufteilen, sagt er das in seinem Ergebnis und der Orchestrator en
 Stelle weiß, wer was, wo und wie lange tut.
 
 ## rules/shared/10-safety.md
-<!-- source: c1a297f73b0a5b0a -->
+<!-- source: 01a135c2ef977e0e -->
 Sicherheitsregeln
-summary: Freigabe vor Unumkehrbarem, Secrets in Diffs und beim Lesen, Löschen, verworfene Git-Arbeit, Git-Hooks und -Konfiguration, der Dev-Server des Eigentümers, Sperren der Schutzmechanismen, fremde Inhalte
+summary: Freigabe vor Unumkehrbarem, Secrets in Diffs und beim Lesen, im Projekt bleiben, Löschen, verworfene Git-Arbeit, Git-Hooks und -Konfiguration, der Dev-Server des Eigentümers, Sperren der Schutzmechanismen, fremde Inhalte
 
 Gemeinsame Sicherheitsregeln, die jede Rolle lädt. Die IDs (`R-<area>-<name>`) sind stabil und werden nie neu
 vergeben.
@@ -143,6 +143,26 @@ Schlüssel (`*.pub`) bleiben frei. Gilt für Orchestrator und Worker gleicherma�
 `secret-read` (`docs/ai/config.md` § Checks); der Eigentümer kann es dort auf `warn` oder `off` setzen, oder
 für einen Lauf mit `ACT_SECRET_READ` in der Umgebung. Grenze: Ein Programm, das die Datei selbst öffnet
 (`python script.py`, `docker run --env-file`), bleibt für die Prüfung unsichtbar.
+
+## R-safe-outside-root
+<!-- source: df62da155d9b5e1e -->
+Im Projekt bleiben
+summary: nur im Projektstamm und seinen erlaubten Orten lesen und schreiben; jeder andere Ort nur auf Wort des Eigentümers, als Eintrag; mechanisch geprüft
+
+Gelesen und geschrieben wird nur im Projektstamm und an den dafür erlaubten Orten: den Ordnern in
+`permissions.additionalDirectories`, dem temporären Systemverzeichnis, dem eigenen Ordner von Claude Code für
+dieses Projekt, seinem Plan-Ordner `~/.claude/plans/`, nur lesend seinen Plugin- und Skill-Ordnern
+(`~/.claude/plugins/`, `~/.claude/skills/`) und den Einträgen von `outside-root-allow` (`docs/ai/config.md` §
+Checks; `(read)` nach einem Pfad erlaubt nur Lesen). Jeder andere Ort — ein Nachbar-Repository, ein anderes
+Projekt, das Home-Verzeichnis — nur auf Wort des Eigentümers für diesen Fall, und dann als Eintrag in
+`outside-root-allow` oder `additionalDirectories`, nie als einmaliger Umweg. `act-adopt` ist die einzige
+Ausnahme: Der Eigentümer startet die erste Sichtung mit dem Präfix `!`, das den Zielordner für 24 Stunden oder bis
+`--abort` (auch über `--finish` hinaus) öffnet, über eine Marke unter `.act-local/outside-allow/`, die niemand
+außer den Adopt-Scripten schreibt; `--apply` erneuert nur eine gültige Marke für dasselbe Ziel. Gilt für jede
+Rolle und jedes Werkzeug. Mechanisch geprüft durch `outside-root` (`docs/ai/config.md` § Checks); der Eigentümer
+kann sie dort auf `warn` oder `off` setzen, oder für einen Lauf mit `ACT_OUTSIDE_ROOT` in der Umgebung. Grenzen:
+Die Shell-Prüfung arbeitet nach dem Prinzip Best Effort, ein Programm, das Dateien selbst öffnet (`python script.py`,
+`docker run -v`), bleibt für sie unsichtbar, und MCP-Tools, die einen Pfad nehmen, werden nicht geprüft.
 
 ## R-safe-no-secret-log
 <!-- source: 0ab72e3f4d5b4f62 -->

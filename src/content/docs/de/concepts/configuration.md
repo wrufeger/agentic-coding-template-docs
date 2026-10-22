@@ -3,7 +3,7 @@ title: Konfiguration
 description: docs/ai/config.md steuert den Arbeitsablauf - seine Gruppen und was block, warn und off für Prüfungen bedeuten.
 sidebar:
   order: 4
-sourceHash: 5450beb3dbe839789f0a204ce80012b37d050345c12e47b6b1b6085cb4e13523
+sourceHash: 17cd39a40c27f2b8c6b3585e4e34c67b9f45e880872330bf8a3ccf00df16ba61
 ---
 
 `docs/ai/config.md` ist die Datei, die steuert, wie am Projekt gearbeitet wird. Sie besteht aus Markdown-Tabellen, ein Abschnitt pro Thema. `init` trägt die Werte ein, die es erfragt oder erkannt hat; du änderst sie jederzeit. Nichts braucht einen Neuaufbau: Der Hook beim Sitzungsstart liest die Datei und meldet, was sich seit dem letzten Abgleich geändert hat. Jeder Schlüssel mit seinen erlaubten Werten steht in der [Konfigurationsreferenz](/agentic-coding-template-docs/de/reference/configuration/); diese Seite erklärt, wofür die Gruppen da sind.
@@ -37,6 +37,8 @@ Jede Zeile der Prüfungstabelle benennt einen Wächter, der vor der Aktion läuf
 Eine Prüfung, die in der Tabelle als „never refuses" markiert ist, behandelt `block` wie `warn`. Eine Prüfung ist anders: `security-check` nimmt `off`, `local`, `deps` oder `full`, siehe [Sicherheitsprüfung](/agentic-coding-template-docs/de/guides/security-check/).
 
 Eine Prüfung herunterzustufen ist deine Entscheidung. Prüfungen wie `secret-scan` oder `git-reset-hard` schützen vor Dingen, die sich nicht rückgängig machen lassen; senke sie nur mit Grund.
+
+`outside-root` hält Lesen und Schreiben im Projektordner und seinen erlaubten Orten, für den Assistenten und seine Worker. In neuen Projekten steht es auf `block`; ein Projekt ohne die Zeile führt es als `warn` aus. Ausnahmen kommen in `outside-root-allow`; beide Zeilen stehen in der [Konfigurationsreferenz](/agentic-coding-template-docs/de/reference/configuration/), die Regel in [`R-safe-outside-root`](/agentic-coding-template-docs/de/reference/rules/#r-safe-outside-root).
 
 ## Datei und Umgebung
 

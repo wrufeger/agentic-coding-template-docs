@@ -37,6 +37,8 @@ A check marked in the table as "never refuses" treats `block` as `warn`. One che
 
 Turning a check down is your decision. Checks such as `secret-scan` or `git-reset-hard` protect against things that cannot be undone; lower them only with a reason.
 
+`outside-root` keeps reads and writes inside the project root and its allowed places, for the assistant and its workers alike. It starts at `block` in new projects; a project without the row runs it as `warn`. Exceptions go into `outside-root-allow`; both rows are described in the [configuration reference](/agentic-coding-template-docs/reference/configuration/), the rule in [`R-safe-outside-root`](/agentic-coding-template-docs/reference/rules/#r-safe-outside-root).
+
 ## File and environment
 
 `config.md` describes the **project** and is versioned. Secrets and per-machine or per-run deviations belong in the environment (for example `AGENTIC_FEEDBACK_URL` or `ACT_FORGE_API_URL`), which overrides the file for that run and never the other way round. The session start names every environment override that is active, names only, never values.

@@ -3,7 +3,7 @@ title: Bestehendes Projekt
 description: Ein Projekt mit eigener Doku oder eigenem KI-Setup mit act-adopt übernehmen.
 sidebar:
   order: 2
-sourceHash: 5780208ccae4af5cfb7212398c56de67f0488ad5109db8f90b117c4346198b47
+sourceHash: aa60f181965bcf6d6b4c1a10b43cf59ae2f9d26a13836bf882986712cb7508da
 ---
 
 Ein Projekt, das schon Doku, eine `CLAUDE.md` oder ein älteres KI-Setup hat, läuft über `act-adopt`, nicht allein
@@ -29,6 +29,10 @@ Nichts ändert sich, bevor du einmal eine Tabelle freigibst, und kein Script com
    ändert nichts.
    Die Sichtung nennt auch einen übrig gebliebenen Git-Remote, der auf das Template-Repository zeigt (das Update-Script
    eines früheren Templates hat ihn angelegt). Der Assistent schlägt vor, ihn zu entfernen, und tut es nur mit deinem Ja.
+   Hat das Projekt, in dem du arbeitest, schon die Hooks des Templates, verweigert die Prüfung `outside-root` den
+   Zugriff auf einen Zielordner außerhalb. Dann startest du den ersten Scan selbst mit dem Präfix `!`
+   (`! python .act/scripts/adopt_scan.py --target <dir>`). Der Scan legt eine Marke an, die das Ziel für 24 Stunden
+   oder bis `--abort` öffnet, auch über `--finish` hinaus, damit die späteren Schritte es weiter erreichen. Siehe [`R-safe-outside-root`](/agentic-coding-template-docs/de/reference/rules/#r-safe-outside-root).
 2. **Tabelle vorschlagen.** Eine Zeile pro Quelle mit einer Aktion: `keep`, `adopt`, `legacy` oder `delete`.
 3. **Du gibst einmal frei.** Die ganze Tabelle in einem Durchgang. Du kannst jede Zeile ändern. Eine `adopt`-Zeile der
    Klasse `project-doc`, `ai-machinery`, `predecessor` oder `unknown` braucht ein Ziel (die Datei, in die ihr Inhalt

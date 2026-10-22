@@ -25,6 +25,10 @@ Nothing changes before you approve a table once, and no script commits anything.
    `ai-machinery`, `work`, `log`, `project-doc`, `predecessor`, `unknown`), writes a scan, and changes nothing.
    The scan also names a leftover git remote that points at the template repository (a previous template's update script
    added it). The assistant proposes removing it and does so only with your yes.
+   If the project you work in already has the template's hooks, the `outside-root` check refuses access to a target
+   folder outside it. Then you start the first scan yourself with the `!` prefix
+   (`! python .act/scripts/adopt_scan.py --target <dir>`). The scan leaves a marker that opens the target for 24 hours
+   or until `--abort`, also past `--finish`, so the later steps still reach it. See [`R-safe-outside-root`](/agentic-coding-template-docs/reference/rules/#r-safe-outside-root).
 2. **Propose the table.** One row per source with an action: `keep`, `adopt`, `legacy`, or `delete`.
 3. **You approve once.** The whole table in one pass. You may change any row. An `adopt` row of class `project-doc`,
    `ai-machinery`, `predecessor` or `unknown` needs a target (the file its content goes to); name the rows that
