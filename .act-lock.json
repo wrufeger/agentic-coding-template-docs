@@ -35,9 +35,9 @@
   },
   "template": {
     "version": "2.2.0",
-    "commit": "3bde8a093bc6ba997b010e2efefefe39d3c9953d",
+    "commit": "312aa0d4924774a0bce22ed57c5d6a67d844320e",
     "source": "D:/dev/rufeger/agentic-coding-template",
-    "manifest_sha256": "89c603b732af385b2b4fdd1e34a50df08c37460ddbf27f3283dbf25773ea5184"
+    "manifest_sha256": "2127a8bc7d136be8749213e06a91b45166d6f6a9e261b82ee9693236a55182e6"
   },
   "copies": {
     ".claude/skills/act/SKILL.md": {
@@ -82,7 +82,7 @@
     },
     ".claude/skills/act-export-settings/SKILL.md": {
       "source": ".act/skills/act-export-settings/SKILL.md",
-      "sha256": "a75977912520ac1b2b378a4113380ba772aaa5952a20ac0d5454f99536af90c9"
+      "sha256": "77dc3e25cb6915d892fff022c5ac460b670f4f8f6cd7c8259a3b35c5937d9f7e"
     },
     ".claude/skills/act-feedback/SKILL.md": {
       "source": ".act/skills/act-feedback/SKILL.md",
@@ -102,7 +102,7 @@
     },
     ".claude/skills/act-load-settings/SKILL.md": {
       "source": ".act/skills/act-load-settings/SKILL.md",
-      "sha256": "e4afe15fe91855273e8b65fdd1fddf3273d4d8ac879bafa1154ce46ff6539d10"
+      "sha256": "4ad4f5500945366609a4c81483b0481f27afe490a035f642b0b687c7e9e656af"
     },
     ".claude/skills/act-perf/SKILL.md": {
       "source": ".act/skills/act-perf/SKILL.md",
