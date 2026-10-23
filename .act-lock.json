@@ -2,14 +2,16 @@
   "bridges_applied": {
     ".gitattributes": [
       "# Generated bridges: CLAUDE.md, AGENTS.md, and docs/ai/rules.md are",
-      "# written by `.act/scripts/init.py` from `.act/bridges/`. `merge=ours` is a hint for a custom",
-      "# merge driver (`git config merge.ours.driver`); if none is registered on this machine, git",
-      "# falls back to a normal merge. Either way, `.act/hooks/dispatch.py` re-derives an unchanged",
+      "# written by `.act/scripts/init.py` from `.act/bridges/`, always with LF, so they are marked",
+      "# `text eol=lf`: with core.autocrlf=true, git would otherwise check them out as CRLF and report",
+      "# a freshly re-derived bridge as changed while `git diff` stays empty. `merge=ours` is a hint for",
+      "# a custom merge driver (`git config merge.ours.driver`); if none is registered on this machine,",
+      "# git falls back to a normal merge. Either way, `.act/hooks/dispatch.py` re-derives an unchanged",
       "# bridge at every session start (checked against `.act-local/cache.json`), so a missing driver",
       "# never leaves a stale file behind.",
-      "/CLAUDE.md merge=ours",
-      "/AGENTS.md merge=ours",
-      "/docs/ai/rules.md merge=ours",
+      "/CLAUDE.md merge=ours text eol=lf",
+      "/AGENTS.md merge=ours text eol=lf",
+      "/docs/ai/rules.md merge=ours text eol=lf",
       "# Per-person board file of `board: shared`, written with LF. `merge=ours` only takes effect where",
       "# the driver above is registered; otherwise a normal merge applies, and the next commit rewrites",
       "# the file anyway (act-commit runs `board.py --shared`).",
@@ -35,9 +37,10 @@
   },
   "template": {
     "version": "2.2.0",
-    "commit": "312aa0d4924774a0bce22ed57c5d6a67d844320e",
+    "commit": "cefde868c90cb4dd5277f045ce9906d3467d2e9e",
     "source": "D:/dev/rufeger/agentic-coding-template",
-    "manifest_sha256": "2127a8bc7d136be8749213e06a91b45166d6f6a9e261b82ee9693236a55182e6"
+    "ref": "",
+    "manifest_sha256": "07e32cde43242f169267830a3fab4f10e8d419c49172d60e5a654205ae4de952"
   },
   "copies": {
     ".claude/skills/act/SKILL.md": {
@@ -50,7 +53,7 @@
     },
     ".claude/skills/act-audit-docs/SKILL.md": {
       "source": ".act/skills/act-audit-docs/SKILL.md",
-      "sha256": "db08b0a40c67785147c7e911170a8e9088a2b9852e054b56b32c5a1dfecb6039"
+      "sha256": "5e7f16c3e77e86d83c2f6b59e35b0e8c8b261dd67f256b5adcfa1cd0d4815fdb"
     },
     ".claude/skills/act-bug/SKILL.md": {
       "source": ".act/skills/act-bug/SKILL.md",
@@ -58,11 +61,11 @@
     },
     ".claude/skills/act-commit/SKILL.md": {
       "source": ".act/skills/act-commit/SKILL.md",
-      "sha256": "e62cd00ab55247bb517392e79eaf7ac53d09e3b75e2ff560af7ffc5ad0f6d918"
+      "sha256": "3722a5e1a4be442eb7cc32e6b56dd5a77ab49ddc99294fe4473795bbf30cb74f"
     },
     ".claude/skills/act-deps/SKILL.md": {
       "source": ".act/skills/act-deps/SKILL.md",
-      "sha256": "79cccc6ca07192754cc001555d2b81b812493c4482f2b133511910ded9981e0b"
+      "sha256": "cfa2c4caf5f87907c892b67280f35ac9ef2b344edf78950e2d08dbc31849f9d2"
     },
     ".claude/skills/act-design-assets/SKILL.md": {
       "source": ".act/skills/act-design-assets/SKILL.md",
@@ -86,7 +89,7 @@
     },
     ".claude/skills/act-feedback/SKILL.md": {
       "source": ".act/skills/act-feedback/SKILL.md",
-      "sha256": "e339d5af01fa27384a6fca63cf0cb15d09da534317dea5a78572b5acf0c46832"
+      "sha256": "57b8e6a17d66c9a706de18348b017bfecf8d8bbac06fa9f86d1232fcdeb5ea21"
     },
     ".claude/skills/act-idea/SKILL.md": {
       "source": ".act/skills/act-idea/SKILL.md",
@@ -122,7 +125,7 @@
     },
     ".claude/skills/act-release/SKILL.md": {
       "source": ".act/skills/act-release/SKILL.md",
-      "sha256": "cc9852911ebeb030d9bdcac81931575fb0ec84fc991ae8ff7dbb32a539f0336f"
+      "sha256": "9e778787230c48a7fda2f91713799a3c2b8d20d6ad238f7663b51777abb9bba4"
     },
     ".claude/skills/act-setup/SKILL.md": {
       "source": ".act/skills/act-setup/SKILL.md",
@@ -195,6 +198,14 @@
     ".claude/skills/act-teach/SKILL.md": {
       "source": ".act/skills/act-teach/SKILL.md",
       "sha256": "59d3596b5de86528601daa6319e512fc8c76fe91f67b584353eba104fecd7573"
+    },
+    ".claude/skills/act-compact/SKILL.md": {
+      "source": ".act/skills/act-compact/SKILL.md",
+      "sha256": "46b84f7da5a83f7dd5644c03740a433c94c0e4c1fcf66415cea9f6f80bf7592f"
+    },
+    ".claude/skills/act-version/SKILL.md": {
+      "source": ".act/skills/act-version/SKILL.md",
+      "sha256": "1fdf4427822a34b1ce880dcecd28caffc6b404c45ac74e42394ced3de74b7ced"
     }
   },
   "removed_by_user": [],

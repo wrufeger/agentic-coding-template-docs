@@ -29,6 +29,17 @@ session start), so its whole file loads: an unchecked group in it is **off** —
 - [ ] use: .act/coding/sql.md
 - [ ] use: .act/coding/tailwind.md
 - [ ] use: .act/coding/vue.md
+- [ ] use: .act/coding/c.md
+- [ ] use: .act/coding/ci.md
+- [ ] use: .act/coding/cpp.md
+- [ ] use: .act/coding/css.md
+- [ ] use: .act/coding/docker.md
+- [ ] use: .act/coding/javascript.md
+- [ ] use: .act/coding/kotlin.md
+- [ ] use: .act/coding/nuxt5.md
+- [ ] use: .act/coding/powershell.md
+- [ ] use: .act/coding/react.md
+- [ ] use: .act/coding/rust.md
 
 ## Overrides
 <!-- act:overrides -->

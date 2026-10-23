@@ -214,7 +214,7 @@ refuses") treats `block` as `warn`.
 | `commit-pathspec` | block | `git add -A`, `git add .`, `git add --all`, `git commit -a` — stage by pathspec instead (`R-code-commit`) |
 | `git-reset-hard` | block | `git reset --hard` (Bash/PowerShell, also `git -C <dir> ...`) while the affected working tree has uncommitted changes (untracked files count as changes too) or its own working tree cannot be determined — `git stash`/`git reset --soft` first (`R-safe-git-reset`) |
 | `git-discard` | block | `git clean -f` that would delete something, `git checkout`/`git restore` of a folder (or `checkout -f`, `switch -f`) with uncommitted tracked changes in the target, `git stash drop`/`clear`, a forced push to the default branch (`origin/HEAD`, else `init.defaultBranch`, else `main`/`master`), `git branch -D` of an unmerged branch (Bash/PowerShell, also `git -C <dir> ...`); deleting the default branch on the remote and `branch -M`/`-C` over an unmerged branch count as well; a target that cannot be determined, or a call that cannot be checked in time, is refused (`R-safe-git-discard`) |
-| `git-metadata-guard` | block | writes to `.git/hooks/**`, `.git/config` (also a `.git` file's git directory) and `git config`/`git -c` keys that run code (`core.hooksPath`, `core.fsmonitor`, `core.sshCommand`, `!` aliases …) for everyone; for workers also `.claude/settings*.json`, `.claude/agents/**`, `.claude/skills/**`, `.claude/commands/**` (project and `~/.claude`) — ask the human (`R-safe-git-metadata`) |
+| `git-metadata-guard` | block | writes to `.git/hooks/**`, `.git/config` (also a `.git` file's git directory) and `git config`/`git -c` keys that run code (`core.hooksPath`, `core.fsmonitor`, `core.sshCommand`, `!` aliases …) for everyone; for workers also `.claude/settings*.json`, `.claude/agents/**`, `.claude/skills/**`, `.claude/commands/**` (project and `~/.claude`), plus `.vscode/tasks.json`, `.devcontainer/**`, `.devcontainer.json`, `.envrc`, `.mcp.json` and tasks that run on `folderOpen` — ask the human (`R-safe-git-metadata`) |
 | `recursive-delete` | block | recursive delete from the shell (`rm -r`, `rmdir /s`, `Remove-Item -Recurse`, `find -delete`) — delete with the language's own means or file by file (`R-safe-no-shell-delete`) |
 | `secret-scan` | block | `git commit` while the staged diff holds a key/token pattern, a private key, an `.env` file or a high-entropy assignment; a line carrying `act:allow-secret` is exempt (`R-safe-no-secret-diff`) |
 | `secret-read` | block | Read, Grep (`path`, `glob`) and Bash/PowerShell reading commands (`cat`, `grep`, `Get-Content`, `< file` at any position, `git show HEAD:<file>`, ...) naming a secret file — `.env` and its variants (not a name ending in `.example`/`.sample`/`.template`, not a public key `*.pub`), private keys and keystores, `~/.ssh`, `~/.aws`, `~/.config/gcloud` and other credential paths; applies to workers too; `warn` reports without blocking; `ACT_SECRET_READ` in the environment overrides the value for one run (`R-safe-no-secret-read`) |
@@ -257,6 +257,32 @@ local (`.act-local/feedback/sent/`, gitignored) — each send also gets one line
 (date, kind, entry count, schema version, never content). A message you write yourself
 (`feedback: <text>`) always goes out, even with `off`, together with the template commit and the
 random project id (a reply address only if you name one). Details: `.act/rules/topics/feedback.md`.
+
+## Update
+
+| Key | Value |
+| :--- | :--- |
+| `update-channel` | <update-channel> |
+
+`update-channel`: `release` \| `latest`. With `release` (the default) `act-update` offers only the newest
+stable release tag of the template source and the session start announces only that; with `latest` it follows
+the tip of the source's default branch. `--channel` on `update.py` overrides it for one run. Details:
+`.act/skills/act-update/SKILL.md`.
+
+## Archive
+
+| Key | Value |
+| :--- | :--- |
+| `archive-compact` | 30d 300 |
+| `archive-shorten` | on |
+
+`archive-compact`: `<n>d <n>` \| `off`. `entries.py compact` is due for the archive or the journal folder once its
+oldest single entry is older than this many days, or the folder holds more than this many single files; the session
+start says so once a day, with the number of entries and the worker runs to expect (`act-compact`). Only entries
+archived more than 7 days ago are merged. A missing or malformed value counts as `30d 300`; in team mode the note
+appears only on the default branch. `archive-shorten`: `on` \| `off`. `on` (the default) has workers shorten the
+merged sections and write a monthly topic overview `archive/YYYY-MM.md`, checked by `compact_check.py`; `off` merges
+only.
 
 ## Tips
 

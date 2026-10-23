@@ -13,10 +13,11 @@
 #          ecosystem this module detects a lock file for, so it is preferred whenever installed
 #          even if an ecosystem-specific tool is *also* installed. Without it, one tool per
 #          ecosystem instead, each independent (a missing/broken tool in one ecosystem never hides
-#          a finding in another): `npm audit --json` (npm's own `package-lock.json`), `composer
+#          a finding in another): `npm audit --json` (npm's own `package-lock.json`), `pnpm audit
+#          --json` (`pnpm-lock.yaml`, pnpm 9 or newer), `composer
 #          audit --format=json` (`composer.lock`), `pip-audit --disable-pip --no-deps -r
 #          <requirements.txt>` (a *pinned* requirements file only -- see "pip-audit mode" below).
-#          `yarn.lock`/`pnpm-lock.yaml`/`go.mod`/`Cargo.lock` have no ecosystem-specific fallback
+#          `yarn.lock`/`go.mod`/`Cargo.lock` have no ecosystem-specific fallback
 #          coded here at all; without `osv-scanner` they are named in `missing_tools` and simply
 #          not scanned, same as `poetry.lock`/`Pipfile.lock` (pip-audit's own `--no-deps` mode only
 #          takes a plain requirements file, not a lock format of its own).
@@ -77,9 +78,11 @@
 #   - `composer audit` names no fixed version in its own JSON output -- `fixed_version` is always
 #     None for a composer finding;
 #   - `detect_lock_files` walks the whole project tree (skipping `.git`, `.act`, `node_modules`,
-#     `vendor`, `.venv`/`venv`, `__pycache__`, `dist`, `build`, and any dot-directory) -- a lock
-#     file placed somewhere else this list does not skip is still found, one placed *inside* one of
-#     these directories on purpose (an unusual layout) is not;
+#     `vendor`, `.venv`/`venv`, `__pycache__`, `dist`, `build`, any dot-directory, and any
+#     sub-directory with a `.git` of its own, i.e. another repository's checkout) and drops lock
+#     files `git check-ignore` reports as ignored -- a lock file placed somewhere else this list
+#     does not skip is still found, one placed *inside* one of these directories on purpose (an
+#     unusual layout) is not;
 #   - every tool call is a real subprocess with argument lists, never a shell string -- a tool that
 #     needs network access (osv-scanner's own database lookup, if not run with a local database)
 #     reaches it itself; this module never opens a connection of its own.
@@ -138,10 +141,11 @@ LOCK_FILE_NAMES: dict[str, tuple[str, ...]] = {
 # but never handed to the pip-audit fallback, see the module docstring.
 PIP_AUDIT_LOCK_NAMES = frozenset({"requirements.txt", "requirements-lock.txt", "requirements.lock"})
 
-TOOL_NAMES = ("osv-scanner", "npm", "composer", "pip-audit")
+TOOL_NAMES = ("osv-scanner", "npm", "pnpm", "composer", "pip-audit")
 INSTALL_HINTS: dict[str, str] = {
     "osv-scanner": "install osv-scanner (https://google.github.io/osv-scanner/installation/)",
     "npm": "install Node.js/npm (https://nodejs.org/)",
+    "pnpm": "install pnpm 9 or newer (https://pnpm.io/installation)",
     "composer": "install Composer (https://getcomposer.org/download/)",
     "pip-audit": "pip install pip-audit",
 }
@@ -151,21 +155,50 @@ _SKIP_DIR_NAMES = frozenset({
 })
 
 
+def _git_ignored(root: Path, paths: "list[Path]") -> set[str]:
+    """The subset of `paths` (as `str(path)`) that git reports as ignored in `root`'s repository --
+    empty when `root` is no git work tree, git is missing, or the call fails: a scan that cannot ask
+    git simply keeps every path (the own-`.git` rule in `detect_lock_files` still applies)."""
+    if not paths or shutil.which("git") is None:
+        return set()
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(root), "check-ignore", "-z", "--stdin"],
+            input="\0".join(str(path) for path in paths) + "\0",
+            capture_output=True, text=True, encoding="utf-8", timeout=30.0, check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return set()
+    if proc.returncode not in (0, 1):  # 1 = nothing ignored; anything else = git could not answer
+        return set()
+    return {entry for entry in proc.stdout.split("\0") if entry}
+
+
 def detect_lock_files(root: Path) -> dict[str, list[Path]]:
     """Every lock file `root` actually holds, grouped by ecosystem -- absolute paths. A directory
-    name in `_SKIP_DIR_NAMES`, or any dot-directory, is never walked into (see the module
-    docstring's "Known limits")."""
+    name in `_SKIP_DIR_NAMES`, any dot-directory, and any sub-directory that holds a `.git` of its
+    own (a separate checkout of another repository) is never walked into; a lock file that git
+    reports as ignored is left out too (see the module docstring's "Known limits")."""
     name_to_ecosystems: dict[str, list[str]] = {}
     for ecosystem, names in LOCK_FILE_NAMES.items():
         for name in names:
             name_to_ecosystems.setdefault(name, []).append(ecosystem)
 
-    found: dict[str, list[Path]] = {}
+    candidates: list[tuple[str, Path]] = []
     for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = [d for d in dirnames if d not in _SKIP_DIR_NAMES and not d.startswith(".")]
+        dirnames[:] = [
+            d for d in dirnames
+            if d not in _SKIP_DIR_NAMES and not d.startswith(".")
+            and not (Path(dirpath) / d / ".git").exists()
+        ]
         for filename in filenames:
             for ecosystem in name_to_ecosystems.get(filename, ()):
-                found.setdefault(ecosystem, []).append(Path(dirpath) / filename)
+                candidates.append((ecosystem, Path(dirpath) / filename))
+    ignored = _git_ignored(root, [path for _, path in candidates])
+    found: dict[str, list[Path]] = {}
+    for ecosystem, path in candidates:
+        if str(path) not in ignored and path.as_posix() not in ignored:
+            found.setdefault(ecosystem, []).append(path)
     return found
 
 
@@ -756,6 +789,96 @@ def _run_npm_audit(tool_path: str, root: Path, lock_path: Path) -> "tuple[list[F
     return findings, None
 
 
+_PNPM_MIN_MAJOR = 9
+
+
+def _pnpm_too_old(tool_path: str, root: Path) -> Optional[str]:
+    """A message when `pnpm --version` names a major below `_PNPM_MIN_MAJOR` (older audit output
+    and endpoint), else None -- an unreadable version is not held against the tool."""
+    stdout, _returncode, _stderr, start_error = _run([tool_path, "--version"], root, timeout=_TOOL_TIMEOUT)
+    if start_error or not stdout:
+        return None
+    match = re.match(r"\s*v?(\d+)\.", stdout)
+    if match and int(match.group(1)) < _PNPM_MIN_MAJOR:
+        return f"pnpm {stdout.strip()} is older than {_PNPM_MIN_MAJOR}"
+    return None
+
+
+def _run_pnpm_audit(tool_path: str, root: Path, lock_path: Path) -> "tuple[list[Finding], Optional[str]]":
+    # Output shape: pnpm audit --json prints npm's classic audit report,
+    # {"advisories": {"<id>": {"module_name", "severity", "vulnerable_versions", "patched_versions",
+    # "github_advisory_id", "url", "title"}}, "metadata": ...}; the id kept is the GHSA one, the same
+    # key osv-scanner reports. Not verified against a live pnpm on this machine (assumption); the
+    # npm-style "vulnerabilities" map is read too, in case a newer pnpm prints that form.
+    stdout, returncode, stderr, start_error = _run([tool_path, "audit", "--json"], lock_path.parent, timeout=_TOOL_TIMEOUT)
+    if start_error:
+        return [], start_error
+    if not stdout or not stdout.strip():
+        if _unexpected_empty_output(returncode):
+            detail = (stderr or "").strip().splitlines()[:1]
+            return [], f"exited {returncode} with no output" + (f" ({detail[0]})" if detail else "")
+        return [], None
+    try:
+        data = json.loads(stdout)
+    except json.JSONDecodeError as exc:
+        return [], f"could not parse its own JSON output ({exc})"
+    if isinstance(data, dict) and isinstance(data.get("error"), dict):
+        error_info = data["error"]
+        message = error_info.get("message") or error_info.get("summary") or error_info.get("code") or "unknown pnpm error"
+        return [], str(message)
+
+    findings: list[Finding] = []
+    advisories = data.get("advisories") if isinstance(data, dict) else None
+    if isinstance(advisories, dict):
+        for key, entry in advisories.items():
+            if not isinstance(entry, dict):
+                continue
+            advisory_id = str(entry.get("github_advisory_id") or entry.get("id") or key or "")
+            if not advisory_id or advisory_id == "?":
+                continue
+            patched = str(entry.get("patched_versions") or "").strip()
+            installed = ""
+            entry_findings = entry.get("findings")
+            if isinstance(entry_findings, list):
+                for found in entry_findings:
+                    if isinstance(found, dict) and found.get("version"):
+                        installed = str(found["version"])
+                        break
+            findings.append(Finding(
+                ecosystem="pnpm", package=str(entry.get("module_name", "?")),
+                version=installed or str(entry.get("vulnerable_versions", "?")),
+                advisory_id=advisory_id, severity=normalize_severity(entry.get("severity")),
+                fixed_version=patched if patched and patched != "<0.0.0" else None,
+                lock_file=_relative(lock_path, root),
+                summary=str(entry.get("title") or "")[:200],
+            ))
+    vulnerabilities = data.get("vulnerabilities") if isinstance(data, dict) else None
+    if isinstance(vulnerabilities, dict) and not findings:
+        for name, entry in vulnerabilities.items():
+            if not isinstance(entry, dict):
+                continue
+            via = entry.get("via") if isinstance(entry.get("via"), list) else []
+            for item in via:
+                if isinstance(item, dict) and (item.get("url") or item.get("source")):
+                    advisory_id = str(item.get("url") or item.get("source")).rstrip("/").rsplit("/", 1)[-1]
+                    findings.append(Finding(
+                        ecosystem="pnpm", package=str(name), version=str(entry.get("range", "?")),
+                        advisory_id=advisory_id, severity=normalize_severity(entry.get("severity")),
+                        fixed_version=None, lock_file=_relative(lock_path, root),
+                    ))
+    if not isinstance(data, dict) or not (isinstance(advisories, dict) or isinstance(vulnerabilities, dict)):
+        keys = sorted(str(k) for k in data) if isinstance(data, dict) else type(data).__name__
+        return [], f"unexpected pnpm audit JSON (keys: {keys})"
+    if not findings:
+        metadata = data.get("metadata")
+        counts = metadata.get("vulnerabilities") if isinstance(metadata, dict) else None
+        if isinstance(counts, dict):
+            total = sum(v for v in counts.values() if isinstance(v, int) and not isinstance(v, bool))
+            if total > 0:
+                return [], f"pnpm audit reports {total} vulnerabilities but none could be read from its JSON"
+    return findings, None
+
+
 def _run_composer_audit(tool_path: str, root: Path, lock_path: Path) -> "tuple[list[Finding], Optional[str]]":
     # --no-plugins --no-scripts: a vendor/ composer plugin or script is dependency code, never run
     # just to audit the dependency it comes from (2026-09-27 review, item 6); --no-interaction:
@@ -846,8 +969,8 @@ def _run_pip_audit(tool_path: str, root: Path, lock_path: Path) -> "tuple[list[F
 def run_scan(root: Path, lock_files: "Optional[dict[str, list[Path]]]" = None) -> ScanResult:
     """One scan of `root`'s lock files: `osv-scanner` if installed (every detected lock file, one
     call), else one ecosystem-specific fallback tool per ecosystem that has one and is installed
-    (npm/composer/pip-audit); an ecosystem with a lock file but no available tool at all
-    (`yarn`/`pnpm`/`go`/`cargo` without `osv-scanner`, or `python`'s own fallback missing pip-audit)
+    (npm/pnpm/composer/pip-audit); an ecosystem with a lock file but no available tool at all
+    (`yarn`/`go`/`cargo` without `osv-scanner`, or `python`'s own fallback missing pip-audit)
     is named in `.missing_tools` and simply not scanned -- never a reason to fail the whole run."""
     result = ScanResult()
     if lock_files is None:
@@ -880,6 +1003,23 @@ def run_scan(root: Path, lock_files: "Optional[dict[str, list[Path]]]" = None) -
             result.missing_tools.append(
                 f"osv-scanner ({INSTALL_HINTS['osv-scanner']}) or npm ({INSTALL_HINTS['npm']}) -- "
                 "package-lock.json not scanned"
+            )
+
+    if "pnpm" in lock_files:
+        too_old = _pnpm_too_old(tools["pnpm"], root) if "pnpm" in tools else None
+        if "pnpm" in tools and not too_old:
+            for lock_path in lock_files["pnpm"]:
+                findings, error = _run_pnpm_audit(tools["pnpm"], root, lock_path)
+                if "pnpm" not in result.tools_used:
+                    result.tools_used.append("pnpm")
+                if error:
+                    result.errors.append(f"pnpm audit ({_relative(lock_path, root)}): {error}")
+                result.findings.extend(findings)
+        else:
+            reason = f" ({too_old})" if too_old else ""
+            result.missing_tools.append(
+                f"osv-scanner ({INSTALL_HINTS['osv-scanner']}) or pnpm ({INSTALL_HINTS['pnpm']}){reason} -- "
+                "pnpm-lock.yaml not scanned"
             )
 
     if "composer" in lock_files:
@@ -922,7 +1062,7 @@ def run_scan(root: Path, lock_files: "Optional[dict[str, list[Path]]]" = None) -
             "own --disable-pip --no-deps mode needs a plain requirements.txt"
         )
 
-    for ecosystem in ("yarn", "pnpm", "go", "cargo"):
+    for ecosystem in ("yarn", "go", "cargo"):
         if ecosystem in lock_files:
             result.missing_tools.append(
                 f"osv-scanner ({INSTALL_HINTS['osv-scanner']}) -- {ecosystem}'s lock file has no "
@@ -957,7 +1097,7 @@ def main(argv: "Optional[list[str]]" = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Security check Art B -- dependency-vulnerability scan via osv-scanner or an "
-            "ecosystem's own audit tool (npm audit / composer audit / pip-audit). Read-only "
+            "ecosystem's own audit tool (npm audit / pnpm audit / composer audit / pip-audit). Read-only "
             "except for the chosen tool's own network lookup; never installs or builds anything."
         ),
     )

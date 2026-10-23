@@ -4,9 +4,9 @@
 # falls back to a normal merge. Either way, `.act/hooks/dispatch.py` re-derives an unchanged
 # bridge at every session start (checked against `.act-local/cache.json`), so a missing driver
 # never leaves a stale file behind.
-/CLAUDE.md merge=ours
-/AGENTS.md merge=ours
-/docs/ai/rules.md merge=ours
+/CLAUDE.md merge=ours text eol=lf
+/AGENTS.md merge=ours text eol=lf
+/docs/ai/rules.md merge=ours text eol=lf
 # Per-person board file of `board: shared`, written with LF. `merge=ours` only takes effect where
 # the driver above is registered; otherwise a normal merge applies, and the next commit rewrites
 # the file anyway (act-commit runs `board.py --shared`).

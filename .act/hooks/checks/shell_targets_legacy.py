@@ -93,6 +93,7 @@
 from __future__ import annotations
 
 import bisect
+import functools
 import io
 import os
 import re
@@ -429,13 +430,13 @@ _NO_HEREDOC_MARKERS = ("$[", "${", "[", "`")
 def _heredoc_delimiters(tokens: list[_Token], line: str) -> list[tuple[set[str], bool]]:
     """Every heredoc a line opens, in order, as (terminator candidates, whether its body is
     expanded). A line with `((` in it (arithmetic like `$((1<<2))`, where `<<` is a shift) or with
-    one of _NO_HEREDOC_MARKERS opens none — skipping nothing is the safe side. `<<-EOF` reaches
+    one of _NO_HEREDOC_MARKERS opens none — skipping nothing is the safe side — unless every heredoc on
+    it has a quoted delimiter (its body is then plain text, never run by the line's own command). `<<-EOF` reaches
     here as `<<` plus `-EOF`; both "EOF" and "-EOF" are accepted as the terminator, whichever comes first, since ending a body early only
     ever scans more. A body is expanded (so `$(...)` and backticks in it run) unless the delimiter
     was quoted; the tokens no longer show quoting, so that is read from the raw line, and if the two
     do not line up the body is treated as expanded."""
-    if "((" in line or any(marker in line for marker in _NO_HEREDOC_MARKERS):
-        return []
+    marked = "((" in line or any(marker in line for marker in _NO_HEREDOC_MARKERS)
     delimiters = []
     for index, (text, is_op) in enumerate(tokens[:-1]):
         next_text, next_is_op = tokens[index + 1]
@@ -446,10 +447,16 @@ def _heredoc_delimiters(tokens: list[_Token], line: str) -> list[tuple[set[str],
             delimiters.append(candidates)
     raw_words = _HEREDOC_OPEN_RE.findall(line)
     aligned = len(raw_words) == len(delimiters)
-    return [
+    found = [
         (candidates, not aligned or not any(char in raw_words[position] for char in "'\"\\"))
         for position, candidates in enumerate(delimiters)
     ]
+    if marked and (not aligned or any(expands for _candidates, expands in found)):
+        # On a marked line only a heredoc that is certain is opened: every delimiter quoted, so no body
+        # is expanded and none can be a `<<` of arithmetic or of text inside an expansion. Any doubt
+        # keeps the old reading (no heredoc, the body is scanned as commands).
+        return []
+    return found
 
 
 def _body_substitutions(body_lines: list[str]) -> list[str]:
@@ -876,6 +883,16 @@ def _operands(args: list[str], value_flags: frozenset = frozenset()) -> tuple[li
     return operands, values
 
 
+@functools.lru_cache(maxsize=1 << 16)
+def _joined_base(base: Optional[str], native: str) -> Optional[str]:
+    """One base directory with a relative `cd` target appended; None (unknown) stays None. Cached,
+    since a long `cd a; cd a; ...` chain asks for the same join once per base on every step, and
+    the set of bases grows by one per step, so uncached the cost grew with the cube of the chain."""
+    if base is None:
+        return None
+    return str(Path(_to_native_path(base)) / native)
+
+
 def _cd_bases(bases: _Bases, directory: str) -> _Bases:
     """The possible directories after `cd <directory>` from each of `bases`. A rooted path without
     a drive on Windows (`/tmp`, Git Bash's own mount points) has no knowable native location."""
@@ -884,10 +901,12 @@ def _cd_bases(bases: _Bases, directory: str) -> _Bases:
         return frozenset({native})
     if native.startswith(("/", "\\")):
         return frozenset({None})
-    return frozenset(str(Path(_to_native_path(base)) / native) if base is not None else None for base in bases)
+    return frozenset(_joined_base(base, native) for base in bases)
 
 
 def _pairs(raw_targets: list[str], bases: _Bases) -> list[_Target]:
+    if not raw_targets:
+        return []  # nothing to pair: skip sorting a set that grows with a long `cd` chain
     ordered = sorted(bases, key=lambda base: (base is None, base or ""))
     return [(raw, base) for raw in raw_targets for base in ordered]
 

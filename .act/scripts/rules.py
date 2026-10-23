@@ -28,6 +28,9 @@
 #     there are no findings. Text under "Own rules" that is not read as a rule (a heading, prose, a
 #     table, a code fence) follows as "<path>:<line>: note: <message>", one per run of such lines —
 #     a note never changes the exit code. Own rules are "- ", "* " or "+ " bullets.
+#   Claude Code's own rules files (.claude/rules/**/*.md): --list adds "[c] <path> — ..." per file with its
+#     `paths:` patterns; --validate warns about a pattern that matches no project file and notes a file
+#     without `paths:` (loads at every start). Warnings and notes never change the exit code.
 #   --imports: "reached <n>:" and one indented root-relative path per file Claude Code loads, in
 #     load order, then "unresolved <n>:" and one "<file>:<line>: @<target> — <reason>" per import
 #     it cannot follow (exit 1 if there is any). Same rule as Claude Code: relative to the
@@ -38,6 +41,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 from dataclasses import dataclass, field
@@ -177,6 +181,9 @@ KNOWN_OTHER_HEADINGS = {
 }
 
 
+LOCAL_PREFIX = "docs/ai/local/"
+
+
 def normalize_set_path(raw: str) -> str:
     """A set path as written in a project file, in any of its forms — "@../../.act/coding/x.md"
     (an import, relative to the project file), the older "@.act/coding/x.md", "`...`" or a
@@ -190,18 +197,39 @@ def normalize_set_path(raw: str) -> str:
     return path
 
 
-def import_path(set_path: str, project_file: str) -> str:
+def import_path(set_path: str, project_file: str, root: Optional[Path] = None) -> str:
     """Root-relative `set_path` as an "@" import written from `project_file` (root-relative):
     Claude Code resolves imports relative to the importing file, so docs/ai/rules.md imports
-    ".act/rules/shared/00-core.md" as "@../../.act/rules/shared/00-core.md"."""
-    return "@" + "../" * project_file.count("/") + normalize_set_path(set_path)
+    ".act/rules/shared/00-core.md" as "@../../.act/rules/shared/00-core.md". With `root`, the
+    import names the file that backs the set (loaded_set_path), so a local override or a set of
+    the project's own is the one Claude Code loads."""
+    path = loaded_set_path(set_path, root) if root is not None else normalize_set_path(set_path)
+    return "@" + "../" * project_file.count("/") + path
 
 
 def strip_template_prefix(path: str) -> str:
-    """Turn a set path as written in the project file (e.g. ".act/coding/nuxt.md") into the
-    template-relative path actlib.resolve() expects (e.g. "coding/nuxt.md")."""
-    if path.startswith(".act/"):
-        return path[len(".act/"):]
+    """Turn a set path as written in the project file (e.g. ".act/coding/nuxt.md" or
+    "docs/ai/local/coding/nuxt.md") into the template-relative path actlib.resolve() expects
+    (e.g. "coding/nuxt.md"), which then finds the local file before the template's."""
+    for prefix in (".act/", LOCAL_PREFIX):
+        if path.startswith(prefix):
+            return path[len(prefix):]
+    return path
+
+
+def loaded_set_path(set_path: str, root: Path) -> str:
+    """Root-relative path of the file that actually backs a set path: the project's own file
+    under docs/ai/local/ when it exists (a new set, or an override of a template set), else the
+    template's under .act/. A path outside both trees, or one with no file behind it, stays as
+    written, so a missing target still shows up as unresolved."""
+    path = normalize_set_path(set_path)
+    rel = strip_template_prefix(path)
+    if rel == path:
+        return path
+    if (root / LOCAL_PREFIX / rel).is_file():
+        return LOCAL_PREFIX + rel
+    if (root / ".act" / rel).is_file():
+        return ".act/" + rel
     return path
 
 
@@ -687,10 +715,11 @@ def cmd_validate(project: ProjectFile, area: Area, root: Path) -> list[str]:
 # unchecked one stays a bare path, which Claude Code never follows
 # ---------------------------------------------------------------------------
 
-def coding_set_line(line: str) -> str:
+def coding_set_line(line: str, root: Optional[Path] = None) -> str:
     """One "- [x] use: <path>" line of docs/project/coding_rules.md in its canonical form: the
     path as an import when the box is checked, bare when not. Anything after the path, the
-    indentation and the checkbox itself are kept; a line that is no set line comes back as is."""
+    indentation and the checkbox itself are kept; a line that is no set line comes back as is.
+    With `root`, a checked set is imported from the file that backs it (import_path)."""
     checkbox = RE_CHECKBOX.match(line)
     if not checkbox or checkbox.group("indent"):
         return line
@@ -698,7 +727,7 @@ def coding_set_line(line: str) -> str:
     if not use:
         return line
     set_path = normalize_set_path(use.group("path"))
-    wanted = import_path(set_path, AREAS["coding"].project_file) \
+    wanted = import_path(set_path, AREAS["coding"].project_file, root) \
         if checkbox.group("mark") in ("x", "X") else set_path
     start, end = checkbox.start("rest") + use.start("path"), checkbox.start("rest") + use.end("path")
     return line[:start] + wanted + line[end:]
@@ -713,12 +742,64 @@ def sync_coding_imports(root: Path, write: bool = True) -> int:
         return 0
     text = path.read_text(encoding="utf-8")
     lines = text.splitlines()
-    fixed = [coding_set_line(line) for line in lines]
+    fixed = [coding_set_line(line, root) for line in lines]
     changed = sum(1 for old, new in zip(lines, fixed) if old != new)
     if changed and write:
         with open(path, "w", encoding="utf-8", newline="\n") as handle:
             handle.write("\n".join(fixed) + ("\n" if text.endswith("\n") else ""))
     return changed
+
+
+def add_new_coding_entries(root: Path, write: bool = True) -> list[str]:
+    """List in docs/project/coding_rules.md what the template's .act/coding/ has and the file does
+    not: a rule set the file never mentions as "- [ ] use: .act/coding/<set>.md" (off, after the
+    last set), and a group of a checked set that the file does not list as "  - [x] `ID`" (at the
+    end of that set's groups). A group left unlisted counts as switched on anyway (classify), so
+    this only makes the file show what applies; boxes, reasons and every other line stay as they
+    are, and a second run finds nothing. Returns one message per addition (also with write=False,
+    which only reports); empty if the file or .act/coding/ is missing or lists no set at all."""
+    path = root / AREAS["coding"].project_file
+    coding_dir = root / ".act" / "coding"
+    if not path.is_file() or not coding_dir.is_dir():
+        return []
+    area = AREAS["coding"]
+    project = parse_project_file(path, area)
+    if not project.sets:
+        return []
+    listed = {strip_template_prefix(pset.path) for pset in project.sets}
+    messages: list[str] = []
+    inserts: list[tuple[int, list[str]]] = []  # (index to insert before, lines), file order
+
+    for pset in project.sets:
+        if not pset.enabled:
+            continue
+        template = resolve_template_set(pset)
+        if template is None:
+            continue
+        missing = [gid for gid in template.groups if gid not in pset.groups]
+        if missing:
+            last = max([pset.line, *(group.line for group in pset.groups.values())])
+            inserts.append((last, [f"  - [x] `{gid}`" for gid in missing]))
+            messages.append(f"{pset.path}: added group(s) {', '.join(missing)}")
+
+    new_sets = [p.name for p in sorted(coding_dir.glob("*.md")) if f"coding/{p.name}" not in listed]
+    if new_sets:
+        last_block_end = max(
+            max([pset.line, *(group.line for group in pset.groups.values())]) for pset in project.sets
+        )
+        inserts.append((last_block_end, [f"- [ ] use: .act/coding/{name}" for name in new_sets]))
+        messages.extend(f".act/coding/{name}: added as a rule set (off)" for name in new_sets)
+
+    if inserts and write:
+        text = path.read_text(encoding="utf-8")
+        lines = text.splitlines()
+        # bottom-up, so an insertion never shifts the index of one still to do; at the same index
+        # the groups of the last set go in before the new sets' lines
+        for index, new_lines in sorted(inserts, key=lambda item: (item[0], item[1][0].startswith("- ")), reverse=True):
+            lines[index:index] = new_lines
+        with open(path, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write("\n".join(lines) + ("\n" if text.endswith("\n") else ""))
+    return messages
 
 
 # ---------------------------------------------------------------------------
@@ -823,6 +904,173 @@ def resolve_imports(root: Path, start: str = "CLAUDE.md") -> tuple[list[str], li
     return reached, unresolved
 
 
+def _split_top_level(text: str) -> list[str]:
+    """Split at commas outside quotes, braces, brackets and parentheses."""
+    parts: list[str] = []
+    depth = 0
+    quote = ""
+    current = ""
+    for char in text:
+        if quote:
+            if char == quote:
+                quote = ""
+        elif char in "\"'":
+            quote = char
+        elif char in "{[(":
+            depth += 1
+        elif char in "}])":
+            depth = max(0, depth - 1)
+        elif char == "," and depth == 0:
+            parts.append(current)
+            current = ""
+            continue
+        current += char
+    parts.append(current)
+    return parts
+
+
+def _strip_yaml_comment(text: str) -> str:
+    """Cut a trailing ` # comment` that sits outside quotes."""
+    quote = ""
+    for index, char in enumerate(text):
+        if quote:
+            if char == quote:
+                quote = ""
+        elif char in "\"'":
+            quote = char
+        elif char == "#" and (index == 0 or text[index - 1].isspace()):
+            return text[:index]
+    return text
+
+
+def read_rule_paths(text: str) -> Optional[list[str]]:
+    """The `paths:` patterns from a rules file's frontmatter: None when there is no frontmatter or no
+    `paths:` key (the file loads at every start), else the listed patterns (block list, inline list or a
+    single value; possibly empty)."""
+    lines = text.lstrip("\ufeff").splitlines()
+    if not lines or lines[0].strip() != "---":
+        return None
+    front: list[str] = []
+    for line in lines[1:]:
+        if line.strip() == "---":
+            break
+        front.append(line)
+    else:
+        return None
+    for index, line in enumerate(front):
+        match = re.match(r"paths\s*:\s*(.*)$", line)
+        if not match:
+            continue
+        rest = _strip_yaml_comment(match.group(1)).strip()
+        if rest.startswith("["):
+            items = _split_top_level(rest.strip("[]"))
+        elif rest:
+            # A comma-separated scalar is read as several patterns (assumption: Claude Code does the same).
+            items = _split_top_level(rest)
+        else:
+            items = []
+            for follow in front[index + 1:]:
+                bullet = re.match(r"\s*-\s+(.*)$", follow)
+                if not bullet:
+                    if follow.strip() and not follow.lstrip().startswith("#"):
+                        break
+                    continue
+                items.append(_strip_yaml_comment(bullet.group(1)))
+        return [item.strip().strip("\"'") for item in items if item.strip().strip("\"'")]
+    return None
+
+
+def _expand_braces(pattern: str) -> list[str]:
+    match = re.search(r"\{([^{}]*)\}", pattern)
+    if not match:
+        return [pattern]
+    return [expanded for option in match.group(1).split(",")
+            for expanded in _expand_braces(pattern[:match.start()] + option + pattern[match.end():])]
+
+
+def _glob_regex(pattern: str) -> "re.Pattern[str]":
+    out = ""
+    index = 0
+    while index < len(pattern):
+        if pattern.startswith("**/", index):
+            out += "(?:.*/)?"
+            index += 3
+        elif pattern.startswith("**", index):
+            out += ".*"
+            index += 2
+        else:
+            char = pattern[index]
+            out += "[^/]*" if char == "*" else "[^/]" if char == "?" else re.escape(char)
+            index += 1
+    return re.compile(out + r"\Z")
+
+
+_SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", "venv", ".act-local",
+              "dist", "build", "target", "vendor"}
+
+
+def _project_files(root: Path) -> list[str]:
+    found: list[str] = []
+    for folder, dirs, files in os.walk(root):
+        dirs[:] = [d for d in dirs if d not in _SKIP_DIRS]
+        base = Path(folder).relative_to(root).as_posix()
+        found += [f if base == "." else f"{base}/{f}" for f in files]
+    return found
+
+
+def path_rule_report(root: Path) -> list[tuple[str, str, Optional[list[str]], list[str]]]:
+    """One tuple per `.claude/rules/**/*.md`: (path, state, patterns, patterns without a match).
+    State is `always` (no `paths:`) or `bound`."""
+    rules_dir = root / ".claude" / "rules"
+    if not rules_dir.is_dir():
+        return []
+    files: Optional[list[str]] = None
+    report: list[tuple[str, str, Optional[list[str]], list[str]]] = []
+    for path in sorted(rules_dir.rglob("*.md")):
+        rel = path.relative_to(root).as_posix()
+        try:
+            patterns = read_rule_paths(path.read_text(encoding="utf-8", errors="replace"))
+        except OSError as exc:
+            report.append((rel, "always", None, []))
+            print(f"rules.py: could not read {rel}: {exc}", file=sys.stderr)
+            continue
+        if patterns is None:
+            report.append((rel, "always", None, []))
+            continue
+        if files is None:
+            files = _project_files(root)
+        unmatched = []
+        for pat in patterns:
+            regexes = [_glob_regex(alt) for alt in _expand_braces(pat)]
+            if not any(rx.match(name) for rx in regexes for name in files):
+                unmatched.append(pat)
+        report.append((rel, "bound", patterns, unmatched))
+    return report
+
+
+def cmd_path_rules(root: Path) -> str:
+    """The `--list` block for Claude Code's rules files; empty when there are none."""
+    lines = []
+    for rel, state, patterns, _ in path_rule_report(root):
+        lines.append(f"[c] {rel} — " + ("loads at every start (no paths:)" if state == "always"
+                                         else "loads on a matching file: " + ", ".join(patterns or ["(empty paths:)"])))
+    return "\n".join(lines) + ("\n" if lines else "")
+
+
+def validate_path_rules(root: Path) -> list[str]:
+    """`--validate` lines for those files: a pattern without a match is a warning, a file without
+    `paths:` a note. Neither changes the exit code."""
+    out = []
+    for rel, state, patterns, unmatched in path_rule_report(root):
+        if state == "always":
+            out.append(f"{rel}:1: note: no paths: — loads at every start, in Claude Code only")
+        elif not patterns:
+            out.append(f"{rel}:1: warning: paths: lists no pattern, the file never loads on a match")
+        out += [f"{rel}:1: warning: paths: pattern `{pat}` matches no file in the project, the rule never loads"
+                for pat in unmatched]
+    return out
+
+
 def other_instruction_files(root: Path) -> list[str]:
     """Files Claude Code loads besides CLAUDE.md and its imports, where they exist:
     CLAUDE.local.md and .claude/rules/**/*.md. Named by --imports, not followed."""
@@ -918,12 +1166,14 @@ def main(argv: list[str]) -> int:
         # "note:" — they never change the exit code.
         rel = project.path.relative_to(root).as_posix()
         notes = [f"{rel}:{line}: note: {message}" for line, message in project.hints]
+        if area.name == "coding":  # the block is not specific to an area; print it once
+            notes += validate_path_rules(root)
         if findings or notes:
             print("\n".join(findings + notes))
         return 1 if findings else 0
 
     if args.list:
-        sys.stdout.write(cmd_list(project, area))
+        sys.stdout.write(cmd_list(project, area) + (cmd_path_rules(root) if area.name == "coding" else ""))
         return 0
 
     if args.id is not None:

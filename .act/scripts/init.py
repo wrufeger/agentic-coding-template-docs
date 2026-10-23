@@ -75,6 +75,7 @@ class ProjectConfig(TypedDict):
     tools: list[str]
     mode: str
     feedback_mode: str
+    update_channel: str
 
 
 class BridgeSpec(TypedDict):
@@ -131,6 +132,7 @@ BRIDGES: dict[str, BridgeSpec] = {
     "CLAUDE.md": {"dest": "CLAUDE.md", "tool": "claude-code", "kind": "verbatim"},
     "settings.hooks.json": {"dest": ".claude/settings.json", "tool": "claude-code", "kind": "json-merge"},
     "docs-readme.md": {"dest": "docs/README.md", "tool": None, "kind": "docs-index"},
+    "glossary.md": {"dest": "docs/project/glossary.md", "tool": None, "kind": "docs-index"},
 }
 
 # Plain skeleton -> docs/ai/ copies (step 6). Placeholders (see CONFIG_TOKENS) are replaced in all
@@ -168,21 +170,6 @@ def _git(args: list[str], cwd: Path, check: bool = True) -> subprocess.Completed
     if check and result.returncode != 0:
         raise RuntimeError(f"git {' '.join(args)} failed: {result.stderr.strip()}")
     return result
-
-
-def _git_add_paths(rels: list[str], cwd: Path) -> None:
-    """`git add` for `rels` with the paths on stdin (`--pathspec-from-file`, Git 2.25 or newer): a
-    long list passed as arguments fails on Windows (WinError 206, about 32,000 characters). An empty
-    list is refused: git would read it as "no pathspec" and stage the whole tree."""
-    if not rels:
-        raise ValueError("git add: empty path list, refusing to stage the whole tree")
-    args = ["add", "--pathspec-from-file=-", "--pathspec-file-nul"]
-    result = subprocess.run(
-        ["git", *args], cwd=cwd, capture_output=True, text=True, encoding="utf-8",
-        input="".join(f"{rel}\0" for rel in rels),
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"git {' '.join(args)} failed: {result.stderr.strip()}")
 
 
 def _print_step(n: int, text: str) -> None:
@@ -253,13 +240,28 @@ def _commits_ahead_of(root: Path, ref: str) -> Optional[int]:
         return None
 
 
-def _checkout_source(checkout_root: Path) -> str:
-    """The address of the template checkout `init.py` is running from: its own "origin" remote
-    URL if it has one, else its absolute local path. Used for `--target` mode (step 2), where
-    there is no project "origin" to inspect -- the checkout running init.py *is* the template, so
-    its own address is what .act-lock.json's `template.source` needs (an incident with a renamed remote showed this)."""
+def _checkout_template_ref(checkout_root: Path) -> tuple[str, str]:
+    """(source address, commit) of the template that the checkout `init.py` is running from stands for.
+    Normally the checkout *is* the template: its own "origin" remote URL if it has one, else its absolute
+    local path, and its HEAD (an incident with a renamed remote showed why the address is taken here).
+    The exception is a checkout that is itself a set-up project (it has an .act-lock.json with a template
+    source): its "origin" is the project's own repository and its HEAD a commit of that repository, neither
+    of which belongs to the template. Source and commit then both come from the lock, as a pair, so the new
+    project's first update neither fetches the source project nor sees a commit foreign to the template."""
+    lock_path = checkout_root / ".act-lock.json"
+    if lock_path.is_file():
+        try:
+            lock = json.loads(lock_path.read_text(encoding="utf-8-sig"))
+            template = lock.get("template") if isinstance(lock, dict) else None
+            recorded = template.get("source") if isinstance(template, dict) else None
+            if isinstance(recorded, str) and recorded.strip():
+                commit = template.get("commit")
+                return recorded.strip(), commit.strip() if isinstance(commit, str) else ""
+        except (OSError, ValueError):
+            pass  # unreadable lock: fall back to the checkout itself below
     origin = _get_remote_url(checkout_root, "origin")
-    return origin if origin else str(checkout_root.resolve())
+    head = _git(["rev-parse", "HEAD"], cwd=checkout_root, check=False).stdout.strip()
+    return (origin if origin else str(checkout_root.resolve())), head
 
 
 def _read_version_file(root: Path) -> tuple[str, str]:
@@ -336,6 +338,61 @@ def _ask_feedback_mode(root: Path, interactive: bool, notes: list[str]) -> str:
     return _FEEDBACK_DEFAULT
 
 
+UPDATE_CHANNELS = ("release", "latest")
+_UPDATE_CHANNEL_DEFAULT = "release"
+
+
+def _ask_update_channel(root: Path, interactive: bool, notes: list[str], given: Optional[str]) -> str:
+    """Which stand `act-update` follows: `release` (newest stable tag, the default) or `latest`
+    (tip of the source's default branch). An option value wins; a project that already has
+    `docs/ai/config.md` keeps its own row (the writer never overwrites it); otherwise the owner is
+    asked once at a terminal, and `--non-interactive`/`--plan` take the default. After three
+    answers that are neither value the default is used and noted."""
+    if given is not None:
+        return given
+    if (root / "docs" / "ai" / "config.md").is_file():
+        current = actlib.read_config(root).get("update-channel", "").strip().strip("`").lower()
+        return current if current in UPDATE_CHANNELS else _UPDATE_CHANNEL_DEFAULT
+    if not interactive:
+        return _UPDATE_CHANNEL_DEFAULT
+    print()
+    print("Which template version should `act-update` follow?")
+    print("- release (default): only the newest stable release of the template, announced and installed when a newer one exists.")
+    print("- latest: always the newest commit of the template's default branch, released or not.")
+    print("- Change it any time: docs/ai/config.md § Update.")
+    for _attempt in range(_FEEDBACK_MAX_ATTEMPTS):
+        raw = _ask("Update channel - release / latest", _UPDATE_CHANNEL_DEFAULT, True).strip().lower()
+        if raw in UPDATE_CHANNELS:
+            return raw
+        print("Please answer 'release' or 'latest' - nothing else is accepted.")
+    notes.append(
+        f"Update channel question left unanswered after {_FEEDBACK_MAX_ATTEMPTS} tries - the channel stays "
+        f"`{_UPDATE_CHANNEL_DEFAULT}`. Change it any time in docs/ai/config.md § Update."
+    )
+    return _UPDATE_CHANNEL_DEFAULT
+
+
+def _clone_release_note(clone: Path) -> Optional[str]:
+    """Inbox note when the template clone this run starts from is ahead of its newest release tag
+    (`vX.Y.Z`, no prerelease): with the `release` channel act-update offers nothing until a newer release.
+    None when the clone is no git checkout, has no such tag, or sits exactly on it."""
+    tag_run = _git(["describe", "--tags", "--abbrev=0", "--match", "v[0-9]*.[0-9]*.[0-9]*",
+                    "--exclude", "*-*"], cwd=clone, check=False)
+    tag = tag_run.stdout.strip()
+    if tag_run.returncode != 0 or not tag:
+        return None
+    count_run = _git(["rev-list", "--count", f"{tag}..HEAD"], cwd=clone, check=False)
+    try:
+        ahead = int(count_run.stdout.strip())
+    except ValueError:
+        return None
+    if count_run.returncode != 0 or ahead <= 0:
+        return None
+    return (f"The template clone this project was set up from is {ahead} commit{'s' if ahead != 1 else ''} past "
+            f"{tag}; with the `release` update channel act-update offers nothing until a release newer than "
+            f"{tag} (`latest` in docs/ai/config.md § Update follows the tip).")
+
+
 def _language(key: str, given: Optional[str], prompt_text: str, default: str, interactive: bool,
               notes: list[str]) -> tuple[str, bool]:
     """(value, from_option). An option value wins over the prompt; either way a language name is
@@ -350,7 +407,8 @@ def _language(key: str, given: Optional[str], prompt_text: str, default: str, in
 
 
 def step_config(root: Path, interactive: bool, notes: list[str],
-                languages: Optional[dict[str, Optional[str]]] = None) -> ProjectConfig:
+                languages: Optional[dict[str, Optional[str]]] = None,
+                update_channel: Optional[str] = None) -> ProjectConfig:
     default_owner = "unknown"
     git_name = _git(["config", "user.name"], cwd=root, check=False).stdout.strip()
     if git_name and not _is_placeholder_name(git_name):
@@ -394,6 +452,7 @@ def step_config(root: Path, interactive: bool, notes: list[str],
 
     mode = _suggest_mode(root, notes)
     feedback_mode = _ask_feedback_mode(root, interactive, notes)
+    channel = _ask_update_channel(root, interactive, notes, update_channel)
 
     return {
         "name": name,
@@ -407,6 +466,7 @@ def step_config(root: Path, interactive: bool, notes: list[str],
         "tools": tools,
         "mode": mode,
         "feedback_mode": feedback_mode,
+        "update_channel": channel,
     }
 
 
@@ -713,8 +773,7 @@ def step_git_target(root: Path, plan: bool, source_act: Path) -> tuple[str, str,
     refs/heads/main' works on Git versions before 2.28 too (no '-b main' needed), unlike 'git init
     -b main'/'git branch -m main', and is safe before the first commit: it only moves the unborn
     HEAD, nothing is renamed or rewritten."""
-    template_source = _checkout_source(source_act.parent)
-    template_commit = _git(["rev-parse", "HEAD"], cwd=source_act.parent, check=False).stdout.strip()
+    template_source, template_commit = _checkout_template_ref(source_act.parent)
     if (root / ".git").exists():
         return "target already has a repository, left unchanged", template_source, template_commit
     if plan:
@@ -831,7 +890,8 @@ def step_thin_bridges(tools: list[str]) -> tuple[dict[str, BridgeSpec], str]:
 # Only used to order *enabled* sets in the generated file; every set the template actually
 # ships under .act/coding/ is included either way, checked or not, even one missing here.
 CODING_SET_DETECTION_ORDER = [
-    "nuxt", "nuxt5", "vue", "typescript", "tailwind", "php", "python", "go", "java", "csharp", "bash", "sql",
+    "nuxt", "nuxt5", "vue", "react", "typescript", "javascript", "tailwind", "css", "php", "python", "go",
+    "java", "kotlin", "csharp", "rust", "c", "cpp", "bash", "powershell", "docker", "ci", "sql",
 ]
 
 # A `nuxt` version spec at major 5 also checks the `nuxt5` set: a range ("^5.0.0", "~5.1", ">=5", "=5.0.0",
@@ -887,6 +947,154 @@ def _uses_sql_library(root: Path, npm_deps: dict[str, object]) -> bool:
     return bool(_SQL_PYTHON_PACKAGES & _python_dependency_names(root))
 
 
+# Directories never searched for source files by the marker scans below.
+_SCAN_SKIP_DIRS = {"node_modules", "build", "dist", "target", "vendor", "venv", "out", "__pycache__"}
+
+
+def _suffixes_below(base: Path, suffixes: tuple[str, ...], max_depth: int,
+                    deep_dirs: tuple[str, ...] = (), deep_depth: int = 0) -> set[str]:
+    """The subset of `suffixes` that some file under `base` (itself depth 0) ends in (lower-cased
+    name), down to `max_depth` folder levels, or `deep_depth` below a top-level folder named in
+    `deep_dirs`; hidden folders and `_SCAN_SKIP_DIRS` are not entered. One pass, which stops as
+    soon as every suffix has been seen."""
+    found: set[str] = set()
+    if not base.is_dir():
+        return found
+    base_depth = len(base.parts)
+    for current, dirs, files in os.walk(base):
+        rel = Path(current).parts[base_depth:]
+        dirs[:] = [d for d in dirs if not d.startswith(".") and d not in _SCAN_SKIP_DIRS]
+        limit = deep_depth if rel and rel[0] in deep_dirs else max_depth
+        if len(rel) >= limit:
+            dirs[:] = []
+        for name in files:
+            lowered = name.lower()
+            found.update(suffix for suffix in suffixes if lowered.endswith(suffix))
+        if len(found) == len(suffixes):
+            break
+    return found
+
+
+# Tool configuration files in the project root (`commitlint.config.js`, `.eslintrc.cjs` ...): they say
+# nothing about the language the project itself is written in.
+_TOOL_CONFIG_NAME = re.compile(r"\.config\.|^\..*rc\.[a-z]+$")
+
+
+def _has_flat(root: Path, folders: tuple[str, ...], suffixes: tuple[str, ...], skip_config: bool = False) -> bool:
+    """True if the project root or one of `folders` (directly inside it, not deeper) holds a file with a
+    suffix; with `skip_config`, tool configuration files in the project root itself do not count."""
+    for folder in ("",) + folders:
+        base = root / folder if folder else root
+        if not base.is_dir():
+            continue
+        ignore_config = skip_config and not folder
+        if any(f.is_file() and f.name.lower().endswith(suffixes)
+               and not (ignore_config and _TOOL_CONFIG_NAME.search(f.name.lower()))
+               for f in base.iterdir()):
+            return True
+    return False
+
+
+_KOTLIN_GRADLE_PLUGIN = re.compile(
+    r"org\.jetbrains\.kotlin|kotlin-gradle-plugin|libs\.plugins\.kotlin|\bkotlin\s*\(|id\s*\(?\s*[\"']kotlin")
+_GRADLE_BUILD_NAMES = ("build.gradle", "build.gradle.kts")
+
+
+def _gradle_modules(root: Path) -> list[Path]:
+    """Sub-project folders of a Gradle build: the modules `settings.gradle(.kts)` includes plus every
+    folder directly in the project root that has its own Gradle build file or a `src` folder."""
+    modules: dict[str, Path] = {}
+    for name in ("settings.gradle", "settings.gradle.kts"):
+        path = root / name
+        if not path.is_file():
+            continue
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        in_include = False
+        for line in text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("include"):
+                in_include = True
+            elif not stripped.startswith(("\"", "'", ",")):
+                in_include = False
+            if in_include:
+                for spec in re.findall(r"[\"']([^\"']+)[\"']", stripped):
+                    parts = [part for part in spec.replace(":", "/").split("/") if part]
+                    if parts and ".." not in parts and root.joinpath(*parts).is_dir():
+                        modules[spec] = root.joinpath(*parts)
+    try:
+        children = sorted(root.iterdir())
+    except OSError:
+        children = []
+    for child in children:
+        if not child.is_dir() or child.name.startswith(".") or child.name in _SCAN_SKIP_DIRS:
+            continue
+        if (child / "src").is_dir() or any((child / n).is_file() for n in _GRADLE_BUILD_NAMES):
+            modules[child.name] = child
+    return list(modules.values())
+
+
+def _gradle_uses_kotlin(root: Path) -> bool:
+    """True if the Gradle build applies a Kotlin plugin: in the root build or settings file, in the
+    version catalog `gradle/libs.versions.toml`, or in the build file of a sub-project."""
+    candidates = [root / n for n in (*_GRADLE_BUILD_NAMES, "settings.gradle", "settings.gradle.kts")]
+    candidates.append(root / "gradle" / "libs.versions.toml")
+    for module in _gradle_modules(root):
+        candidates.extend(module / n for n in _GRADLE_BUILD_NAMES)
+    for path in candidates:
+        if path.is_file():
+            try:
+                text = path.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            if _KOTLIN_GRADLE_PLUGIN.search(text):
+                return True
+    return False
+
+
+def _jvm_source_languages(root: Path) -> set[str]:
+    """`.kt` and `.java` suffixes found under `src/` of the project root, of every Gradle sub-project
+    and of every other folder directly in the root that has a `src/` folder."""
+    found: set[str] = set()
+    for base in [root, *_gradle_modules(root)]:
+        found |= _suffixes_below(base / "src", (".kt", ".java"), 8)
+        if len(found) == 2:
+            break
+    return found
+
+
+_C_FAMILY_SUFFIXES = (".c", ".cpp", ".cc", ".cxx", ".hpp", ".hh", ".hxx")
+
+
+def _detect_native_languages(root: Path) -> set[str]:
+    """`c` for *.c and `cpp` for C++ sources (*.cpp, *.cc, *.cxx, *.hpp, *.hh, *.hxx) in src/, lib/,
+    include/ and the project root down to two folder levels; a lone *.h says nothing."""
+    found = _suffixes_below(root, _C_FAMILY_SUFFIXES, 2, ("src", "lib", "include"), 5)
+    return {"c" if suffix == ".c" else "cpp" for suffix in found}
+
+
+def _languages_without_set(root: Path) -> list[str]:
+    """Languages recognized by a marker file for which the template ships no coding rule set."""
+    names: list[str] = []
+    if (root / "pubspec.yaml").is_file():
+        names.append("Dart/Flutter (pubspec.yaml)")
+    gemfile = root / "Gemfile"
+    if gemfile.is_file():
+        try:
+            gem_text = gemfile.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            gem_text = ""
+        is_rails = re.search(r"(?m)^\s*gem\s+['\"]rails['\"]", gem_text)
+        names.append("Ruby on Rails (Gemfile)" if is_rails else "Ruby (Gemfile)")
+    if (root / "DESCRIPTION").is_file() or any(root.glob("*.Rproj")):
+        names.append("R (DESCRIPTION / *.Rproj)")
+    if (root / "artisan").is_file():
+        names.append("Laravel (artisan)")
+    return names
+
+
 def _detect_coding_sets(root: Path, stack_hint: str, known: set[str]) -> set[str]:
     """Direct hits from the target directory, plus the free-text `stack` config value where its
     text contains a known set's name — before the requires: closure. `known` is every set name
@@ -915,6 +1123,14 @@ def _detect_coding_sets(root: Path, stack_hint: str, known: set[str]) -> set[str
         detected.add("typescript")
     if "tailwindcss" in deps or any(root.glob("tailwind.config.*")):
         detected.add("tailwind")
+    if "react" in deps or "react-dom" in deps or "next" in deps:
+        detected.add("react")
+    if "tailwind" not in detected and _has_flat(root, ("src", "styles", "assets"), (".css", ".scss")):
+        detected.add("css")
+    if (package_json.is_file() and "typescript" not in detected
+            and (_has_flat(root, ("src", "lib", "scripts"), (".js", ".jsx", ".mjs", ".cjs"), skip_config=True)
+                 or any(root.glob("eslint.config.*")))):
+        detected.add("javascript")
 
     if (root / "composer.json").is_file():
         detected.add("php")
@@ -922,20 +1138,43 @@ def _detect_coding_sets(root: Path, stack_hint: str, known: set[str]) -> set[str
         detected.add("python")
     if (root / "go.mod").is_file():
         detected.add("go")
-    if (root / "pom.xml").is_file() or any(root.glob("build.gradle*")):
-        detected.add("java")
+    jvm_sources = _jvm_source_languages(root)
+    kotlin = _gradle_uses_kotlin(root) or ".kt" in jvm_sources
+    if kotlin:
+        detected.add("kotlin")
+    if (root / "pom.xml").is_file() or any(root.glob("build.gradle*")) or any(root.glob("settings.gradle*")):
+        # a Kotlin project is not a Java project unless it also has Java sources
+        if not kotlin or ".java" in jvm_sources:
+            detected.add("java")
+    if (root / "Cargo.toml").is_file():
+        detected.add("rust")
+    detected |= _detect_native_languages(root)
     if any(root.glob("*.csproj")) or any(root.glob("*.sln")):
         detected.add("csharp")
     scripts_dir = root / "scripts"
     if any(root.glob("*.sh")) or (scripts_dir.is_dir() and any(scripts_dir.glob("*.sh"))):
         detected.add("bash")
+    if _has_flat(root, ("scripts",), (".ps1", ".psm1", ".psd1")):
+        detected.add("powershell")
+    if (any((root / name).is_file() for name in ("Dockerfile", "compose.yml", "compose.yaml",
+                                                 "docker-compose.yml", "docker-compose.yaml"))
+            or any(root.glob("Dockerfile.*")) or any(root.glob("*.Dockerfile"))):
+        detected.add("docker")
+    workflows = root / ".github" / "workflows"
+    if (root / ".gitlab-ci.yml").is_file() or (
+            workflows.is_dir() and (any(workflows.glob("*.yml")) or any(workflows.glob("*.yaml")))):
+        detected.add("ci")
     if any(root.glob("*.sql")) or (root / "migrations").is_dir() or _uses_sql_library(root, deps):
         detected.add("sql")
 
     stack_lower = stack_hint.lower()
     for name in known:
-        if name in stack_lower:
+        # whole words only: a short set name like `c` must not match inside any other word, nor `cpp` in "cppcheck"
+        # `python3`, `Vue3` and `PHP8` count; `c++`, `c#` and `objective-c` do not switch `c` on
+        if re.search(rf"(?<![\w+#])(?<!objective-){re.escape(name)}(?![a-z_+#])", stack_lower):
             detected.add(name)
+    if re.search(r"(?<![\w+#])(?:postgres(?:ql)?|mysql|sqlite3?|mariadb)(?![a-z_+#])", stack_lower):
+        detected.add("sql")
     if _NUXT5_STACK_HINT.search(stack_lower):
         detected.add("nuxt5")
 
@@ -983,7 +1222,7 @@ _CODING_RULES_MARKER = "<!-- act:coding-rules-sets -->"
 
 
 def _write_coding_rules(
-    src: Path, dest: Path, cfg: ProjectConfig, plan: bool, root: Path
+    src: Path, dest: Path, cfg: ProjectConfig, plan: bool, root: Path, notes: Optional[list[str]] = None
 ) -> tuple[str, bool]:
     """Like _write_text_file, but fills the .act/bridges/coding_rules.md template's rule-set
     marker with the detected list instead of a fixed token substitution. Never overwrites an
@@ -1001,6 +1240,12 @@ def _write_coding_rules(
     text = text.replace(_CODING_RULES_MARKER, body.rstrip("\n"))
     actlib.write_text_lf(dest, text)  # LF regardless of platform, matches .gitattributes
     summary = ", ".join(enabled) if enabled else "(none detected)"
+    unsupported = _languages_without_set(root)
+    if unsupported and notes is not None:
+        notes.append(
+            f"Detected {', '.join(unsupported)}, but the template ships no coding rule set for it — "
+            "ask for one with the `act-feedback` skill (a missing set is a gap worth reporting)."
+        )
     return f"{label}: created — sets enabled: {summary}", True
 
 
@@ -1379,6 +1624,9 @@ def _config_tokens(cfg: ProjectConfig) -> dict[str, str]:
         # .act/skeleton/config.md § Feedback's `feedback` row — defaults to "confirm" via
         # ProjectConfig["feedback_mode"] itself (_ask_feedback_mode's every return path).
         "<feedback-mode>": cfg["feedback_mode"],
+        # .act/skeleton/config.md § Update's `update-channel` row. .get: a caller that builds the
+        # dict itself (adopt) may predate the key.
+        "<update-channel>": cfg.get("update_channel", _UPDATE_CHANNEL_DEFAULT),
     }
 
 
@@ -2178,7 +2426,7 @@ def step_materialize(
             if changed or dest.is_file():
                 touched.append(dest)
         elif spec["kind"] == "coding-rules":
-            message, created = _write_coding_rules(bridges_dir / key, dest, cfg, plan, root)
+            message, created = _write_coding_rules(bridges_dir / key, dest, cfg, plan, root, notes)
             messages.append(message)
             if created:
                 generated[spec["dest"]] = dest
@@ -2222,7 +2470,7 @@ def step_materialize(
         if created or dest.is_file():
             touched.append(dest)
         if not plan and dest.is_file():
-            copies[dest_rel] = {"source": _copy_source_label(root, src), "sha256": actlib.sha256_file(dest)}
+            copies[dest_rel] = {"source": _copy_source_label(root, src), "sha256": actlib.lock_hash(dest.read_bytes())}
 
     for dest_rel, src in agent_bridge_targets(root, cfg["tools"]).items():
         role = Path(dest_rel).stem
@@ -2270,18 +2518,26 @@ def _append_block(dest: Path, src: Path, plan: bool) -> tuple[str, bool]:
     bridges_applied = dict(lock.get("bridges_applied", {}))
     applied_lines = bridges_applied.get(dest.name)
     new_text, added = actlib.merge_text_block(existing, block_text, applied_lines)
+    replaced_count = len(actlib._classify_block_lines(existing, block_text, applied_lines)[2])
+    appended_count = len(added) - replaced_count
     conflicts = actlib.text_block_conflicts(existing, block_text, applied_lines)
     suffix = f"; {len(conflicts)} conflicting line(s) kept as-is: {', '.join(conflicts)}" if conflicts else ""
     if plan:
         if not added:
             return f"{dest.name}: already present, left unchanged{suffix}", False
-        return f"{dest.name}: would add {len(added)} missing line(s){suffix}", False
+        parts = ([f"add {appended_count} missing line(s)"] if appended_count else []) + (
+            [f"replace {replaced_count} line(s) of an earlier template wording"] if replaced_count else [])
+        return f"{dest.name}: would {' and '.join(parts)}{suffix}", False
     bridges_applied[dest.name] = block_text.splitlines()
     actlib.write_lock({"bridges_applied": bridges_applied})
     if not added:
         return f"{dest.name}: already present, left unchanged{suffix}", False
     actlib.write_text_lf(dest, new_text)  # LF regardless of platform, matches .gitattributes
-    label = "template block appended" if not existing else f"{len(added)} missing line(s) added"
+    if not existing:
+        label = "template block appended"
+    else:
+        label = ", ".join(([f"{appended_count} missing line(s) added"] if appended_count else [])
+                          + ([f"{replaced_count} line(s) replaced"] if replaced_count else []))
     return f"{dest.name}: {label}{suffix}", True
 
 
@@ -2729,18 +2985,31 @@ INIT_COMMIT_MESSAGE = "chore: initialize project from template"
 PROFILE_COMMIT_MESSAGE = "chore: apply owner profile (init.py --profile)"
 
 
+def _tracked_but_missing(root: Path) -> set[str]:
+    """Tracked paths (relative, `/`-separated) that are gone from the working tree right now."""
+    result = _git(["ls-files", "--deleted", "-z"], cwd=root, check=False)
+    if result.returncode != 0:
+        return set()
+    return {entry for entry in result.stdout.split("\0") if entry}
+
+
 def step_commit(root: Path, plan: bool, no_commit: bool, paths: list[Path],
-                message: str = INIT_COMMIT_MESSAGE) -> str:
+                message: str = INIT_COMMIT_MESSAGE, removed: Optional[set[str]] = None) -> str:
+    """`removed`: tracked files this run deleted itself (a clone that keeps its history, e.g. a
+    detached HEAD, still tracks the template's own files that steps 6 and 8 remove) -- staged with
+    the rest so the deletion lands in the commit instead of staying behind as an unstaged change."""
     if no_commit:
         # Returns before any `git add`, so nothing is staged either -- say so plainly instead of
         # the previous, inaccurate "staged/unstaged".
         return "would leave uncommitted (--no-commit, nothing staged)" if plan else "left uncommitted (--no-commit, nothing staged)"
-    rels = sorted({str(p.relative_to(root)).replace(os.sep, "/") for p in paths if p.exists()})
+    rels = sorted(
+        {str(p.relative_to(root)).replace(os.sep, "/") for p in paths if p.exists()} | (removed or set())
+    )
     if not rels:
         return "nothing to commit"
     if plan:
         return f"would commit {len(rels)} path(s): {', '.join(rels)}"
-    _git_add_paths(rels, cwd=root)
+    actlib.git_pathspec_stdin(["add"], rels, cwd=root)
     diff = _git(["diff", "--cached", "--name-only"], cwd=root)
     if not diff.stdout.strip():
         return "nothing staged, no commit made"
@@ -2867,6 +3136,8 @@ def step_security_check_offer(root: Path, plan: bool) -> tuple[Optional[Path], s
         relevant["osv-scanner"] = tools["osv-scanner"]
     if "npm" in lock_files and "npm" in tools:
         relevant["npm"] = tools["npm"]
+    if "pnpm" in lock_files and "pnpm" in tools:
+        relevant["pnpm"] = tools["pnpm"]
     if "composer" in lock_files and "composer" in tools:
         relevant["composer"] = tools["composer"]
     if "pip-audit" in tools and any(
@@ -3029,6 +3300,9 @@ def main(argv: list[str]) -> int:
                         help="language of docs/ (e.g. de) instead of asking; default en (R-work-language)")
     parser.add_argument("--language-chat", metavar="CODE",
                         help="chat language (a code, or auto = follow the owner's messages) instead of asking")
+    parser.add_argument("--update-channel", choices=UPDATE_CHANNELS, metavar="{release,latest}",
+                        help="what act-update follows: release = newest stable release tag (default), "
+                             "latest = tip of the template's default branch; instead of asking")
     args = parser.parse_args(argv)
     if args.profile and args.no_profile:
         parser.error("--profile and --no-profile contradict each other")
@@ -3132,7 +3406,12 @@ def main(argv: list[str]) -> int:
     lock_existed_before = (root / ".act-lock.json").exists()
 
     cfg = step_config(root, interactive, notes,
-                      {"language-docs": args.language_docs, "language-chat": args.language_chat})
+                      {"language-docs": args.language_docs, "language-chat": args.language_chat},
+                      args.update_channel)
+    if not (root / "docs" / "ai" / "config.md").is_file() and cfg["update_channel"] == "release":
+        release_note = _clone_release_note(source_act.parent)
+        if release_note:
+            notes.append(release_note)
     # `--plan` never prompts (`interactive` above is already False for it), so `feedback_mode` is
     # always the default "confirm" here even when a real (non-plan) run at a real terminal would
     # ask -- say that honestly instead of implying "confirm" is the actual answer. Docking
@@ -3146,7 +3425,8 @@ def main(argv: list[str]) -> int:
         f"config: name={cfg['name']!r}, owner={cfg['owner']!r}, language-chat={cfg['language_chat']!r}, "
         f"language-docs={cfg['language_docs']!r}, "
         f"stack={cfg['stack']!r}, tools={cfg['tools']}, mode={cfg['mode']!r}, "
-        f"feedback={feedback_display} (suggested, change it in docs/ai/config.md)",
+        f"feedback={feedback_display}, update-channel={cfg.get('update_channel', 'release')!r} "
+        "(suggested, change it in docs/ai/config.md)",
     )
 
     orphan_rebuilt = False
@@ -3187,6 +3467,10 @@ def main(argv: list[str]) -> int:
         area.project_file: (root / area.project_file).is_file()
         for area in (rules.AREAS["core"], rules.AREAS["coding"])
     } if is_target else {}
+
+    # Tracked files already missing before steps 6 and 8 run: whatever is missing afterwards and was not
+    # before is a deletion of this run's own, and goes into step 10's commit.
+    missing_before = _tracked_but_missing(root) if not is_target and not plan else set()
 
     pending_booking: dict = {}  # the settings.json booking, written with step 9's lock (not earlier)
     materialize_messages, generated, touched_bridges, copies = step_materialize(
@@ -3247,10 +3531,27 @@ def main(argv: list[str]) -> int:
             part.split(" ", 1)[0] for part in own_files_message.split("; ") if " would be removed" in part
         }
         own_root_files = [
-            p for p in (root / "README.md", root / "CHANGELOG.md", root / "LICENSE",
+            p for p in (root / "README.md", root / "CHANGELOG.md", root / "LICENSE", root / ".github" / "README.md",
                         *(root / rel for rel in _community_files(root)))
             if p.is_file() and p.relative_to(root).as_posix() not in planned_removals
         ]
+        # An untracked file under .github/ with no template marker is the project's own: init never owned
+        # it, so it is not committed here -- but it would otherwise sit there untracked without a word.
+        # A file the clone already tracks (detached-HEAD route) is in history anyway, so it is not named.
+        own_set = {p.relative_to(root).as_posix() for p in own_root_files}
+        tracked_now = set(_git(["ls-files", "-z", "--", ".github"], cwd=root, check=False).stdout.split("\0"))
+        unmarked = sorted(
+            p.relative_to(root).as_posix() for p in (root / ".github").rglob("*")
+            if p.is_file() and p.relative_to(root).as_posix() not in own_set
+            and p.relative_to(root).as_posix() not in planned_removals
+            and p.relative_to(root).as_posix() not in tracked_now
+        ) if (root / ".github").is_dir() else []
+        if unmarked:
+            verb = "would be left out of" if plan else "were left out of"
+            notes.append(
+                f"Files under .github/ that are not the template's own {verb} the first commit: "
+                + ", ".join(unmarked) + ". Add them yourself (`git add`) if they belong to the project."
+            )
 
     _print_step(9, step_lock_and_cache(root, plan, template_origin, template_commit, generated, copies, generated_hashes,
                                         lock_existed_before=lock_existed_before,
@@ -3273,7 +3574,8 @@ def main(argv: list[str]) -> int:
         commit_paths.append(dependency_check_path)
     if security_check_offer_path is not None and not plan:
         commit_paths.append(security_check_offer_path)
-    commit_message = step_commit(root, plan, args.no_commit, commit_paths)
+    removed_by_run = (_tracked_but_missing(root) - missing_before) if not is_target and not plan else set()
+    commit_message = step_commit(root, plan, args.no_commit, commit_paths, removed=removed_by_run)
     # The old 'template' branch is only ever removed once a real commit landed on the new 'main'
     # (never under --plan, --no-commit, or a run that had nothing to commit) *and*
     # can_delete_old_branch held (a review finding) -- see _remove_old_template_branch

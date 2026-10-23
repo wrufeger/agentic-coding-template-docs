@@ -28,6 +28,7 @@ import io
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -49,12 +50,15 @@ __all__ = [
     "_LEDGER_DATE_IN_NAME_RE", "_parse_docs_audit_due", "_ledger_entry_date",
     "_last_ledger_entry_with_prefix", "_last_docs_audit_entry", "_commits_since", "_docs_audit_note",
     "_DEPENDENCY_CHECK_TITLE_PREFIX", "_DEPENDENCY_CHECK_DUE_DAYS", "_dependency_check_note",
+    "_parse_archive_compact", "_compact_due_note",
     "_refresh_board", "_BRIDGE_MAP", "_TOPIC_SWITCHES", "_IDE_SERVER_NAME_HINTS",
     "_IDE_SERVER_EXACT_NAMES", "_is_ide_server_name", "_servers_match_ide_hint", "_user_mcp_servers",
     "_same_project_path", "_ide_mcp_connected", "_active_topics",
     "_bootstrap_marker", "_first_line", "_is_bootstrap_copy",
     "_refresh_bridges", "_manifest_fingerprint", "_pulled_without_update",
     "_update_check_state_path", "_already_checked_today", "_mark_checked_today",
+    "_ls_remote_output", "_update_channel", "_version_tuple", "_remote_release_available", "_release_note", "_update_channel_is_default",
+    "_update_channel_follows_tip_without_tags",
     "_remote_update_available", "_update_check_result_path", "_consume_pending_update_note",
     "_run_update_check_worker", "_spawn_update_check_worker", "_check_update_awareness",
     "_security_scan_state_path", "_security_scan_already_checked_today",
@@ -336,6 +340,103 @@ def _dependency_check_note(root: Path, config: dict[str, str]) -> Optional[str]:
             "(dependency-check: regularly)")
 
 
+_COMPACT_KEEP_DAYS = 7  # entries archived within the last week stay single files (as `entries.py compact` has it)
+_COMPACT_WORKER_BATCH = 25  # entries one `light` worker shortens in a run
+
+
+def _parse_archive_compact(raw: str) -> "Optional[tuple[int, int]]":
+    """Parse the `archive-compact` value (docs/ai/config.md § Archive), e.g. "30d 300" -> (30, 300);
+    `off` -> None. A missing or malformed value counts as the default (30, 300)."""
+    if raw.strip().lower() == "off":
+        return None
+    match = re.match(r"^\s*(\d+)\s*d\s+(\d+)\s*$", raw, re.IGNORECASE)
+    return (int(match.group(1)), int(match.group(2))) if match else (30, 300)
+
+
+def _single_entry_days(folder: Path, journal: bool) -> "list[date]":
+    """The date of every single entry file in `folder`, without Git: the header field `archived:`, a
+    journal file's date in its name, else `created:`, else the modification time. A collection, a
+    README and the monthly overview are no single entries."""
+    days: list[date] = []
+    if not folder.is_dir():
+        return days
+    for path in folder.glob("*.md"):
+        if path.name.lower() == "readme.md" or (not journal and re.match(r"^\d{4}-\d{2}\.md$", path.name)):
+            continue
+        if not path.is_file():
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        if actlib.is_collection(text):
+            continue
+        header = actlib.header_block(text)
+        sources: list[str] = []
+        named = _LEDGER_DATE_IN_NAME_RE.match(path.name) if journal else None
+        if named:
+            sources.append(named.group(1))
+        for key in ("archived", "created"):
+            found = re.search(rf"(?im)^{key}:\s*(\d{{4}}-\d{{2}}-\d{{2}})", header)
+            if found:
+                sources.append(found.group(1))
+        day: Optional[date] = None
+        for source in sources:
+            try:
+                day = date.fromisoformat(source)
+                break
+            except ValueError:
+                continue
+        days.append(day or date.fromtimestamp(path.stat().st_mtime))
+    return days
+
+
+def _compact_due_note(root: Path, config: dict[str, str]) -> Optional[str]:
+    """With `archive-compact` not `off`, a note (at most once a day) once the archive or the journal
+    folder is due for `entries.py compact`: its oldest single entry is older than the day limit, or it
+    holds more single files than the count limit, and at least one entry is older than a week. Names
+    the number of entries and, with `archive-shorten: on`, the worker runs the shortening takes. In
+    team mode only on the default branch, so two branches never write the same month file."""
+    limits = _parse_archive_compact(config.get("archive-compact", "30d 300"))
+    if limits is None:
+        return None
+    max_days, max_files = limits
+    today = date.today()
+    stamp = today.isoformat()
+    if actlib.read_cache().get("compact_due_last_noted") == stamp:
+        return None  # noted today already: skip reading the folders
+    if config.get("mode", "solo").strip().lower() == "team":
+        import entries
+        if _current_branch(root) != entries._default_branch(root):
+            return None
+    reasons: list[str] = []
+    foldable = 0
+    for label, folder, journal in (("archive", root / "docs" / "ai" / "work" / "archive", False),
+                                   ("journal", root / "docs" / "ai" / "work" / "ledger", True)):
+        days = _single_entry_days(folder, journal)
+        old = sum(1 for day in days if (today - day).days > _COMPACT_KEEP_DAYS)
+        if not old:
+            continue
+        oldest = (today - min(days)).days
+        if oldest > max_days:
+            reasons.append(f"{label}: oldest entry {oldest} days old")
+        elif len(days) > max_files:
+            reasons.append(f"{label}: {len(days)} single files")
+        else:
+            continue
+        foldable += old
+    if not reasons:
+        return None
+    actlib.write_cache({"compact_due_last_noted": stamp})
+    cost = "merge only"
+    if config.get("archive-shorten", "on").strip().lower() != "off":
+        runs = -(-foldable // _COMPACT_WORKER_BATCH)
+        cost = f"about {runs} `light` worker run(s) of ~{_COMPACT_WORKER_BATCH} entries to shorten, plus one overview per month"
+    return (f"[act] note: archive compaction is due ({'; '.join(reasons)}; limits {max_days}d / {max_files} files): "
+            f"{foldable} entr(ies) older than {_COMPACT_KEEP_DAYS} days, {cost} -- act-compact at the next task boundary "
+            "(archive-compact in docs/ai/config.md)")
+
+
 def _refresh_board(root: Path) -> None:
     """Run .act/scripts/board.py if it exists yet (a parallel task builds it); do nothing,
     silently, otherwise — per the build order for this script."""
@@ -600,6 +701,130 @@ def _mark_checked_today(root: Path) -> None:
         pass
 
 
+_STABLE_TAG_RE = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)$")
+_UPDATE_CHANNELS = ("release", "latest")
+
+
+def _ls_remote_output(root: Path, source: str, patterns: list[str]) -> Optional[str]:
+    """`git ls-remote -- <source> <patterns>` as text, None when it failed, timed out or the source
+    is not a git remote/repo. Output goes to a real temp file, not a pipe -- the reason is
+    written out at _remote_update_available below. GIT_TERMINAL_PROMPT/GCM_INTERACTIVE/
+    GIT_SSH_COMMAND keep git from ever pausing for a credential prompt or a slow ssh handshake in an
+    unattended background process."""
+    env = dict(os.environ)
+    env["GIT_TERMINAL_PROMPT"] = "0"
+    env["GCM_INTERACTIVE"] = "never"
+    env.setdefault("GIT_SSH_COMMAND", "ssh -o BatchMode=yes -o ConnectTimeout=3")
+    # mkdtemp + rmtree(ignore_errors): on Windows a git child can still hold a file open after the
+    # timeout, and a failing cleanup must not raise
+    tmp_dir = tempfile.mkdtemp(prefix="act-update-check-")
+    try:
+        out_path = Path(tmp_dir) / "ls-remote.out"
+        try:
+            with open(out_path, "wb") as out_file:
+                result = subprocess.run(
+                    ["git", "ls-remote", "--", source, *patterns],
+                    cwd=root, stdout=out_file, stderr=subprocess.DEVNULL,
+                    timeout=5, env=env,
+                    # no console window for git.exe on Windows, where the worker has none
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                )
+            if result.returncode != 0:
+                return None
+            return out_path.read_text(encoding="utf-8", errors="replace").strip()
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+    finally:
+        # a git child may still hold a file open for a moment after the timeout (Windows)
+        for _attempt in range(8):
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+            if not os.path.isdir(tmp_dir):
+                break
+            time.sleep(0.25)
+
+
+def _update_channel(root: Path) -> str:
+    """`update-channel` from docs/ai/config.md: "release" (the default, also for a missing or
+    unusable value) or "latest"."""
+    value = actlib.read_config(root).get("update-channel", "").strip().strip("`").lower()
+    return value if value in _UPDATE_CHANNELS else "release"
+
+
+def _update_channel_is_default(root: Path) -> bool:
+    """True when docs/ai/config.md names no `update-channel` at all, i.e. `release` only by default.
+    An unusable value is not the default: it counts like `--channel release`."""
+    return not actlib.read_config(root).get("update-channel", "").strip().strip("`")
+
+
+def _update_channel_follows_tip_without_tags(root: Path) -> bool:
+    """True when a source without any release tag is followed at its tip, as update.py does: for the
+    default and for `release` in docs/ai/config.md (init writes it into every new project). An
+    unusable value counts like `--channel release` and never falls back."""
+    return actlib.read_config(root).get("update-channel", "").strip().strip("`").lower() in ("", "release")
+
+
+def _version_tuple(text: str) -> Optional[tuple[int, int, int]]:
+    match = _STABLE_TAG_RE.match(text.strip())
+    return (int(match.group(1)), int(match.group(2)), int(match.group(3))) if match else None
+
+
+def _remote_release_available(root: Path) -> Optional[dict]:
+    """The newest stable release tag (vX.Y.Z or X.Y.Z, no pre-release) of the source as
+    {"release": tag, "release_commit": commit}; {} when the source answered but has no such tag; None
+    when it could not be read -- silent in both cases, like _remote_update_available. Same
+    constraints: only called from the background worker, one `git ls-remote` with the same 5 s limit."""
+    source = (actlib.read_lock().get("template") or {}).get("source") or ""
+    if not source:
+        return None
+    output = _ls_remote_output(root, source, ["refs/tags/*"])
+    if output is None:
+        return None
+    commits: dict[str, str] = {}
+    peeled: dict[str, str] = {}
+    for line in output.splitlines():
+        commit, _, name = line.partition("\t")
+        name = name.strip()
+        if not name.startswith("refs/tags/"):
+            continue
+        tag = name[len("refs/tags/"):]
+        if tag.endswith("^{}"):
+            peeled[tag[:-3]] = commit
+        else:
+            commits[tag] = commit
+    best: Optional[tuple[tuple[int, int, int], str, str]] = None
+    for tag, commit in commits.items():
+        version = _version_tuple(tag)
+        if version is not None and (best is None or version > best[0]):
+            best = (version, tag, peeled.get(tag, commit))
+    if best is None:
+        return {}
+    return {"release": best[1], "release_commit": best[2]}
+
+
+def _release_note(root: Path, tag: str, tag_commit: str) -> Optional[str]:
+    """The session-start note for a release newer than the installed one, None when the project is
+    at or ahead of it (a project that followed `main` past the newest tag stays quiet)."""
+    template = actlib.read_lock().get("template") or {}
+    installed_commit = template.get("commit") or ""
+    installed_version = str(template.get("version") or "")
+    if not installed_version:
+        version_file = root / ".act" / "VERSION"
+        try:
+            for line in version_file.read_text(encoding="utf-8").splitlines():
+                key, _, value = line.partition("=")
+                if key.strip() == "version":
+                    installed_version = value.strip()
+        except OSError:
+            pass
+    if installed_commit and installed_commit == tag_commit:
+        return None
+    wanted, have = _version_tuple(tag), _version_tuple(installed_version)
+    if wanted is not None and have is not None and have >= wanted:
+        return None
+    return (f"[act] note: template release {tag} available (installed {installed_version or 'unknown'}) "
+            "-- run `python .act/scripts/update.py`")
+
+
 def _remote_update_available(root: Path) -> Optional[str]:
     """None if the check could not be made at all (no source/commit recorded, no network, the
     source is not a git remote/repo, or it took too long) -- always silent in that case, never a
@@ -626,26 +851,7 @@ def _remote_update_available(root: Path) -> Optional[str]:
     commit = template.get("commit") or ""
     if not source or not commit:
         return None
-    env = dict(os.environ)
-    env["GIT_TERMINAL_PROMPT"] = "0"
-    env["GCM_INTERACTIVE"] = "never"
-    env.setdefault("GIT_SSH_COMMAND", "ssh -o BatchMode=yes -o ConnectTimeout=3")
-    try:
-        with tempfile.TemporaryDirectory(prefix="act-update-check-") as tmp_dir:
-            out_path = Path(tmp_dir) / "ls-remote.out"
-            with open(out_path, "wb") as out_file:
-                result = subprocess.run(
-                    ["git", "ls-remote", "--", source, "HEAD"],
-                    cwd=root, stdout=out_file, stderr=subprocess.DEVNULL,
-                    timeout=5, env=env,
-                    # no console window for git.exe on Windows, where the worker has none
-                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-                )
-            if result.returncode != 0:
-                return None
-            output = out_path.read_text(encoding="utf-8", errors="replace").strip()
-    except (OSError, subprocess.TimeoutExpired):
-        return None
+    output = _ls_remote_output(root, source, ["HEAD"])
     if not output:
         return None
     remote_commit = output.split()[0].strip()
@@ -667,7 +873,10 @@ def _consume_pending_update_note(root: Path) -> Optional[str]:
     itself, so a project that ran `update.py` between the background check and this session
     doesn't get told about an update it already has: the note fires only if `remote_commit` still
     differs from the *current* lock's `template.commit`, re-read here rather than trusted from
-    whatever the worker saw at the time."""
+    whatever the worker saw at the time. A result file from an older version has no `channel`; it
+    was written when the tip was the only thing followed, so it counts as `latest`.
+    A tip result reaches a release project only on the default, or when the worker marked it
+    `tip_fallback` (a source without release tags) and the key still allows that."""
     path = _update_check_result_path(root)
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -679,8 +888,21 @@ def _consume_pending_update_note(root: Path) -> Optional[str]:
         pass
     if not isinstance(data, dict):
         return None
+    release = data.get("release")
+    if release:
+        # a release found by the release channel: only counts while that channel is still the
+        # project's, and while the project is still behind that tag (re-read now, not trusted)
+        if data.get("channel") != "release" or _update_channel(root) != "release":
+            return None
+        return _release_note(root, str(release), str(data.get("release_commit") or ""))
     remote_commit = data.get("remote_commit")
     if not remote_commit:
+        return None
+    # a tip result in a release project: only the default (as before the channel existed) or the
+    # fallback on a source without release tags, never an older result file or one from `latest`
+    if data.get("channel", "latest") == "latest" and _update_channel(root) != "latest" and not (
+            _update_channel_is_default(root)
+            or (data.get("tip_fallback") and _update_channel_follows_tip_without_tags(root))):
         return None
     lock = actlib.read_lock()
     current_commit = (lock.get("template") or {}).get("commit") or ""
@@ -701,15 +923,26 @@ def _run_update_check_worker(root: Path) -> int:
     nothing reads this process's own exit code, and every exception here must stay inside this
     process."""
     try:
-        remote_commit = _remote_update_available(root)
+        if _update_channel(root) == "release":
+            found = _remote_release_available(root)
+            result = {"channel": "release", **found} if found else None
+            if found == {} and _update_channel_follows_tip_without_tags(root):
+                # the default or `release` in config.md on a source without any release tag (a local
+                # copy, a young repository): follow the tip, as update.py does in the same case
+                remote_commit = _remote_update_available(root)
+                result = ({"channel": "latest", "remote_commit": remote_commit, "tip_fallback": True}
+                          if remote_commit else None)
+        else:
+            remote_commit = _remote_update_available(root)
+            result = {"channel": "latest", "remote_commit": remote_commit} if remote_commit else None
     except Exception:
         return 0
-    if remote_commit is None:
+    if result is None:
         return 0
     try:
         path = _update_check_result_path(root)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps({"remote_commit": remote_commit}) + "\n", encoding="utf-8")
+        path.write_text(json.dumps(result) + "\n", encoding="utf-8")
     except OSError:
         pass
     return 0
@@ -857,7 +1090,9 @@ def _run_security_scan_worker(
             security_scan.clear_running_marker(root, state_hash)
         return 0
     try:
-        result = security_scan.run_scan(root, security_scan.detect_lock_files(root))
+        scanned_at = time.time()
+        lock_files = security_scan.detect_lock_files(root)
+        result = security_scan.run_scan(root, lock_files)
         accepted = security_scan.load_accepted(root)
         unaccepted_high = [
             finding for finding in result.findings
@@ -870,7 +1105,14 @@ def _run_security_scan_worker(
         path = _security_scan_result_path(root)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
-            json.dumps({"findings": [dataclasses.asdict(f) for f in unaccepted_high]}, ensure_ascii=False) + "\n",
+            json.dumps(
+                {
+                    "scanned_at": scanned_at,
+                    "lock_files": sorted(str(p) for paths in lock_files.values() for p in paths),
+                    "findings": [dataclasses.asdict(f) for f in unaccepted_high],
+                },
+                ensure_ascii=False,
+            ) + "\n",
             encoding="utf-8",
         )
     except OSError:
@@ -933,18 +1175,56 @@ def _consume_pending_security_scan_note(root: Path) -> Optional[str]:
     findings = data.get("findings")
     if not isinstance(findings, list) or not findings:
         return None
-    shown = findings[:5]
-    rest = len(findings) - len(shown)
-    more = f" (+{rest} more)" if rest > 0 else ""
-    parts = [
-        f"{item.get('package', '?')} {item.get('version', '?')} "
-        f"({item.get('advisory_id', '?')}, {item.get('severity', '?')})"
-        for item in shown if isinstance(item, dict)
-    ]
+    scanned_at = data.get("scanned_at")
+    lock_files = data.get("lock_files")
+    if isinstance(scanned_at, (int, float)) and isinstance(lock_files, list):
+        for name in lock_files:
+            try:
+                changed = Path(str(name)).stat().st_mtime > scanned_at
+            except OSError:
+                changed = True  # the lock file is gone: the result no longer describes the project
+            if changed:
+                return None  # a lock file changed after the scan: the findings may no longer hold
+    return _format_security_scan_note(root, [item for item in findings if isinstance(item, dict)], scanned_at)
+
+
+def _format_age(seconds: float) -> str:
+    minutes = int(max(seconds, 0) // 60)
+    if minutes < 60:
+        return f"{minutes} min"
+    hours = minutes // 60
+    return f"{hours} h" if hours < 48 else f"{hours // 24} d"
+
+
+def _format_security_scan_note(root: Path, findings: "list[dict]", scanned_at: object) -> Optional[str]:
+    """One line for the unaccepted findings of the daily scan, grouped by lock file (path relative to
+    `root`) so a new finding in the project's own lock file does not drown in a long list, and with
+    the age of the scan when it is known."""
+    groups: dict[str, list[dict]] = {}
+    for item in findings:
+        groups.setdefault(str(item.get("lock_file") or "?"), []).append(item)
+    parts: list[str] = []
+    for lock_file, items in groups.items():
+        try:
+            shown_name = Path(lock_file).resolve().relative_to(root.resolve()).as_posix()
+        except (OSError, ValueError):
+            shown_name = lock_file
+        shown = items[:3]
+        rest = len(items) - len(shown)
+        more = f" (+{rest} more)" if rest > 0 else ""
+        entries = ", ".join(
+            f"{item.get('package', '?')} {item.get('version', '?')} "
+            f"({item.get('advisory_id', '?')}, {item.get('severity', '?')})"
+            for item in shown
+        )
+        parts.append(f"{shown_name} [{len(items)}]: {entries}{more}")
     if not parts:
         return None
-    return ("[act] security-check (deps): unaccepted dependency vulnerability: "
-            + "; ".join(parts) + more + " -- see `python .act/scripts/security_scan.py --deps`")
+    age = ""
+    if isinstance(scanned_at, (int, float)):
+        age = f" (scan {_format_age(time.time() - scanned_at)} old)"
+    return (f"[act] security-check (deps){age}: unaccepted dependency vulnerability: "
+            + "; ".join(parts) + " -- see `python .act/scripts/security_scan.py --deps`")
 
 
 def _check_security_scan_awareness(root: Path, config: dict[str, str]) -> "list[str]":
@@ -1800,6 +2080,13 @@ def _collect_session(payload: dict, state: dict, rules_text: dict) -> bool:
         dependency_note = None  # informational only, must never block the session
     if dependency_note:
         print(dependency_note)
+
+    try:
+        compact_due = _compact_due_note(root, config)
+    except Exception:
+        compact_due = None  # informational only, must never block the session
+    if compact_due:
+        print(compact_due)
 
     mode = _check_mode(config, "session-start-refresh", default="block")
     if mode == "off":

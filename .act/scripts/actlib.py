@@ -25,6 +25,7 @@ import hashlib
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 from datetime import datetime
@@ -143,7 +144,7 @@ def _default_lock() -> dict:
     return {
         # "source": the template's own address (its git remote URL at the time this project last
         # fetched from it, or a local path if it had none) -- never a git remote in the project
-        # itself; see init.py's _checkout_source()/step_git_in_place().
+        # itself; see init.py's _checkout_template_ref()/step_git_in_place().
         # "manifest_sha256": sha256 of the .act/MANIFEST.json this project last applied -- lets
         # dispatch.py tell a project .act/ that was pulled in by some other means (e.g. a plain
         # `git pull` of the shared history) from one update.py actually applied, even though both
@@ -1044,9 +1045,20 @@ def write_settings_booking(root: Path, booking: Optional[dict]) -> None:
         overwrite_text(lock_path, json.dumps(new_lock, indent=2, ensure_ascii=False) + "\n")
 
 
+# Earlier wordings of a template block line that a project from before line-state tracking
+# (.act-lock.json § bridges_applied) may still carry unchanged. Such a project has no record of what the
+# template wrote, so only a line matching one of these verbatim counts as the template's own and
+# is replaced by the current wording; any other line for the same pattern is the project's.
+PREVIOUS_BLOCK_LINES: tuple[str, ...] = (
+    "/CLAUDE.md merge=ours",
+    "/AGENTS.md merge=ours",
+    "/docs/ai/rules.md merge=ours",
+)
+
+
 def _classify_block_lines(
     existing_text: str, block_text: str, applied_lines: Optional[list[str]],
-) -> tuple[list[str], list[str]]:
+) -> tuple[list[str], list[str], list[tuple[str, str]]]:
     """Shared by merge_text_block() and text_block_conflicts(). Candidates are the block's lines
     not yet accounted for: if `applied_lines` is given (this file's .act-lock.json §
     bridges_applied[<name>] from the last time this bridge was applied), only lines new *since*
@@ -1056,7 +1068,10 @@ def _classify_block_lines(
     from the file", same as before. Of the candidates, one already present
     verbatim needs nothing; one conflicting with the project's own line — a gitignore `!pattern`
     negation, or, for a multi-token line such as a .gitattributes entry, a different existing line
-    for the same leading pattern — is never applied, only reported back as a conflict. Comment and
+    for the same leading pattern — is never applied, only reported back as a conflict, unless that
+    existing line is one the template itself set earlier (it is in `applied_lines`, or, with no
+    recorded state, it is one of PREVIOUS_BLOCK_LINES): then it is returned as a replacement
+    (old line, new line) and the new wording takes its place. Comment and
     blank lines travel with the pattern line that follows them: they are added only together with
     it, so a reworded comment alone never leaves an orphan line at the end of a project's file."""
     existing_lines = existing_text.splitlines()
@@ -1070,6 +1085,7 @@ def _classify_block_lines(
 
     to_add: list[str] = []
     conflicts: list[str] = []
+    replacements: list[tuple[str, str]] = []
     pending_notes: list[str] = []  # comment/blank candidates waiting for the pattern line they describe
     candidate_set = set(candidates)
     for line in block_lines:  # in block order, so a note belongs to the next pattern line below it
@@ -1095,13 +1111,17 @@ def _classify_block_lines(
                 None,
             )
             if conflicting is not None:
-                conflicts.append(line)
+                template_set = set(applied_lines) if applied_lines is not None else set(PREVIOUS_BLOCK_LINES)
+                if conflicting in template_set:
+                    replacements.append((conflicting, line))
+                else:
+                    conflicts.append(line)
                 pending_notes = []
                 continue
         to_add.extend(pending_notes)
         pending_notes = []
         to_add.append(line)
-    return to_add, conflicts
+    return to_add, conflicts, replacements
 
 
 def merge_text_block(
@@ -1110,15 +1130,29 @@ def merge_text_block(
     """Appends whatever lines of `block_text` still need adding (see _classify_block_lines) to
     `existing_text`, as a single appended chunk in the block's own order — not the whole block
     wholesale, so a project that only has an older subset of it gets just the missing lines.
+    Lines of the template's own earlier wording are replaced in place and listed in added_lines too.
     Returns (new_text, added_lines); added_lines is empty when nothing needed to change, the
     caller's signal to leave the file untouched. A single blank line separates the appended chunk
     from existing content; an empty `existing_text` gets the chunk verbatim. A candidate that
     conflicts with the project's own line (see _classify_block_lines) is silently left out of both
     — never applied, and not "added" — callers that want to report it use
     text_block_conflicts()."""
-    to_add, _conflicts = _classify_block_lines(existing_text, block_text, applied_lines)
+    to_add, _conflicts, replacements = _classify_block_lines(existing_text, block_text, applied_lines)
+    if replacements:
+        swap = dict(replacements)
+        done: set[str] = set()
+        kept: list[str] = []
+        for line in existing_text.splitlines():
+            if line in swap:
+                if line not in done:  # in place of the first occurrence; a repeated old line is dropped
+                    kept.append(swap[line])
+                    done.add(line)
+                continue
+            kept.append(line)
+        existing_text = "\n".join(kept) + ("\n" if existing_text.endswith("\n") else "")
+    replaced = [new for _old, new in replacements]
     if not to_add:
-        return existing_text, []
+        return existing_text, replaced
     added_text = "\n".join(to_add) + ("\n" if block_text.endswith("\n") else "")
     if not existing_text:
         new_text = added_text
@@ -1126,7 +1160,7 @@ def merge_text_block(
         new_text = existing_text + "\n" + added_text
     else:
         new_text = existing_text + "\n\n" + added_text
-    return new_text, to_add
+    return new_text, replaced + to_add
 
 
 def text_block_conflicts(
@@ -1135,7 +1169,7 @@ def text_block_conflicts(
     """The subset of merge_text_block()'s candidate lines that were *not* applied because the
     project already carries a conflicting line for the same pattern — for
     a caller that wants to name them in its summary instead of silently leaving them out."""
-    _to_add, conflicts = _classify_block_lines(existing_text, block_text, applied_lines)
+    _to_add, conflicts, _replacements = _classify_block_lines(existing_text, block_text, applied_lines)
     return conflicts
 
 
@@ -1240,6 +1274,91 @@ def format_header(fields: list[str], frontmatter: bool) -> str:
     return "\n".join(lines) + "\n"
 
 
+# ---------------------------------------------------------------------------
+# Entry ids in single files and in archive collections
+# ---------------------------------------------------------------------------
+# An archived entry is one file with an `id:` header field; after `entries.py compact` many archived
+# entries share one collection file per kind and month. Every reader that needs "which ids exist
+# here" (entries.py, doctor.py, a language server) calls entry_ids() instead of reading the header
+# itself, so a collection can never hide an id from the scan.
+
+COLLECTION_MARK = "<!-- act:archive-collection -->"  # first line of a collection file
+_ID_PARTS_RE = re.compile(r"^([A-Za-z]+)0*(\d+)([A-Za-z]?)$")
+_HEADER_ID_RE = re.compile(r"(?im)^id:\s*([A-Za-z]+\d+[a-z]?)\s*$")
+_SECTION_ANCHOR_RE = re.compile(r'^<a id="([^"\n]+)"></a>\s*$')
+_FENCE_OPEN_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
+_FENCE_CLOSE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})\s*$")
+FenceState = Optional[tuple[str, int]]  # (fence character, fence length) while inside a fenced code block
+
+
+def fence_step(state: FenceState, line: str) -> FenceState:
+    """The fence state after `line`, as CommonMark has it: a run of 3+ backticks or tildes opens a block
+    (a backtick fence may not carry a backtick in its info string), and only a run of the same character
+    at least as long, with nothing after it, closes it. A shorter or other run inside is plain text."""
+    line = line.rstrip("\r")
+    if state is None:
+        opened = _FENCE_OPEN_RE.match(line)
+        if opened and not (opened.group(1)[0] == "`" and "`" in opened.group(2)):
+            return (opened.group(1)[0], len(opened.group(1)))
+        return None
+    closed = _FENCE_CLOSE_RE.match(line)
+    if closed and closed.group(1)[0] == state[0] and len(closed.group(1)) >= state[1]:
+        return None
+    return state
+
+
+def fence_closer(state: FenceState) -> str:
+    """The line that closes the open fence `state` (an empty string if none is open)."""
+    return state[0] * state[1] if state else ""
+
+
+def canonical_id(raw: str) -> str:
+    """An id with its number normalised, so "X012" and "X12" compare equal and a sub-letter is
+    lower case ("X55A" -> "X55a"). Anything that is not letters + digits comes back upper-cased."""
+    match = _ID_PARTS_RE.match(raw.strip())
+    if not match:
+        return raw.strip().upper()
+    letters, digits, sub = match.groups()
+    return f"{letters.upper()}{int(digits)}{sub.lower()}"
+
+
+def is_collection(text: str) -> bool:
+    """True if `text` is an archive collection file (it opens with COLLECTION_MARK)."""
+    return text.removeprefix("﻿").startswith(COLLECTION_MARK)
+
+
+def collection_sections(text: str) -> list[tuple[str, int]]:
+    """(canonical id, 1-based line of the anchor) for every entry section of a collection: a line
+    `<a id="<id>"></a>` directly followed by a heading `## <id> — <title>` naming the same id. A pair
+    inside a fenced code block is an example and does not count, except that a section boundary always
+    resets the fence state, so a fence an earlier section left unclosed cannot hide the sections after
+    it; a section without an id (its anchor is not an id) is not listed."""
+    lines = text.removeprefix("﻿").split("\n")
+    found: list[tuple[str, int]] = []
+    fence: FenceState = None
+    for index, line in enumerate(lines):
+        line = line.rstrip("\r")
+        anchor = _SECTION_ANCHOR_RE.match(line)
+        if anchor and _ID_PARTS_RE.match(anchor.group(1)) and index + 1 < len(lines):
+            heading = lines[index + 1].rstrip("\r")
+            if heading == f"## {anchor.group(1)}" or heading.startswith(f"## {anchor.group(1)} — "):
+                found.append((canonical_id(anchor.group(1)), index + 1))
+                fence = None
+                continue
+        fence = fence_step(fence, line)
+    return found
+
+
+def entry_ids(text: str) -> list[str]:
+    """The canonical ids an entry file carries: its `id:` header field for a single entry (zero or
+    one), every section id for an archive collection. Only the header block is read for a single
+    entry, never the body, so a quoted header cannot spoof an id."""
+    if is_collection(text):
+        return [entry_id for entry_id, _line in collection_sections(text)]
+    match = _HEADER_ID_RE.search(header_block(text))
+    return [canonical_id(match.group(1))] if match else []
+
+
 def sha256_file(path: Path) -> str:
     """Return the hex SHA-256 digest of the file at `path`, read in chunks."""
     digest = hashlib.sha256()
@@ -1272,12 +1391,78 @@ def overwrite_text(path: Path, text: str, newline: Optional[str] = None) -> None
 
 def write_text_lf(path: Path, text: str) -> None:
     """Write `text` to `path` as UTF-8 with `\\n` line endings regardless of platform default.
-    Every generated bridge and scaffold/docs file must come out the same way `.gitattributes`
-    (`* text=auto eol=lf`) checks the very same file out as — otherwise the "unchanged since
+    Every generated bridge and scaffold/docs file must come out the same way the template's
+    `.gitattributes` block (`text eol=lf` on the bridges and the per-person board) checks the
+    very same file out as — otherwise the "unchanged since
     generated" hash comparison in .act-local/cache.json flips on nothing but the checkout's own
     line endings. `open()`'s own `newline` parameter has always accepted this value, unlike
     `Path.write_text(..., newline=...)` (Python 3.10+), which this project's floor (3.9) lacks."""
     overwrite_text(path, text, newline="\n")
+
+
+def fold_crlf(data: bytes) -> bytes:
+    """`data` with CRLF folded to LF, unless it holds a NUL byte (binary)."""
+    return data if b"\x00" in data else data.replace(b"\r\n", b"\n")
+
+
+def lock_hash(data: bytes) -> str:
+    """The hash recorded in the lock for a copy written from `data`: over the LF form, so the value
+    reads the same whether a checkout later holds the copy with CRLF or LF."""
+    return hashlib.sha256(fold_crlf(data)).hexdigest()
+
+
+def matches_lock_hash(current: bytes, recorded: Optional[str]) -> bool:
+    """True if the copy `current` is the one the lock recorded: raw or folded bytes against a recorded
+    hash over raw or folded bytes. A lock written before the hash was folded holds the CRLF form when
+    the copy was written with core.autocrlf=true, so the copy's CRLF expansion counts too."""
+    if not recorded:
+        return False
+    folded = fold_crlf(current)
+    candidates = {hashlib.sha256(current).hexdigest(), hashlib.sha256(folded).hexdigest()}
+    if b"\x00" not in current:
+        candidates.add(hashlib.sha256(folded.replace(b"\n", b"\r\n")).hexdigest())
+    return recorded in candidates
+
+
+MIN_GIT_VERSION = (2, 25)  # git add/commit --pathspec-from-file
+
+
+def git_version() -> Optional[tuple[int, ...]]:
+    """The installed git's version as a tuple of ints (e.g. (2, 56, 0)), or None if it cannot be read."""
+    try:
+        out = subprocess.run(["git", "--version"], capture_output=True, text=True, encoding="utf-8").stdout
+    except OSError:
+        return None
+    found = re.search(r"(\d+)\.(\d+)(?:\.(\d+))?", out)
+    return tuple(int(part) for part in found.groups() if part is not None) if found else None
+
+
+def git_version_problem() -> Optional[str]:
+    """A message when git is missing or older than MIN_GIT_VERSION (it names the version found), else None."""
+    version = git_version()
+    need = ".".join(str(n) for n in MIN_GIT_VERSION)
+    if version is None:
+        return f"git not found or its version unreadable; Git {need} or newer is required"
+    if version[:2] < MIN_GIT_VERSION:
+        return f"Git {need} or newer is required (--pathspec-from-file), found {'.'.join(str(n) for n in version)}"
+    return None
+
+
+def git_pathspec_stdin(args: list[str], rels: list[str], cwd: Path, check: bool = True) -> "subprocess.CompletedProcess[str]":
+    """Run `git <args> --pathspec-from-file=- --pathspec-file-nul` with `rels` on stdin, so the path
+    list never meets the command-line length limit (Windows: about 32,000 characters). Needs Git 2.25
+    or newer (`add`, `commit`). An empty list is refused: git would read it as "no pathspec" and act
+    on the whole index."""
+    if not rels:
+        raise ValueError(f"git {' '.join(args)}: empty path list, refusing to act on the whole index")
+    full = [*args, "--pathspec-from-file=-", "--pathspec-file-nul"]
+    result = subprocess.run(
+        ["git", *full], cwd=cwd, capture_output=True, text=True, encoding="utf-8",
+        input="".join(f"{rel}\0" for rel in rels),
+    )
+    if check and result.returncode != 0:
+        raise RuntimeError(f"git {' '.join(full)} failed: {result.stderr.strip()}")
+    return result
 
 
 def normalized_sha256(path: Path) -> str:
