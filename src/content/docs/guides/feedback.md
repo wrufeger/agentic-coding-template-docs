@@ -32,14 +32,14 @@ New projects start with `confirm` whenever nobody chooses: a run without a termi
 | :--- | :--- |
 | `a` | metrics |
 | `b` | rule and structure changes |
-| `c` | tool usage: how many agents, skills and scripts exist, and how often each of the template's own skills and scripts was used since the last sending. Your own skills and scripts appear only as one `own` count per kind, never by name. No MCP server names are sent. |
+| `c` | tool usage: how many agents, skills and scripts exist, and how often each of the template's own skills and scripts was used since the last sending (a skill started by typing its slash command counts too). Your own skills and scripts appear only as one `own` count per kind, never by name. No MCP server names are sent. |
 
-A finding written by hand always goes into the outbox, whatever the scope.
+The metrics of scope `a` count only the project's files (`git ls-files`), so a vendor, IDE or media folder that git ignores adds nothing. A finding written by hand always goes into the outbox, whatever the scope.
 
 ## Two ways to send
 
 1. **A sentence after the trigger**, for example `feedback: the update left a file behind`. That sentence is the message itself, sent unchanged, even with `feedback: off`. Only the text, the template's own commit hash and a random project id leave the project, whatever the mode, never the repository URL or anything else. The project id lets several messages from one project be told apart. If you want an answer, name a reply address in the same request: the assistant adds it with `feedback.py --direct "<text>" --contact <address>`. It goes with this one message only and stays in its local copy, is never reused for a later message and never taken from anywhere else, such as your Git settings.
-2. **The trigger alone** (the skill `act-feedback`). The assistant goes through `.act/`, the generated files and `docs/ai/`, writes one entry per finding (two to six sentences), previews the batch with `feedback.py --plan` and sends it under your mode and cadence.
+2. **The trigger alone** (the skill `act-feedback`). The assistant goes through `.act/`, the generated files and `docs/ai/`, writes one entry per finding (two to six sentences), previews the batch with `feedback.py --plan` and sends it under your mode and cadence. A rule that keeps being violated is worth an entry too: report it as a candidate for a mechanical check.
 
 A bug in the template itself (a script or skill that fails, two rules that contradict each other, a rule that never fires) is stored and, where consent allows, sent at once, bypassing the cadence. It still never bypasses consent: with `feedback: off` it stays in the outbox.
 

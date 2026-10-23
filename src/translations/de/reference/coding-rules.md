@@ -41,6 +41,234 @@ summary: Kopfkommentar, Funktionen statt Duplikation, Skripte mit nur einem Zwec
 - Ein Skript, ein klar benannter Zweck — kein Mehrzweck-Skript mit Modus-Flags für unzusammenhängende
   Aufgaben.
 
+## c
+<!-- source: 2bc81f0e98a0ca10 -->
+Coding-Regeln — C
+summary: Sprachstandard, Speicherbesitz und Puffer, geprüfte Rückgabewerte, Undefined Behavior, Warnungen und Sanitizer
+
+Regeln nur für C; sie gelten nicht für C++, dessen Idiome sich unterscheiden (RAII, Container, Exceptions) und
+das einen eigenen Satz hat. Gruppen-IDs (`CR-c-<name>`) sind stabil und werden nie neu vergeben; eine Gruppe,
+deren Zweck nicht mehr gilt, bekommt eine neue ID und wird in diesem Kopf als `retired:` aufgeführt.
+
+## CR-c-basics
+<!-- source: 8a32fa5b2cd41323 -->
+Standard, Build und Warnungen
+summary: fester Sprachstandard, strenge Warnungen als Fehler, clang-tidy, Build-System wie konfiguriert
+
+- Den C-Standard aus der Build-Konfiguration nehmen (`-std=c11`, `c17`, `c23` oder `CMAKE_C_STANDARD`) und
+  nichts Neueres verwenden: `nullptr`, `constexpr`, `bool` als Schlüsselwort und `typeof` gibt es erst in C23;
+  `_Generic`, `_Static_assert` und `<threads.h>` brauchen C11. Ohne konfigurierten Standard C11 annehmen.
+- Keine C++-Gewohnheiten in C schreiben: kein Cast des `malloc`-Ergebnisses, kein `bool`/`true` ohne
+  `<stdbool.h>` vor C23, und parameterlose Funktionen als `f(void)` deklarieren, nicht als `f()`.
+- Warnungen ernst nehmen (`-Wall -Wextra`; MSVC `/W4`): eine im Code beheben, nicht mit einem Cast oder
+  einem Pragma zum Schweigen bringen. `-Werror` (`/WX`) einmal vorschlagen; Build-Flags nie ungefragt setzen
+  (`R-code-tools`).
+- `clang-tidy` als üblichen Linter und `clang-format` als üblichen Formatter ausführen, oder was das Projekt
+  konfiguriert hat (`R-code-tools`); beim vorhandenen Build-System bleiben (CMake, Make, Meson) und keines
+  ungefragt installieren.
+
+## CR-c-memory
+<!-- source: 09f029bfd22e3c44 -->
+Puffer und Besitz
+summary: jeder Puffer trägt seine Größe, ein Besitzer pro Allokation, keine unbegrenzten String-Funktionen
+
+- Einen Puffer zusammen mit seiner Größe übergeben und die Größe vor dem Schreiben prüfen; nie `gets`,
+  `strcpy`, `strcat` oder `sprintf` in einen Puffer fester Größe — `snprintf` und `memcpy` mit ausdrücklicher
+  Länge verwenden und Strings selbst abschließen, wo die Funktion es nicht tut (`strncpy`).
+- Das Ergebnis jedes `malloc`/`calloc`/`realloc` vor der Verwendung auf `NULL` prüfen. `realloc` schreibt in
+  eine temporäre Variable, damit der alte Zeiger bei einem Fehlschlag nicht verloren geht.
+- Allokationsgrößen aus dem Ziel berechnen (`malloc(n * sizeof *p)`) und die Multiplikation vorher auf
+  Überlauf prüfen (`calloc` übernimmt das).
+- Jede Allokation hat genau einen Besitzer, benannt in einem Kommentar oder im Kopfkommentar der Funktion:
+  wer sie freigibt und wer sie nur borgen darf. Einmal freigeben, den Zeiger danach auf `NULL` setzen, wo er
+  im Gültigkeitsbereich bleibt, und auf jedem Fehlerpfad freigeben (ein einziger `goto cleanup`-Ausgang ist
+  das anerkannte Idiom).
+- Nie einen Zeiger auf eine lokale (Stack-)Variable zurückgeben oder speichern.
+
+## CR-c-correctness
+<!-- source: 40e4206a1a995d98 -->
+Rückgabewerte und Undefined Behavior
+summary: keine ignorierten Fehler, Integer-Überlauf, signed/unsigned und Strict Aliasing
+
+- Den Rückgabewert jedes Aufrufs prüfen, der scheitern kann (`fopen`, `fread`, `fwrite`, `fclose`,
+  Abschneiden bei `snprintf`, `read`/`write`, `pthread_*`); eine Fehlermeldung nennt den Aufruf, sein Argument
+  und `errno` (`strerror`).
+- Ein Überlauf bei vorzeichenbehafteten Ganzzahlen ist Undefined Behavior: die Operanden vor der Rechnung
+  prüfen, nicht danach. `size_t` für Größen und Indizes verwenden und signed nie ohne ausdrückliche
+  Umwandlung mit unsigned vergleichen. Schiebeweiten, Division durch null und `INT_MIN / -1` prüfen.
+- Ein Objekt nicht über einen Zeiger eines unverträglichen Typs lesen (Strict Aliasing) und keine
+  uninitialisierte Variable; für Type Punning `memcpy` verwenden und bei der Deklaration initialisieren.
+- Ungenutzte Parameter und Durchfallen im `switch` ausdrücklich kennzeichnen (`(void)x;`, ein Kommentar oder
+  in C23 `[[fallthrough]]`), nicht stillschweigend.
+
+## CR-c-tests
+<!-- source: 9c4597b4ddb9a329 -->
+Tests unter Sanitizern
+summary: Tests laufen mit ASan und UBSan, Test Runner wie konfiguriert
+
+- Die Test-Suite mindestens einmal mit `-fsanitize=address,undefined -fno-omit-frame-pointer` ausführen
+  (MSVC: `/fsanitize=address`); ein Sanitizer-Bericht ist ein Fehlschlag und wird nie unterdrückt, um grün zu
+  werden (`R-code-checks-intact`).
+- Das Test-Framework verwenden, das das Projekt eingerichtet hat (Unity, Check, CMocka oder schlicht `ctest`);
+  keines ungefragt hinzufügen. Den Fehlerpfad jeder Allokation und jedes I/O-Aufrufs abdecken, nicht nur den
+  Normalfall.
+
+## ci
+<!-- source: 8bc56d261eba1154 -->
+Coding-Regeln — CI
+summary: gepinnte Actions, minimale Berechtigungen, injektionssichere Workflows, Secrets, Caching und Concurrency für GitHub Actions und GitLab CI
+
+Regeln für Pipeline-Definitionen: GitHub Actions (`.github/workflows/*.yml`) und GitLab CI
+(`.gitlab-ci.yml`). Eine Pipeline läuft mit den Secrets und dem Schreibzugriff des Projekts, daher erweitern
+diese Regeln die Sicherheitsregeln (`R-safe-no-secret-log`, `R-safe-no-secret-cli`, `R-safe-approval`).
+Gruppen-IDs (`CR-ci-<name>`) sind stabil und werden nie neu vergeben; eine Gruppe, deren Zweck nicht mehr
+gilt, bekommt eine neue ID und wird in diesem Kopf als `retired:` aufgeführt.
+
+## CR-ci-supply-chain
+<!-- source: 53f2b75e8ede89d2 -->
+Pinnen, was die Pipeline ausführt
+summary: Actions und Includes auf einen Commit-SHA gepinnt, minimale Token-Berechtigungen, automatische Updates
+
+- GitHub: jede Action eines Dritten auf den vollständigen 40-stelligen Commit-SHA pinnen, die Version als
+  Kommentar dahinter (`uses: actions/checkout@<sha> # v4.2.2`). Einen Tag oder Branch kann sein Eigentümer
+  verschieben, und dann läuft unbemerkt neuer Code in deiner Pipeline. Prüfen, dass der SHA zum
+  Upstream-Repository gehört.
+- GitLab: `include: project`/`remote` und CI-Images auf einen Commit-SHA oder einen Image-Digest pinnen,
+  nie auf `main` oder `latest`.
+- `permissions:` ganz oben in jedem Workflow auf `contents: read` setzen und pro Job nur erweitern, wo ein
+  Job es braucht (`pull-requests: write`, `id-token: write`). Den Standardumfang des Tokens nie der
+  Repository-Einstellung überlassen.
+- Kurzlebige OIDC-Zugangsdaten (`id-token: write`, GitLab `id_tokens:`) langlebigen Cloud-Schlüsseln
+  vorziehen, die als Secrets liegen.
+- Pins mit dem Updater des Projekts aktuell halten (Dependabot oder Renovate), nicht von Hand; ein Pin, den
+  niemand aktualisiert, wird zu einer ungepatchten Abhängigkeit.
+- `actions/checkout` mit `persist-credentials: false`, außer ein späterer Schritt pusht.
+
+## CR-ci-injection
+<!-- source: ea3e4e5d9d30c001 -->
+Nicht vertrauenswürdige Eingaben erreichen nie eine Shell oder einen privilegierten Lauf
+summary: keine Event-Daten inline in run:, kein pull_request_target mit Fork-Code, keine Secrets für Forks
+
+- Nie `${{ github.event.* }}`, `github.head_ref`, den Titel oder Text eines Issues/PR, einen Branch-Namen
+  oder eine Commit-Nachricht direkt in ein `run:`-Skript schreiben — der Text wird vor dem Parsen durch die
+  Shell eingesetzt und wird zu Code. Stattdessen über `env:` durchreichen und `"$VAR"` verwenden. GitLab
+  expandiert Variablen zur Laufzeit in der Shell, dort liegt die Gefahr also in unquotierter Verwendung:
+  `"$CI_COMMIT_MESSAGE"`, `"$CI_MERGE_REQUEST_TITLE"` und Branch-Namen in `script:` quoten, nie per `eval` ausführen oder
+  in einen Befehl einsetzen.
+- `pull_request_target` und `workflow_run` laufen im Kontext des Basis-Repositorys mit Secrets und einem
+  beschreibbaren Token. Dort nie den Head des Pull Requests auschecken oder ausführen
+  (`ref: ${{ github.event.pull_request.head.sha }}`) und nie dessen Skripte oder Build-Schritt laufen lassen.
+  Für alles, was beigesteuerten Code baut, schlichtes `pull_request` verwenden.
+- Fork-Pull-Requests bekommen keine Secrets: keine Prüfung entwerfen, die bei `pull_request` eines braucht;
+  sie in einen unprivilegierten Build und einen getrennten, geprüften privilegierten Schritt aufteilen.
+- Ein Deploy- oder Release-Job läuft nur auf geschützten Branches und Tags (`if:` auf dem Ref, GitLab
+  `rules:` mit `$CI_COMMIT_REF_PROTECTED`), hinter der geforderten Freigabe des Environments.
+
+## CR-ci-secrets
+<!-- source: d96c257076856f3b -->
+Secrets bleiben aus Logs, Argumenten und Artefakten heraus
+summary: Secrets über Secret Store und Umgebung, maskiert, nie ausgegeben, nie in Cache oder Artefakten
+
+- Secrets aus dem Secret Store der Plattform nehmen (GitHub `secrets`/Environment-Secrets, GitLab maskierte
+  und geschützte CI/CD-Variablen) und einem Schritt über `env:` übergeben, nicht als Argument.
+- Nie ein Secret oder einen daraus abgeleiteten Wert mit `echo` ausgeben, und kein `set -x`/CI-Debug-Trace in
+  einem Job mit Secrets. Einen berechneten Wert mit `::add-mask::` maskieren, bevor er ausgegeben wird.
+- Kein Secret in ein Artefakt, einen Cache, ein Build-Argument (`docker build --build-arg`) oder einen
+  hochgeladenen Bericht; sie überdauern den Job und sind für mehr Leute lesbar als das Secret.
+- Ein Secret, das in ein Log gelangt ist, gilt als kompromittiert und wird rotiert, nicht nur aus dem Log
+  gelöscht.
+
+## CR-ci-runtime
+<!-- source: e5dff1267d4372a6 -->
+Caching, Concurrency, Timeouts
+summary: Caches nach Lockfile benannt, Concurrency-Gruppen, Job-Timeouts, dieselben Prüfungen wie lokal
+
+- Einen Cache über den Hash der Lockfile schlüsseln (`hashFiles('**/package-lock.json')`, GitLab
+  `cache:key:files`), nie über einen festen String; heruntergeladene Abhängigkeiten cachen, nicht die
+  Build-Ausgabe nicht vertrauenswürdiger Branches.
+- `concurrency:` mit `cancel-in-progress: true` für Pull-Request-Prüfungen setzen; nie einen laufenden Deploy
+  oder Release abbrechen — dafür eine Gruppe ohne Abbruch vergeben. GitLab: `interruptible: true` und
+  `resource_group` für Deploys.
+- `timeout-minutes:` (GitLab `timeout:`) an jedem Job setzen; der Standard der Plattform liegt bei Stunden.
+- CI führt dieselben Befehle aus, die das Projekt für die lokale Nutzung dokumentiert (`docs/ai/config.md`,
+  `R-code-tools`) — keine Prüfung, die nur in der Pipeline existiert. Eine fehlschlagende Prüfung wird im
+  Code behoben, nicht übersprungen oder auf `continue-on-error` gesetzt (`R-code-checks-intact`).
+- GitLab: `rules:` verwenden, nicht das veraltete `only:`/`except:`.
+
+## cpp
+<!-- source: 882454465321623c -->
+Coding-Regeln — C++
+summary: Sprachstandard, RAII und Besitz, const und Rule of Zero, Warnungen und Sanitizer, CMake und Tests
+
+Regeln nur für C++; sie gelten nicht für C, dessen Code mit manueller Speicherverwaltung und C-Idiomen
+geschrieben wird und das einen eigenen Satz hat. Gruppen-IDs (`CR-cpp-<name>`) sind stabil und werden nie neu
+vergeben; eine Gruppe, deren Zweck nicht mehr gilt, bekommt eine neue ID und wird in diesem Kopf als
+`retired:` aufgeführt.
+
+## CR-cpp-basics
+<!-- source: f2add71de13bc60d -->
+Standard, Build und Warnungen
+summary: Standard aus dem Build, davon abhängige Features, strenge Warnungen, clang-tidy, CMake
+
+- Den Standard aus der Build-Konfiguration nehmen (`CMAKE_CXX_STANDARD`, `-std=c++17`, `20`, `23`) und
+  nichts Neueres verwenden. Je Standard: `std::optional`, `std::variant`, `std::string_view` und Structured
+  Bindings sind C++17; Concepts, Ranges, `std::span` und `std::format` sind C++20 (`std::format` braucht
+  zudem eine aktuelle Standardbibliothek); `std::expected` und `std::print` sind C++23. Ohne konfigurierten
+  Standard C++17 annehmen.
+- Warnungen ernst nehmen (`-Wall -Wextra -Wpedantic`; MSVC `/W4`): eine im Code beheben, nicht mit einem
+  Cast oder einem Pragma zum Schweigen bringen. `-Werror` (`/WX`) einmal vorschlagen; Build-Flags nie
+  ungefragt setzen (`R-code-tools`).
+- `clang-tidy` als üblichen Linter und `clang-format` als üblichen Formatter ausführen, oder was das Projekt
+  konfiguriert hat (`R-code-tools`). CMake ist das übliche Build-System; das verwenden, das das Projekt hat
+  (Make, Meson, Bazel), und keines ungefragt installieren.
+- Kein C in C++ schreiben: kein `malloc`/`free`, keine C-Casts, kein `NULL` (`nullptr` verwenden) und keine
+  rohen Arrays, wo `std::array`, `std::vector` oder `std::string` passen.
+
+## CR-cpp-ownership
+<!-- source: 8a17387d8c244d69 -->
+RAII, kein rohes new und delete
+summary: Ressourcen gehören Objekten, Smart Pointer, Rule of Zero
+
+- Jede Ressource (Speicher, Datei, Lock, Handle) gehört einem Objekt, das sie in seinem Destruktor freigibt
+  (RAII). Kein rohes `new`/`delete`: `std::make_unique` (Standard) oder `std::make_shared` (nur bei wirklich
+  geteiltem Besitz), Container oder `std::lock_guard`/`std::scoped_lock` verwenden.
+- Ein roher Zeiger oder eine Referenz ist nicht besitzend und geliehen; nie darüber `delete` aufrufen und
+  nie länger als die Lebensdauer des Besitzers behalten. Keine Referenz und keinen `std::string_view` auf
+  eine lokale Variable oder ein Temporary zurückgeben.
+- Rule of Zero: Eine Klasse, die nur RAII-Member hält, deklariert keine der speziellen Memberfunktionen.
+  Muss eines von Destruktor, Kopieren oder Verschieben geschrieben werden, alle fünf definieren oder löschen
+  (Rule of Five); Move-Operationen `noexcept` markieren.
+- Exceptions nicht über eine C-Schnittstelle laufen lassen und keinen Thread unbehandelt verlassen lassen;
+  dem vorhandenen Fehlerstil des Projekts folgen (Exceptions oder `std::expected`/Fehlercodes), statt beide
+  zu mischen.
+
+## CR-cpp-correctness
+<!-- source: b41b59d04920fd5e -->
+const, Typen und Undefined Behavior
+summary: const als Standard, explizite Konstruktoren, keine ungeprüften Casts, Invalidierung von Containern
+
+- `const` als Standard für Variablen, Memberfunktionen und Parameter; große schreibgeschützte Argumente per
+  `const&`, kleine per Wert übergeben. Konstruktoren mit einem Argument `explicit` und Überschreibungen
+  `override` markieren.
+- `static_cast` und Verwandte nur einsetzen, wo nötig; keine C-Casts und nie `reinterpret_cast` oder einen
+  Cast, der `const` entfernt, ohne einen Kommentar, warum das sicher ist.
+- Signed-Überlauf, `operator[]` außerhalb des Bereichs, Verwendung nach einem Move und die Verwendung eines
+  Iterators nach einer Änderung des Containers sind Undefined Behavior: bei nicht vertrauenswürdiger Eingabe
+  `.at()` verwenden oder Grenzen prüfen, und ein verschobenes Objekt nur zum Zuweisen wiederverwenden.
+- Mit geschweiften Klammern oder bei der Deklaration initialisieren; `enum class` dem schlichten `enum`
+  vorziehen.
+
+## CR-cpp-tests
+<!-- source: 896428e639470083 -->
+Tests unter Sanitizern
+summary: GoogleTest oder Catch2 über CTest, ASan und UBSan im Testlauf
+
+- Das Test-Framework verwenden, das das Projekt eingerichtet hat (GoogleTest oder Catch2 sind die übliche
+  Wahl), ausgeführt über `ctest`; keines ungefragt hinzufügen.
+- Die Suite mindestens einmal mit `-fsanitize=address,undefined -fno-omit-frame-pointer` ausführen; ein
+  Sanitizer-Bericht ist ein Fehlschlag und wird nie unterdrückt, um grün zu werden
+  (`R-code-checks-intact`).
+
 ## csharp
 <!-- source: 353516e5996fb867 -->
 Coding-Regeln — C#
@@ -92,6 +320,148 @@ ConfigureAwait in Bibliothekscode
 summary: ConfigureAwait(false) in Code ohne UI-Kontext
 
 - In Bibliothekscode ohne Abhängigkeit von einem UI-Kontext `ConfigureAwait(false)` verwenden.
+
+## css
+<!-- source: 73280f9bb79c1553 -->
+Coding-Regeln — CSS
+summary: Custom-Property-Tokens, geringe Spezifität, kein !important, Mobile-first, stylelint
+
+Regeln für handgeschriebenes CSS (und SCSS) in Projekten, die kein Tailwind verwenden. Diesen Satz nicht in
+einem Projekt ankreuzen, das `tailwind` ankreuzt: Utility-Klassen und eine handgeschriebene Kaskade ziehen in
+entgegengesetzte Richtungen, und die Regeln unten würden denen von Tailwind widersprechen (`@apply`,
+getrennte CSS-Dateien). Gruppen-IDs (`CR-css-<name>`) sind stabil und werden nie neu vergeben; eine Gruppe,
+deren Zweck nicht mehr gilt, bekommt eine neue ID und wird in diesem Kopf als `retired:` aufgeführt.
+
+## CR-css-tokens
+<!-- source: 27f21aba7fc01c0f -->
+Design Tokens als Custom Properties
+summary: ein Ort für Farben, Abstände und Schrift; keine wiederholten Literale; Dark Mode durch Neuzuordnung
+
+- Farben, Abstände, Radien, Schriftgrößen und z-index-Ebenen einmal als Custom Properties auf `:root`
+  definieren (`--color-surface`, `--space-2`) und sonst überall `var(--…)` verwenden; ein Hex-Wert oder
+  `13px`, der sich in Regelrümpfen wiederholt, ist ein fehlendes Token.
+- Tokens nach Rolle benennen (`--color-text-muted`), nicht nach Wert (`--grey-600`) oder Ort
+  (`--header-blue`).
+- Dark Mode und Themes ordnen dieselben Tokens unter einem Selektor oder `prefers-color-scheme` neu zu; nie
+  ein zweiter Satz hartkodierter Farben in parallelen Regeln.
+- `var()` nur dort einen Fallback geben, wo die Eigenschaft absichtlich fehlen kann, nicht um einen
+  Tippfehler im Namen zu verbergen.
+
+## CR-css-cascade
+<!-- source: 3cfcf384995c8b7d -->
+Spezifität und die Kaskade
+summary: flache Selektoren, kein !important, keine ID-Selektoren, Layer für die Reihenfolge, ein Namensschema
+
+- Selektoren flach halten: eine Klasse, höchstens eine weitere Ebene (`.card__title`, `.nav a`). Keine
+  `#id`-Selektoren, keine Ketten aus drei oder mehr Teilen, keine Klassen mit Elementbezug (`div.card`).
+- Kein `!important`. Gewinnt eine Regel nicht, die Spezifität der konkurrierenden Regel senken oder die
+  Quellen mit `@layer` ordnen (seit 2022 in allen aktuellen Browsern unterstützt); eine Ausnahme für ein
+  Utility, das gewinnen muss, wird an der Deklaration dokumentiert.
+- Ein Namensschema wählen (BEM oder was das Projekt schon verwendet) und dabei bleiben; in einer Datei nicht
+  mehrere Schemata mischen.
+- Über Klassen stylen, nie über DOM-Struktur, die eine Markup-Änderung brechen würde
+  (`div > div:nth-child(3)`).
+- Kein `outline: none` ohne einen sichtbaren Ersatz über `:focus-visible`.
+
+## CR-css-layout
+<!-- source: ada2743baa0e42a4 -->
+Layout und Responsivität
+summary: Mobile-first mit min-width-Queries, Flex/Grid, relative Einheiten, logische Eigenschaften
+
+- Die Basisregeln für den kleinsten Bildschirm schreiben und für größere `@media (min-width: …)` ergänzen;
+  Breakpoints kommen aus Tokens oder einer Liste, nicht aus pro Komponente erfundenen Zahlen.
+- Flexbox und Grid für das Layout verwenden, `gap` für Abstände zwischen Elementen; keine Floats und keine
+  festen Höhen, die Text abschneiden.
+- Text und Abstände in `rem`/`em` bemessen, nicht in `px`, damit die Schrifteinstellungen der Nutzer
+  weiter wirken; `px` ist für Rahmen und Haarlinien in Ordnung.
+- Logische Eigenschaften (`margin-inline`, `padding-block`) im neuen Code bevorzugen, wenn das Projekt
+  Rechts-nach-links-Schrift unterstützt.
+- Aussagen zur Browser-Unterstützung gegen die `browserslist` oder die genannten Ziele des Projekts prüfen,
+  bevor ein neues Feature verwendet wird (Container Queries, `:has()`, Nesting); nicht annehmen, dass die
+  neueste Syntax verfügbar ist.
+
+## CR-css-toolchain
+<!-- source: b5de53db0120aba2 -->
+Lint- und Format-Tooling
+summary: standardmäßig stylelint, Formatter des Projekts, SCSS nur wenn das Projekt es schon nutzt
+
+- `stylelint` mit der gemeinsamen Konfiguration des Projekts ist die übliche Wahl des Templates für das
+  Linting, `prettier` für die Formatierung — in beiden Fällen ausführen, was das Projekt tatsächlich
+  konfiguriert hat (siehe `R-code-tools`).
+- SCSS, PostCSS-Plugins oder eine CSS-in-JS-Bibliothek nicht in ein Projekt einführen, das keine hat; mit
+  nativem Nesting und Custom Properties sind die meisten alten Gründe entfallen.
+- In SCSS das Nesting auf höchstens drei Ebenen halten und `@use` / `@forward` verwenden, nicht `@import`,
+  das seit Dart Sass 1.80 veraltet ist.
+
+## docker
+<!-- source: 07bf0a42e42f1b5a -->
+Coding-Regeln — Docker
+summary: gepinnte Base Images, Non-root- und Multi-Stage-Builds, Build-Kontext und Secrets, Compose, hadolint
+
+Regeln für Dockerfiles und Compose-Dateien. Gruppen-IDs (`CR-docker-<name>`) sind stabil und werden nie neu
+vergeben; eine Gruppe, deren Zweck nicht mehr gilt, bekommt eine neue ID und wird in diesem Kopf als
+`retired:` aufgeführt.
+
+## CR-docker-image
+<!-- source: 11be356ede22f9b7 -->
+Gepinntes Base Image, klein und mehrstufig
+summary: Tag plus Digest, kein latest, Multi-Stage-Build, ein Prozess pro Container, Reihenfolge der Layer und Aufräumen
+
+- Das Base Image mit Tag und Digest pinnen (`FROM python:3.12-slim@sha256:...`); nie `latest` oder einen
+  nackten Major-Versions-Tag allein. Die Sprachversion aus den Projektdateien nehmen (`R-code-version`),
+  nicht aus Gewohnheit, und den Digest bewusst aktualisieren, nicht durch erneutes Bauen.
+- In Stufen bauen: Compiler, Dev-Abhängigkeiten und Caches bleiben in einer `builder`-Stufe; die letzte
+  Stufe kopiert nur das Ergebnis (`COPY --from=builder`) in eine schlanke oder distroless Basis.
+- Layer nach der Seltenheit ihrer Änderung ordnen: zuerst das Abhängigkeits-Manifest kopieren und
+  installieren, den Quellcode zuletzt, damit eine Codeänderung nicht alles neu installiert. Die Installation
+  und ihr Aufräumen in einem einzigen `RUN` erledigen
+  (`apt-get update && apt-get install -y --no-install-recommends ... && rm -rf /var/lib/apt/lists/*`), da
+  ein späteres `rm` einen früheren Layer nicht verkleinert.
+- `COPY` dem `ADD` vorziehen; für `CMD` und `ENTRYPOINT` die Exec-Form verwenden (`["python", "app.py"]`),
+  damit Signale das Programm erreichen; ein Hauptprozess pro Container.
+
+## CR-docker-security
+<!-- source: 0865f7a77127fe65 -->
+Non-root-Nutzer, keine Secrets in Layern
+summary: USER gesetzt, .dockerignore, Build Secrets statt ARG/ENV, keine Zugangsdaten im Image
+
+- Als Non-root-Nutzer laufen: ihn anlegen (`RUN useradd --system --uid 10001 app`) und `USER` vor `CMD`
+  setzen; Dateien mit `--chown` kopieren. Einen Dienst nicht als root laufen lassen, „damit es geht“.
+- Neben dem Dockerfile eine `.dockerignore` führen, die mindestens `.git`, `.env*`, Abhängigkeitsordner
+  (`node_modules`, `.venv`), Build-Ausgabe und lokale Daten ausschließt, damit nichts davon in den
+  Build-Kontext oder einen Layer gelangt.
+- Ein Secret kommt nie in `ARG`, `ENV`, `COPY` oder ein `RUN`-Argument: Jedes bleibt in der Image-History
+  lesbar (`docker history`). Für die Build-Zeit einen BuildKit Secret Mount verwenden
+  (`RUN --mount=type=secret,id=name ...`, übergeben mit `--secret`), für die Laufzeit die Umgebung oder eine
+  eingebundene Datei (`R-safe-no-secret-cli`).
+- Konfiguration, die sich je Umgebung unterscheidet, nicht ins Image einbacken; sie zur Laufzeit übergeben.
+
+## CR-docker-compose
+<!-- source: fe182158df74e4fb -->
+Compose-Dateien
+summary: kein version-Key, gepinnte Images, benannte Volumes, Env-Datei außerhalb der Versionsverwaltung, gesunde Abhängigkeiten
+
+- Die Compose Specification verwenden (Docker Compose v2, `docker compose`): den veralteten Top-Level-Key
+  `version:` weglassen. Die installierte Version mit `docker compose version` prüfen.
+- Jedes `image:` wie oben pinnen; kein `latest`. Volumes benennen statt anonymer zu verwenden, und den
+  Docker-Socket (`/var/run/docker.sock`) nicht in einen Container einbinden.
+- Werte und Secrets in einer `.env`-Datei oder in `secrets:` halten, nie in `compose.yaml`; nur eine
+  `.env.example` committen. Nur die nötigen Ports veröffentlichen, gebunden an `127.0.0.1`, außer der Dienst
+  soll von außen erreichbar sein. Ein Host-Port kollidiert mit dem Server des Eigentümers — siehe
+  `R-safe-dev-server`.
+- Die Startreihenfolge real machen: `depends_on` mit `condition: service_healthy` und einem `healthcheck`,
+  nicht ein Sleep.
+
+## CR-docker-toolchain
+<!-- source: 190707e25bdfb12d -->
+Lint und Build-Prüfungen
+summary: hadolint für Dockerfiles, docker compose config für Compose, oder was das Projekt eingerichtet hat
+
+- `hadolint` ist der übliche Dockerfile-Linter des Templates; Compose-Dateien mit
+  `docker compose config --quiet` validieren. Ausführen, was das Projekt konfiguriert hat, und nichts
+  ungefragt installieren (`R-code-tools`).
+- Mit BuildKit bauen (Standard im aktuellen Docker) und das Ergebnis prüfen, indem das Image einmal
+  ausgeführt wird, nicht nur anhand eines grünen Builds.
 
 ## go
 <!-- source: a1cf0bbe4110476f -->
@@ -213,6 +583,149 @@ summary: standardmäßig JUnit 5/AssertJ, Testnamen beschreiben das Verhalten, k
 - Nie Zufall ohne festen Seed verwenden.
 - Nie mit `Thread.sleep` warten; stattdessen auf die tatsächliche Bedingung warten.
 
+## javascript
+<!-- source: 363abc8873e17842 -->
+Coding-Regeln — JavaScript
+summary: ESM, moderne Syntax, gepinnte Node-Version, ESLint Flat Config, Prettier, eingebaute Tests oder Vitest, behandelte Promises
+
+Regeln für JavaScript auf Node.js in Projekten ohne TypeScript; mit TypeScript gilt der Satz `typescript`.
+Gruppen-IDs (`CR-javascript-<name>`) sind stabil und werden nie neu vergeben; eine Gruppe, deren Zweck nicht
+mehr gilt, bekommt eine neue ID und wird in diesem Kopf als `retired:` aufgeführt.
+
+## CR-javascript-basics
+<!-- source: f29095c0487cdbff -->
+Moderne Sprachstandards
+summary: ESM, const/let, strikte Gleichheit, async/await, ausdrückliche Fehler
+
+- ES-Module verwenden: `"type": "module"` in `package.json`, `import`/`export`, das Präfix `node:` für
+  eingebaute Module (`import fs from "node:fs/promises"`) und die Dateiendung in relativen Imports. Kein
+  neues CommonJS (`require`, `module.exports`); `__dirname` wird zu `import.meta.dirname` (Node 20.11+).
+- `const` als Standard, `let` wo neu zugewiesen wird, nie `var`.
+- Mit `===`/`!==` vergleichen; `==` nur für die bewusste Prüfung `x == null`, mit einem Kommentar.
+- `async`/`await` statt `.then`-Ketten. `forEach` wartet nicht auf einen asynchronen Callback — `for…of` mit
+  `await` verwenden oder `Promise.all` über `map`, wenn die Aufrufe unabhängig sind.
+- `Error`-Objekte werfen (mit `cause`, wenn umhüllt wird), nie Strings. Jede Fehlermeldung nennt, was mit
+  welchem Wert gescheitert ist.
+- Die Standardbibliothek und eingebaute Funktionen (`fetch`, `structuredClone`, `node:test`,
+  `util.parseArgs`) vor einem zusätzlichen Paket verwenden.
+- Die Form strukturierter Daten mit einem JSDoc-`@typedef` beschreiben, nicht als loses Objekt
+  herumreichen.
+
+## CR-javascript-promises
+<!-- source: bc26a91ebbeeecfa -->
+Keine freischwebenden Promises
+summary: jedes Promise erwartet, zurückgegeben oder abgefangen; unbehandelte Rejections beenden den Prozess
+
+- Jedes Promise wird erwartet (`await`), zurückgegeben oder endet in `.catch(...)`. Der Aufruf einer
+  asynchronen Funktion als bloße Anweisung verbirgt ihren Fehlschlag; ab Node 15 beendet eine unbehandelte
+  Rejection den Prozess.
+- Keine `async`-Funktion als Event-Handler oder `setInterval`-Callback ohne eigenes `try/catch`.
+- Kein `new Promise(async (resolve) => …)`; kein `await` in einer Schleife, wo die Aufrufe unabhängig sind.
+- ESLint Core findet freischwebende Promises nicht (`@typescript-eslint/no-floating-promises` braucht
+  Typen), also im Review darauf achten und einen Handler auf oberster Ebene für `unhandledRejection` setzen,
+  der loggt und mit Fehlercode beendet.
+
+## CR-javascript-toolchain
+<!-- source: a0f0841e71ef53ba -->
+Node-Version, Lint, Format, Tests
+summary: Node-Version gepinnt, ESLint 9+ Flat Config, Prettier, node:test oder Vitest, Lockfile
+
+- Die Node.js-Version pinnen: `engines.node` in `package.json` plus `.nvmrc` (oder `.node-version`), und in
+  der CI dieselbe Version verwenden. Eine aktive LTS-Linie verwenden; die installierte Version prüfen
+  (`R-code-version`).
+- ESLint ab v9 liest nur die Flat Config `eslint.config.js`; `.eslintrc*` ist Legacy und wird nicht
+  verwendet, solange das Projekt nicht noch ESLint 8 betreibt. Ausführen, was das Projekt konfiguriert hat
+  (`R-code-tools`).
+- Prettier ist der übliche Formatter des Templates; ESLint deckt nur Korrektheit ab, mit
+  `eslint-config-prettier`, wo beide laufen — kein zweiter Styleguide.
+- Tests: der eingebaute Runner `node:test` (`node --test`) oder Vitest, je nachdem, was das Projekt
+  eingerichtet hat.
+- Die Lockfile des Paketmanagers committen und in der CI daraus installieren, eingefroren: `npm ci`,
+  `pnpm install --frozen-lockfile` oder `yarn install --immutable`, nie eine schlichte Installation. Mit pnpm
+  ersetzen `pnpm update` und `pnpm why <package>` die Befehle `npm update` / `npm ls`; Script-Argumente
+  gehen ohne `--` (`pnpm run test -t name`).
+- Ein fehlschlagendes Lint oder ein fehlschlagender Test wird im Code behoben, nicht mit `eslint-disable`
+  zum Schweigen gebracht (`R-code-checks-intact`).
+
+## kotlin
+<!-- source: da85e8423ca0489b -->
+Coding-Regeln — Kotlin
+summary: Null Safety, Structured Concurrency, Datenmodellierung, Toolchain, Tests
+
+Regeln für Kotlin-Projekte (JVM, Android oder Multiplatform). Gruppen-IDs (`CR-kotlin-<name>`) sind stabil
+und werden nie neu vergeben; eine Gruppe, deren Zweck nicht mehr gilt, bekommt eine neue ID und wird in
+diesem Kopf als `retired:` aufgeführt. Ein Kotlin-Projekt nimmt normalerweise nicht den Java-Satz; bei
+gemischten Quellen kreuzt `init` beide an, und wo nur gelegentlich ein Java-Aufruf vorkommt, genügt die
+Interop-Regel unten.
+
+## CR-kotlin-basics
+<!-- source: 3f00c45f70353d4b -->
+Null Safety, Unveränderlichkeit, Fehlerbehandlung
+summary: kein !!, val vor var, spezifische Exceptions, explizite API an Grenzen, Java-Interop
+
+- Nie `!!` verwenden. Nullability mit `?.`, `?:`, `let`, einem frühen `return` oder
+  `requireNotNull(x) { "message" }` / `checkNotNull` behandeln, wo ein fehlender Wert ein Fehler ist — die
+  Meldung nennt, was fehlte. `lateinit` nur für vom Framework injizierte Felder.
+- `val` dem `var` vorziehen, in Signaturen schreibgeschützte Collections (`List`, `Map`) statt
+  veränderlicher, und Ausdrücke (`when`, `if`) statt Mutation.
+- Spezifische Exception-Typen abfangen; nie eine Exception verschlucken oder `Throwable` abfangen. In
+  Coroutines nie `CancellationException` abfangen, ohne sie erneut zu werfen. `Result` oder einen Sealed
+  Type für erwartbare Fehler statt Exceptions als Kontrollfluss verwenden.
+- Den Typ öffentlicher Funktionen und Properties ausdrücklich deklarieren, statt sich über eine
+  Modulgrenze hinweg auf Inferenz zu verlassen.
+- Plattformtypen aus Java (`String!`) werden nicht vertraut: ihnen am Eintrittspunkt einen nullable oder
+  nicht-null Typ geben, und Kotlin-APIs für Java-Aufrufer (`@JvmStatic`, `@JvmOverloads`, `@Throws`) nur
+  dort annotieren, wo die Java-Seite es braucht.
+- String-Templates statt Konkatenation verwenden, und auf der JVM `java.time`-Typen (nicht
+  `Date`/`Calendar`).
+- Über SLF4J oder die Logging-Fassade des Projekts loggen, mit parametrisierten Meldungen — was nie in eine
+  Logzeile gehört, steht in `R-safe-no-secret-log`.
+
+## CR-kotlin-coroutines
+<!-- source: a7b51ec6cfa36261 -->
+Structured Concurrency
+summary: kein GlobalScope, Scopes mit Lebenszyklus, injizierte Dispatcher, kein runBlocking im Produktionscode
+
+- Nie Arbeit im `GlobalScope` starten. Coroutines in einem Scope starten, der ihren Lebenszyklus besitzt
+  (`coroutineScope`, `supervisorScope`, `viewModelScope`, der eigene `CoroutineScope` eines Dienstes), damit
+  Fehler und Abbruch weitergegeben werden.
+- Im Produktionscode außerhalb von `main` und Test-Brücken kein `runBlocking` aufrufen und keinen
+  Coroutine-Thread mit `Thread.sleep` oder blockierendem I/O blockieren: `delay` und
+  `withContext(Dispatchers.IO)` verwenden.
+- Dispatcher als Parameter injizieren, statt `Dispatchers.IO`/`Default` fest zu verdrahten, damit Tests sie
+  ersetzen können. Aus APIs `suspend`-Funktionen oder `Flow` bereitstellen, nicht `Deferred` oder
+  Callbacks.
+- Für Coroutine-Tests `kotlinx-coroutines-test` (`runTest`) verwenden; nie mit `Thread.sleep` warten.
+
+## CR-kotlin-data-modeling
+<!-- source: 9935fc2fb805a3ef -->
+data class, Sealed Types, Value Classes
+summary: data class für Werte, Sealed Types für geschlossene Mengen, copy statt Mutation
+
+- Schlichte Werte als `data class` mit `val`-Properties modellieren und mit `copy()` ändern; keine Logik mit
+  Nebenwirkungen in eine `data class` legen.
+- Geschlossene Mengen von Fällen als `sealed interface`/`sealed class` modellieren und mit einem
+  erschöpfenden `when` ohne `else`-Zweig behandeln, damit ein hinzugefügter Fall den Build bricht.
+- `@JvmInline value class` für typisierte Bezeichner (IDs, Einheiten) statt nacktem `String`/`Long`
+  verwenden; `enum class` nur für eine feste Menge ohne Daten je Fall.
+
+## CR-kotlin-toolchain
+<!-- source: 1dfc6e78d41c22b5 -->
+Build, Formatierung, statische Analyse, Tests
+summary: Gradle Kotlin DSL als Standard, ktlint und detekt, JUnit 5 oder Kotest
+
+- Die Kotlin-Version aus der Build-Datei oder dem Version Catalog (`libs.versions.toml`) lesen und nur
+  Sprachfeatures verwenden, die diese Version unterstützt (`R-code-version`): Context Parameters und
+  Guard-Bedingungen in `when` sind zum Beispiel neuer als Kotlin 2.0.
+- Mit Gradle und der Kotlin DSL (`build.gradle.kts`) bauen — die übliche Wahl des Templates; Versionen von
+  Abhängigkeiten an einer Stelle halten und den Gradle Wrapper verwenden, den das Projekt mitbringt.
+- Mit ktlint (oder `ktfmt`/Spotless) formatieren und mit detekt analysieren — die übliche Wahl des
+  Templates; ausführen, was das Projekt tatsächlich eingerichtet hat (siehe `R-code-tools`), und nichts
+  ungefragt installieren.
+- Tests mit JUnit 5 schreiben — die übliche Wahl des Templates —, optional mit Kotest-Assertions oder
+  MockK; das Framework verwenden, das das Projekt eingerichtet hat. Tests nach dem erwarteten Verhalten
+  benennen; nie Zufall ohne festen Seed verwenden.
+
 ## nuxt
 <!-- source: 7f4eab86966cf3c4 -->
 Coding-Regeln — Nuxt
@@ -230,7 +743,7 @@ das vor dem Satz eingerichtet wurde), vor Arbeit an Nuxt-Code `.act/coding/nuxt5
 Eigentümers.
 
 ## CR-nuxt-basics
-<!-- source: 8d1f533d6f468732 -->
+<!-- source: 1ff3099ed3afdbb6 -->
 Bewährte Nuxt-Standards
 summary: Verzeichnisstruktur, Datenabruf, typisierte Handler, Runtime-Konfiguration, Fallstricke
 
@@ -257,8 +770,26 @@ summary: Verzeichnisstruktur, Datenabruf, typisierte Handler, Runtime-Konfigurat
       }
       ```
 
-- Pfad-Aliase in `tsconfig.json` **und** `nuxt.config.ts` deklarieren. Seit Nuxt 4 zeigt `~` auf `app/`,
+- Pfad-Aliase, je nach installierter Nuxt-Hauptversion (`R-code-version`). Seit Nuxt 4 zeigt `~` auf `app/`,
   ohne eigenen Eintrag löst `~/types` also woanders auf als `~types`.
+  - Nuxt 4 und neuer: Aliase nur in `nuxt.config.ts` (`alias`) deklarieren; Nuxt übernimmt jeden in die
+    erzeugten `.nuxt/tsconfig*.json`. Die `tsconfig.json` im Root enthält nichts außer `references` auf diese
+    erzeugten Konfigurationen und nie eigene `paths`: Mit `files: []` plus `references` ersetzt ein `paths`
+    dort nichts, es erreicht die referenzierten Projekte schlicht nicht, der Alias wirkt also nirgends. Nur
+    ein Root, der eine erzeugte Konfiguration erweitert, ersetzt die ganze erzeugte Zuordnung durch seine
+    `paths`, und die Framework-Aliase verschwinden.
+  - Nuxt 3: Aliase ebenfalls in `nuxt.config.ts` deklarieren; eine Root-`tsconfig.json`, die
+    `./.nuxt/tsconfig.json` erweitert, darf `paths` nur ergänzen, wenn sie jeden erzeugten Eintrag
+    wiederholt. Nuxt 3 schreibt außerdem jeden `alias` in die erzeugten `paths`, der Eintrag in
+    `nuxt.config.ts` allein genügt also; die erzeugte `.nuxt/tsconfig.json` zeigt es.
+- Dateien, die die erzeugten Kontexte auslassen (Unit- und E2E-Tests, Konfigurationen des Test Runners),
+  überspringt `nuxt typecheck` ohne Meldung. Sie über die TypeScript-Optionen von Nuxt in `nuxt.config.ts`
+  aufnehmen (`typescript.tsConfig.include`, oder auf Nuxt 4 die Objekte je Kontext
+  `typescript.sharedTsConfig` / `typescript.nodeTsConfig` / `typescript.tsConfig`; den Server-Kontext über
+  `nitro.typescript.tsConfig`) und dann jeden Kontext einmal nachweisen: einen absichtlichen Typfehler in eine
+  Datei davon setzen, `nuxt typecheck` fehlschlagen sehen, ihn wieder entfernen. Die Namen der Optionen in
+  der Doku der installierten Nuxt-Version prüfen, bevor man sie verwendet.
+- pnpm-Projekte: siehe die Hinweise zum Paketmanager in den JavaScript-Regeln.
 - `runtimeConfig` für Konfigurationswerte verwenden, statt `process.env` in Komponenten zu lesen; Secrets
   gehören in den privaten Teil von `runtimeConfig`, nie unter `public`.
 - Typen für Props, Emits, Store-Actions, Composables und `defineEventHandler` ausschreiben, einschließlich
@@ -408,7 +939,7 @@ summary: ausdrückliche Imports aus `nuxt/server`, `event.req` als Web-Request, 
 - Jede Runtime-Abhängigkeit kommt in `package.json`, auch eine, die transitiv schon da ist.
 
 ## CR-nuxt5-app
-<!-- source: d443b1433753402f -->
+<!-- source: 96e0fa5fc4c6aefc -->
 Seiten, Routing, Datenabruf, Head
 summary: `import.meta.*`, `query` statt `params`, typisiertes `$fetch` und typisierte Routenziele, Unhead 3, kein `baseUrl`
 
@@ -427,7 +958,7 @@ summary: `import.meta.*`, `query` statt `params`, typisiertes `$fetch` und typis
   `og:site_name`, Standard-Description) kommen in `app.vue` **und** `error.vue`, da Nuxt `error.vue` anstelle von
   `app.vue` rendert. Ein fehlender Head-Wert wird weggelassen, nie als `undefined` übergeben —
   `useSeoMeta({ description: undefined })` entfernt den Fallback.
-- Kein `compilerOptions.baseUrl` in `tsconfig.json` — Nuxt ignoriert es; Aliase kommen in `paths` und
+- Kein `compilerOptions.baseUrl` in `tsconfig.json` — Nuxt ignoriert es; Aliase kommen nur in
   `nuxt.config.ts` (`CR-nuxt-basics`).
 
 ## CR-nuxt5-checks
@@ -496,6 +1027,84 @@ summary: standardmäßig PHP-CS-Fixer/PHP_CodeSniffer plus PHPStan/Psalm, oder w
 - PHP-CS-Fixer oder PHP_CodeSniffer, für PSR-12 konfiguriert, und PHPStan oder Psalm für die statische
   Analyse — die übliche Wahl des Templates; ausführen, was das Projekt tatsächlich eingerichtet hat
   (siehe `R-code-tools`).
+
+## powershell
+<!-- source: d6b1440d636ae49d -->
+Coding-Regeln — PowerShell
+summary: gepinnte PowerShell-Edition, Encoding, Strict Mode und Fehler, Exit-Codes nativer Programme, Skriptstil, PSScriptAnalyzer und Pester
+
+Regeln für PowerShell-Skripte und -Module. Gruppen-IDs (`CR-powershell-<name>`) sind stabil und werden nie
+neu vergeben; eine Gruppe, deren Zweck nicht mehr gilt, bekommt eine neue ID und wird in diesem Kopf als
+`retired:` aufgeführt.
+
+## CR-powershell-edition
+<!-- source: e6088452a0be58fa -->
+Die Edition pinnen, das Encoding ausdrücklich halten
+summary: Windows PowerShell 5.1 gegenüber PowerShell 7, ein Ziel pro Skript, ausdrückliches Encoding, keine Bash-Syntax
+
+- Das Ziel im Projekt benennen: Windows PowerShell 5.1 (`powershell.exe`) oder PowerShell 7+ (`pwsh`).
+  `$PSVersionTable.PSVersion` und die Projektdateien prüfen, bevor etwas unten Genanntes angewendet wird
+  (`R-code-version`); es im Skript mit `#Requires -Version 5.1` oder `#Requires -Version 7.0` deklarieren.
+- Die beiden Editionen unterscheiden sich in den Standardwerten: 5.1 schreibt mit `>`, `>>` und `Out-File`
+  UTF-16 LE, und `Set-Content` nutzt die ANSI-Codepage; 7 schreibt überall UTF-8 ohne BOM. Sich nie auf den
+  Standard verlassen — jedem `Out-File`, `Set-Content`, `Add-Content` und `Export-Csv` `-Encoding utf8`
+  mitgeben (5.1 fügt ein BOM hinzu; `utf8NoBOM` gibt es nur in 7) und das Encoding einer vorhandenen Datei
+  beibehalten (`R-code-encoding`).
+- Keine Bash-Syntax einmischen: kein `&&`/`||` zwischen Befehlen (nur PowerShell 7 kennt sie), kein
+  `export VAR=...` (`$env:VAR = ...` verwenden), kein `rm -rf` (`Remove-Item -Recurse` auf einem geprüften
+  Pfad verwenden).
+- Pfade: mit `Join-Path` und `$PSScriptRoot` bauen, nie durch Zusammenfügen von `\`; Pfade quoten, die
+  Leerzeichen enthalten können; `-LiteralPath` verwenden, wenn ein Name `[` oder `]` enthalten kann.
+
+## CR-powershell-strictness
+<!-- source: 7fa003e5f80fa308 -->
+Strict Mode und Fehler, die anhalten
+summary: Set-StrictMode, ErrorActionPreference Stop, Exit-Codes nativer Programme, try/catch mit dem fehlgeschlagenen Wert
+
+- Ein Skript mit `Set-StrictMode -Version Latest` und `$ErrorActionPreference = 'Stop'` beginnen; ein nicht
+  abbrechender Fehler lässt das Skript sonst mit fehlerhaften Daten weiterlaufen.
+- Ein natives Programm (`git`, `docker`, `npm`) löst bei einem Fehlschlag keinen Fehler aus, und
+  `$ErrorActionPreference` fängt ihn nicht ab: `$LASTEXITCODE` unmittelbar nach dem Aufruf prüfen und mit
+  `throw` oder `exit` und einer Meldung beenden, die den Befehl und den Code nennt. PowerShell 7.4+ kann das
+  mit `$PSNativeCommandUseErrorActionPreference = $true`; 5.1 nicht.
+- Spezifische Fehler in `try`/`catch` abfangen und nennen, was mit welchem Wert gescheitert ist
+  (`"Cannot read '$Path': $($_.Exception.Message)"`); nie ein leeres `catch {}`. `-ErrorAction
+  SilentlyContinue` nur an einem einzelnen Aufruf verwenden, dessen Fehlschlag erwartet und danach geprüft
+  wird.
+- Exit-Codes bewusst setzen (`exit 0`/`exit 1`) am Ende eines Skripts, das CI oder ein anderes Programm
+  aufruft; Fehler mit `Write-Error` oder `throw` ausgeben, nicht mit `Write-Host`.
+
+## CR-powershell-style
+<!-- source: 58fc1bbdbdf38bdf -->
+Namen, Parameter, keine Aliase
+summary: freigegebene Verben, Advanced Functions, param-Blöcke mit Typen, volle Cmdlet-Namen, Ausgabe als Objekte
+
+- Funktionen als `Verb-Noun` mit einem freigegebenen Verb benennen (`Get-Verb` listet sie: `Get-`, `Set-`,
+  `New-`, `Remove-`, `Test-`, `Invoke-` …); ein Nomen im Singular, kein `Do-`, `Run-` oder `Check-`.
+- Eine Funktion als Advanced Function schreiben: `[CmdletBinding()]`, ein `param()`-Block mit einem Typ an
+  jedem Parameter, `[Parameter(Mandatory)]` und `[ValidateSet()]`/`[ValidateNotNullOrEmpty()]`, wo sie
+  passen. Funktionen, die Zustand ändern, mit `SupportsShouldProcess` markieren und `-WhatIf` beachten.
+- Keine Aliase in einem Skript (`ls`, `gci`, `%`, `?`, `foreach` für `ForEach-Object`, `curl`, `wget`) und
+  keine Positionsparameter über den ersten hinaus; das volle Cmdlet und den vollen Parameternamen
+  schreiben. `curl` und `wget` sind in 5.1 Aliase von `Invoke-WebRequest`, nicht die Programme.
+- Objekte zurückgeben, keinen formatierten Text: kein `Format-Table` oder `Write-Host` in einer Funktion,
+  deren Ausgabe weiterverwendet wird; `Write-Verbose` für den Fortschritt und `Write-Output` oder eine
+  implizite Rückgabe für das Ergebnis verwenden.
+
+## CR-powershell-toolchain
+<!-- source: 2d9a7d4ed9ab2ca9 -->
+Lint und Tests
+summary: PSScriptAnalyzer für Lint, Pester 5 für Tests, oder was das Projekt eingerichtet hat
+
+- `PSScriptAnalyzer` (`Invoke-ScriptAnalyzer -Path . -Recurse`) ist der übliche Linter des Templates; seine
+  Einstellungen in einer `PSScriptAnalyzerSettings.psd1` im Projekt halten und keine Regeln pauschal
+  ausschließen.
+- `Pester` ist der übliche Test Runner; zuerst die installierte Hauptversion prüfen (`Get-Module Pester
+  -ListAvailable`) — Pester 5 braucht `BeforeAll` für das Setup, und Code zur Discovery-Zeit unterscheidet
+  sich von Code zur Laufzeit, daher laufen Tests für Pester 3/4 nicht unverändert. Mit `Invoke-Pester -CI`
+  ausführen.
+- In beiden Fällen ausführen, was das Projekt konfiguriert hat, und nichts ungefragt installieren
+  (`R-code-tools`).
 
 ## python
 <!-- source: a65faf9791aea834 -->
@@ -567,6 +1176,150 @@ summary: standardmäßig pytest, oder der Test Runner, den das Projekt eingerich
 - `pytest` ist die übliche Wahl des Templates, mit Fixtures statt wiederholtem Setup-Code in jedem
   Testmodul; den Test Runner verwenden, den das Projekt tatsächlich konfiguriert hat (siehe `R-code-tools`).
 
+## react
+<!-- source: c0bdebf2f0ad5ae3 -->
+Coding-Regeln — React
+summary: Rules of Hooks, Keys, Effekte nur zur Synchronisierung, Änderungen in React 19, Server Components, Testing Library
+
+Regeln für React. Sie gelten zusammen mit `javascript` oder `typescript` — einen der beiden ebenfalls
+ankreuzen; das Template kann „eines von beiden“ nicht als Voraussetzung ausdrücken. Versionsabhängige Punkte
+nennen die Version, die sie brauchen; zuerst die installierte React-Version prüfen (`R-code-version`).
+Gruppen-IDs (`CR-react-<name>`) sind stabil und werden nie neu vergeben; eine Gruppe, deren Zweck nicht mehr
+gilt, bekommt eine neue ID und wird in diesem Kopf als `retired:` aufgeführt.
+
+## CR-react-components
+<!-- source: 5add43eed48e1c2e -->
+Komponenten, Hooks und Keys
+summary: Rules of Hooks, reines Rendern, stabile Keys, kein aus Props kopierter State
+
+- Hooks nur auf oberster Ebene einer Komponente oder eines eigenen Hooks aufrufen, nie in einer Bedingung,
+  Schleife oder verschachtelten Funktion; die Regeln von `eslint-plugin-react-hooks` bleiben an und werden
+  nicht zum Schweigen gebracht.
+- Das Rendern rein halten: keine Mutation von Props oder State, kein Fetch, Timer oder `Date.now()` im
+  Render-Rumpf.
+- `key` ist eine stabile ID aus den Daten, nie der Array-Index bei einer Liste, die sich umordnen, ergänzen
+  oder kürzen kann, und nie `Math.random()`.
+- Eine Prop nicht in den State kopieren, um ihn zu „initialisieren“; die Prop verwenden oder den State
+  nach oben verlagern.
+- Komponenten auf Modulebene definieren, nie innerhalb einer anderen Komponente: Eine verschachtelte
+  Definition mountet ihren Teilbaum bei jedem Rendern neu.
+- Memoisieren (`useMemo`, `useCallback`, `memo`) nur bei einem gemessenen Problem; ist der React Compiler im
+  Projekt aktiviert, vorhandene handgeschriebene Memoisierung in Ruhe lassen (die Doku des Compilers rät
+  dazu) und keine neue hinzufügen; sie erst nach sorgfältigem Testen entfernen.
+
+## CR-react-effects
+<!-- source: c932f0759ef5d5e8 -->
+Effekte nur zur Synchronisierung mit der Außenwelt
+summary: kein abgeleiteter State in Effekten, vollständige Abhängigkeiten, Cleanup, Daten laden nach Wahl des Projekts
+
+- Ein Effekt synchronisiert mit etwas außerhalb von React (Netzwerk, Subscription, DOM-API, Timer). Alles,
+  was sich aus Props und State berechnen lässt, wird beim Rendern berechnet; die Folge eines Events gehört
+  in den Handler.
+- Ein `useEffect`, der nur `setState` aus anderem State aufruft, ist ein Fehler in Wartestellung: den Wert
+  ableiten oder durch Ändern des `key` der Komponente zurücksetzen.
+- Jeden reaktiven Wert, den der Effekt liest, als Abhängigkeit deklarieren; eine falsche Liste durch
+  Umbau beheben, nie durch Entfernen der Abhängigkeit oder Abschalten der Lint-Regel.
+- Für jede Subscription, jeden Timer und jede Anfrage ein Cleanup zurückgeben (`AbortController`); Effekte
+  laufen in der Entwicklung unter `StrictMode` beim Mounten zweimal, und der Code muss das überstehen.
+- Den Ansatz zum Laden von Daten verwenden, den das Projekt schon hat (TanStack Query, SWR,
+  Framework-Loader); kein selbstgebautes `fetch` in einem Effekt, wo es einen gibt.
+
+## CR-react-19
+<!-- source: 5004c45165b5eac3 -->
+Änderungen in React 19 und später
+summary: ref als Prop, use, Actions, Context Provider, entfernte APIs
+
+- Ab React 19 nimmt eine Funktionskomponente `ref` als normale Prop; `forwardRef` ist im neuen Code nicht
+  nötig. Unter React 18 und früher bleibt `forwardRef`.
+- `use(promise)` und `use(context)` lesen beim Rendern ein Promise oder einen Context und dürfen anders als
+  andere Hooks in einer Bedingung aufgerufen werden. Das Promise kommt aus einem Cache oder einer
+  Elternkomponente, nicht aus demselben Rendern.
+- Formularbehandlung: eine Funktion als `<form action>`, `useActionState` (früher `useFormState`),
+  `useFormStatus` (aus `react-dom`) und `useOptimistic` ersetzen handgeschriebenen Pending- und
+  Fehler-State.
+- In 19 entfernt, nicht schreiben: `propTypes` und `defaultProps` an Funktionskomponenten,
+  `ReactDOM.render` und `hydrate` (`createRoot`/`hydrateRoot` verwenden), String-Refs, Legacy Context.
+- `useEffectEvent` gibt es ab React 19.2; davor den neuesten Wert in einem Ref halten.
+
+## CR-react-structure
+<!-- source: 73e7069460bc028e -->
+Server Components und Tests
+summary: Server Components nur mit unterstützendem Framework, Grenze mit "use client", Testing Library nach Rolle
+
+- Server Components, `"use server"` und `"use client"` brauchen ein Framework oder einen Bundler, der sie
+  unterstützt (Next.js App Router; die Unterstützung in React Router ist noch experimentell). In einer
+  schlichten Vite-Single-Page-App gibt es sie nicht; die Direktiven dort nicht hinzufügen.
+- Mit Server Components ist eine Komponente standardmäßig eine Server Component: kein State, keine Effekte,
+  keine Browser-APIs. `"use client"` auf das kleinste Blatt setzen, das Interaktivität braucht; Props über
+  die Grenze müssen serialisierbar sein.
+- Mit `@testing-library/react` und `user-event` testen: Elemente so finden, wie ein Nutzer es täte, nach
+  Rolle, Label oder Text, nicht nach Klassenname oder Interna; `findBy…` den festen Wartezeiten vorziehen.
+- Tests mit dem Runner ausführen, den das Projekt eingerichtet hat (Vitest oder Jest), und das Netzwerk an
+  seiner Grenze mocken (`msw`), nicht die eigenen Module der Komponente.
+
+## rust
+<!-- source: 522b647c0d45c1ca -->
+Coding-Regeln — Rust
+summary: Fehlerbehandlung, Ownership und unsafe, Edition und Toolchain, Tests
+
+Regeln für Rust-Projekte, die mit Cargo gebaut werden. Gruppen-IDs (`CR-rust-<name>`) sind stabil und werden
+nie neu vergeben; eine Gruppe, deren Zweck nicht mehr gilt, bekommt eine neue ID und wird in diesem Kopf als
+`retired:` aufgeführt.
+
+## CR-rust-basics
+<!-- source: 19dd3c6efdc43d2f -->
+Fehlerbehandlung, Ownership, unsafe
+summary: kein unwrap/expect in Bibliothekscode, kein clone gegen den Borrow Checker, unsafe nur mit SAFETY-Kommentar
+
+- Bibliothekscode löst bei einem behebbaren Zustand nie einen `panic` aus: kein `unwrap()`/`expect()`, keine
+  Indizierung, die bei externer Eingabe außerhalb der Grenzen liegen kann, kein `panic!` für falsche
+  Argumente — `Result` zurückgeben und den Aufrufer entscheiden lassen. `unwrap()`/`expect()` sind in
+  Tests, in Beispielen und in `main` bei Startfehlern erlaubt; `expect("...")` nennt dann die verletzte
+  Annahme, nicht das Symptom.
+- Fehler als typisierte Werte definieren: in Bibliotheken ein Fehler-`enum` (mit `thiserror`, wenn das
+  Projekt es hat), `anyhow` oder `Box<dyn Error>` nur in der obersten Schicht des Binaries. Jeder Fehler
+  nennt, was mit welchem Wert gescheitert ist; mit `?` weiterreichen und Kontext hinzufügen, statt die
+  Ursache zu verwerfen.
+- Kein `.clone()` hinzufügen, um den Borrow Checker zum Schweigen zu bringen. Zuerst Borgen versuchen
+  (`&T`, `&mut T`), eine kürzere Lifetime, den Code umstrukturieren oder `Rc`/`Arc`, wo geteilter Besitz
+  real ist; nur klonen, wenn ein eigener, besessener Wert gemeint ist.
+- In Parametern `&str`, `&[T]` und `&Path` statt `&String`, `&Vec<T>`, `&PathBuf` nehmen.
+- Jeder `unsafe`-Block trägt einen `// SAFETY:`-Kommentar, der die Invariante nennt, die ihn korrekt macht,
+  und umschließt so wenig Code wie möglich; jede `unsafe fn` dokumentiert ihren Vertrag unter `# Safety`.
+  Nicht zu `unsafe` greifen, um einen Compilerfehler zu umgehen.
+- Ein `Result` oder einen `#[must_use]`-Wert nie ohne genannten Grund mit `let _ =` ignorieren.
+- Warnungen nicht pauschal unterdrücken (`#![allow(warnings)]`); ein `#[allow(clippy::...)]` nennt die
+  Lint-Regel und den Grund.
+
+## CR-rust-edition-toolchain
+<!-- source: e490f14418d307c6 -->
+Edition, Formatierung, Lint
+summary: Edition aus Cargo.toml, rust-version, cargo fmt, clippy mit abgelehnten Warnungen
+
+- Die Edition (`edition = "2021"` oder `"2024"`) und die Mindestversion von Rust (`rust-version`) aus
+  `Cargo.toml` lesen und Code schreiben, der unter ihnen kompiliert: Die Edition 2024 braucht Rust 1.85 oder
+  neuer und ändert unter anderem die `unsafe`-Regeln für `extern`-Blöcke und den Geltungsbereich von
+  Temporaries; keine Syntax und keine Bibliotheksbestandteile verwenden, die neuer sind als `rust-version`
+  (`R-code-version`). Die Edition nicht ungefragt ändern.
+- Mit `cargo fmt` (rustfmt) formatieren und mit `cargo clippy --all-targets -- -D warnings` linten — die
+  übliche Wahl des Templates; ausführen, was das Projekt konfiguriert hat (siehe `R-code-tools`), und nichts
+  ungefragt installieren.
+- `Cargo.lock` für Binaries und, nach dem aktuellen Rat von Cargo, auch für Bibliotheken committen;
+  Abhängigkeiten gering halten und die Standardbibliothek bevorzugen, wo sie genügt. Nur die Crate-Features
+  aktivieren, die verwendet werden.
+
+## CR-rust-tests
+<!-- source: 6f119387be6a0088 -->
+cargo test
+summary: standardmäßig cargo test, Unit-Tests neben dem Code, Integrationstests in tests/, Doc-Tests
+
+- `cargo test` ist der übliche Runner des Templates; den verwenden, den das Projekt eingerichtet hat (zum
+  Beispiel `cargo nextest` — siehe `R-code-tools`).
+- Unit-Tests in ein `#[cfg(test)] mod tests` neben den Code legen, Integrationstests in `tests/`, und
+  Beispiele in Doc-Kommentaren als Doc-Tests kompilierbar halten.
+- Tests nach dem erwarteten Verhalten benennen. Nie Zufall ohne festen Seed verwenden und nie mit
+  `thread::sleep` warten; stattdessen auf die tatsächliche Bedingung warten.
+
 ## sql
 <!-- source: d78785b1cb6b6a1e -->
 Coding-Regeln — SQL
@@ -625,7 +1378,7 @@ Regeln für Tailwind CSS, meist innerhalb eines Frontend-Frameworks eingesetzt. 
 bekommt eine neue ID und wird in diesem Kopf als `retired:` aufgeführt.
 
 ## CR-tailwind-basics
-<!-- source: 3b4b0dc15b0ff9ae -->
+<!-- source: 71bf25ae302027e0 -->
 Bewährte Tailwind-Standards
 summary: Utilities im Markup, Tokens, Theme, Dark Mode, Extraktion, Tooling, Fallstricke
 
@@ -643,8 +1396,9 @@ summary: Utilities im Markup, Tokens, Theme, Dark Mode, Extraktion, Tooling, Fal
 - Fallstricke:
   - `@apply` nur in Ausnahmen verwenden (z. B. Basisstile einer Drittanbieter-Komponente), nie als
     Standardweg zum Stylen.
-  - Die `content`-Pfade in der Konfiguration korrekt halten — ein falscher oder fehlender Pfad lässt
-    entweder tatsächlich genutzte Klassen wegfallen oder lässt ungenutzte Utility-Klassen im Build.
+  - Die Quellenerkennung korrekt halten — v3: die `content`-Pfade in der Konfiguration; v4 und neuer:
+    automatisch, mit `@source` für Ergänzungen. Eine falsche oder fehlende Quelle lässt entweder tatsächlich
+    genutzte Klassen wegfallen oder lässt ungenutzte Utility-Klassen im Build.
 
 ## typescript
 <!-- source: c1dd0390eb1f8881 -->

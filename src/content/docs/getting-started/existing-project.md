@@ -34,7 +34,8 @@ Nothing changes before you approve a table once, and no script commits anything.
    `ai-machinery`, `predecessor` or `unknown` needs a target (the file its content goes to); name the rows that
    have none here, since `--apply` refuses them without your yes.
 4. **Apply.** `adopt.py --apply` creates the branch `act-adopt`, moves `legacy` rows into the archive, and runs
-   `init.py`. Set the docs language here with `--language-docs`. Rows without a target need
+   `init.py`. Set the docs language here with `--language-docs`, and the
+   [update channel](/agentic-coding-template-docs/getting-started/update/#update-channel) with `--update-channel release|latest` (default `release`; it is passed on to `init.py`). Rows without a target need
    `--confirm-no-targets`, only with your yes.
 5. **Settings.** `adopt_config.py` carries values from an old `AI-CONFIG.md` into `docs/ai/config.md`.
 6. **Fill the content.** Open tasks, backlog items, and questions become entries; rule text becomes overrides,
@@ -51,7 +52,7 @@ Nothing changes before you approve a table once, and no script commits anything.
 | :--- | :--- |
 | `legacy` | The file moves byte-identical to `docs/ai/work/archive/legacy/<old path>`. Its open items become entries. `legacy` is the proposal for journals and logs; `keep` is allowed too. |
 | `adopt` | The content goes into a template place: an entry, a proposal, `docs/ai/config.md`, `docs/project/`, or `docs/ai/local/`. |
-| `keep` | The file stays untouched. This is the default for project docs, a foreign root `README.md`, and local files such as `CLAUDE.local.md`, `.mcp.json`, and `.claude/settings.json`. |
+| `keep` | The file stays untouched. This is the default for project docs, a foreign root `README.md`, and local files such as `CLAUDE.local.md`, `.mcp.json`, `.claude/settings.json`, `.claude/rules/*.md` and a `.junie/guidelines.md` that only points at AGENTS.md or CLAUDE.md. |
 | `delete` | Advised for a previous template's own tooling that holds nothing of yours; adopt also allows it for AI config, work files and confirmed project docs. It happens on the branch, so nothing is lost. |
 
 Old entries' ids are not reused: the reserved ids are kept in the versioned `docs/ai/work/reserved-ids.json`. In solo

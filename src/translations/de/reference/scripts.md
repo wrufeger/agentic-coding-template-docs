@@ -31,6 +31,10 @@ Rein lesende Sichtung der Dokumentation und des KI-Werkzeug-Materials eines best
 <!-- source: 4bb21fb40b4a4068 -->
 Erzeugt das Board — einen vollständig abgeleiteten Schnappschuss (aktueller Branch, letzter Commit, Änderungsstand, jüngste Journal-Einträge, eine Liste „Waiting for you“…
 
+## table:compact_check.py
+<!-- source: 77a7201ee7c38c60 -->
+Prüft die gekürzten Abschnitte der Archiv-Sammeldateien (`entries.py compact`) gegen ihren vollen Text sowie die monatliche Themenübersicht…
+
 ## table:context_size.py
 <!-- source: d62daa6d3fd3b671 -->
 Kontextgröße der laufenden Claude-Code-Sitzung, für die Statuszeile („ctx 127k“) und für den einmaligen /clear-Hinweis…

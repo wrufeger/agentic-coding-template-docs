@@ -3,7 +3,7 @@ title: Schichten und Overrides
 description: Wie Template-Schicht und Projekt-Schicht zusammenpassen und wie du eine Regel änderst, ohne sie beim Update zu verlieren.
 sidebar:
   order: 1
-sourceHash: 55dbe5ffb7c1bd63b76f82d1a1800c163d550e644a94561e9372c6013ef81f6a
+sourceHash: b37c89fa987774577feb5425405d98637956018c20b5ce99e89e7b32ab997ad0
 ---
 
 ## Zwei Schichten
@@ -35,14 +35,14 @@ um einen ganzen Bereich abzuschalten. Dein eigener Text kommt in die Abschnitte 
 - `## Own rules`: ``- `R-your-id`: text`` oder ein bloßer Aufzählungspunkt, zusätzlich zu den Regeln des Templates.
 
 `python .act/scripts/rules.py --list --area core` zeigt jede Regel mit ihrem Zustand, Overrides als `[~]` und eigene Regeln als `[+]` (ohne `--area core` listet es die Coding-Sätze);
-`--validate` meldet Text, den es nicht lesen konnte.
+`--validate` meldet Text, den es nicht lesen konnte. Pfadgebundene Regeln von Claude Code unter `.claude/rules/**/*.md` erscheinen in `--list` mit ihren `paths:`-Mustern; `--validate` warnt vor einem Muster, das auf keine Projektdatei passt, und vor einer Datei ohne `paths:`.
 
 ## Coding-Regelsätze
 
 `docs/project/coding_rules.md` funktioniert genauso für Coding-Regeln. Jede Zeile `- [x] use: @../../.act/coding/<set>.md` (angekreuzt) oder `- [ ] use: .act/coding/<set>.md` (nicht angekreuzt) schaltet
 einen Satz an oder aus, mit seinen Gruppen (`CR-<set>-<group>`) darunter, jede einzeln ankreuzbar. `init` belegt
 die Kästchen anhand des erkannten Stacks vor, und `stack` in `docs/ai/config.md` ist die Stelle, an der du das
-korrigierst. Dieselben Abschnitte für Overrides und eigene Regeln gelten auch hier.
+korrigierst. Dieselben Abschnitte für Overrides und eigene Regeln gelten auch hier. Sätze gibt es unter anderem für Python, TypeScript, Vue, Nuxt, Tailwind, PHP, Java, Go, Rust, Kotlin, C, C++, PowerShell, Docker, CI, CSS, JavaScript und React. Bringt ein Update einen neuen Satz, erscheint er nicht angekreuzt in der Datei; eine neue Gruppe eines angekreuzten Satzes erscheint angekreuzt. Vorhandene Zeilen, Kästchen und eigene Regeln bleiben, wie sie sind.
 
 ## Einstellungen
 

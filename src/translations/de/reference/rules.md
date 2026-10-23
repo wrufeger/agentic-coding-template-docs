@@ -24,7 +24,7 @@ Screenshot der laufenden Anwendung, ein Commit-Hash oder ein externer Aufruf. Be
 gesagt, und ein fehlerhafter Plan wird hinterfragt, statt ihm zuliebe zuzustimmen.
 
 ## R-work-override
-<!-- source: d45c9dd598816658 -->
+<!-- source: ea0df3f41050f82f -->
 Das Projekt überschreibt das Template
 summary: Änderungen des Projekts haben Vorrang vor Template-Vorgaben; Overrides liegen unter docs/ai/local
 
@@ -38,7 +38,9 @@ nicht — beides auch dann, wenn die Datei mit dem Template-Text geladen ist. Ei
 Script, Skill oder eine Regel unter `.act/`, die fehlschlägt, einer anderen widerspricht oder nachweislich nie
 greift — wird sofort per `feedback.py --add --kind bug` gemeldet, und bei `feedback: automatic` meldet der
 Assistent auch die wiederkehrenden Vorfälle, die dieses Muster abdeckt (eine Regel oder ein Format erweist sich
-als unpraktikabel, ein Workflow fehlt, ein Workaround ist nötig), selbst; Einzelheiten in `topics/feedback.md`.
+als unpraktikabel, ein Workflow fehlt, ein Workaround ist nötig), selbst; eine wiederholt verletzte Regel ist eine Kandidatin für eine Prüfung unter
+`.act/hooks/checks/`, danach schrumpft ihr Text auf das, was die Prüfung nicht leistet; Einzelheiten in
+`topics/feedback.md`.
 
 ## R-work-language
 <!-- source: 17eacb23b972ec15 -->
@@ -575,12 +577,12 @@ Rechner, `.act-local/`, nie versioniert). Solange es nichts zu erkennen gibt, gi
 Chat-Sprache ändert nie, was unter `docs/` steht (`R-work-language`).
 
 ## R-human-text
-<!-- source: a30956b199fa357a -->
+<!-- source: 4e9936253b32ba0f -->
 Die eigenen Worte des Menschen sind unantastbar
 summary: die eigenen Worte des Menschen bleiben unberührt, Kommentare nur darunter
 
 Text, den der Mensch geschrieben hat (Antworten, Kommentare, Entscheidungen), wird nie bearbeitet oder
-gelöscht — nur darunter kommentiert.
+gelöscht — nur darunter kommentiert. Ausnahme: `act-compact` darf den eigenen Text des Assistenten in den Abschnitten einer Archiv-Sammeldatei kürzen; jede Zeile, die der Mensch geschrieben hat, markiert oder nicht, bleibt wörtlich stehen.
 
 ## R-human-external
 <!-- source: 0fb62b1c9bfbe08c -->

@@ -48,18 +48,18 @@ python .act/scripts/init.py --non-interactive         # no questions: defaults, 
 ```
 
 Useful options: `--language-docs <code>` (language of `docs/`, default `en`), `--language-chat <code|auto>`,
-`--no-commit`. All options are in the [scripts reference](/agentic-coding-template-docs/reference/scripts/).
+`--update-channel <release|latest>` (what `act-update` follows, see [Update](/agentic-coding-template-docs/getting-started/update/#update-channel); `init` asks if you leave it out), `--no-commit`. All options are in the [scripts reference](/agentic-coding-template-docs/reference/scripts/).
 
 ## What init does
 
 Ten fixed steps, each printed as `[n/10]`:
 
-1. Collects the settings: name, owner, languages, stack, commands, tools, mode, feedback.
+1. Collects the settings: name, owner, languages, stack, commands, tools, mode, feedback, update channel (`release` or `latest`, written to `docs/ai/config.md` § Update). It notes when the clone is already past the newest release.
 2. Resolves Git: in place it removes `origin` and rebuilds `main`; with `--target` it runs `git init` if needed.
 3. Checks your Git identity.
 4. Writes your workspace identity and the local import folder `.act-local/import/`.
 5. Thins the bridges down to the tools you chose.
-6. Writes the skeleton: `docs/ai/` (`config.md`, `rules.md`, `concept/`, inbox, work folders), `docs/project/coding_rules.md`,
+6. Writes the skeleton: `docs/ai/` (`config.md`, `rules.md`, `concept/`, inbox, work folders), `docs/project/coding_rules.md`, `docs/project/glossary.md`,
    `docs/README.md`, the bridge files, skill copies, and the hook entries in `.claude/settings.json` (with `"enableArtifact": false` unless `artifacts: on`).
 7. Appends template blocks to `.gitattributes` and `.gitignore`.
 8. In place only: retires the template's own README, `CHANGELOG.md`, and community files under `.github/`

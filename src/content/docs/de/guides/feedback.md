@@ -3,7 +3,7 @@ title: Feedback
 description: Freiwilliges Feedback an den Autor des Templates - die Modi, Takt und Scope, was nie gesendet wird und wo die lokale Kopie bleibt.
 sidebar:
   order: 1
-sourceHash: 29e2950e6a342943c526924eb39332385a010205f430eff5d800b8d39356407b
+sourceHash: 78d19e8974224de6540a8ca7cc9a3e6bd4ba721260bb503f2234945f5417c2c6
 ---
 
 Du kannst dem Autor des Templates als Feedback melden, was der Arbeitsweise gutgetan hat oder fehlte. Feedback ist freiwillig, betrifft **nur die Arbeitsweise, nie dein Projekt**, und alles, was den Rechner verlässt, wird auch lokal aufbewahrt.
@@ -33,14 +33,14 @@ Neue Projekte starten mit `confirm`, wenn niemand wählt: bei einem Lauf ohne Te
 | :--- | :--- |
 | `a` | Kennzahlen |
 | `b` | Regel- und Strukturänderungen |
-| `c` | Werkzeugnutzung: wie viele Agenten, Skills und Scripts es gibt und wie oft jeder Skill und jedes Script des Templates seit dem letzten Senden benutzt wurde. Deine eigenen Skills und Scripts erscheinen nur als eine `own`-Zahl je Art, nie mit Namen. Namen von MCP-Servern werden nicht gesendet. |
+| `c` | Werkzeugnutzung: wie viele Agenten, Skills und Scripts es gibt und wie oft jeder Skill und jedes Script des Templates seit dem letzten Senden benutzt wurde (auch ein Skill, der durch Eintippen seines Slash-Befehls gestartet wurde, zählt). Deine eigenen Skills und Scripts erscheinen nur als eine `own`-Zahl je Art, nie mit Namen. Namen von MCP-Servern werden nicht gesendet. |
 
-Ein von Hand geschriebener Befund landet immer im Ausgang, egal welcher Scope gilt.
+Die Kennzahlen von Scope `a` zählen nur die Dateien des Projekts (`git ls-files`); ein Vendor-, IDE- oder Medienordner, den git ignoriert, geht also nicht ein. Ein von Hand geschriebener Befund landet immer im Ausgang, egal welcher Scope gilt.
 
 ## Zwei Wege zum Senden
 
 1. **Ein Satz nach dem Auslöser**, zum Beispiel `feedback: das Update hat eine Datei liegen lassen`. Dieser Satz ist die Nachricht selbst, unverändert gesendet, auch mit `feedback: off`. Nur der Text, der eigene Commit-Hash des Templates und eine zufällige Projekt-Kennung verlassen das Projekt, in jedem Modus, nie die Repository-URL oder sonst etwas. Mit der Projekt-Kennung lassen sich mehrere Nachrichten desselben Projekts unterscheiden. Wenn du eine Antwort möchtest, nenne in derselben Anfrage eine Antwortadresse: Der Assistent gibt sie mit `feedback.py --direct "<text>" --contact <adresse>` mit. Sie geht nur mit dieser einen Nachricht und bleibt in deren lokaler Kopie, wird nie für eine spätere Nachricht wiederverwendet und nie anderswo hergenommen, etwa aus deinen Git-Einstellungen.
-2. **Der Auslöser allein** (der Skill `act-feedback`). Der Assistent geht durch `.act/`, die erzeugten Dateien und `docs/ai/`, schreibt pro Befund einen Eintrag (zwei bis sechs Sätze), zeigt den Stapel mit `feedback.py --plan` vorab und sendet ihn nach deinem Modus und Takt.
+2. **Der Auslöser allein** (der Skill `act-feedback`). Der Assistent geht durch `.act/`, die erzeugten Dateien und `docs/ai/`, schreibt pro Befund einen Eintrag (zwei bis sechs Sätze), zeigt den Stapel mit `feedback.py --plan` vorab und sendet ihn nach deinem Modus und Takt. Auch eine Regel, die immer wieder verletzt wird, ist einen Eintrag wert: melde sie als Kandidat für eine mechanische Prüfung.
 
 Ein Fehler im Template selbst (ein Script oder Skill, der fehlschlägt, zwei Regeln, die sich widersprechen, eine Regel, die nie greift) wird gespeichert und, wo die Einwilligung es erlaubt, sofort gesendet, am Takt vorbei. Die Einwilligung umgeht er trotzdem nie: Mit `feedback: off` bleibt er im Ausgang.
 

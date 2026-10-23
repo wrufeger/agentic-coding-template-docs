@@ -3,7 +3,7 @@ title: Neues Projekt
 description: Ein neues Projekt aus dem Template einrichten, mit dem Assistenten oder von Hand.
 sidebar:
   order: 1
-sourceHash: 1494da2087402afda103836a243a5350f3b222f1a7deb21703516e14b8700173
+sourceHash: 65ab5c3c72c9e1e1ab9dee6777edb8e6a6b92513a42413cad3ea12e4fa942788
 ---
 
 ## Das Template holen
@@ -50,18 +50,18 @@ python .act/scripts/init.py --non-interactive         # no questions: defaults, 
 ```
 
 Nützliche Optionen: `--language-docs <code>` (Sprache von `docs/`, Standard `en`), `--language-chat <code|auto>`,
-`--no-commit`. Alle Optionen stehen in der [Scripts-Referenz](/agentic-coding-template-docs/de/reference/scripts/).
+`--update-channel <release|latest>` (was `act-update` verfolgt, siehe [Update](/agentic-coding-template-docs/de/getting-started/update/#update-channel); `init` fragt, wenn du es weglässt), `--no-commit`. Alle Optionen stehen in der [Scripts-Referenz](/agentic-coding-template-docs/de/reference/scripts/).
 
 ## Was init tut
 
 Zehn feste Schritte, jeder ausgegeben als `[n/10]`:
 
-1. Sammelt die Einstellungen: Name, Owner, Sprachen, Stack, Befehle, Werkzeuge, Modus, Feedback.
+1. Sammelt die Einstellungen: Name, Owner, Sprachen, Stack, Befehle, Werkzeuge, Modus, Feedback, Update-Channel (`release` oder `latest`, geschrieben nach `docs/ai/config.md` § Update). Es weist darauf hin, wenn der Klon schon über dem neuesten Release liegt.
 2. Klärt Git: im Klon entfernt es `origin` und baut `main` neu auf; mit `--target` führt es bei Bedarf `git init` aus.
 3. Prüft deine Git-Identität.
 4. Schreibt deine Workspace-Identität und den lokalen Import-Ordner `.act-local/import/`.
 5. Dünnt die Brücken auf die gewählten Werkzeuge aus.
-6. Schreibt das Gerüst: `docs/ai/` (`config.md`, `rules.md`, `concept/`, Inbox, Arbeitsordner), `docs/project/coding_rules.md`,
+6. Schreibt das Gerüst: `docs/ai/` (`config.md`, `rules.md`, `concept/`, Inbox, Arbeitsordner), `docs/project/coding_rules.md`, `docs/project/glossary.md`,
    `docs/README.md`, die Brückendateien, Skill-Kopien und die Hook-Einträge in `.claude/settings.json` (mit `"enableArtifact": false`, außer bei `artifacts: on`).
 7. Hängt Blöcke des Templates an `.gitattributes` und `.gitignore` an.
 8. Nur im Klon: legt die eigenen Dateien des Templates still: README, `CHANGELOG.md` und die Community-Dateien unter

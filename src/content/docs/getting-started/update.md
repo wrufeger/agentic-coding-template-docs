@@ -21,6 +21,25 @@ python .act/scripts/update.py --plan      # show the diff and describe the later
 python .act/scripts/update.py             # the real run, asks for consent
 ```
 
+## Update channel
+
+`update-channel` in `docs/ai/config.md` § Update decides what `act-update` offers. `init` asks for it and writes it.
+
+- `release` (the default) is the newest stable tag `vX.Y.Z` of the source. A project already past it, for example
+  one that followed `main`, hears "ahead of the newest release" and keeps its state.
+- `latest` is the tip of the source's default branch.
+- `--channel release|latest` overrides the key for one run; `--ref <tag-or-commit>` beats both.
+- A source without release tags is followed at its tip, with a note, while `release` is the default or the value in
+  `docs/ai/config.md`. `--channel release` and an invalid value stop with a hint to use `--ref` or `latest`.
+- On `release` the session start reports "template release vX.Y.Z available", on `latest` "a template update is
+  available". `.act-lock.json` records the installed tag as `template.ref` on `release` and the branch on `latest`.
+- Existing projects keep their `config.md`; without the key they get a one-time note from `act-update`.
+  `act-doctor` reports a value other than `release` or `latest`.
+
+To see where you stand, ask `/act-version` or run `python .act/scripts/update.py --versions`. It lists the installed
+version and channel, the source's releases (`--all` for every one, not the five newest), the tip of the default branch,
+and what `act-update` would take. It uses only `git ls-remote`, clones nothing and writes nothing.
+
 ## The ten steps
 
 1. **Fetch** the template into a temporary checkout. Nothing from it is run.
@@ -31,7 +50,8 @@ python .act/scripts/update.py             # the real run, asks for consent
 5. **Replace `.act/`** as a whole.
 6. **Refresh the copies** outside `.act/`: unchanged skill copies and role bridges are replaced, copies you edited
    are kept and reported. Own skills and roles under `docs/ai/local/` get their
-   copies here too.
+   copies here too. New coding sets and groups are entered in `docs/project/coding_rules.md` (a new set unchecked, a new
+   group of a checked set checked; see [Own skills, roles and rules](/agentic-coding-template-docs/guides/own-skills-and-rules/)).
 7. **Hooks and Git files.** Reconciles the hook entries in `.claude/settings.json` and the template blocks in
    `.gitattributes` and `.gitignore`, and sets `"enableArtifact": false` there unless `artifacts: on` is in
    `docs/ai/config.md`. An existing project therefore starts without the `Artifact` tool after the update.

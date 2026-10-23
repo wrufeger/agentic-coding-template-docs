@@ -182,6 +182,15 @@ local (`.act-local/feedback/sent/`, gitignored) — each send also gets one line
 (date, kind, entry count, schema version, never content). A message you write yourself
 (`feedback: <text>`) always goes out, even with `off`. Details: `.act/rules/topics/feedback.md`.
 
+## Update
+
+| Key | Value |
+| :--- | :--- |
+| `update-channel` | latest |
+
+`update-channel`: `release` \| `latest`. This site documents the template's `main`, so it follows the tip of the
+source's default branch (`latest`); with `release` `act-update` would offer only the newest release tag.
+
 ## Tips
 
 | Key | Value |

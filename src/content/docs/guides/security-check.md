@@ -16,7 +16,7 @@ The security check is set with one key, `security-check`, in the Checks table of
 
 ## Dangerous patterns (all levels but `off`)
 
-On `git commit`, the added lines are scanned for constructs such as `eval`/`exec`, `shell=True`, `pickle.loads`, `yaml.load` without a safe loader, `v-html`, `innerHTML =` and SQL built by string concatenation. Only coding rule sets you have switched on in `docs/project/coding_rules.md` are scanned for.
+On `git commit`, the added lines are scanned for constructs such as `eval`/`exec`, `shell=True`, `pickle.loads`, `yaml.load` without a safe loader, `v-html`, `innerHTML =` and SQL built by string concatenation. The SQL checks need a statement structure (`SELECT ... FROM`, `INSERT INTO`, `UPDATE ... SET`, `DELETE ... FROM`), so the word "update" or "select" in prose or a URL does not hold a commit. Only coding rule sets you have switched on in `docs/project/coding_rules.md` are scanned for.
 
 - A hit stops the commit **once** per file and pattern, with its location. Fix it, or commit again to let it through.
 - A line carrying `act:allow-danger` is exempt.
@@ -26,13 +26,13 @@ This is separate from `secret-scan`, a regular `block`/`warn`/`off` check that s
 
 ## Dependency gaps (`deps`, `full`)
 
-A live lookup of known vulnerabilities in your dependencies. It uses `osv-scanner` if installed, otherwise `npm audit`, `composer audit` or `pip-audit` for the matching ecosystem. Lock files and requirement files it reads include `package-lock.json`, `composer.lock`, `requirements.txt`, `go.mod` and `Cargo.lock`.
+A live lookup of known vulnerabilities in your dependencies. It uses `osv-scanner` if installed, otherwise `npm audit`, `pnpm audit`, `composer audit` or `pip-audit` for the matching ecosystem. Lock files and requirement files it reads include `package-lock.json`, `pnpm-lock.yaml` (pnpm 9 or newer), `composer.lock`, `requirements.txt`, `go.mod` and `Cargo.lock`.
 
 - **On commit**: for exactly the lock files that commit touches. The scan runs in the background; if it has not finished, the commit is denied once with "dependency scan running", and the retry reads the result, which is cached for the day.
 - **After `git merge`, `git pull` or `git cherry-pick`**: the lock files the command brought in are checked right after it. Nothing is held up; a finding lands in the inbox as one report, once per lock-file state and day.
-- **At session start**: once a day over every lock file in the project, reported as one line.
+- **At session start**: once a day over every lock file in the project, except those in folders git ignores and in nested checkouts. The note is grouped per lock file and states the age of the scan; a result is dropped once a scanned lock file has changed or disappeared.
 - **What holds a commit**: an unaccepted finding of severity high or critical, naming package, version, advisory id, severity and fixed version. A lower or unknown severity only notes. `pip-audit` reports no severity, so its findings only note.
-- **Accepting a finding**: add a line `- <advisory-id>: <reason>` to `docs/ai/local/security-accepted.md`, one per line; `#` comments and blank lines are ignored.
+- **Accepting a finding**: add a line `- <advisory-id>: <reason>` to `docs/ai/local/security-accepted.md`, one per line; `#` comments and blank lines are ignored. The id is the one the scanning tool reports (`npm audit` uses numbers, `osv-scanner` and `pnpm audit` use GHSA ids), so after a change of package manager the entries need new ids (`act-deps` points this out).
 - **Failures never block**: a missing tool is noted once per machine with its install command; a network or tool failure is noted every time and the commit goes through.
 
 ## The deep check (`full`)

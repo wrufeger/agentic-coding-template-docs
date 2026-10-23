@@ -3,7 +3,7 @@ title: Inbox, Aufgaben und Journal
 description: Was in docs/ai/ liegt - Inbox, Aufgaben, Backlog, Journal, Archiv, Ideen, das Board und die Statuszeile.
 sidebar:
   order: 3
-sourceHash: 777e9e946a5e858711bbb7c18406f86648e76d385fefc3d070fe8aa1b9f1f826
+sourceHash: b73fe33693d7dd00e341279b09ce91a18881774843fce4510b785bcefde24bcc
 ---
 
 `docs/ai/` ist das gemeinsame Arbeitsgedächtnis von dir und dem Assistenten. Alles darin ist eine einfache Datei, eine Datei pro Eintrag, versioniert mit dem Projekt. Übersichten wie das Board werden aus diesen Dateien erzeugt und nie von Hand gepflegt.
@@ -37,17 +37,21 @@ Eine Chat-Nachricht, die mit `todo:`, `note:` oder `idea:` beginnt (Groß-/Klein
 
 Der Assistent legt Einträge mit `python .act/scripts/entries.py new <kind> <title>` an; die [Script-Referenz](/agentic-coding-template-docs/de/reference/scripts/) listet alle Optionen.
 
-Auf Notizen antwortet der Assistent in einem angehängten Block von höchstens drei Textzeilen, nie innerhalb deiner eigenen Worte. Deine Worte werden nie bearbeitet oder gelöscht, nur darunter kommentiert.
+Auf Notizen antwortet der Assistent in einem angehängten Block von höchstens drei Textzeilen, nie innerhalb deiner eigenen Worte. Deine Worte werden nie bearbeitet oder gelöscht, nur darunter kommentiert (die einzige Ausnahme ist das Verdichten der Archiv-Sammlungen, unten).
 
 ## Aufgaben, Backlog, Journal
 
 - **Aufgaben** (`T7`): eine Datei pro offener Aufgabe mit Ziel und Prüfkriterien. Die erste Arbeitsstand-Zeile (`entries.py state T7 <text>`) oder `entries.py start T7` schreibt `started:` ins Frontmatter; das Board markiert die Aufgabe dann als laufend (oder wartend, siehe unten). Der aktuelle Arbeitsstand selbst liegt im per gitignore ausgeschlossenen `.act-local/state/`, nicht in der Aufgabendatei. Das Feld `for:` sagt, wessen Aufgabe es ist; `all` oder kein Feld bedeutet geteilt.
 - **Backlog** (`B5`): eine Idee oder ein Änderungswunsch, der noch nicht gebaut ist. Er wird zur Aufgabe, sobald die Arbeit daran beginnt. Mit `inbox-decisions: at-start` kann ein Eintrag bis zum Arbeitsbeginn `decision: open` tragen (siehe [Konfiguration](/agentic-coding-template-docs/de/concepts/configuration/)).
-- **Journal**: eine Datei pro Schritt, benannt `YYYY-MM-DD-<slug>.md`. Journal-Einträge bekommen nie eine kurze Id.
+- **Journal**: eine Datei pro Schritt, benannt `YYYY-MM-DD-<slug>.md`. Journal-Einträge bekommen nie eine kurze Id. Alte werden später in monatliche Sammeldateien zusammengeführt (siehe Archiv).
 
 ## Archiv
 
 Erledigte Aufgaben, Backlog-Einträge, bearbeitete Inbox-Einträge und entschiedene Vorschläge wandern unter ihrem alten Namen nach `docs/ai/work/archive/`, damit die Historie lesbar und die Übersichten erzeugt bleiben. Der Assistent erledigt das, wenn er eine abgenommene Aufgabe abschließt (`act-commit`); eine Aufgabe, ein Backlog-Eintrag oder ein Inbox-Eintrag geht in einem Schritt mit `entries.py archive <id|Datei>`, und ein Inbox-Eintrag bekommt `status: done`. Einen entschiedenen Vorschlag verschiebt man von Hand nach `docs/ai/work/archive/proposals/`. Bilder und andere Dateien, die der Eintrag neben sich verlinkt (ein eingefügtes `img.png`), wandern mit, allgemeine oder schon vergebene Namen bekommen die Id des Eintrags vorangestellt (`Q12-img.png`), und Links werden umgeschrieben. Eine Datei, die eine andere Markdown-Datei unter `docs/` noch verlinkt, wird kopiert statt verschoben. Alles wird vor dem ersten Schreiben geplant, ein Fehler hinterlässt also nichts Halbfertiges. `doctor` meldet Dateien unter `docs/ai/inbox/` und `docs/ai/concept/`, die keine Markdown-Datei verlinkt (Art `orphan-file`), zum Beispiel ein Bild, das nach dem Archivieren von Hand liegen blieb.
+
+### Verdichten
+
+Tausend einzelne Dateien in einem Ordner sind in einer IDE nicht mehr lesbar. Sagt `archive-compact` in `docs/ai/config.md` § Archive es so, meldet der Sitzungsstart, dass das Verdichten fällig ist, und der Skill `act-compact` läuft an der nächsten Aufgabengrenze (im Team-Modus nur auf dem Default-Branch). `entries.py compact` führt archivierte und Journal-Einträge, die älter als eine Woche sind, zu einer Datei je Art und Monat zusammen (`Q-2026-09.md`, `ledger-2026-09.md` ...), mit einem verankerten Abschnitt pro Eintrag. Links werden auf die Anker umgeschrieben, der Dateikopf nennt den Commit, der den vollen Text noch enthält, `--plan` zeigt eine Vorschau, und ein zweiter Lauf ändert nichts. Der Befehl verweigert sich, solange eine zu verschmelzende Datei nicht committet ist. Mit `archive-shorten: on` kürzen Worker danach nur Text, der erkennbar vom Assistenten stammt, und schreiben eine monatliche Themenübersicht `archive/YYYY-MM.md`. `compact_check.py` vergleicht jeden Abschnitt mit dem Original in git: Ids, Hashes, Versionen, Daten, Pfade, Zahlen und jede Zeile, die du geschrieben hast, markiert oder nicht, müssen erhalten bleiben. Ein von Hand gelöschter Abschnitt wird gemeldet, und `--restore` stellt einen Abschnitt in voller Länge wieder her. Das ist die einzige Ausnahme von der Regel, dass deine Worte nie bearbeitet werden, und sie gilt nur für den eigenen Text des Assistenten in den Abschnitten einer Sammeldatei. Der volle Text jedes Eintrags bleibt in git.
 
 ## Ideen-Datei
 

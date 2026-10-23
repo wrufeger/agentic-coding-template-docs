@@ -3,7 +3,7 @@ title: Eigene Regeln, Skills und Rollen
 description: Regeln des Templates abschalten, eigene ergänzen, Dateien des Templates unter docs/ai/local/ überschreiben, Skills und Rollen hinzufügen und in ein anderes Projekt mitnehmen.
 sidebar:
   order: 3
-sourceHash: 29248713ebce719e02915d8a0cc9d3503f9a946aeebedbe6b413c20f07885680
+sourceHash: 56bc327f66ef8bb487f64f5ffed3cde25c6b10411c10fbd1c2d7a1fadf55274c
 ---
 
 Das Projekt überschreibt immer das Template. Du bearbeitest nie etwas unter `.act/`; ein Wächter (`template-write-guard`) verweigert dort Schreibzugriffe. Alles, was dir gehört, kommt nach `docs/ai/` und `docs/project/` und übersteht jedes Update.
@@ -23,7 +23,7 @@ Das Projekt überschreibt immer das Template. Du bearbeitest nie etwas unter `.a
 - **Den Wortlaut einer Regel ersetzen**: Füge unter `## Overrides` einen Listenpunkt der Form ``- replaces `R-...`: <your version>`` hinzu, der die Regel und deine Fassung nennt (Zeilen, die mit `<!--` beginnen, werden übersprungen). Eine `replaces`-Zeile gewinnt gegenüber dem Text des Templates, egal ob die Regel angekreuzt ist oder nicht.
 - **Eigene Regeln hinzufügen**: Lege unter `## Own rules` einen Punkt pro Regel an, die im Template keine Entsprechung hat. Eine eingerückte Liste direkt unter einer eigenen Regel (oder einer `replaces`-Zeile) gehört zu ihr und wird als Teil ihres Textes gelesen.
 
-Lass die Marken (`<!-- act:overrides -->`, `<!-- act:own-rules -->`) stehen, wo sie sind; die Mechanik findet die Abschnitte über sie. `python .act/scripts/rules.py --imports` zeigt, was tatsächlich geladen wird. Coding-Regelsätze funktionieren genauso in `docs/project/coding_rules.md`. Die Regel-IDs stehen in der [Regelreferenz](/agentic-coding-template-docs/de/reference/rules/) und der [Coding-Regelreferenz](/agentic-coding-template-docs/de/reference/coding-rules/).
+Lass die Marken (`<!-- act:overrides -->`, `<!-- act:own-rules -->`) stehen, wo sie sind; die Mechanik findet die Abschnitte über sie. `python .act/scripts/rules.py --imports` zeigt, was tatsächlich geladen wird. Coding-Regelsätze funktionieren genauso in `docs/project/coding_rules.md`; ein eigener Satz oder eine lokale Überschreibung eines Template-Satzes liegt unter `docs/ai/local/coding/<set>.md` und wird ebenfalls in `docs/project/coding_rules.md` eingeschaltet (nur die lokale Datei wird geladen, statt der des Templates). `act-update` führt neue Sätze und Gruppen des Templates in `docs/project/coding_rules.md` auf: ein neuer Satz nicht angekreuzt, eine neue Gruppe eines angekreuzten Satzes angekreuzt; deine Zeilen, Kästchen und Begründungen bleiben. `rules.py --list` und `--validate` zeigen außerdem die pfadgebundenen Regeln von Claude Code unter `.claude/rules/` mit ihren `paths:`-Mustern, warnen vor einem Muster ohne passende Datei und vermerken eine Datei ohne `paths:` (sie wird bei jedem Start geladen); eine solche Regel wird erst geladen, wenn eine passende Datei gelesen oder geschrieben wird, und `act-adopt` bietet an, diese Dateien unverändert zu behalten. Die Regel-IDs stehen in der [Regelreferenz](/agentic-coding-template-docs/de/reference/rules/) und der [Coding-Regelreferenz](/agentic-coding-template-docs/de/reference/coding-rules/).
 
 ## Eine Datei überschreiben: docs/ai/local/
 

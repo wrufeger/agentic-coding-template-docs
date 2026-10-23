@@ -3,7 +3,7 @@ title: Bestehendes Projekt
 description: Ein Projekt mit eigener Doku oder eigenem KI-Setup mit act-adopt übernehmen.
 sidebar:
   order: 2
-sourceHash: aa60f181965bcf6d6b4c1a10b43cf59ae2f9d26a13836bf882986712cb7508da
+sourceHash: 1c0e2647f8adccc32c51045c16631071f370c5e4e35c16113f51194292df6c29
 ---
 
 Ein Projekt, das schon Doku, eine `CLAUDE.md` oder ein älteres KI-Setup hat, läuft über `act-adopt`, nicht allein
@@ -38,7 +38,8 @@ Nichts ändert sich, bevor du einmal eine Tabelle freigibst, und kein Script com
    Klasse `project-doc`, `ai-machinery`, `predecessor` oder `unknown` braucht ein Ziel (die Datei, in die ihr Inhalt
    geht); nenne hier die Zeilen ohne Ziel, denn `--apply` lehnt sie ohne dein Ja ab.
 4. **Anwenden.** `adopt.py --apply` legt den Branch `act-adopt` an, verschiebt `legacy`-Zeilen ins Archiv und
-   führt `init.py` aus. Die Doku-Sprache stellst du hier mit `--language-docs` ein. Zeilen ohne Ziel
+   führt `init.py` aus. Die Doku-Sprache stellst du hier mit `--language-docs` ein, den
+   [Update-Channel](/agentic-coding-template-docs/de/getting-started/update/#update-channel) mit `--update-channel release|latest` (Standard `release`; er wird an `init.py` weitergegeben). Zeilen ohne Ziel
    brauchen `--confirm-no-targets`, nur mit deinem Ja.
 5. **Einstellungen.** `adopt_config.py` überträgt Werte aus einer alten `AI-CONFIG.md` nach `docs/ai/config.md`.
 6. **Inhalte füllen.** Offene Aufgaben, Backlog-Punkte und Fragen werden zu Einträgen; Regeltext wird zu
@@ -56,7 +57,7 @@ Nichts ändert sich, bevor du einmal eine Tabelle freigibst, und kein Script com
 | :--- | :--- |
 | `legacy` | Die Datei wandert byte-identisch nach `docs/ai/work/archive/legacy/<alter Pfad>`. Ihre offenen Punkte werden zu Einträgen. `legacy` ist der Vorschlag für Journale und Logs; `keep` ist ebenfalls erlaubt. |
 | `adopt` | Der Inhalt kommt an einen Platz des Templates: ein Eintrag, ein Vorschlag, `docs/ai/config.md`, `docs/project/` oder `docs/ai/local/`. |
-| `keep` | Die Datei bleibt unangetastet. Das ist der Standard für Projektdoku, eine fremde `README.md` im Wurzelverzeichnis und lokale Dateien wie `CLAUDE.local.md`, `.mcp.json` und `.claude/settings.json`. |
+| `keep` | Die Datei bleibt unangetastet. Das ist der Standard für Projektdoku, eine fremde `README.md` im Wurzelverzeichnis und lokale Dateien wie `CLAUDE.local.md`, `.mcp.json` `.claude/settings.json`, `.claude/rules/*.md` und eine `.junie/guidelines.md`, die nur auf AGENTS.md oder CLAUDE.md verweist. |
 | `delete` | Empfohlen für das eigene Tooling eines früheren Templates, das nichts von dir enthält; adopt erlaubt es auch für KI-Konfiguration, Arbeitsdateien und bestätigte Projektdoku. Es geschieht auf dem Branch, also geht nichts verloren. |
 
 Die Ids alter Einträge werden nicht wiederverwendet: die reservierten Ids stehen in der versionierten Datei

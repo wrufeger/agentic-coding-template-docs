@@ -33,14 +33,14 @@ text goes in the sections at the end of the file:
 - `## Own rules`: ``- `R-your-id`: text`` or a bare bullet, in addition to the template's rules.
 
 `python .act/scripts/rules.py --list --area core` shows every rule with its state, overrides as `[~]` and own rules as `[+]` (without `--area core` it lists the coding sets);
-`--validate` reports text it could not read.
+`--validate` reports text it could not read. Path-bound rules of Claude Code under `.claude/rules/**/*.md` show up in `--list` with their `paths:` patterns; `--validate` warns about a pattern that matches no project file and a file without `paths:`.
 
 ## Coding rule sets
 
 `docs/project/coding_rules.md` works the same way for coding rules. Each line `- [x] use: @../../.act/coding/<set>.md` (checked) or `- [ ] use: .act/coding/<set>.md` (unchecked) switches
 a set on or off, with its groups (`CR-<set>-<group>`) listed below and each individually checkable. `init` presets
 the boxes from the stack it detects, and `stack` in `docs/ai/config.md` is where you correct it. The same sections
-for overrides and own rules apply.
+for overrides and own rules apply. Sets exist for, among others, Python, TypeScript, Vue, Nuxt, Tailwind, PHP, Java, Go, Rust, Kotlin, C, C++, PowerShell, Docker, CI, CSS, JavaScript and React. When an update brings a new set, it appears unchecked in the file; a new group of a checked set appears checked. Existing lines, boxes and your own rules stay as they are.
 
 ## Settings
 

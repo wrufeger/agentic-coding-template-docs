@@ -26,7 +26,7 @@ directly. Naming a role in the chat (`reviewer`, `explorer`) is an instruction t
 | `expert-solver` | Escalation after two failed attempts. |
 
 Model, tier, reasoning, and tools for each role: [Roles reference](/agentic-coding-template-docs/reference/roles/).
-A role runs as a sub-agent only in Claude Code; other tools get the rules and skills as instructions.
+A role runs as a sub-agent only in Claude Code; other tools get the rules and skills as instructions. In Claude Code, `builder` and `explorer` also know that path-bound rules under `.claude/rules/` load only when a matching file is read or written through a file tool, not through a search or a shell command; they read the matching rule file first.
 
 ## Tiers
 
@@ -57,5 +57,5 @@ in `docs/ai/config.md` § Checks, each `block`, `warn`, or `off`). Workers runni
 
 A worker that fails the same task twice gets no third identical attempt: the orchestrator sharpens the assignment
 once, or hands it to `expert-solver` with the full failure context. After accepting, reworking, or escalating a
-result it records the outcome with `usage.py --outcome`; from enough reworks among them `doctor.py` proposes a higher tier,
-and you decide. When a worker ends, the usage counter also reads its transcript and records duration, steps and tokens (`fresh` and `cache`) per role and tier in `.act-local/usage.json`, the newest 50 runs each. `usage.py --estimates` shows the median and the 80th percentile per role and tier; `usage.py --backfill` reads a project's existing transcripts once. The numbers stay local and are never sent with feedback; Claude Code only. The orchestrator also does not poll a running worker. An addition from you that fits a running assignment goes to that worker at once, or the worker is stopped and reassigned when one new run is cheaper than two. A wider write scope or a higher cap always means reassign, since both are read once when the worker starts.
+result it records the outcome with `usage.py --outcome`; from enough reworks among them `doctor.py` proposes a higher tier (and files the same proposal again only after 8 more outcomes),
+and you decide. When a worker ends, the usage counter also reads its transcript and records duration, steps and tokens (`fresh` and `cache`) per role and tier in `.act-local/usage.json`, the newest 50 runs each; pauses of more than 30 minutes between two records count as idle time and stay out of the minutes. `usage.py --estimates` shows the median and the 80th percentile per role and tier; `usage.py --backfill` reads a project's existing transcripts once. The numbers stay local and are never sent with feedback; Claude Code only. The orchestrator also does not poll a running worker. An addition from you that fits a running assignment goes to that worker at once, or the worker is stopped and reassigned when one new run is cheaper than two. A wider write scope or a higher cap always means reassign, since both are read once when the worker starts.

@@ -199,7 +199,7 @@ so gelangt ein globales Token nicht an einen fremden Host. Ohne Eintrag laufen L
 `http://` erreicht wird, wird genauso behandelt, bis seine Adresse `https://` ist.
 
 ## Checks
-<!-- source: c99d045b62d13453 -->
+<!-- source: 57ddc2a4b54cca1d -->
 Jede der folgenden Prüfungen läuft vor der Aktion, die sie nennt; `block` verweigert die Aktion, `warn` erlaubt sie
 mit einem Hinweis, `off` überspringt die Prüfung ganz. Eine Prüfung, die nur hinweist (markiert mit „never
 refuses“), behandelt `block` wie `warn`.
@@ -215,7 +215,7 @@ refuses“), behandelt `block` wie `warn`.
 | `commit-pathspec` | block | `git add -A`, `git add .`, `git add --all`, `git commit -a` — stattdessen per Pathspec stagen (`R-code-commit`) |
 | `git-reset-hard` | block | `git reset --hard` (Bash/PowerShell, auch `git -C <dir> ...`), solange der betroffene Arbeitsbaum nicht committete Änderungen hat (untracked Dateien zählen ebenfalls als Änderungen) oder sein eigener Arbeitsbaum nicht ermittelt werden kann — zuerst `git stash`/`git reset --soft` (`R-safe-git-reset`) |
 | `git-discard` | block | `git clean -f`, das etwas löschen würde, `git checkout`/`git restore` eines Ordners (oder `checkout -f`, `switch -f`) bei nicht committeten Änderungen an getrackten Dateien im Ziel, `git stash drop`/`clear`, ein erzwungener Push auf den Default-Branch (`origin/HEAD`, sonst `init.defaultBranch`, sonst `main`/`master`), `git branch -D` eines nicht gemergten Branches (Bash/PowerShell, auch `git -C <dir> ...`); das Löschen des Default-Branches auf dem Remote und `branch -M`/`-C` über einem nicht gemergten Branch zählen ebenfalls; ein Ziel, das sich nicht ermitteln lässt, oder ein Aufruf, der sich nicht rechtzeitig prüfen lässt, wird verweigert (`R-safe-git-discard`) |
-| `git-metadata-guard` | block | Schreibzugriffe auf `.git/hooks/**`, `.git/config` (auch das Git-Verzeichnis einer `.git`-Datei) und `git config`/`git -c`-Schlüssel, die Code ausführen (`core.hooksPath`, `core.fsmonitor`, `core.sshCommand`, `!`-Aliase …) für alle; für Worker zusätzlich `.claude/settings*.json`, `.claude/agents/**`, `.claude/skills/**`, `.claude/commands/**` (Projekt und `~/.claude`) — den Menschen fragen (`R-safe-git-metadata`) |
+| `git-metadata-guard` | block | Schreibzugriffe auf `.git/hooks/**`, `.git/config` (auch das Git-Verzeichnis einer `.git`-Datei) und `git config`/`git -c`-Schlüssel, die Code ausführen (`core.hooksPath`, `core.fsmonitor`, `core.sshCommand`, `!`-Aliase …) für alle; für Worker zusätzlich `.claude/settings*.json`, `.claude/agents/**`, `.claude/skills/**`, `.claude/commands/**` (Projekt und `~/.claude`) sowie `.vscode/tasks.json`, `.devcontainer/**`, `.devcontainer.json`, `.envrc`, `.mcp.json` und Tasks, die bei `folderOpen` laufen — den Menschen fragen (`R-safe-git-metadata`) |
 | `recursive-delete` | block | rekursives Löschen aus der Shell (`rm -r`, `rmdir /s`, `Remove-Item -Recurse`, `find -delete`) — mit den eigenen Mitteln der Sprache oder Datei für Datei löschen (`R-safe-no-shell-delete`) |
 | `secret-scan` | block | `git commit`, solange der gestagte Diff ein Schlüssel-/Token-Muster, einen privaten Schlüssel, eine `.env`-Datei oder eine Zuweisung mit hoher Entropie enthält; eine Zeile mit `act:allow-secret` ist ausgenommen (`R-safe-no-secret-diff`) |
 | `secret-read` | block | Read, Grep (`path`, `glob`) und lesende Bash/PowerShell-Befehle (`cat`, `grep`, `Get-Content`, `< file` an beliebiger Stelle, `git show HEAD:<file>`, ...), die eine Secret-Datei nennen — `.env` und ihre Varianten (nicht ein Name, der auf `.example`/`.sample`/`.template` endet, nicht ein öffentlicher Schlüssel `*.pub`), private Schlüssel und Keystores, `~/.ssh`, `~/.aws`, `~/.config/gcloud` und weitere Zugangsdaten-Pfade; gilt auch für Worker; `warn` meldet ohne zu sperren; `ACT_SECRET_READ` in der Umgebung überschreibt den Wert für einen Lauf (`R-safe-no-secret-read`) |
@@ -258,6 +258,32 @@ lokal (`.act-local/feedback/sent/`, per gitignore ausgeschlossen) — jedes Send
 (Datum, Art, Anzahl der Einträge, Schema-Version, nie Inhalt). Eine Nachricht, die du selbst schreibst
 (`feedback: <text>`), geht immer raus, auch bei `off`, zusammen mit dem Template-Commit und der
 zufälligen Projekt-Kennung (eine Antwortadresse nur, wenn du eine nennst). Details: `.act/rules/topics/feedback.md`.
+
+## Update
+<!-- source: c7288267161bca7c -->
+| Schlüssel | Wert |
+| :--- | :--- |
+| `update-channel` | <update-channel> |
+
+`update-channel`: `release` \| `latest`. Mit `release` (dem Standard) bietet `act-update` nur das neueste stabile
+Release-Tag der Template-Quelle an, und der Sitzungsstart meldet nur dieses; mit `latest` folgt es der Spitze des
+Default-Branches der Quelle. `--channel` bei `update.py` überschreibt den Wert für einen Lauf. Details:
+`.act/skills/act-update/SKILL.md`.
+
+## Archive
+<!-- source: bfec751944984980 -->
+| Schlüssel | Wert |
+| :--- | :--- |
+| `archive-compact` | 30d 300 |
+| `archive-shorten` | on |
+
+`archive-compact`: `<n>d <n>` \| `off`. `entries.py compact` ist für das Archiv oder den Journal-Ordner fällig, sobald
+sein ältester einzelner Eintrag älter als diese Anzahl Tage ist oder der Ordner mehr als diese Anzahl Einzeldateien
+enthält; der Sitzungsstart sagt das einmal am Tag, mit der Zahl der Einträge und der Worker-Läufe, mit denen zu rechnen
+ist (`act-compact`). Zusammengeführt werden nur Einträge, die vor mehr als 7 Tagen archiviert wurden. Ein fehlender oder
+fehlerhafter Wert zählt als `30d 300`; im Team-Modus erscheint der Hinweis nur auf dem Default-Branch.
+`archive-shorten`: `on` \| `off`. `on` (der Standard) lässt Worker die zusammengeführten Abschnitte kürzen und eine
+monatliche Themenübersicht `archive/YYYY-MM.md` schreiben, geprüft von `compact_check.py`; `off` führt nur zusammen.
 
 ## Tips
 <!-- source: 1a90246f22239098 -->

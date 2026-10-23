@@ -45,5 +45,7 @@ read, not easier. So:
 | configuration | Konfiguration | |
 | finding | Befund | |
 | session start | Sitzungsstart | |
+| update channel | Update-Channel | `release` / `latest`; „Kanal“ nicht im Fließtext |
+| default branch | Default-Branch | nicht „Standard-Branch“ |
 
 Change this table to change the wording for every page; the next translation pass applies it.

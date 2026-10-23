@@ -31,6 +31,10 @@ Verwenden, wenn gebeten wird, Übersetzungen oder i18n zu prüfen, ob alle Sprac
 <!-- source: 1d95aa1cda43ff10 -->
 Verwenden direkt nach der Abnahme einer Aufgabe, wenn ihr Beleg (ein Testlauf, ein externer Aufruf, ein Commit-Hash) vorliegt, oder wenn gebeten wird, abzuschließen und zu committen. Hinterlässt die Aufgabe archiviert und im Journal verbucht, per Pathspec committet. Wird nie von einem Sub-Agent ausgeführt.
 
+## act-compact
+<!-- source: cf7ffcd010dd2a1b -->
+Verwenden, wenn der Sitzungsstart meldet, dass eine Archiv-Verdichtung fällig ist, oder wenn gebeten wird, das Archiv oder das Journal zu verdichten, zusammenzuführen oder zu kürzen. Führt alte archivierte Einträge und Journal-Einträge zu einer Datei je Art und Monat zusammen, lässt Worker sie kürzen, prüft, dass nichts verloren ging, und committet den Lauf für sich. Wird nie von einem Sub-Agent ausgeführt.
+
 ## act-deps
 <!-- source: 35b59128504491c4 -->
 Verwenden, wenn Abhängigkeiten veraltet sind, ein Security Advisory zu prüfen ist oder gebeten wird, Pakete zu aktualisieren oder das Alter der Abhängigkeiten zu prüfen. Aktualisiert in nachvollziehbaren Schritten - Patch und Minor gebündelt, je Major ein Commit - mit grünen Checks nach jedem.
@@ -122,6 +126,10 @@ Verwenden, wenn gebeten wird, Testlücken zu finden, die Testabdeckung eines Ber
 ## act-update
 <!-- source: 951bb75daad27a96 -->
 Verwenden, um auf eine neuere Template-Version in diesem Projekt zu prüfen oder sie einzuspielen („aktualisiere das Template“, „act-update“). Holt die neue Version erst herein, wenn der Diff gezeigt und ihm zugestimmt wurde. Nicht, um lokale Abweichungen zu prüfen - dafür act-doctor.
+
+## act-version
+<!-- source: 2849ab0af75ff6a9 -->
+Verwenden, wenn gefragt wird, welche Template-Version installiert ist, welche Versionen oder Releases die Quelle anbietet oder was act-update nehmen würde („act-version“, „welche ACT-Version“, „gibt es ein neueres Release“). Gibt die Antwort aus einem Script aus und schreibt nichts. Nicht, um ein Update einzuspielen - dafür act-update.
 
 ## _intro
 <!-- source: 46565377cf8cbe79 -->

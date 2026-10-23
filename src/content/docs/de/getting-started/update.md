@@ -3,7 +3,7 @@ title: Update
 description: Einen neueren Stand des Templates mit act-update in ein Projekt holen.
 sidebar:
   order: 3
-sourceHash: c231ff8de73665779804218a722102b3ca7e5f4620772050d6c7812c4804b1f6
+sourceHash: 74ffeab69b352038332de4954feece3360fa21a5655bd94fdbca5bd0b6069659
 ---
 
 `act-update` holt einen neueren Stand des Templates in dein Projekt: Du siehst den Diff, du stimmst zu, und
@@ -23,6 +23,26 @@ python .act/scripts/update.py --plan      # show the diff and describe the later
 python .act/scripts/update.py             # the real run, asks for consent
 ```
 
+## Update-Channel
+
+`update-channel` in `docs/ai/config.md` § Update bestimmt, was `act-update` anbietet. `init` fragt danach und schreibt ihn.
+
+- `release` (Standard) ist das neueste stabile Tag `vX.Y.Z` der Quelle. Ein Projekt, das schon darüber liegt, etwa
+  weil es `main` gefolgt ist, hört „ahead of the newest release“ und behält seinen Stand.
+- `latest` ist die Spitze des Default-Branches der Quelle.
+- `--channel release|latest` überschreibt den Schlüssel für einen Lauf; `--ref <Tag-oder-Commit>` geht beiden vor.
+- Eine Quelle ohne Release-Tags wird an ihrer Spitze verfolgt, mit einem Hinweis, solange `release` der Standard ist oder
+  in `docs/ai/config.md` steht. `--channel release` und ein ungültiger Wert brechen mit dem Hinweis ab, `--ref` oder
+  `latest` zu nehmen.
+- Auf `release` meldet der Sitzungsstart „template release vX.Y.Z available“, auf `latest` „a template update is
+  available“. `.act-lock.json` hält als `template.ref` auf `release` das installierte Tag fest, auf `latest` den Branch.
+- Bestehende Projekte behalten ihre `config.md`; ohne den Schlüssel bekommen sie einen einmaligen Hinweis von
+  `act-update`. `act-doctor` meldet einen Wert außer `release` oder `latest`.
+
+Wo du stehst, siehst du mit `/act-version` oder `python .act/scripts/update.py --versions`. Es listet die installierte
+Version und den Channel, die Releases der Quelle (`--all` für alle statt der fünf neuesten), die Spitze des
+Default-Branches und was `act-update` nehmen würde. Es nutzt nur `git ls-remote`, klont nichts und schreibt nichts.
+
 ## Die zehn Schritte
 
 1. **Holen** des Templates in einen temporären Checkout. Nichts daraus wird ausgeführt.
@@ -34,7 +54,8 @@ python .act/scripts/update.py             # the real run, asks for consent
 5. **`.act/` ersetzen**, als Ganzes.
 6. **Die Kopien auffrischen** außerhalb von `.act/`: unveränderte Skill-Kopien und Rollen-Brücken werden ersetzt,
    von dir bearbeitete Kopien bleiben erhalten und werden gemeldet. Eigene Skills und Rollen unter `docs/ai/local/` bekommen ihre Kopien
-   hier ebenfalls.
+   hier ebenfalls. Neue Coding-Sätze und -Gruppen trägt `act-update` in `docs/project/coding_rules.md` ein (ein neuer Satz nicht angekreuzt,
+   eine neue Gruppe eines angekreuzten Satzes angekreuzt; siehe [Eigene Skills, Rollen und Regeln](/agentic-coding-template-docs/de/guides/own-skills-and-rules/)).
 7. **Hooks und Git-Dateien.** Gleicht die Hook-Einträge in `.claude/settings.json` und die Blöcke des Templates in
    `.gitattributes` und `.gitignore` ab und setzt dort `"enableArtifact": false`, außer `docs/ai/config.md` hat
    `artifacts: on`. Ein bestehendes Projekt startet nach dem Update deshalb ohne das Werkzeug `Artifact`.
