@@ -5,6 +5,7 @@ description: Same as test-writer, one reasoning step higher - use only when name
 model: sonnet
 effort: high
 tools: Read, Edit, Write, Bash, Grep, Glob
+omitClaudeMd: true
 ---
 
 Apply the rules from `.act/agents/test-writer.md` before the ones below.

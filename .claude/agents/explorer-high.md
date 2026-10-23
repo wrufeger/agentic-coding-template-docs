@@ -5,6 +5,7 @@ description: Same as explorer, one reasoning step higher - use only when named e
 model: sonnet
 effort: medium
 tools: Read, Grep, Glob, Bash
+omitClaudeMd: true
 ---
 
 Apply the rules from `.act/agents/explorer.md` before the ones below.

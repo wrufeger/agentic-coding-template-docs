@@ -4,6 +4,7 @@ description: Implements a bounded assignment - code, migration, tests, configura
 model: sonnet
 effort: medium
 tools: Read, Write, Edit, Bash, Grep, Glob
+omitClaudeMd: true
 ---
 
 Apply the rules from `.act/agents/builder.md` before the ones below.

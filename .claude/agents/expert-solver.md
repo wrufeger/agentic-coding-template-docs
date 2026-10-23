@@ -4,6 +4,7 @@ description: High-reasoning escalation, called only after a worker has failed th
 model: fable
 effort: max
 tools: Read, Edit, Write, Bash, Grep, Glob
+omitClaudeMd: true
 ---
 
 Apply the rules from `.act/agents/expert-solver.md` before the ones below.

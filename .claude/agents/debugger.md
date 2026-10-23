@@ -4,6 +4,7 @@ description: Searches for a bug's cause by hypothesis rather than guesswork; rep
 model: sonnet
 effort: high
 tools: Read, Bash, Grep, Glob
+omitClaudeMd: true
 ---
 
 Apply the rules from `.act/agents/debugger.md` before the ones below.

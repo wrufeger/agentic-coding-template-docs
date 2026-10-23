@@ -5,6 +5,7 @@ description: Same as builder, one reasoning step higher - use only when named ex
 model: sonnet
 effort: high
 tools: Read, Write, Edit, Bash, Grep, Glob
+omitClaudeMd: true
 ---
 
 Apply the rules from `.act/agents/builder.md` before the ones below.

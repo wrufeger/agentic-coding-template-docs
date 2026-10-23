@@ -5,6 +5,7 @@ description: Same as debugger, one reasoning step higher - use only when named e
 model: sonnet
 effort: xhigh
 tools: Read, Bash, Grep, Glob
+omitClaudeMd: true
 ---
 
 Apply the rules from `.act/agents/debugger.md` before the ones below.

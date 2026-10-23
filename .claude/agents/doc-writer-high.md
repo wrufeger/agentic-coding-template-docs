@@ -5,6 +5,7 @@ description: Same as doc-writer, one reasoning step higher - use only when named
 model: sonnet
 effort: high
 tools: Read, Write, Edit, Grep, Glob, Bash
+omitClaudeMd: true
 ---
 
 Apply the rules from `.act/agents/doc-writer.md` before the ones below.

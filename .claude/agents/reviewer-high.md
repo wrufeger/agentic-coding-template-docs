@@ -5,6 +5,7 @@ description: Same as reviewer, one reasoning step higher - use only when named e
 model: opus
 effort: xhigh
 tools: Read, Bash, Grep, Glob
+omitClaudeMd: true
 ---
 
 Apply the rules from `.act/agents/reviewer.md` before the ones below.

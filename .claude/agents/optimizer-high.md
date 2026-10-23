@@ -5,6 +5,7 @@ description: Same as optimizer, one reasoning step higher - use only when named 
 model: sonnet
 effort: high
 tools: Read, Edit, Bash, Grep, Glob
+omitClaudeMd: true
 ---
 
 Apply the rules from `.act/agents/optimizer.md` before the ones below.
