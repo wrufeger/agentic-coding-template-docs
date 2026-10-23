@@ -3,7 +3,7 @@ title: Inbox, Aufgaben und Journal
 description: Was in docs/ai/ liegt - Inbox, Aufgaben, Backlog, Journal, Archiv, Ideen, das Board und die Statuszeile.
 sidebar:
   order: 3
-sourceHash: b73fe33693d7dd00e341279b09ce91a18881774843fce4510b785bcefde24bcc
+sourceHash: 0e4522285f8d01d6624537053beb38c711ed4b80cddf0b88d501c369465474d5
 ---
 
 `docs/ai/` ist das gemeinsame Arbeitsgedächtnis von dir und dem Assistenten. Alles darin ist eine einfache Datei, eine Datei pro Eintrag, versioniert mit dem Projekt. Übersichten wie das Board werden aus diesen Dateien erzeugt und nie von Hand gepflegt.
@@ -22,7 +22,7 @@ Worker (Sub-Agenten) schreiben nie in `docs/ai/`; das tut nur der Haupt-Assisten
 
 ## Inbox
 
-Die Inbox ist der eine Ort, an dem etwas auf dich wartet. Jede Datei beginnt mit YAML-Frontmatter zwischen zwei `---`-Zeilen (`id`, `kind`, `for`, `status`, `created`), sodass Markdown-Editoren und Forges die Felder als Metadaten zeigen, und hat eine von vier Arten. Aufgaben, Backlog-Einträge, Journal-Einträge und das Archiv nutzen dasselbe Frontmatter; Einträge in der älteren schlichten Kopfform werden weiter gelesen, und `act-update` schreibt vorhandene einmal um:
+Die Inbox ist der eine Ort, an dem etwas auf dich wartet. Jede Datei beginnt mit YAML-Frontmatter zwischen zwei `---`-Zeilen (`id`, `kind`, `for`, `status`, `created`), sodass Markdown-Editoren und Forges die Felder als Metadaten zeigen, und hat eine von vier Arten. Aufgaben, Backlog-Einträge, Journal-Einträge und das Archiv nutzen dasselbe Frontmatter; Einträge in der älteren schlichten Kopfform werden weiter gelesen, und `act-update` schreibt vorhandene einmal um. Vorschläge unter `docs/ai/proposals/` werden ebenfalls mit Frontmatter geschrieben (`author`, `date`, `target`); ältere schlichte werden gelesen, aber nicht umgeschrieben:
 
 | `kind` | Id | Was es ist | Statusverlauf |
 | :--- | :--- | :--- | :--- |

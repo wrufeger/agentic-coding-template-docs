@@ -3,7 +3,7 @@ title: Update
 description: Einen neueren Stand des Templates mit act-update in ein Projekt holen.
 sidebar:
   order: 3
-sourceHash: 74ffeab69b352038332de4954feece3360fa21a5655bd94fdbca5bd0b6069659
+sourceHash: 624f87a2ccedb5079b62e6c81b6d63fcac8e5ca4692a7fb2a3b8f41284ac1962
 ---
 
 `act-update` holt einen neueren Stand des Templates in dein Projekt: Du siehst den Diff, du stimmst zu, und
@@ -56,9 +56,13 @@ Default-Branches und was `act-update` nehmen würde. Es nutzt nur `git ls-remote
    von dir bearbeitete Kopien bleiben erhalten und werden gemeldet. Eigene Skills und Rollen unter `docs/ai/local/` bekommen ihre Kopien
    hier ebenfalls. Neue Coding-Sätze und -Gruppen trägt `act-update` in `docs/project/coding_rules.md` ein (ein neuer Satz nicht angekreuzt,
    eine neue Gruppe eines angekreuzten Satzes angekreuzt; siehe [Eigene Skills, Rollen und Regeln](/agentic-coding-template-docs/de/guides/own-skills-and-rules/)).
+   Die Rollen des Templates (und ihre `-high`-Varianten) bekommen `omitClaudeMd: true`, Worker laden `CLAUDE.md` also nicht
+   mehr; eigene Rollen und ein ausdrückliches `omitClaudeMd: false` bleiben unverändert, eine eigene Rolle ohne das Feld
+   lädt weiter `CLAUDE.md`. Claude Code vor 2.1.271 ignoriert das Feld, Worker bekommen die Regeln dort doppelt (kostet
+   nur Tokens).
 7. **Hooks und Git-Dateien.** Gleicht die Hook-Einträge in `.claude/settings.json` und die Blöcke des Templates in
    `.gitattributes` und `.gitignore` ab und setzt dort `"enableArtifact": false`, außer `docs/ai/config.md` hat
-   `artifacts: on`. Ein bestehendes Projekt startet nach dem Update deshalb ohne das Werkzeug `Artifact`.
+   `artifacts: on`. Ein bestehendes Projekt startet nach dem Update deshalb ohne das Werkzeug `Artifact`. Außerdem ergänzt dieser Schritt die sechs `SubagentStart`-Einträge, die Workern ihre Regeln ohne die Orchestrator-Regeln geben (siehe Schritt 6). `python .act/scripts/rules.py --worker` zeigt, was ein Worker bekommt.
 8. **Migrationen.** Führt alle fälligen aus. Jede schreibt eine betroffene Datei einmal um und lässt sie danach in Ruhe.
 9. **Brücken und Doctor.** Zuerst werden unbearbeitete erzeugte Brücken (`CLAUDE.md`, `AGENTS.md`,
    `docs/ai/rules.md`) aufgefrischt; steht `session-start-refresh` in `docs/ai/config.md` § Checks auf `warn` oder

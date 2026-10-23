@@ -3,7 +3,7 @@ title: Bestehendes Projekt
 description: Ein Projekt mit eigener Doku oder eigenem KI-Setup mit act-adopt übernehmen.
 sidebar:
   order: 2
-sourceHash: 1c0e2647f8adccc32c51045c16631071f370c5e4e35c16113f51194292df6c29
+sourceHash: 12d1a12a242eede5ff13af531ac9aa05c31d5abc8f2c63b137ebbae0c1ce0354
 ---
 
 Ein Projekt, das schon Doku, eine `CLAUDE.md` oder ein älteres KI-Setup hat, läuft über `act-adopt`, nicht allein
@@ -44,7 +44,7 @@ Nichts ändert sich, bevor du einmal eine Tabelle freigibst, und kein Script com
 5. **Einstellungen.** `adopt_config.py` überträgt Werte aus einer alten `AI-CONFIG.md` nach `docs/ai/config.md`.
 6. **Inhalte füllen.** Offene Aufgaben, Backlog-Punkte und Fragen werden zu Einträgen; Regeltext wird zu
    Overrides, eigenen Regeln oder Vorschlägen. Text wird aus den alten Dateien ausgeschnitten, nie neu
-   getippt.
+   getippt. Ein Vorschlag in `docs/ai/proposals/` bekommt einen Frontmatter-Kopf (`author`, `date`, `target`); ältere Vorschläge in der schlichten Form werden weiter gelesen.
 7. **Abschluss.** `adopt.py --finish` brückt übernommene Dateien, entfernt, was weg sollte, führt `doctor.py`
    aus und schreibt einen Übernahmebericht in die Inbox.
 8. **Commit.** Per Pathspec auf dem Branch `act-adopt`, in Gruppen. Du prüfst den Branch und führst ihn zusammen.

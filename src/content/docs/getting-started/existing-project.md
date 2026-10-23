@@ -39,7 +39,7 @@ Nothing changes before you approve a table once, and no script commits anything.
    `--confirm-no-targets`, only with your yes.
 5. **Settings.** `adopt_config.py` carries values from an old `AI-CONFIG.md` into `docs/ai/config.md`.
 6. **Fill the content.** Open tasks, backlog items, and questions become entries; rule text becomes overrides,
-   own rules, or proposals. Text is cut from the old files, never retyped.
+   own rules, or proposals. Text is cut from the old files, never retyped. A proposal in `docs/ai/proposals/` gets a frontmatter header (`author`, `date`, `target`); older proposals in the plain form are still read.
 7. **Finish.** `adopt.py --finish` bridges adopted files, removes what was meant to go, runs `doctor.py`, and writes
    an adoption report into the inbox.
 8. **Commit.** By pathspec on the branch `act-adopt`, in groups. You review and merge the branch.

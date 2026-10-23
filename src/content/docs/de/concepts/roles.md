@@ -3,7 +3,7 @@ title: Rollen und Worker
 description: Der Orchestrator, die Worker-Rollen, Tiers, Caps, Write Scope und was ein Worker nicht darf.
 sidebar:
   order: 2
-sourceHash: 2e4540048708842f16fd4259b6c0eada6b742eb0bd8742afdc598cae079cd556
+sourceHash: ff574d6a4028cfa25e3168293c23e6327c3ac554eb5d6df3fe3b446b201b692d
 ---
 
 ## Orchestrator und Worker
@@ -44,7 +44,11 @@ Jeder Auftrag nennt sein Tier, eine Schätzung und ein Cap als `Cap: <n>` Tool-A
 Standardwert des Tiers: `light` 10, `standard` 40, `elevated` 60, `high` und `expert` 80. Der Worker bekommt am
 Cap einen Hinweis und wird ab dem 1,5-Fachen des Caps abgewiesen. Außerdem nennt der Auftrag seinen Write Scope als `Write scope:`
 aus Pfaden relativ zum Projekt; `Write scope: none` heißt nur lesend im Projekt. In das temporäre Verzeichnis des Systems darf jeder Worker, gleich welcher Scope, trotzdem schreiben, wenn der Pfad ausgeschrieben ist (`/tmp/...` in Bash oder sein absoluter Pfad), es sei denn, das Projekt selbst liegt dort. Ein Bereich `dir/**` deckt auch das Anlegen von `dir` selbst ab. Eckige Klammern in einem Muster werden wörtlich gelesen, `server/api/[id]/**` meint also den Ordner namens `[id]`, und ein Shell-Befehl, dessen Platzhalter über den Bereich hinausreicht, wird abgelehnt. Beides prüfen Hooks mechanisch (`worker-cap`,
-`worker-write-scope` in `docs/ai/config.md` § Checks, jeweils `block`, `warn` oder `off`). Gleichzeitig laufende Worker brauchen getrennte Write Scopes: `worker-scope-overlap` lehnt einen Start ab, dessen Bereich sich mit dem eines noch laufenden Workers überschneidet. Ein Auftrag, der das Ergebnis eines anderen Workers liest, nennt diesen als `Depends on:` und startet erst, wenn jener Worker fertig ist.
+`worker-write-scope` in `docs/ai/config.md` § Checks, jeweils `block`, `warn` oder `off`). Die genaue Syntax von `Cap:` und `Write scope:` und die Grenzen der Prüfungen stehen auf der [Seite zu den Prüfungen](/agentic-coding-template-docs/de/reference/topics/#checks); auch die Sperrmeldungen nennen die Syntax. Gleichzeitig laufende Worker brauchen getrennte Write Scopes: `worker-scope-overlap` lehnt einen Start ab, dessen Bereich sich mit dem eines noch laufenden Workers überschneidet. Ein Auftrag, der das Ergebnis eines anderen Workers liest, nennt diesen als `Depends on:` und startet erst, wenn jener Worker fertig ist.
+
+## Wie ein Worker seine Regeln bekommt
+
+Ein Worker lädt `CLAUDE.md` nicht: Die Rollen der Vorlage tragen `omitClaudeMd: true`, denn `CLAUDE.md` würde die Orchestrator-Regeln in jeden Worker-Start laden, obwohl nur die Hauptsitzung sie braucht. Stattdessen gibt ein `SubagentStart`-Hook dem Worker den Rest dessen, was `CLAUDE.md` lädt: die geteilten Regeln, die Coding-Regeln, deine eigenen Regeln aus `docs/ai/rules.md`, `CLAUDE.local.md` und das `~/.claude/CLAUDE.md` der Benutzerebene, aber nichts aus `.act/rules/orchestrator/`. Der Text kommt in Teilen unter 10.000 Zeichen und spart rund 24.000 Zeichen je Worker-Start. `python .act/scripts/rules.py --worker` zeigt die Teile. Ein Update ergänzt das Feld und die Hook-Einträge in bestehenden Rollen der Vorlage; eine eigene Rolle ohne das Feld lädt `CLAUDE.md` wie bisher. Claude Code vor 2.1.271 ignoriert das Feld, seine Worker bekommen die Regeln dann doppelt, was nur Tokens kostet. Details: [Topics](/agentic-coding-template-docs/de/reference/topics/#worker-rules).
 
 ## Was ein Worker nicht darf
 

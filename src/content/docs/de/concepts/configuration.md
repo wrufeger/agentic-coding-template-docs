@@ -3,7 +3,7 @@ title: Konfiguration
 description: docs/ai/config.md steuert den Arbeitsablauf - seine Gruppen und was block, warn und off für Prüfungen bedeuten.
 sidebar:
   order: 4
-sourceHash: cd33fd6a5b3e3b171ac2e55ffe0e0de5baf834f92b91bef306bdd8bb2fbe1488
+sourceHash: 37d7d0f70cd18d386f8af1acc399fe5aaebd6c284ff6ef91e24e40acb4251abd
 ---
 
 `docs/ai/config.md` ist die Datei, die steuert, wie am Projekt gearbeitet wird. Sie besteht aus Markdown-Tabellen, ein Abschnitt pro Thema. `init` trägt die Werte ein, die es erfragt oder erkannt hat; du änderst sie jederzeit. Nichts braucht einen Neuaufbau: Der Hook beim Sitzungsstart liest die Datei und meldet, was sich seit dem letzten Abgleich geändert hat. Jeder Schlüssel mit seinen erlaubten Werten steht in der [Konfigurationsreferenz](/agentic-coding-template-docs/de/reference/configuration/); diese Seite erklärt, wofür die Gruppen da sind.
@@ -39,6 +39,8 @@ Jede Zeile der Prüfungstabelle benennt einen Wächter, der vor der Aktion läuf
 Eine Prüfung, die in der Tabelle als „never refuses" markiert ist, behandelt `block` wie `warn`. Eine Prüfung ist anders: `security-check` nimmt `off`, `local`, `deps` oder `full`, siehe [Sicherheitsprüfung](/agentic-coding-template-docs/de/guides/security-check/).
 
 Eine Prüfung herunterzustufen ist deine Entscheidung. Prüfungen wie `secret-scan` oder `git-reset-hard` schützen vor Dingen, die sich nicht rückgängig machen lassen; senke sie nur mit Grund.
+
+`secret-scan` hält einen Commit an, dessen gestagter Diff ein Schlüssel- oder Token-Muster enthält. Eine Zeile mit einem `act:allow-secret`-Kommentar ist ausgenommen. Für eine Datei ohne Kommentare (JSON) steht die Zeile in `docs/ai/local/secret-accepted.md` als `- <path> <hash>: <reason>`; die Sperrmeldung druckt die fertige Zeile (Pfad und Zeilen-Hash, nie den Wert). Eine geänderte Zeile, dieselbe Zeile in einer anderen Datei oder eine fehlende oder unlesbare Liste sperrt wieder. Was jede Prüfung erkennt und wo ihre Grenzen liegen, steht auf der [Seite zu den Prüfungen](/agentic-coding-template-docs/de/reference/topics/#checks).
 
 `outside-root` hält Lesen und Schreiben im Projektordner und seinen erlaubten Orten, für den Assistenten und seine Worker. In neuen Projekten steht es auf `block`; ein Projekt ohne die Zeile führt es als `warn` aus. Ausnahmen kommen in `outside-root-allow`; beide Zeilen stehen in der [Konfigurationsreferenz](/agentic-coding-template-docs/de/reference/configuration/), die Regel in [`R-safe-outside-root`](/agentic-coding-template-docs/de/reference/rules/#r-safe-outside-root).
 

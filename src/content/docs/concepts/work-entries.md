@@ -21,7 +21,7 @@ Workers (sub-agents) never write to `docs/ai/`; only the main assistant does (se
 
 ## Inbox
 
-The inbox is the one place where something waits for you. Each file opens with YAML frontmatter between two `---` lines (`id`, `kind`, `for`, `status`, `created`), so Markdown editors and forges show the fields as metadata, and has one of four kinds. Tasks, backlog items, journal entries and the archive use the same frontmatter; entries in the older plain header form are still read, and `act-update` rewrites existing ones once:
+The inbox is the one place where something waits for you. Each file opens with YAML frontmatter between two `---` lines (`id`, `kind`, `for`, `status`, `created`), so Markdown editors and forges show the fields as metadata, and has one of four kinds. Tasks, backlog items, journal entries and the archive use the same frontmatter; entries in the older plain header form are still read, and `act-update` rewrites existing ones once. Proposals under `docs/ai/proposals/` are written with frontmatter too (`author`, `date`, `target`); older plain ones are read but not rewritten:
 
 | `kind` | Id | What it is | Status flow |
 | :--- | :--- | :--- | :--- |

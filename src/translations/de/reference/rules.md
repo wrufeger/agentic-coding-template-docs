@@ -132,7 +132,7 @@ Vor einem Commit wird der Diff gegen bekannte Secret-Muster geprüft: Key-/Token
 stillschweigend entfernt.
 
 ## R-safe-no-secret-read
-<!-- source: 8785ccfb3b68f3c9 -->
+<!-- source: 3b4f1a3fb728c5c1 -->
 Nie eine Secret-Datei in den Kontext lesen
 summary: keine .env, kein privater Schlüssel, keine Cloud-/Registry-Zugangsdatei in einem Read, Grep oder Befehl; die .env.example-Familie ist frei; mechanisch geprüft
 
@@ -142,12 +142,10 @@ Keystores), Cloud- und Registry-Zugangsdaten (`~/.ssh`, `~/.aws`, `~/.config/gcl
 Was in den Kontext gelangt, wird mit jedem weiteren Schritt mitgesendet. Die nicht geheimen Werte, die man
 braucht, beim Eigentümer erfragen oder `.env.example`, `.env.sample` oder `.env.template` lesen; öffentliche
 Schlüssel (`*.pub`) bleiben frei. Gilt für Orchestrator und Worker gleichermaßen. Mechanisch geprüft durch
-`secret-read` (`docs/ai/config.md` § Checks); der Eigentümer kann es dort auf `warn` oder `off` setzen, oder
-für einen Lauf mit `ACT_SECRET_READ` in der Umgebung. Grenze: Ein Programm, das die Datei selbst öffnet
-(`python script.py`, `docker run --env-file`), bleibt für die Prüfung unsichtbar.
+`secret-read` (`docs/ai/config.md` § Checks). Details (Schalter, Grenze): `topics/checks.md`.
 
 ## R-safe-outside-root
-<!-- source: df62da155d9b5e1e -->
+<!-- source: 959efb68db51f04a -->
 Im Projekt bleiben
 summary: nur im Projektstamm und seinen erlaubten Orten lesen und schreiben; jeder andere Ort nur auf Wort des Eigentümers, als Eintrag; mechanisch geprüft
 
@@ -157,14 +155,9 @@ dieses Projekt, seinem Plan-Ordner `~/.claude/plans/`, nur lesend seinen Plugin-
 (`~/.claude/plugins/`, `~/.claude/skills/`) und den Einträgen von `outside-root-allow` (`docs/ai/config.md` §
 Checks; `(read)` nach einem Pfad erlaubt nur Lesen). Jeder andere Ort — ein Nachbar-Repository, ein anderes
 Projekt, das Home-Verzeichnis — nur auf Wort des Eigentümers für diesen Fall, und dann als Eintrag in
-`outside-root-allow` oder `additionalDirectories`, nie als einmaliger Umweg. `act-adopt` ist die einzige
-Ausnahme: Der Eigentümer startet die erste Sichtung mit dem Präfix `!`, das den Zielordner für 24 Stunden oder bis
-`--abort` (auch über `--finish` hinaus) öffnet, über eine Marke unter `.act-local/outside-allow/`, die niemand
-außer den Adopt-Scripten schreibt; `--apply` erneuert nur eine gültige Marke für dasselbe Ziel. Gilt für jede
-Rolle und jedes Werkzeug. Mechanisch geprüft durch `outside-root` (`docs/ai/config.md` § Checks); der Eigentümer
-kann sie dort auf `warn` oder `off` setzen, oder für einen Lauf mit `ACT_OUTSIDE_ROOT` in der Umgebung. Grenzen:
-Die Shell-Prüfung arbeitet nach dem Prinzip Best Effort, ein Programm, das Dateien selbst öffnet (`python script.py`,
-`docker run -v`), bleibt für sie unsichtbar, und MCP-Tools, die einen Pfad nehmen, werden nicht geprüft.
+`outside-root-allow` oder `additionalDirectories`, nie als einmaliger Umweg. Gilt für jede Rolle und jedes
+Werkzeug. Mechanisch geprüft durch `outside-root` (`docs/ai/config.md` § Checks). Details (Ausnahme von
+`act-adopt`, Schalter, Grenzen): `topics/checks.md`.
 
 ## R-safe-no-secret-log
 <!-- source: 0ab72e3f4d5b4f62 -->
@@ -195,7 +188,7 @@ Kein rekursives Löschen durch einen Shell-Befehl. Aufgeräumt wird mit den eige
 `shutil.rmtree`) oder Datei für Datei.
 
 ## R-safe-git-reset
-<!-- source: f68ccf6fb81816b9 -->
+<!-- source: 0edaae7411fedd61 -->
 Vor `git reset --hard` prüfen
 summary: zuerst den Status prüfen, nie bei offenen Änderungen, den verworfenen Commit prüfen, keine Experimente in einem unsauberen Arbeitsbaum
 
@@ -203,47 +196,38 @@ Vor `git reset --hard` wird `git status --porcelain` ausgeführt. Bei offenen Ä
 unversionierten Dateien, die `git reset --hard` ebenfalls stillschweigend überschreibt — wird es nie
 ausgeführt: stattdessen `git stash -u` oder `git reset --soft` verwenden. Zuerst mit `git log -1` oder `git
 reflog` prüfen, was verworfen würde. Nie Git-Experimente in einem Arbeitsbaum mit offenen Änderungen machen.
-Mechanisch geprüft durch `git-reset-hard` (`docs/ai/config.md` § Checks).
+Mechanisch geprüft durch `git-reset-hard` (`docs/ai/config.md` § Checks). Details: `topics/checks.md`.
 
 ## R-safe-git-discard
-<!-- source: 2a995d83125cf609 -->
+<!-- source: 090aba1aefc1af1a -->
 Auch mit anderen Git-Befehlen keine Arbeit verwerfen
 summary: kein clean -f, kein Ordner-Checkout/-Restore bei Änderungen, kein stash drop/clear, kein Force-Push auf den Default-Branch, kein branch -D eines nicht gemergten Branches
 
-Neben `git reset --hard` werfen diese Git-Befehle Arbeit ohne Weg zurück weg: `git clean -f` (oder
-`git clean` mit abgeschaltetem `clean.requireForce`), wenn `git clean -n` mit denselben Schaltern etwas
-auflistet; `git checkout -- <folder>`, `git checkout .`, `git restore <folder>`, `git checkout -f`,
-`git switch -f`, solange das Ziel nicht committete Änderungen hat; `git stash drop` und `git stash clear`; ein
-erzwungener Push (`-f`, `--force-with-lease`, `+refspec`, `--mirror`) auf den Default-Branch oder dessen
-Löschen auf dem Remote (`git push origin :main`, `--delete`); `git branch -D` eines Branches, den `git branch
---no-merged` auflistet, und `git branch -M`/`-C` über einen solchen. Einzelne Dateien bleiben frei. Ein Aufruf,
-der zu lang zum rechtzeitigen Prüfen ist, oder eine Prüfung, die fehlschlägt, wird abgewiesen — kleinere
-Aufrufe verwenden. Stattdessen committen, `git stash` nutzen oder den Eigentümer es tun lassen. Mechanisch
-geprüft durch `git-discard` (`docs/ai/config.md` § Checks).
+Neben `git reset --hard` werfen diese Git-Befehle Arbeit ohne Weg zurück weg: `git clean -f`;
+`git checkout -- <folder>`, `git checkout .`, `git restore <folder>`, `git checkout -f` und `git
+switch -f` über nicht committeten Änderungen; `git stash drop` und `git stash clear`; ein erzwungener Push auf
+den Default-Branch oder dessen Löschen auf dem Remote; `git branch -D` eines nicht gemergten Branches. Einzelne
+Dateien bleiben frei. Stattdessen committen, `git stash` nutzen oder den Eigentümer es tun lassen. Mechanisch
+geprüft durch `git-discard` (`docs/ai/config.md` § Checks). Details (genaue Bedingungen, abgewiesene Aufrufe):
+`topics/checks.md`.
 
 ## R-safe-git-metadata
-<!-- source: 62b009095ee68859 -->
+<!-- source: 9c8e5dc7519a4ee4 -->
 Keine Schreibzugriffe auf Hooks, Repository-Konfiguration oder Claude-Einstellungen
 summary: kein Schreiben in .git/hooks oder .git/config, kein Git-Config-Schlüssel, der Code ausführt, keine folderOpen-Task; Worker auch nicht in .claude-Einstellungen, Rollen, Skills, .vscode/tasks.json, .devcontainer, .envrc, .mcp.json
 
-Niemand schreibt `.git/hooks/**` oder `.git/config` (auch `config.worktree`, Submodul- und
-Linked-Worktree-Git-Verzeichnisse) und kopiert nichts hinein — weder mit einem Datei-Tool noch mit einem
-Shell-Befehl, noch mit `git config`, `git -c` oder `GIT_CONFIG_KEY_<n>` für einen Schlüssel, der ein Programm
-startet (`core.hooksPath`, `core.fsmonitor`, `core.sshCommand`, ein `!`-Alias, `include.path`, ein Filter, ein
-Textconv- oder Credential-Helper, eine `ext::`-Remote-URL, `protocol.allow=always` …), und `GIT_CONFIG_GLOBAL`,
-`GIT_CONFIG_SYSTEM` oder `GIT_CONFIG`, die auf `.git/config` zeigen, zählen wie `--file`; `git init --template`
-wird genauso abgewiesen. Ein Hook oder ein solcher Schlüssel läuft beim nächsten Git-Befehl, an jeder anderen
-Prüfung vorbei und über die Sitzung hinaus. Ein Worker schreibt außerdem nie `.claude/settings*.json`,
-`.claude/agents/**`, `.claude/skills/**` oder `.claude/commands/**`, weder im Projekt noch in `~/.claude`; der
-Orchestrator ändert sie auf Wunsch des Menschen. Lesen, `git config --get`/`--list`, `--global`/`--system` und
-das Entfernen von Einstellungen bleiben frei. Auch Dateien, die beim Öffnen des Ordners Code starten, sind
-erfasst: Ein Worker schreibt nie `.vscode/tasks.json`, `.devcontainer/**`, `.devcontainer.json`, `.envrc` oder
-`.mcp.json` (Datei-Tool oder Shell, auch durch Kopieren in ihr Verzeichnis), und niemand schreibt
-`.vscode/tasks.json` mit einem Shell-Befehl oder fügt mit einem Datei-Tool einer `.vscode/tasks.json` oder einer
-`*.code-workspace` eine Task hinzu, die bei `folderOpen` läuft (beurteilt am Text, den die Änderung erzeugt);
-eine solche Datei schreibt der Mensch selbst. Grenze: Was ein Programm oder Script selbst schreibt
-(`pre-commit install`, `python -c "open(...)"`), bleibt für die Prüfung unsichtbar. Mechanisch geprüft durch
-`git-metadata-guard` (`docs/ai/config.md` § Checks).
+Niemand schreibt `.git/hooks/**` oder `.git/config` oder kopiert etwas hinein — weder mit einem Datei-Tool
+noch mit einem Shell-Befehl noch mit einem Git-Konfigurationsschlüssel, der ein Programm startet (`core.hooksPath`,
+`core.fsmonitor`, `core.sshCommand`, ein `!`-Alias …). Ein Hook oder ein solcher Schlüssel läuft beim nächsten
+Git-Befehl, an jeder anderen Prüfung vorbei und über die Sitzung hinaus. Ein Worker schreibt außerdem nie
+`.claude/settings*.json`, `.claude/agents/**`, `.claude/skills/**` oder `.claude/commands/**`, weder im Projekt
+noch in `~/.claude`; der Orchestrator ändert sie auf Wunsch des Menschen. Lesen, `git config --get`/`--list`,
+`--global`/`--system` und das Entfernen von Einstellungen bleiben frei. Auch Dateien, die beim Öffnen des Ordners
+Code starten, sind erfasst: Ein Worker schreibt nie `.vscode/tasks.json`, `.devcontainer/**`,
+`.devcontainer.json`, `.envrc` oder `.mcp.json`, und niemand fügt eine Task hinzu, die bei `folderOpen` läuft;
+eine solche Datei schreibt der Mensch selbst. Mechanisch geprüft durch `git-metadata-guard`
+(`docs/ai/config.md` § Checks). Details (jeder erfasste Schlüssel, Pfad und jede Form, Grenze):
+`topics/checks.md`.
 
 ## R-safe-dev-server
 <!-- source: fd35fa0dec476013 -->
@@ -601,7 +585,7 @@ Kostenregeln
 summary: Delegations-Tiers und Caps, auf Worker warten, einen laufenden Auftrag ergänzen, wiederkehrende Prüfungen als Script, Commit-Schranke
 
 ## R-cost-delegate
-<!-- source: b9ee09617629cf31 -->
+<!-- source: d61ea4c25e14cd6e -->
 Tier, Schätzung und Cap nennen
 summary: Tier, Schätzung in Minuten und tkn fresh/cache, mechanisch geprüfter Cap, kleine Aufträge
 
@@ -610,74 +594,45 @@ Umsetzung, `elevated` für Review/Sicherheitsbewertung, `expert` nur für eine E
 Versuchen an derselben Aufgabe —, eine Schätzung in der festen Form `~<n> min · ~<n> tkn fresh · ~<n> tkn cache`
 (Minuten Wanduhrzeit; `fresh` = Input-, Cache-Schreib- und Output-Tokens, `cache` = Cache-Lese-Tokens; nie
 Personentage), gestützt auf `python .act/scripts/usage.py --estimates`, wo es gemessene Läufe dieser Rolle/dieses
-Tiers gibt — und einen Cap. Der Cap wird als eigenes `Cap: <n>` genannt und mechanisch geprüft, nicht aus dem Gedächtnis (`worker-cap`, `docs/ai/config.md` §
-Checks). `Cap:` wird entweder in einer eigenen Zeile erkannt oder direkt nach einem `·`/`|`/`;`/`,` weiter hinten
-in einer Zeile, ein kompakter Kopf funktioniert also auch, z. B. `Tier: standard · Estimate: ~30 min · ~400k tkn
-fresh · ~8M tkn cache · Cap: 95.` Fehlt die Zeile, gilt der Standard des Tiers: `light` 10, `standard` 40, `elevated` 60,
-`high`/`expert` 80; ohne `Cap:`- und ohne `Tier:`-Zeile gilt `standard`. Der Worker bekommt beim Erreichen des
-Caps einen Hinweis („cap reached — deliver your current state now“) und wird ab dem 1,5-Fachen des Caps
-abgewiesen — er schließt ab und berichtet, statt darüber hinauszudrängen. Braucht ein Auftrag mehr Reasoning,
-ohne das Tier der Rolle selbst anzuheben: stattdessen deren `-high`-Variante nennen (gleiches Tier, ein
-Reasoning-Schritt mehr — für eine dauerhafte Abweichung siehe `docs/ai/config.md` § Roles). Große Dateien in
-Ausschnitten lesen statt vollständig. Aufträge klein schneiden: Ein Bewertungsauftrag (ein Urteil je Eintrag
-oder je Datei) umfasst etwa 10–12 Einheiten je Worker — bei mehr werden die Urteile oberflächlich, während
-jeder weitere Werkzeugaufruf einen wachsenden Kontext erneut liest; Nacharbeit geht als neuer, kurzer Auftrag
-hinaus, statt einen Worker fortzusetzen, dessen Kontext schon voll ist; reines Lesen und Zählen passt zu
-`light`. Nur der Orchestrator startet Worker; der Vorschlag eines Workers, seine Aufgabe zu teilen, geht an den
-Orchestrator zurück, der die neuen Aufträge selbst schneidet und startet.
+Tiers gibt — und einen Cap. Der Cap wird als eigenes `Cap: <n>` genannt und mechanisch geprüft, nicht aus dem
+Gedächtnis (`worker-cap`, `docs/ai/config.md` § Checks). Braucht ein Auftrag mehr Reasoning, ohne das Tier der
+Rolle selbst anzuheben: stattdessen deren `-high`-Variante nennen (gleiches Tier, ein Reasoning-Schritt mehr —
+für eine dauerhafte Abweichung siehe `docs/ai/config.md` § Roles). Große Dateien in Ausschnitten lesen statt
+vollständig. Aufträge klein schneiden: Ein Bewertungsauftrag (ein Urteil je Eintrag oder je Datei) umfasst etwa
+10–12 Einheiten je Worker — bei mehr werden die Urteile oberflächlich, während jeder weitere Werkzeugaufruf
+einen wachsenden Kontext erneut liest; Nacharbeit geht als neuer, kurzer Auftrag hinaus, statt einen Worker
+fortzusetzen, dessen Kontext schon voll ist; reines Lesen und Zählen passt zu `light`. Nur der Orchestrator
+startet Worker; der Vorschlag eines Workers, seine Aufgabe zu teilen, geht an den Orchestrator zurück, der die
+neuen Aufträge selbst schneidet und startet. Details (kompakter Kopf, Standard-Cap je Tier, der Hinweis am Cap
+und die Abweisung darüber hinaus): `topics/checks.md`.
 
-Jeder Auftrag nennt außerdem seinen Write Scope als Zeile `Write scope: <glob>[, <glob> ...]` — Muster
-relativ zum Projektstamm, `/` als Trenner, `*` überschreitet `/` beliebig (so reicht `src/*` bereits in jede
-Tiefe unter `src/`); ein ganzes Verzeichnis kann auch als `dir/**` oder kurz als `dir/` angegeben werden
-(gleich gelesen); eckige Klammern in einem Pfad werden wörtlich genommen, `server/api/[id]/**` nennt also den
-Ordner mit dem Namen `[id]`, wie es Route-Ordner von Frameworks sind — ein Shell-Befehl sollte einen solchen Pfad
-in Anführungszeichen setzen, und ein Shell-Ziel, dessen Wildcard-Expansion über den Scope hinausreicht, wird
-abgewiesen. Ein relatives Muster (`src/**`) ist der Normalfall; ein absoluter Pfad innerhalb des
-Projektstamms (`D:/dev/x/project/src/**`) wird ebenfalls angenommen und gelesen, als wäre er relativ
-geschrieben — einer außerhalb des Projektstamms wird abgewiesen, es sei denn, er liegt in einem Verzeichnis aus
-`permissions.additionalDirectories` (ein benachbarter Checkout: `../other/.act/**` oder sein absoluter Pfad).
-`Write scope: none` heißt nur lesend: kein Schreibzugriff im Projekt, nur in das temporäre Verzeichnis des Systems
-als ausgeschriebener Pfad (`/tmp/...` in Bash oder sein absoluter Pfad) — dorthin darf jeder Worker schreiben,
-gleich welcher Scope, es sei denn, das Projekt selbst liegt darin. Fehlt die Zeile, gilt keine Einschränkung über
-den eigenen `.act/`-Schreibschutz des Templates hinaus. `worker-write-scope` (`docs/ai/config.md` § Checks)
-prüft ihn mechanisch, ebenso wie der Cap mechanisch statt aus dem Gedächtnis geprüft wird — bei einem
-Bash-Befehl ist das bestmöglich (erfasst Umleitungen und die gängigen Schreibbefehle, kein vollständiges
-Shell-Parsing), keine vollständige Garantie: Schreibzugriffe aus einem Programm heraus (`python -c
-"open(...)"`, eine Script-Datei) bleiben ihm unsichtbar.
+Jeder Auftrag nennt außerdem seinen Write Scope als Zeile `Write scope: <glob>[, <glob> ...]`, Muster relativ
+zum Projektstamm. `Write scope: none` heißt nur lesend: kein Schreibzugriff im Projekt, nur in das temporäre
+Verzeichnis des Systems als ausgeschriebener Pfad (`/tmp/...` in Bash oder sein absoluter Pfad) — dorthin darf
+jeder Worker schreiben, gleich welcher Scope, es sei denn, das Projekt selbst liegt darin. Fehlt die Zeile, gilt
+keine Einschränkung über den eigenen `.act/`-Schreibschutz des Templates hinaus. Mechanisch geprüft durch
+`worker-write-scope` (`docs/ai/config.md` § Checks); Muster-Syntax und Grenzen: `topics/checks.md`.
 
 Worker, die gleichzeitig laufen, bekommen getrennte Write Scopes; Aufträge mit überschneidenden Write Scopes
-laufen nacheinander. `worker-scope-overlap` (`docs/ai/config.md` § Checks) weist einen Start ab, dessen Write Scope
-sich mit dem eines noch laufenden Workers überschneidet: `none` überschneidet sich mit nichts, eine fehlende
-`Write scope:`-Zeile zählt als alles, und die Überschneidung wird vorsichtig aus dem festen Anfangsverzeichnis
-der Muster geschätzt. Ein beendeter Worker oder ein fehlgeschlagener Start gibt seinen Write Scope frei, ein
-abgestürzter Worker tut das nach drei Stunden oder wenn seine Datei unter `.act-local/worker-scopes/` gelöscht
-wird. Grenze: Ein mit einer Nachricht (`SendMessage`) fortgesetzter Worker ist für die Prüfung unsichtbar,
-sobald er beendet ist, der Orchestrator hält die Write Scopes also selbst auseinander. Wer einen Worker anhält und
-neu beauftragt (`R-cost-amend`), löscht zuerst dessen Datei dort, falls sie noch steht.
+laufen nacheinander. Mechanisch geprüft durch `worker-scope-overlap` (`docs/ai/config.md` § Checks).
 
 Ein Auftrag, der das Ergebnis eines anderen Workers liest, nennt es in einer eigenen Zeile, `Depends on: <whose
-result>`. Der Orchestrator startet ihn erst, nachdem dieser Worker beendet ist — nur eine Regel, denn ein Hook
-kann einen Start abweisen, aber nicht warten.
-
-Sollen mehrere Worker dasselbe Material lesen, liest der Orchestrator es einmal und schreibt, was er gefunden
-hat, nach `.act-local/notes/brief-<slug>.md` (Quelle, Stand, Verweise als `<path>:<line>`) und nennt diese Datei
-in jedem Auftrag. Die Worker lesen die Notiz statt der Quellen und schlagen nur nach, was darin fehlt. Die
-Notiz ist der eigene Text des Orchestrators, kein fremder Inhalt (`R-safe-foreign-text`): Die Eintags-Regel
-gilt für die Quellen, auf denen sie beruht, die Notiz selbst nur für die Worker dieses einen Starts.
+result>`. Er startet erst, nachdem dieser Worker beendet ist. Sollen mehrere Worker dasselbe Material lesen,
+schreibt der Orchestrator, was er gefunden hat, einmal in eine Notiz `.act-local/notes/brief-<slug>.md` und
+nennt diese Datei in jedem Auftrag.
 
 ## R-cost-wait
-<!-- source: 9d34b8772b357e3c -->
+<!-- source: 32e2bce4cb6b3395 -->
 Einen gestarteten Worker fertig werden lassen
 summary: einen gestarteten Worker fertig werden lassen; erst nach Überschreiten der Schätzung nachsehen
 
 Ein Worker meldet sich von selbst zurück, wenn er fertig ist; wiederholtes Abfragen seines Status beschleunigt
-ihn nicht — es kostet bei jedem Aufruf Tokens und verstopft den Chat (Auslöser: über vierzig aufeinanderfolgende
-leere Statusabfragen in einem realen Fall, keine davon änderte etwas). Den Auftrag starten, dann entweder an
+ihn nicht — es kostet bei jedem Aufruf Tokens und verstopft den Chat. Den Auftrag starten, dann entweder an
 etwas Unabhängigem arbeiten oder warten; nachgesehen wird erst, wenn die Laufzeit die im Auftrag genannte
-Schätzung deutlich überschreitet — nicht aus einem Bauchgefühl. Mechanisch abgewiesen ab der zweiten
-Statusabfrage in Folge (`status-poll`, `docs/ai/config.md` § Checks) — jede andere Werkzeugnutzung dazwischen
-setzt das zurück. Eine Ergänzung des Menschen, die den laufenden Auftrag betrifft, wartet nicht bis zu dessen
-Ende (`R-cost-amend`).
+Schätzung deutlich überschreitet — nicht aus einem Bauchgefühl. Mechanisch geprüft durch `status-poll`
+(`docs/ai/config.md` § Checks), das eine zweite Statusabfrage in Folge abweist. Eine Ergänzung des Menschen,
+die den laufenden Auftrag betrifft, wartet nicht bis zu dessen Ende (`R-cost-amend`). Details:
+`topics/checks.md`.
 
 ## R-cost-amend
 <!-- source: ba68f8a338468b72 -->

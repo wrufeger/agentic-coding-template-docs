@@ -3,7 +3,7 @@ title: Sicherheitsprüfung
 description: Wonach die Sicherheitsprüfung vor einem Commit sucht - gefährliche Muster, verwundbare Abhängigkeiten, die tiefe Prüfung - und was jeder Wert von security-check ausführt.
 sidebar:
   order: 2
-sourceHash: cb0a4342a1d4d23e045b3476436ed879142f7259d3d11f38a1c3cc899e51a26a
+sourceHash: 583fbb9886f6836f6ea404728ff4df4e995080cc5f8d3c3886ff14a22eea964d
 ---
 
 Die Sicherheitsprüfung wird mit einem Schlüssel gesetzt, `security-check`, in der Tabelle Checks von `docs/ai/config.md`. Anders als die übrigen Prüfungen nimmt sie nicht `block`, `warn` oder `off`, sondern eine Stufe.
@@ -24,6 +24,8 @@ Bei `git commit` werden die hinzugefügten Zeilen nach Konstrukten wie `eval`/`e
 - Dokumentation (`.md`, `.txt`, `.rst`) und alles unter `.act/` wird nie gescannt.
 
 Das ist getrennt von `secret-scan`, einer regulären `block`/`warn`/`off`-Prüfung, die einen Commit stoppt, dessen vorgemerkter Diff einen Schlüssel, Token, privaten Schlüssel, eine `.env`-Datei oder eine Zuweisung mit hoher Entropie enthält. Sie erkennt außerdem Zugangsdaten in einem URL-Query-String, einen Schlüssel in einfachen Anführungszeichen (`{'token': '...'}`), einen PHP-Array-Eintrag (`'token' => '...'`), einen Literal-Fallback hinter einer Umgebungsvariablen-Abfrage (`os.environ.get("API_TOKEN", "...")`, `process.env.API_TOKEN || "..."`) und ein Zugangsdaten-Paar in einem Wert in Anführungszeichen. Eine Zeile mit `act:allow-secret` ist ausgenommen.
+
+Eine Datei, die keinen Kommentar tragen kann (JSON, etwa ein Script-Eintrag, dessen Name nach Zugangsdaten aussieht), wird stattdessen über eine Liste behandelt: `docs/ai/local/secret-accepted.md`, pro angenommener Zeile eine Zeile `- <path> <hash>: <reason>`. `<path>` ist relativ zur Projektwurzel mit `/`, `<hash>` ein Hash der Zeile. Du rechnest ihn nicht selbst aus: Die Sperrmeldung druckt für jeden Fund den fertigen Eintrag (Pfad und Hash, nie den Wert), den du einfügst. Die Ausnahme fällt, sobald sich die Zeile ändert oder dieselbe Zeile in einer anderen Datei steht; der Commit wird dann wieder gesperrt. Eine fehlende, zu große oder unlesbare Liste nimmt nichts aus, und ein Eintrag, der die Liste selbst nennt, wird ignoriert.
 
 ## Abhängigkeitslücken (`deps`, `full`)
 

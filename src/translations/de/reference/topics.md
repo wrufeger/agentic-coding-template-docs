@@ -3,6 +3,16 @@ source hash ties the text to its English source. Edit the German text by hand; r
 Never translate commands, keys, ids or code. Maintained by scripts/gen-reference.mjs --skeleton and
 scripts/check-translations.mjs; see README "Editing the site". -->
 
+## checks
+<!-- source: 7e9cac4fdd282180 -->
+Mechanisch geprüfte Regeln — Details
+
+Detailseite zu den Regeln, die `topics/checks.md` nennen. Jede Regel in `.act/rules/` behält, was verboten oder
+verlangt ist; was ihre Prüfung erkennt, wo ihre Grenzen liegen, wie sie geschaltet wird und welche Syntax sie
+erwartet, steht hier, ein Abschnitt je Regel. Die Sperrmeldungen der Prüfungen nennen die Syntax und verweisen
+hierher. Die Prüfungen werden in `docs/ai/config.md` § Checks geschaltet (`block`, `warn` oder `off`). Die Sätze
+darunter sind der frühere Text der Regeln, unverändert hierher verschoben.
+
 ## feedback
 <!-- source: 8e66813319a3b7e4 -->
 Feedback an den Template-Autor
@@ -57,6 +67,13 @@ Safeguard-Blocks
 
 Detailseite zu `R-safe-block` (`.act/rules/shared/10-safety.md`). Lies sie immer, wenn ein Tool eine Anfrage
 oder Aktion als riskant markiert — eine Schutzvorkehrung, ein Inhaltsfilter, eine Rechteausweitung.
+
+## worker-rules
+<!-- source: 0cb68252c4773154 -->
+Worker-Regeln ohne die Orchestrator-Regeln
+
+Detailseite dazu, wie ein Worker (Sub-Agent) seine Regeln bekommt. Lies sie, wenn einem Worker eine Regel zu
+fehlen scheint, wenn eine Rollendatei geändert wird oder wenn `CLAUDE.md` groß wird.
 
 ## _intro
 <!-- source: 8c88cf2e463d41fe -->

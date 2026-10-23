@@ -39,6 +39,8 @@ A check marked in the table as "never refuses" treats `block` as `warn`. One che
 
 Turning a check down is your decision. Checks such as `secret-scan` or `git-reset-hard` protect against things that cannot be undone; lower them only with a reason.
 
+`secret-scan` holds a commit whose staged diff contains a key or token pattern. A line that carries an `act:allow-secret` comment is exempt. For a file that cannot hold comments (JSON), list the line in `docs/ai/local/secret-accepted.md` as `- <path> <hash>: <reason>`; the hold message prints the finished entry (path and a line hash, never the value). A changed line, the same line in another file, or a missing or unreadable list is held again. What each check recognises and where its limits lie is on the [checks page](/agentic-coding-template-docs/reference/topics/#checks).
+
 `outside-root` keeps reads and writes inside the project root and its allowed places, for the assistant and its workers alike. It starts at `block` in new projects; a project without the row runs it as `warn`. Exceptions go into `outside-root-allow`; both rows are described in the [configuration reference](/agentic-coding-template-docs/reference/configuration/), the rule in [`R-safe-outside-root`](/agentic-coding-template-docs/reference/rules/#r-safe-outside-root).
 
 ## File and environment

@@ -35,6 +35,10 @@ text goes in the sections at the end of the file:
 `python .act/scripts/rules.py --list --area core` shows every rule with its state, overrides as `[~]` and own rules as `[+]` (without `--area core` it lists the coding sets);
 `--validate` reports text it could not read. Path-bound rules of Claude Code under `.claude/rules/**/*.md` show up in `--list` with their `paths:` patterns; `--validate` warns about a pattern that matches no project file and a file without `paths:`.
 
+## What the main session and a worker load
+
+The main session loads `CLAUDE.md`, which imports `docs/ai/rules.md` and through it the shared rules, the coding rules and the orchestrator rules. A worker does not load `CLAUDE.md`; a `SubagentStart` hook gives it the same text without the orchestrator rules (see [Roles](/agentic-coding-template-docs/concepts/roles/)). `python .act/scripts/rules.py --worker` shows what a worker gets, `--imports` what the main session loads. The rules that a hook checks mechanically are kept short in the rule file: the ban or duty and the name of the check stay, while what the check recognises, its limits, its switch and its syntax stand on the [checks page](/agentic-coding-template-docs/reference/topics/#checks).
+
 ## Coding rule sets
 
 `docs/project/coding_rules.md` works the same way for coding rules. Each line `- [x] use: @../../.act/coding/<set>.md` (checked) or `- [ ] use: .act/coding/<set>.md` (unchecked) switches

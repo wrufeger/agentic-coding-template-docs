@@ -24,6 +24,8 @@ On `git commit`, the added lines are scanned for constructs such as `eval`/`exec
 
 This is separate from `secret-scan`, a regular `block`/`warn`/`off` check that stops a commit whose staged diff holds a key, token, private key, `.env` file or high-entropy assignment. It also catches a credential in a URL query string, a single-quoted key (`{'token': '...'}`), a PHP array entry (`'token' => '...'`), a literal fallback after an environment lookup (`os.environ.get("API_TOKEN", "...")`, `process.env.API_TOKEN || "..."`) and a credential pair inside a quoted value. A line carrying `act:allow-secret` is exempt.
 
+A file that cannot carry a comment (JSON, for example a script entry whose name looks like a credential) is handled with a list instead: `docs/ai/local/secret-accepted.md`, one line `- <path> <hash>: <reason>` per accepted line. `<path>` is relative to the project root with `/`, `<hash>` a hash of the line. You do not compute it: the hold message prints the finished entry for each finding (path and hash, never the value), and you paste it in. The exception falls as soon as the line changes or the same line appears in another file, and the commit is held again. A missing, oversized or unreadable list accepts nothing, and an entry naming the list itself is ignored.
+
 ## Dependency gaps (`deps`, `full`)
 
 A live lookup of known vulnerabilities in your dependencies. It uses `osv-scanner` if installed, otherwise `npm audit`, `pnpm audit`, `composer audit` or `pip-audit` for the matching ecosystem. Lock files and requirement files it reads include `package-lock.json`, `pnpm-lock.yaml` (pnpm 9 or newer), `composer.lock`, `requirements.txt`, `go.mod` and `Cargo.lock`.
