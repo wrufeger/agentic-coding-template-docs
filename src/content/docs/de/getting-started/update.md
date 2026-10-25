@@ -3,7 +3,7 @@ title: Update
 description: Einen neueren Stand des Templates mit act-update in ein Projekt holen.
 sidebar:
   order: 3
-sourceHash: 624f87a2ccedb5079b62e6c81b6d63fcac8e5ca4692a7fb2a3b8f41284ac1962
+sourceHash: a28cbf2bbbcc92e48667d4b5a6c56781310af2a6b26c456a61032d463218db22
 ---
 
 `act-update` holt einen neueren Stand des Templates in dein Projekt: Du siehst den Diff, du stimmst zu, und
@@ -74,6 +74,21 @@ Hat das Template keinen neueren Stand, melden `--plan` und der echte Lauf „not
 Inhalt gleich bliebe, wird nicht neu geschrieben. Ein großes Update scheitert unter Windows nicht mehr mit `WinError 206`.
 
 Danach ergänzt der Assistent eine Journalzeile mit der Änderung des Basis-Commits und der Zahl der Befunde.
+
+## Upgrade auf 2.3.0
+
+Von v2.2.0 aus führst du `act-update` wie gewohnt aus und startest danach eine neue Sitzung, damit die neuen Hooks und
+Rollenfelder greifen. Eine neue Migration gibt es nicht.
+
+- **Der Update-Channel** entscheidet, was das nächste `act-update` bringt (siehe [Update-Channel](#update-channel)). Ein
+  Projekt ohne `update-channel` in `docs/ai/config.md` folgt `release` und bekommt einmal einen Hinweis; mit
+  `update-channel: latest` folgt es weiter dem Standard-Branch.
+- **Die Prüfung `outside-root`** läuft als `warn` in einem Projekt ohne ihre Zeile in `docs/ai/config.md` § Checks.
+  Ein einmaliger Hinweis beim Sitzungsstart sagt, wie du sie auf `block` stellst; weitere erlaubte Orte kommen in
+  `outside-root-allow`.
+- **Worker laden die Orchestrator-Regeln nicht mehr**: Die Rollen der Vorlage bekommen `omitClaudeMd: true` und
+  `.claude/settings.json` die Einträge für `SubagentStart` (Schritt 7). Claude Code vor 2.1.271 ignoriert das Feld,
+  Worker bekommen die Regeln dort doppelt, bis Claude Code aktualisiert ist.
 
 ## Upgrade auf 2.2.0
 

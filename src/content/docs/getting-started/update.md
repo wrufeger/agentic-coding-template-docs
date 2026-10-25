@@ -71,6 +71,20 @@ would not change is not rewritten. A large update no longer fails on Windows wit
 
 Then the assistant adds a journal line with the base-commit change and the number of findings.
 
+## Upgrading to 2.3.0
+
+From v2.2.0, run `act-update` as usual, then start a new session so the new hooks and role fields take effect. There
+is no new migration.
+
+- **The update channel** decides what the next `act-update` brings (see [Update channel](#update-channel)). A project
+  without `update-channel` in `docs/ai/config.md` follows `release` and gets a one-time note; set
+  `update-channel: latest` to keep following the default branch.
+- **The check `outside-root`** runs as `warn` in a project without its row in `docs/ai/config.md` § Checks. A one-time
+  note at session start says how to switch it to `block`; further allowed places go into `outside-root-allow`.
+- **Workers no longer load the orchestrator rules**: the template's roles get `omitClaudeMd: true` and
+  `.claude/settings.json` the `SubagentStart` entries (step 7). Claude Code before 2.1.271 ignores the field, so
+  workers there get the rules twice until Claude Code is updated.
+
 ## Upgrading to 2.2.0
 
 From v2.1.0, run `act-update` as usual; nothing else is needed. `--plan` first lists what will happen.
