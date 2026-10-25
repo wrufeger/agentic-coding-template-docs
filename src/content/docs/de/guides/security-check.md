@@ -3,7 +3,7 @@ title: Sicherheitsprüfung
 description: Wonach die Sicherheitsprüfung vor einem Commit sucht - gefährliche Muster, verwundbare Abhängigkeiten, die tiefe Prüfung - und was jeder Wert von security-check ausführt.
 sidebar:
   order: 2
-sourceHash: 583fbb9886f6836f6ea404728ff4df4e995080cc5f8d3c3886ff14a22eea964d
+sourceHash: 3a42f164a538874d05dc2d38db065717b4a71da7cb8e009117fb3da52c698297
 ---
 
 Die Sicherheitsprüfung wird mit einem Schlüssel gesetzt, `security-check`, in der Tabelle Checks von `docs/ai/config.md`. Anders als die übrigen Prüfungen nimmt sie nicht `block`, `warn` oder `off`, sondern eine Stufe.
@@ -38,7 +38,7 @@ Eine Live-Abfrage bekannter Schwachstellen in deinen Abhängigkeiten. Sie nutzt 
 - **Beim Sitzungsstart**: einmal am Tag über jede Lock-Datei im Projekt, außer in Ordnern, die git ignoriert, und in verschachtelten Checkouts. Der Hinweis ist je Lock-Datei gruppiert und nennt das Alter des Scans; ein Ergebnis entfällt, sobald eine gescannte Lock-Datei sich geändert hat oder verschwunden ist.
 - **Was einen Commit aufhält**: ein nicht akzeptierter Befund der Schwere high oder critical, mit Paket, Version, Advisory-Id, Schwere und behobener Version. Eine geringere oder unbekannte Schwere wird nur vermerkt. `pip-audit` meldet keine Schwere, seine Befunde werden daher nur vermerkt.
 - **Einen Befund akzeptieren**: füge eine Zeile `- <advisory-id>: <reason>` in `docs/ai/local/security-accepted.md` ein, eine pro Zeile; `#`-Kommentare und Leerzeilen werden ignoriert. Die Id ist die, die das Scan-Werkzeug meldet (`npm audit` nutzt Zahlen, `osv-scanner` und `pnpm audit` nutzen GHSA-Ids); nach einem Wechsel des Paketmanagers brauchen die Einträge also neue Ids (`act-deps` weist darauf hin).
-- **Fehler blockieren nie**: Ein fehlendes Werkzeug wird einmal pro Rechner mit seinem Installationsbefehl vermerkt; ein Netzwerk- oder Werkzeugfehler wird jedes Mal vermerkt, und der Commit geht durch.
+- **Fehler blockieren nie, außer ein unlesbarer Bericht mit Funden**: Ein fehlendes Werkzeug wird einmal pro Rechner mit seinem Installationsbefehl vermerkt; ein Netzwerk- oder Werkzeugfehler wird jedes Mal vermerkt, und der Commit geht durch, damit ein Rechner ohne Netz weiter committen kann. `python .act/scripts/security_scan.py --deps` meldet dann „scan incomplete“ statt „no known vulnerability found“. Endet ein Werkzeug mit seinem Exitcode für Funde, hinterlässt aber keinen lesbaren Bericht (bei `pip-audit`, dessen eigene schwere Fehler ebenfalls mit 1 enden, nur einen nicht leeren), hält das den Commit an, weil niemand sagen kann, was gefunden wurde: `security_scan.py --deps` endet mit 1 und einer Zeile `UNREAD FINDINGS`, und auch der Hinweis beim Sitzungsstart und der Bericht nach einem Merge zeigen es.
 
 ## Die tiefe Prüfung (`full`)
 
