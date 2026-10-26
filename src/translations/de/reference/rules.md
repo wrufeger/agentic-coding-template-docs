@@ -145,19 +145,15 @@ Schlüssel (`*.pub`) bleiben frei. Gilt für Orchestrator und Worker gleicherma�
 `secret-read` (`docs/ai/config.md` § Checks). Details (Schalter, Grenze): `topics/checks.md`.
 
 ## R-safe-outside-root
-<!-- source: 959efb68db51f04a -->
+<!-- source: d1fa5a6310af85a6 -->
 Im Projekt bleiben
-summary: nur im Projektstamm und seinen erlaubten Orten lesen und schreiben; jeder andere Ort nur auf Wort des Eigentümers, als Eintrag; mechanisch geprüft
+summary: nur im Projekt und seinen erlaubten Orten; ein neuer Ort auf Wort des Eigentümers, als Eintrag, auch wo die Prüfung nur warnt oder nicht hinsieht; mechanisch geprüft
 
-Gelesen und geschrieben wird nur im Projektstamm und an den dafür erlaubten Orten: den Ordnern in
-`permissions.additionalDirectories`, dem temporären Systemverzeichnis, dem eigenen Ordner von Claude Code für
-dieses Projekt, seinem Plan-Ordner `~/.claude/plans/`, nur lesend seinen Plugin- und Skill-Ordnern
-(`~/.claude/plugins/`, `~/.claude/skills/`) und den Einträgen von `outside-root-allow` (`docs/ai/config.md` §
-Checks; `(read)` nach einem Pfad erlaubt nur Lesen). Jeder andere Ort — ein Nachbar-Repository, ein anderes
-Projekt, das Home-Verzeichnis — nur auf Wort des Eigentümers für diesen Fall, und dann als Eintrag in
-`outside-root-allow` oder `additionalDirectories`, nie als einmaliger Umweg. Gilt für jede Rolle und jedes
-Werkzeug. Mechanisch geprüft durch `outside-root` (`docs/ai/config.md` § Checks). Details (Ausnahme von
-`act-adopt`, Schalter, Grenzen): `topics/checks.md`.
+Gelesen und geschrieben wird nur im Projekt und an seinen erlaubten Orten. Ein neuer Ort nur auf Wort des
+Eigentümers, als Eintrag in `outside-root-allow` — auch wenn die Prüfung nur warnt, und auch dort, wo sie nicht
+hinsieht: ein Programm, das Dateien selbst öffnet, ein MCP-Werkzeug, das einen Pfad entgegennimmt. Mechanisch
+geprüft durch `outside-root` (`docs/ai/config.md` § Checks). Details (erlaubte Orte, Ausnahme von `act-adopt`,
+Schalter, Grenzen): `topics/checks.md`.
 
 ## R-safe-no-secret-log
 <!-- source: 0ab72e3f4d5b4f62 -->
@@ -354,15 +350,15 @@ geht er mit vollem Kontext an die Expertenrolle (ursprünglicher Auftrag, beide 
 Ausgabe, bereits ausgeschlossene Ursachen).
 
 ## R-role-outcome
-<!-- source: 66c838140edd3a82 -->
+<!-- source: 7072b781739c2236 -->
 Jedes Worker-Ergebnis festhalten
-summary: usage.py --outcome nach jeder Abnahme/Nacharbeit/Eskalation speist den Tier-Vorschlag, nie eine Live-Änderung
+summary: usage.py --outcome nach jeder Abnahme/Nacharbeit/Eskalation speist den Tier-Vorschlag (eine Inbox-Frage), nie eine Live-Änderung
 
 Unmittelbar nachdem das Ergebnis eines Workers abgenommen, nachgearbeitet oder eskaliert wurde, wird `python
 .act/scripts/usage.py --outcome <role> <tier> accepted|reworked|escalated` ausgeführt (`<tier>` wie nach
 `R-cost-delegate` zugewiesen, oder `""`, wenn keiner angegeben war). Kein Hook kann das ersetzen:
-`SubagentStop` feuert vor dieser Entscheidung. `doctor.py --inbox` macht aus dem Muster einen Vorschlag, nie
-eine Live-Änderung: 8+ Ergebnisse für eine Rolle/ein Tier mit 40 % und mehr Nacharbeit/Eskalation legen ein
+`SubagentStop` feuert vor dieser Entscheidung. `doctor.py --inbox` legt das Muster als Inbox-Frage mit Optionen
+an, nie als Live-Änderung: 8+ Ergebnisse für eine Rolle/ein Tier mit 40 % und mehr Nacharbeit/Eskalation legen ein
 höheres Tier nahe — der Mensch entscheidet. Ein niedrigeres Tier wird nie vorgeschlagen: Abgenommene
 Ergebnisse zeigen nicht, dass ein günstigeres Tier es ebenso gut gemacht hätte.
 
@@ -580,14 +576,22 @@ Antwort oder eine von einer anderen Sitzung erwartete Gegenprüfung wird als Tod
 angelegt, das nennt, auf wen oder was sie wartet (oder `all`), damit das Versprechen die Sitzung überlebt.
 
 ## rules/orchestrator/30-cost.md
-<!-- source: 5444b12bbfe8a58f -->
+<!-- source: 8d5f43e3259899aa -->
 Kostenregeln
-summary: Delegations-Tiers und Caps, auf Worker warten, einen laufenden Auftrag ergänzen, wiederkehrende Prüfungen als Script, Commit-Schranke
+summary: wann delegieren, Delegations-Tiers und Caps, auf Worker warten, einen laufenden Auftrag ergänzen, wiederkehrende Prüfungen als Script, Commit-Schranke
 
 ## R-cost-delegate
-<!-- source: d61ea4c25e14cd6e -->
+<!-- source: 302d4b993f72e965 -->
 Tier, Schätzung und Cap nennen
-summary: Tier, Schätzung in Minuten und tkn fresh/cache, mechanisch geprüfter Cap, kleine Aufträge
+summary: delegieren, wo sich eine Übergabe lohnt, Rollen des Templates vor den eigenen Agenten des Werkzeugs; Tier, Schätzung in Minuten und tkn fresh/cache, mechanisch geprüfter Cap, kleine Aufträge
+
+Eine Übergabe kostet den frischen Start eines Workers und verliert Kontext; delegiert wird deshalb nur, wo sie
+sich lohnt: unabhängige Teile, die parallel laufen, eine Prüfung, die den Kontext der Umsetzung nicht teilen soll
+(das Review), Ausgabe von unbekannter oder großer Länge, die danach nicht mehr gebraucht wird, langes Lesen oder
+Läufe, die ein günstigeres Tier ebenso gut erledigt. Eine bekannte Datei oder Stelle, wenige Werkzeugaufrufe oder
+eine kleine Änderung erledigt man selbst; ihr Review folgt trotzdem `R-code-commit`. Die Rollen des Templates gehen
+vor den eigenen Agenten des Werkzeugs (in Claude Code `Explore`, `general-purpose`, `Plan`; sein
+`claude-code-guide` bleibt für Fragen zum Werkzeug selbst).
 
 Jeder Auftrag an einen Worker nennt sein Tier ausdrücklich — `light` für Lesen/Zählen, `standard` für
 Umsetzung, `elevated` für Review/Sicherheitsbewertung, `expert` nur für eine Eskalation nach zwei gescheiterten

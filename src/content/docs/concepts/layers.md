@@ -37,7 +37,7 @@ text goes in the sections at the end of the file:
 
 ## What the main session and a worker load
 
-The main session loads `CLAUDE.md`, which imports `docs/ai/rules.md` and through it the shared rules, the coding rules and the orchestrator rules. A worker does not load `CLAUDE.md`; a `SubagentStart` hook gives it the same text without the orchestrator rules (see [Roles](/agentic-coding-template-docs/concepts/roles/)). `python .act/scripts/rules.py --worker` shows what a worker gets, `--imports` what the main session loads. The rules that a hook checks mechanically are kept short in the rule file: the ban or duty and the name of the check stay, while what the check recognises, its limits, its switch and its syntax stand on the [checks page](/agentic-coding-template-docs/reference/topics/#checks).
+The main session loads `CLAUDE.md`, which imports `docs/ai/rules.md` and through it the shared rules, the coding rules and the orchestrator rules. A worker does not load `CLAUDE.md`; a `SubagentStart` hook gives it the same text without the orchestrator rules (see [Roles](/agentic-coding-template-docs/concepts/roles/)). `python .act/scripts/rules.py --worker` shows what a worker gets, `--imports` what the main session loads, with each file's size in characters and a total split into the template's share and the project's. The rules that a hook checks mechanically are kept short in the rule file: the ban or duty and the name of the check stay, while what the check recognises, its limits, its switch and its syntax stand on the [checks page](/agentic-coding-template-docs/reference/topics/#checks).
 
 ## Coding rule sets
 

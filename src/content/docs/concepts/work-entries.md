@@ -25,7 +25,7 @@ The inbox is the one place where something waits for you. Each file opens with Y
 
 | `kind` | Id | What it is | Status flow |
 | :--- | :--- | :--- | :--- |
-| `question` | `Q12` | a decision or question for you; you answer below it | `open` → `answered` → `done` |
+| `question` | `Q12` | a decision or question for you; you answer below its `**Answer:**` label | `open` → `answered` → `done` |
 | `todo` | `U3` | a step only a person can take, filed once it is actionable | `open` → `done` |
 | `report` | none | a tool's read-only report, for example from `doctor` or an adoption | `open` → `done` (read) |
 | `note` | none | your own note; the assistant replies below it | `open` → `answered` → `done` |
@@ -33,6 +33,8 @@ The inbox is the one place where something waits for you. Each file opens with Y
 An entry without a `kind` counts as `todo`. The `for:` field says whom an entry is addressed to: `all` or a person's workspace identity. A `done` entry is moved to the archive, whatever its kind. A reply the assistant has promised, or a counter-check it expects from another session, is filed as a `todo` with `for:` naming whom or what it waits for (or `all`), so the promise outlives the session; `act-commit` asks "anyone waiting?" before it reports.
 
 A chat message that begins with `todo:`, `note:` or `idea:` (any letter case) is a quick capture: with `quick-capture` on (the default), the `UserPromptSubmit` hook files it without a model turn, so it costs no tokens and does not interrupt a running task. `todo:` and `note:` become inbox entries marked `triage: open`; `idea:` becomes a new section in your ideas file (below). The assistant processes each `triage: open` entry right after the answered ones: it decides whom a todo is for or turns it into a backlog item, or replies below a note. Where the hook does not run, the assistant files the message itself (rule `R-human-capture`).
+
+A question is one file per question, with options as lines `- **a)** …` (not a numbered list) and the recommendation marked. `entries.py new question` ends it with an empty `**Answer:**` label (`**Antwort:**` with `language-docs: de`); the answer goes below that label, and before booking one the assistant reads the file again so it never lands under a second label.
 
 The assistant creates entries with `python .act/scripts/entries.py new <kind> <title>`; the [scripts reference](/agentic-coding-template-docs/reference/scripts/) lists every option.
 

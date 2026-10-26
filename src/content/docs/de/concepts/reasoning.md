@@ -3,7 +3,7 @@ title: Tiers und Reasoning
 description: Wie Rollen eine Modellkapazität (Tier) und eine Reasoning-Stufe bekommen, die -high-Varianten, Overrides und Caps.
 sidebar:
   order: 5
-sourceHash: dac2b083a29891c75e47758193037bbf4144eba73fb883fd42d9b77e736e2458
+sourceHash: 01b3d13004c97e4c265b63523712d4b2eff927cd8945830970bbaf37d61a4668
 ---
 
 Jede Worker-Rolle hat einen **Tier** (wie viel Modellkapazität) und eine **Reasoning**-Stufe (wie viel sie vor der Antwort nachdenkt). Beides steht in einer werkzeugneutralen Skala in der Definition der Rolle. Ein echter Modellname erscheint nur in `.act/tiers.json` und wird angewendet, wenn die Datei der Rolle für dein Werkzeug erzeugt wird.
@@ -59,4 +59,4 @@ Ein Skill kann im Frontmatter `reasoning: <level>` tragen (ein Wert der obigen S
 
 Jeder Auftrag an einen Worker nennt seinen Tier, eine Schätzung und einen Cap für Tool-Aufrufe (`Cap: <n>`). Die Schätzung steht in Minuten und `tkn`, nie in Personentagen: `~<n> min · ~<n> tkn fresh · ~<n> tkn cache` samt der Annahme dahinter. `act-idea`, `act-prepare` und der Assistent stützen sie auf `usage.py --estimates`, wo Messwerte vorliegen (siehe [Rollen](/agentic-coding-template-docs/de/concepts/roles/)). Die Prüfung `worker-cap` erzwingt ihn mechanisch: Der Worker bekommt beim Erreichen des Caps einen Hinweis und wird ab dem 1,5-fachen Cap abgewiesen. Ohne Zeile `Cap:` gilt der Standard des Tiers (Tabelle oben); ohne Tier `standard`.
 
-Der Assistent vermerkt nach jedem Ergebnis, ob es angenommen, nachgearbeitet oder eskaliert wurde. Zeigen eine Rolle und ein Tier viele Nacharbeiten, schlägt `doctor` einen höheren Tier vor. Einen niedrigeren schlägt er nie vor: Angenommene Ergebnisse zeigen nicht, dass ein günstigerer Tier es ebenso gut gemacht hätte. Es ist immer nur ein Vorschlag, nie eine Änderung im laufenden Betrieb; du entscheidest. Derselbe Vorschlag wird erst nach mindestens 8 weiteren Ergebnissen für diese Rolle und diesen Tier erneut angelegt.
+Der Assistent vermerkt nach jedem Ergebnis, ob es angenommen, nachgearbeitet oder eskaliert wurde. Zeigen eine Rolle und ein Tier viele Nacharbeiten, legt `doctor.py --inbox` einen Vorschlag für einen höheren Tier als eigene Inbox-Frage an, mit den Optionen, ihn anzuheben, ihn bis zu 8 weiteren Ergebnissen zu lassen oder erst die Fälle anzusehen. Einen niedrigeren schlägt er nie vor: Angenommene Ergebnisse zeigen nicht, dass ein günstigerer Tier es ebenso gut gemacht hätte. Es ist immer nur ein Vorschlag, nie eine Änderung im laufenden Betrieb; du entscheidest. Ein angelegter Vorschlag kommt auch am selben Tag nicht wieder, bis mindestens 8 weitere Ergebnisse für diese Rolle und diesen Tier vorliegen.

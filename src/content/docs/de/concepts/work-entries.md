@@ -3,7 +3,7 @@ title: Inbox, Aufgaben und Journal
 description: Was in docs/ai/ liegt - Inbox, Aufgaben, Backlog, Journal, Archiv, Ideen, das Board und die Statuszeile.
 sidebar:
   order: 3
-sourceHash: 0e4522285f8d01d6624537053beb38c711ed4b80cddf0b88d501c369465474d5
+sourceHash: 26a5b347d1d555d96e10ab5ad07daca06000a3d07720683e3267ceb40bb3d962
 ---
 
 `docs/ai/` ist das gemeinsame Arbeitsgedächtnis von dir und dem Assistenten. Alles darin ist eine einfache Datei, eine Datei pro Eintrag, versioniert mit dem Projekt. Übersichten wie das Board werden aus diesen Dateien erzeugt und nie von Hand gepflegt.
@@ -26,7 +26,7 @@ Die Inbox ist der eine Ort, an dem etwas auf dich wartet. Jede Datei beginnt mit
 
 | `kind` | Id | Was es ist | Statusverlauf |
 | :--- | :--- | :--- | :--- |
-| `question` | `Q12` | eine Entscheidung oder Frage an dich; du antwortest darunter | `open` → `answered` → `done` |
+| `question` | `Q12` | eine Entscheidung oder Frage an dich; du antwortest unter ihrer Zeile `**Antwort:**` | `open` → `answered` → `done` |
 | `todo` | `U3` | ein Schritt, den nur ein Mensch tun kann, angelegt, sobald er ansteht | `open` → `done` |
 | `report` | keine | der schreibgeschützte Bericht eines Werkzeugs, zum Beispiel von `doctor` oder einer Übernahme | `open` → `done` (gelesen) |
 | `note` | keine | deine eigene Notiz; der Assistent antwortet darunter | `open` → `answered` → `done` |
@@ -34,6 +34,8 @@ Die Inbox ist der eine Ort, an dem etwas auf dich wartet. Jede Datei beginnt mit
 Ein Eintrag ohne `kind` zählt als `todo`. Das Feld `for:` sagt, an wen ein Eintrag gerichtet ist: `all` oder die Workspace-Identität einer Person. Ein Eintrag mit `done` wandert ins Archiv, egal welcher Art. Eine Antwort, die der Assistent versprochen hat, oder eine Gegenprüfung, die er von einer anderen Sitzung erwartet, wird als `todo` angelegt, mit `for:` für die Person oder Stelle, auf die es wartet (oder `all`); so überlebt das Versprechen die Sitzung. `act-commit` fragt vor dem Bericht „Wartet jemand?“.
 
 Eine Chat-Nachricht, die mit `todo:`, `note:` oder `idea:` beginnt (Groß-/Kleinschreibung egal), ist ein Quick Capture: Bei eingeschaltetem `quick-capture` (Standard) legt der Hook `UserPromptSubmit` sie ohne Modell-Durchlauf ab, sie kostet also keine Token und unterbricht keine laufende Aufgabe. `todo:` und `note:` werden Inbox-Einträge mit `triage: open`; `idea:` wird ein neuer Abschnitt in deiner Ideen-Datei (unten). Der Assistent bearbeitet jeden Eintrag mit `triage: open` direkt nach den beantworteten: Er entscheidet, für wen ein Todo ist, oder macht daraus einen Backlog-Eintrag, oder er antwortet unter einer Notiz. Wo der Hook nicht läuft, legt der Assistent die Nachricht selbst ab (Regel `R-human-capture`).
+
+Eine Frage ist eine Datei je Frage, mit Optionen als Zeilen `- **a)** …` (keine nummerierte Liste) und markierter Empfehlung. `entries.py new question` schließt sie mit einer leeren Zeile `**Antwort:**` (`**Answer:**` bei nicht deutschem `language-docs`); die Antwort steht darunter, und vor dem Verbuchen liest der Assistent die Datei erneut, damit sie nie unter einer zweiten Zeile landet.
 
 Der Assistent legt Einträge mit `python .act/scripts/entries.py new <kind> <title>` an; die [Script-Referenz](/agentic-coding-template-docs/de/reference/scripts/) listet alle Optionen.
 

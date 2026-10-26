@@ -58,12 +58,12 @@ and what `act-update` would take. It uses only `git ls-remote`, clones nothing a
    tokens only).
 7. **Hooks and Git files.** Reconciles the hook entries in `.claude/settings.json` and the template blocks in
    `.gitattributes` and `.gitignore`, and sets `"enableArtifact": false` there unless `artifacts: on` is in
-   `docs/ai/config.md`. An existing project therefore starts without the `Artifact` tool after the update. It also adds the six `SubagentStart` entries that give workers their rules without the orchestrator rules (see step 6). `python .act/scripts/rules.py --worker` shows what a worker gets.
+   `docs/ai/config.md`. An existing project therefore starts without the `Artifact` tool after the update. It also adds the 12 `SubagentStart` entries that give workers their rules without the orchestrator rules (see step 6); an older set of six is replaced, your own hooks stay. `python .act/scripts/rules.py --worker` shows what a worker gets.
 8. **Migrations.** Runs any that are due. Each rewrites an affected file once and leaves it alone after.
 9. **Bridges and doctor.** First unedited generated bridges (`CLAUDE.md`, `AGENTS.md`, `docs/ai/rules.md`) are
    refreshed; with `session-start-refresh` at `warn` or `off` in `docs/ai/config.md` § Checks they are only
    reported ("would refresh … not written"). Then `doctor.py` checks for
-   drift; findings land in `docs/ai/inbox/`, never as a silent fix.
+   drift; findings land in `docs/ai/inbox/`, never as a silent fix. A new tier proposal is filed there as a question of its own; the commit takes the report and the questions, and the summary names both.
 10. **Lock and commit.** `.act-lock.json` is rewritten and a commit is made, unless you pass `--no-commit`.
 
 If the template has no newer state, `--plan` and the real run both say "nothing to update". A bridge file whose content

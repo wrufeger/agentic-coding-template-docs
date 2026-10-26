@@ -9,7 +9,7 @@ sidebar:
 
 The main session is the **orchestrator**. It plans, reviews, commits, and is the only one that writes to
 `docs/ai/`. It starts workers, which are sub-agents with a bounded assignment. You never talk to a worker
-directly. Naming a role in the chat (`reviewer`, `explorer`) is an instruction to the orchestrator to deploy it.
+directly. Naming a role in the chat (`reviewer`, `explorer`) is an instruction to the orchestrator to deploy it. The orchestrator hands work over only where that pays off: independent parts that run in parallel, the review, output of unknown or large length not needed afterwards, long reading or runs a cheaper tier does as well. A known file or spot, a few tool calls or a small change it does itself; its review still follows `R-code-commit`. The template's roles come before the tool's own agents (in Claude Code `Explore`, `general-purpose`, `Plan`).
 
 ## The roles
 
@@ -45,7 +45,7 @@ in `docs/ai/config.md` § Checks, each `block`, `warn`, or `off`). The exact syn
 
 ## How a worker gets its rules
 
-A worker does not load `CLAUDE.md`: the template's roles carry `omitClaudeMd: true`, because `CLAUDE.md` would pull the orchestrator rules into every worker start although only the main session needs them. Instead a `SubagentStart` hook hands the worker the rest of what `CLAUDE.md` loads: the shared rules, the coding rules, your own rules from `docs/ai/rules.md`, `CLAUDE.local.md` and the user-level `~/.claude/CLAUDE.md`, but nothing from `.act/rules/orchestrator/`. The text comes in parts of under 10,000 characters and saves about 24,000 characters per worker start. `python .act/scripts/rules.py --worker` shows the parts. An update adds the field and the hook entries to existing template roles; an own role without the field loads `CLAUDE.md` as before. Claude Code before 2.1.271 ignores the field, so its workers get the rules twice, which only costs tokens. Details: [Topics](/agentic-coding-template-docs/reference/topics/#worker-rules).
+A worker does not load `CLAUDE.md`: the template's roles carry `omitClaudeMd: true`, because `CLAUDE.md` would pull the orchestrator rules into every worker start although only the main session needs them. Instead a `SubagentStart` hook hands the worker the rest of what `CLAUDE.md` loads: the shared rules, the coding rules, your own rules from `docs/ai/rules.md`, `CLAUDE.local.md` and the user-level `~/.claude/CLAUDE.md`, but nothing from `.act/rules/orchestrator/`. The text comes in parts of under 10,000 characters, delivered over up to 12 `SubagentStart` entries, and saves about 24,000 characters per worker start. If 12 are not enough, the last entry names the files the worker reads itself, and `rules.py --worker` and `act-doctor` warn which rule files to shorten. `python .act/scripts/rules.py --worker` shows the parts. An update adds the field and the hook entries to existing template roles; an own role without the field loads `CLAUDE.md` as before. Claude Code before 2.1.271 ignores the field, so its workers get the rules twice, which only costs tokens. Details: [Topics](/agentic-coding-template-docs/reference/topics/#worker-rules).
 
 ## What a worker may not do
 
@@ -61,5 +61,5 @@ A worker does not load `CLAUDE.md`: the template's roles carry `omitClaudeMd: tr
 
 A worker that fails the same task twice gets no third identical attempt: the orchestrator sharpens the assignment
 once, or hands it to `expert-solver` with the full failure context. After accepting, reworking, or escalating a
-result it records the outcome with `usage.py --outcome`; from enough reworks among them `doctor.py` proposes a higher tier (and files the same proposal again only after 8 more outcomes),
+result it records the outcome with `usage.py --outcome`; from enough reworks among them `doctor.py --inbox` files a proposal for a higher tier as an inbox question of its own, with the options to raise it, leave it until 8 more outcomes, or look at the cases first; a filed proposal does not return, even the same day, until 8 more outcomes,
 and you decide. When a worker ends, the usage counter also reads its transcript and records duration, steps and tokens (`fresh` and `cache`) per role and tier in `.act-local/usage.json`, the newest 50 runs each; pauses of more than 30 minutes between two records count as idle time and stay out of the minutes. `usage.py --estimates` shows the median and the 80th percentile per role and tier; `usage.py --backfill` reads a project's existing transcripts once. The numbers stay local and are never sent with feedback; Claude Code only. The orchestrator also does not poll a running worker. An addition from you that fits a running assignment goes to that worker at once, or the worker is stopped and reassigned when one new run is cheaper than two. A wider write scope or a higher cap always means reassign, since both are read once when the worker starts.

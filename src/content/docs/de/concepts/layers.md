@@ -3,7 +3,7 @@ title: Schichten und Overrides
 description: Wie Template-Schicht und Projekt-Schicht zusammenpassen und wie du eine Regel änderst, ohne sie beim Update zu verlieren.
 sidebar:
   order: 1
-sourceHash: a36dcbfe4c5f8d5c975f5fae47f5ab1129d881472f8b33ad471ec07605ee1479
+sourceHash: 10039c648cd87e9f5c428e5616e5d6c3f9fa3b0445c492002faabc43258ea4b1
 ---
 
 ## Zwei Schichten
@@ -39,7 +39,7 @@ um einen ganzen Bereich abzuschalten. Dein eigener Text kommt in die Abschnitte 
 
 ## Was die Hauptsitzung und was ein Worker lädt
 
-Die Hauptsitzung lädt `CLAUDE.md`, das `docs/ai/rules.md` importiert und darüber die geteilten Regeln, die Coding-Regeln und die Orchestrator-Regeln. Ein Worker lädt `CLAUDE.md` nicht; ein `SubagentStart`-Hook gibt ihm denselben Text ohne die Orchestrator-Regeln (siehe [Rollen](/agentic-coding-template-docs/de/concepts/roles/)). `python .act/scripts/rules.py --worker` zeigt, was ein Worker bekommt, `--imports`, was die Hauptsitzung lädt. Die Regeln, die ein Hook mechanisch prüft, stehen in der Regeldatei gekürzt: Verbot oder Pflicht und der Name der Prüfung bleiben, was die Prüfung erkennt, ihre Grenzen, ihr Schalter und ihre Syntax stehen auf der [Seite zu den Prüfungen](/agentic-coding-template-docs/de/reference/topics/#checks).
+Die Hauptsitzung lädt `CLAUDE.md`, das `docs/ai/rules.md` importiert und darüber die geteilten Regeln, die Coding-Regeln und die Orchestrator-Regeln. Ein Worker lädt `CLAUDE.md` nicht; ein `SubagentStart`-Hook gibt ihm denselben Text ohne die Orchestrator-Regeln (siehe [Rollen](/agentic-coding-template-docs/de/concepts/roles/)). `python .act/scripts/rules.py --worker` zeigt, was ein Worker bekommt, `--imports`, was die Hauptsitzung lädt, mit der Größe jeder Datei in Zeichen und einer Summe, geteilt in den Anteil des Templates und den des Projekts. Die Regeln, die ein Hook mechanisch prüft, stehen in der Regeldatei gekürzt: Verbot oder Pflicht und der Name der Prüfung bleiben, was die Prüfung erkennt, ihre Grenzen, ihr Schalter und ihre Syntax stehen auf der [Seite zu den Prüfungen](/agentic-coding-template-docs/de/reference/topics/#checks).
 
 ## Coding-Regelsätze
 

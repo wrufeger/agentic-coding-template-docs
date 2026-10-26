@@ -3,7 +3,7 @@ title: Rollen und Worker
 description: Der Orchestrator, die Worker-Rollen, Tiers, Caps, Write Scope und was ein Worker nicht darf.
 sidebar:
   order: 2
-sourceHash: ff574d6a4028cfa25e3168293c23e6327c3ac554eb5d6df3fe3b446b201b692d
+sourceHash: 1773f6c9bbec5247941ae3dfb438eafa46e18766b71af2f1cca2ad7b8f67fcb2
 ---
 
 ## Orchestrator und Worker
@@ -11,7 +11,7 @@ sourceHash: ff574d6a4028cfa25e3168293c23e6327c3ac554eb5d6df3fe3b446b201b692d
 Die Hauptsitzung ist der **Orchestrator**. Er plant, prüft, committet und ist der Einzige, der nach `docs/ai/`
 schreibt. Er startet Worker, also Sub-Agenten mit einem abgegrenzten Auftrag. Du sprichst nie direkt mit einem
 Worker. Eine Rolle im Chat zu nennen (`reviewer`, `explorer`) ist die Anweisung an den Orchestrator, sie
-einzusetzen.
+einzusetzen. Er gibt Arbeit nur ab, wo es sich lohnt: unabhängige Teile, die parallel laufen, die Prüfung, Ausgabe unbekannter oder großer Länge, die danach nicht mehr gebraucht wird, langes Lesen oder Läufe, die ein günstigeres Tier ebenso gut erledigt. Eine bekannte Datei oder Stelle, wenige Tool-Aufrufe oder eine kleine Änderung macht er selbst; ihr Review folgt trotzdem `R-code-commit`. Die Rollen des Templates gehen den eigenen Agenten des Werkzeugs vor (in Claude Code `Explore`, `general-purpose`, `Plan`).
 
 ## Die Rollen
 
@@ -48,7 +48,7 @@ aus Pfaden relativ zum Projekt; `Write scope: none` heißt nur lesend im Projekt
 
 ## Wie ein Worker seine Regeln bekommt
 
-Ein Worker lädt `CLAUDE.md` nicht: Die Rollen der Vorlage tragen `omitClaudeMd: true`, denn `CLAUDE.md` würde die Orchestrator-Regeln in jeden Worker-Start laden, obwohl nur die Hauptsitzung sie braucht. Stattdessen gibt ein `SubagentStart`-Hook dem Worker den Rest dessen, was `CLAUDE.md` lädt: die geteilten Regeln, die Coding-Regeln, deine eigenen Regeln aus `docs/ai/rules.md`, `CLAUDE.local.md` und das `~/.claude/CLAUDE.md` der Benutzerebene, aber nichts aus `.act/rules/orchestrator/`. Der Text kommt in Teilen unter 10.000 Zeichen und spart rund 24.000 Zeichen je Worker-Start. `python .act/scripts/rules.py --worker` zeigt die Teile. Ein Update ergänzt das Feld und die Hook-Einträge in bestehenden Rollen der Vorlage; eine eigene Rolle ohne das Feld lädt `CLAUDE.md` wie bisher. Claude Code vor 2.1.271 ignoriert das Feld, seine Worker bekommen die Regeln dann doppelt, was nur Tokens kostet. Details: [Topics](/agentic-coding-template-docs/de/reference/topics/#worker-rules).
+Ein Worker lädt `CLAUDE.md` nicht: Die Rollen der Vorlage tragen `omitClaudeMd: true`, denn `CLAUDE.md` würde die Orchestrator-Regeln in jeden Worker-Start laden, obwohl nur die Hauptsitzung sie braucht. Stattdessen gibt ein `SubagentStart`-Hook dem Worker den Rest dessen, was `CLAUDE.md` lädt: die geteilten Regeln, die Coding-Regeln, deine eigenen Regeln aus `docs/ai/rules.md`, `CLAUDE.local.md` und das `~/.claude/CLAUDE.md` der Benutzerebene, aber nichts aus `.act/rules/orchestrator/`. Der Text kommt in Teilen unter 10.000 Zeichen über bis zu 12 `SubagentStart`-Einträge und spart rund 24.000 Zeichen je Worker-Start. Reichen 12 nicht, nennt der letzte Eintrag die Dateien, die der Worker selbst liest, und `rules.py --worker` und `act-doctor` warnen, welche Regeldateien zu kürzen sind. `python .act/scripts/rules.py --worker` zeigt die Teile. Ein Update ergänzt das Feld und die Hook-Einträge in bestehenden Rollen der Vorlage; eine eigene Rolle ohne das Feld lädt `CLAUDE.md` wie bisher. Claude Code vor 2.1.271 ignoriert das Feld, seine Worker bekommen die Regeln dann doppelt, was nur Tokens kostet. Details: [Topics](/agentic-coding-template-docs/de/reference/topics/#worker-rules).
 
 ## Was ein Worker nicht darf
 
@@ -65,5 +65,5 @@ Ein Worker lädt `CLAUDE.md` nicht: Die Rollen der Vorlage tragen `omitClaudeMd:
 Ein Worker, der dieselbe Aufgabe zweimal nicht schafft, bekommt keinen dritten identischen Versuch: Der
 Orchestrator schärft den Auftrag einmal nach oder übergibt ihn mit dem vollständigen Fehlerkontext an
 `expert-solver`. Nach dem Annehmen, Nacharbeiten oder Eskalieren eines Ergebnisses hält er den Ausgang mit
-`usage.py --outcome` fest; ab genug Nacharbeiten darunter schlägt `doctor.py` ein höheres Tier vor (und legt denselben Vorschlag erst nach 8 weiteren Ergebnissen erneut an), und du
+`usage.py --outcome` fest; ab genug Nacharbeiten darunter legt `doctor.py --inbox` einen Vorschlag für ein höheres Tier als eigene Inbox-Frage an, mit den Optionen, es anzuheben, es bis zu 8 weiteren Ergebnissen zu lassen oder erst die Fälle anzusehen; ein angelegter Vorschlag kommt auch am selben Tag nicht wieder, bis 8 weitere Ergebnisse vorliegen, und du
 entscheidest. Wenn ein Worker endet, liest der Nutzungszähler außerdem sein Transkript und hält Dauer, Schritte und Token (`fresh` und `cache`) je Rolle und Tier in `.act-local/usage.json` fest, jeweils die letzten 50 Läufe; Pausen von mehr als 30 Minuten zwischen zwei Einträgen zählen als Leerlauf und bleiben aus den Minuten heraus. `usage.py --estimates` zeigt Median und 80. Perzentil je Rolle und Tier; `usage.py --backfill` liest die vorhandenen Transkripte eines Projekts einmal ein. Die Zahlen bleiben lokal und gehen nie mit dem Feedback hinaus; nur Claude Code. Der Orchestrator fragt außerdem einen laufenden Worker nicht wiederholt ab. Eine Ergänzung von dir, die zu einem laufenden Auftrag passt, geht sofort an diesen Worker, oder der Worker wird gestoppt und neu beauftragt, wenn ein neuer Lauf günstiger ist als zwei. Ein größerer Write Scope oder ein höherer Cap heißt immer neu beauftragen, weil beide nur einmal beim Start des Workers gelesen werden.
