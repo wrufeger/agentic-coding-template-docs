@@ -36,6 +36,9 @@
 #     load order, then "unresolved <n>:" and one "<file>:<line>: @<target> — <reason>" per import
 #     it cannot follow (exit 1 if there is any). Same rule as Claude Code: relative to the
 #     importing file, at most four hops below the start file, never inside a code span or block.
+#     Each reached file, and each file under "also loaded by Claude Code", ends in " — <n> chars"
+#     (characters of the UTF-8 decoded text, not bytes). A last line "total <n> chars in <k> files:
+#     template <n> (under .act/), project <n>" sums them, the project share being everything else.
 #   --worker: what the SubagentStart hook hands a worker whose role has `omitClaudeMd: true`: the
 #     files CLAUDE.md loads (user level, project, CLAUDE.local.md) without any import below
 #     .act/rules/orchestrator/, cut into parts of at most WORKER_PART_LIMIT characters. Prints
@@ -1089,15 +1092,36 @@ def other_instruction_files(root: Path) -> list[str]:
     return found
 
 
+def _char_count(root: Path, shown: str) -> Optional[int]:
+    """Characters of the file as read (UTF-8 decoded, bytes that do not decode count one each,
+    CRLF counted as one line break so a Windows checkout gives the same number), or None if it
+    cannot be read. `shown` is a root-relative path or an absolute one."""
+    try:
+        return len((root / shown).read_bytes().decode("utf-8", errors="replace").replace("\r\n", "\n"))
+    except OSError:
+        return None
+
+
 def cmd_imports(root: Path, start: str) -> tuple[str, bool]:
     reached, unresolved = resolve_imports(root, start)
-    lines = [f"reached {len(reached)}:"] + [f"  {path}" for path in reached]
-    lines.append(f"unresolved {len(unresolved)}:")
-    lines += [f"  {entry}" for entry in unresolved]
     others = other_instruction_files(root)
+    sizes: dict[str, Optional[int]] = {path: _char_count(root, path) for path in reached + others}
+
+    def entry(path: str) -> str:
+        size = sizes[path]
+        return f"  {path}" + ("" if size is None else f" — {size} chars")
+
+    lines = [f"reached {len(reached)}:"] + [entry(path) for path in reached]
+    lines.append(f"unresolved {len(unresolved)}:")
+    lines += [f"  {item}" for item in unresolved]
     if others:
         lines.append(f"also loaded by Claude Code, not followed here ({len(others)}):")
-        lines += [f"  {path}" for path in others]
+        lines += [entry(path) for path in others]
+    counted = {path: size for path, size in sizes.items() if size is not None}
+    template = sum(size for path, size in counted.items() if path.startswith(".act/"))
+    total = sum(counted.values())
+    lines.append(f"total {total} chars in {len(counted)} files: "
+                 f"template {template} (under .act/), project {total - template}")
     return "\n".join(lines) + "\n", not unresolved
 
 
@@ -1277,8 +1301,10 @@ def worker_rule_parts(root: Path, home: Optional[Path] = None) -> list[WorkerPar
     for item in worker_files(root, home):
         # Every `## ` section is its own block, so packing fills a part across file boundaries
         # instead of starting a new part whenever the next whole file does not fit.
+        # Room for the label line too ("=== <label> (continued) ===", newlines included), so a long
+        # label cannot push a part past the limit.
         pieces = [piece for section in _top_sections(item.text)
-                  for piece in _split_text(section, budget - 100)]
+                  for piece in _split_text(section, budget - 100 - len(item.label))]
         for index, piece in enumerate(pieces):
             blocks.append((item.label, piece if piece.endswith("\n") else piece + "\n", index > 0))
     # A file's label line opens its first piece in a part; following pieces of the same file in
@@ -1315,6 +1341,51 @@ def worker_rule_parts(root: Path, home: Optional[Path] = None) -> list[WorkerPar
     return parts
 
 
+_OVERFLOW_SOURCES_MAX = 300   # characters of file names in the pointer line, so it stays short
+
+
+def _overflow_sources(parts: list[WorkerPart]) -> list[str]:
+    """Source files of the parts no hook entry delivers (those after the last entry), each once."""
+    sources: list[str] = []
+    for part in parts[WORKER_PARTS:]:
+        for label in part.sources:
+            if label not in sources:
+                sources.append(label)
+    return sources
+
+
+def worker_overflow_warning(parts: list[WorkerPart]) -> str:
+    """One warning line when the rules need more parts than there are hook entries, else ''.
+    Used by `rules.py --worker` and by doctor.py."""
+    if len(parts) <= WORKER_PARTS:
+        return ""
+    files = ", ".join(_overflow_sources(parts))
+    return (f"warning: the worker rules need {len(parts)} parts but there are only {WORKER_PARTS} hook "
+            f"entries, so parts {WORKER_PARTS + 1}-{len(parts)} never reach a worker (files: {files}) "
+            f"- shorten the rule files until they fit into {WORKER_PARTS} parts")
+
+
+def worker_overflow_pointer(parts: list[WorkerPart]) -> str:
+    """The short line the last hook entry appends when parts are left over, else ''. At most
+    about 450 characters, whatever the number of files, so part + line stays under 10,000."""
+    if len(parts) <= WORKER_PARTS:
+        return ""
+    shown = ""
+    names = _overflow_sources(parts)
+    for index, name in enumerate(names):
+        if not shown and len(name) > _OVERFLOW_SOURCES_MAX:
+            # The first file is always named, even one too long for the limit: its end, which
+            # carries the file name.
+            name = "..." + name[-(_OVERFLOW_SOURCES_MAX - 3):]
+        candidate = (shown + ", " if shown else "") + name
+        if len(candidate) > _OVERFLOW_SOURCES_MAX:
+            shown += f", and {len(names) - index} more"
+            break
+        shown = candidate
+    return ("Further worker rules did not fit into the hook output. Before your first step, read these "
+            f"files yourself, skipping .act/rules/orchestrator/: {shown}.")
+
+
 def cmd_worker(root: Path, home: Optional[Path] = None) -> str:
     home = home if home is not None else Path.home()
     parts = worker_rule_parts(root, home)
@@ -1330,9 +1401,9 @@ def cmd_worker(root: Path, home: Optional[Path] = None) -> str:
         lines.append(f"  part {number}: {len(part.text)} characters — {', '.join(part.sources)}")
     lines.append(f"worker total: {sum(len(part.text) for part in parts)} characters")
     lines.append(f"CLAUDE.md load today (all {len(full)} files, raw): {full_size} characters")
-    if len(parts) > WORKER_PARTS:
-        lines.append(f"note: {len(parts)} parts, more than the {WORKER_PARTS} hook entries; "
-                     "the last entry carries the rest and Claude Code moves it into a file")
+    warning = worker_overflow_warning(parts)
+    if warning:
+        lines.append(warning)
     return "\n".join(lines) + "\n"
 
 
@@ -1352,7 +1423,8 @@ def build_parser() -> argparse.ArgumentParser:
     mode.add_argument("--list", action="store_true", help="human overview, one line per set/group")
     mode.add_argument("--validate", action="store_true", help="schema + cross-checks, exit 1 on findings")
     mode.add_argument("--imports", action="store_true",
-                      help="files Claude Code loads through @-imports, exit 1 on any it cannot follow")
+                      help="files Claude Code loads through @-imports with their size in characters and totals, "
+                           "exit 1 on any it cannot follow")
     mode.add_argument("--worker", action="store_true",
                       help="the parts a worker is handed instead of CLAUDE.md: size and sources per part, total")
     parser.add_argument("--from", dest="start", metavar="FILE", default="CLAUDE.md",

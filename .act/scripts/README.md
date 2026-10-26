@@ -361,7 +361,8 @@ options:
   -h, --help    show this help message and exit
   --target DIR  check this project instead of the current checkout
   --json        machine-readable output
-  --inbox       also write docs/ai/inbox/report-<YYYYMMDD-HHMM>-doctor.md if there are findings
+  --inbox       also write docs/ai/inbox/report-<YYYYMMDD-HHMM>-doctor.md if there are findings,
+                and one inbox question per new tier proposal
   --accept ID   accept the current template text for ID (repeatable)
   --accept-all  accept the current template text for every stale override/off
 ```
@@ -426,7 +427,8 @@ options:
                         question/todo/report/note entry (default open)
   --for IDENTITY        task/todo/report/note entry: recipient (todo/report/note default all, task
                         default this identity; all = shared)
-  --body-file PATH      body below the heading, copied verbatim (UTF-8)
+  --body-file PATH      body below the heading, copied verbatim (UTF-8); a question ends with an
+                        empty answer label below it
 ```
 
 ### `entries.py assign`
@@ -764,7 +766,8 @@ options:
   --area {coding,core}  which rule area to read (default: coding)
   --list                human overview, one line per set/group
   --validate            schema + cross-checks, exit 1 on findings
-  --imports             files Claude Code loads through @-imports, exit 1 on any it cannot follow
+  --imports             files Claude Code loads through @-imports with their size in characters
+                        and totals, exit 1 on any it cannot follow
   --worker              the parts a worker is handed instead of CLAUDE.md: size and sources per
                         part, total
   --from FILE           start file for --imports, root-relative (default: CLAUDE.md)
