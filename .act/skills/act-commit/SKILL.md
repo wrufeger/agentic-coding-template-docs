@@ -6,7 +6,7 @@ description: Use right after a task is accepted and its evidence (a test run, an
 # Close out a task and commit
 
 Runs **after every accepted task**, not just at session end. Applies `R-work-evidence`,
-`R-code-commit`, and `R-role-main` (only the orchestrator writes to `docs/ai/` and commits).
+`R-code-commit`, and `R-role-worker` (only the orchestrator writes to `docs/ai/` and commits).
 
 Journal, task status, and open questions are already current at this point — that happens during
 the work itself (`R-work-record-now`), not here. This skill cleans up what accumulated and
@@ -52,15 +52,17 @@ secures the result.
    style, attribution as given for the running session; after a `CONDITIONAL`, the message names
    the id of the inbox entry from step 1. Don't silently sweep up another session's
    uncommitted changes — look at them, then decide.
-8. **Anyone waiting?** Is anyone waiting for a reply from this session? Then file or close the todo
+8. **Throwaway folders.** Remove the task's folders under `.act-local/tmp/` with `python .act/scripts/act_local_tidy.py
+   --task <id>` (`R-work-throwaway`); it removes `tmp/<id>` and `tmp/<id>-*` and nothing else.
+9. **Anyone waiting?** Is anyone waiting for a reply from this session? Then file or close the todo
    (`entries.py new todo`, `for:` naming whom, `R-human-external`).
-9. **Report to the human.** Result first, evidence (hash, test numbers), open points and questions
+10. **Report to the human.** Result first, evidence (hash, test numbers), open points and questions
    by ID (`R-human-chat`).
 
 ## Limits
 
 - Never runs as a sub-agent — only the orchestrator writes to `docs/ai/` and commits
-  (`R-role-main`).
+  (`R-role-worker`, `R-code-commit`).
 - A task that isn't accepted (red checks, missing evidence, an open question) doesn't get
   committed — its status under `docs/ai/work/tasks/` is updated to say what's still open instead.
   The one exception: the question or todo filed in step 1 for a `CONDITIONAL` does not hold the

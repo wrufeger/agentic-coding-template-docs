@@ -14,6 +14,20 @@ Checked mechanically by `secret-read` (`docs/ai/config.md` § Checks); the owner
 or `off` there, or for one run with `ACT_SECRET_READ` in the environment. Limit: a program that
 opens the file itself (`python script.py`, `docker run --env-file`) is invisible to the check.
 
+## `R-safe-no-secret-diff` — Check the diff before every commit
+
+Checks: secret-scan.
+
+Before a `git commit` (also inside a chain or a nested shell), `secret-scan` scans what the commit
+would take — the staged diff, plus unstaged changes or new files where the call stages them itself
+(`-a`, `git add -A`). Only added lines count. It looks for key/token formats, private keys, an added
+`.env` file (`.env.example`, `.env.sample`, `.env.template` excepted) and assignments to a
+credential-like name with a long, high-entropy value. A match stops the commit and is reported
+without the value, never silently stripped. A line carrying `act:allow-secret`, or a value that reads
+as a placeholder, is not reported; for a file that cannot carry a comment (JSON), list the line in
+`docs/ai/local/secret-accepted.md` as `- <path> <hash>: <reason>` (the hold message prints the
+finished entry). Switch: `secret-scan` in `docs/ai/config.md` § Checks (`block`, `warn` or `off`).
+
 ## `R-safe-outside-root` — Stay inside the project
 
 Checks: outside-root.
@@ -72,9 +86,44 @@ directory), and nobody writes `.vscode/tasks.json` with a shell command, or adds
 the edit produces); the human writes such a file themselves. Limit: what a program or script writes
 itself (`pre-commit install`, `python -c "open(...)"`) is invisible to the check.
 
+## `R-work-throwaway` — Throwaway material in the system temp directory
+
+Checks: act-local-tidy.
+
+Throwaway material (probes, scratch projects, scratch files) goes into the system temp directory; where
+the tool refuses that to a worker, into `.act-local/tmp/<task-id>-<slug>/`, never directly under
+`.act-local/`. The orchestrator removes a task's folders when it commits the task
+(`python .act/scripts/act_local_tidy.py --task <id>`).
+
+Checked mechanically by `act-local-tidy` (`docs/ai/config.md` § Checks), once a day at session start in a
+detached process; the next start reports the result in one line. It removes: `.act-local/tmp/` entries
+older than 7 days that belong to no open task; all but the newest 5 folders in `.act-local/backup/`; every
+other entry directly under `.act-local/` that no template script creates. Age is the newest change of
+anything inside an entry, so an entry still written to stays. An entry belongs to an open task when its
+name equals the task's id or starts with it followed by a non-digit (`<id>-x` belongs to the task,
+`<id>0-x` does not). Links are removed as links, never followed; if `.act-local` itself is a link, nothing is touched.
+`act-local-keep` lists patterns relative to `.act-local/` (`exports, tmp/long-*`) that are never removed;
+a pattern naming a folder keeps its contents (`tmp` keeps `tmp/x`), and one naming something inside an
+entry keeps that whole entry (`mydata/important` keeps `mydata`). `act-local-tidy: warn` only reports
+what would go, `off` skips the check. Report first: removal starts only on a calendar day after the day a
+report-only result was shown (by the session start, or by `--apply` on a hand run), so the first result in
+a project is a report with the date the next start may remove; until a report was shown a run only reports.
+`python .act/scripts/act_local_tidy.py` lists the plan without removing anything. Limits: an entry that a
+parallel session uses for more than 7 days without an open task id in its name is removed - name it with the
+task id or list it in `act-local-keep`; a task file without an `id:` line (team mode before `assign`)
+protects no folder.
+
 ## `R-cost-delegate` — Name the tier, the estimate, and the cap
 
 Checks: worker-cap, worker-write-scope, worker-scope-overlap.
+
+In the estimate, `fresh` = input, cache-writing and output tokens, `cache` = cache-read tokens; base
+it on `python .act/scripts/usage.py --estimates` where it has measured runs of that role/tier, not on
+memory. `builder-high` and `reviewer-high` are the same tier one reasoning step further; the other
+template roles have no such variant (`docs/ai/config.md` § Roles for a permanent override). About
+10–12 units (a verdict per entry or per file) per judgment worker because with more, the verdicts turn shallow while every further tool
+call re-reads a growing context. Only the orchestrator starts workers: a worker's proposal to split its
+task comes back, and the orchestrator cuts and starts the new assignments.
 
 `Cap:` is recognized either on its own line or right after a `·`/`|`/`;`/`,` further into a line, so
 a compact header works too, e.g.
@@ -86,9 +135,11 @@ out falls back to the tier's own default: `light` 10, `standard` 40, `elevated` 
 The worker gets one note on reaching the cap ("cap reached — deliver your current state now") and is
 refused from 1.5× the cap onward — wrap up and report rather than push past it.
 
-Every assignment also states its write scope as a `Write scope: <glob>[, <glob> ...]` line —
-patterns relative to the project root, `/` as the separator, `*` crossing `/` freely (so `src/*`
-already reaches any depth under `src/`); a whole directory can also be named as `dir/**` or, as a
+`Write scope: none` allows no writes in the project, only into the system temp directory as a path
+written out (`/tmp/...` in Bash, or its absolute path) — every worker may write there, unless the
+project itself lies inside it. Leaving the `Write scope:` line out means no restriction beyond the
+template's own `.act/` write-guard. Patterns are relative to the project root, `/` as the separator,
+`*` crossing `/` freely (so `src/*` already reaches any depth under `src/`); a whole directory can also be named as `dir/**` or, as a
 shorthand, `dir/` (read the same way); brackets in a path are taken literally, so
 `server/api/[id]/**` names the folder called `[id]`, as framework route folders are — a shell
 command should quote such a path, and a shell target whose wildcard expansion reaches outside the
@@ -99,9 +150,8 @@ A relative pattern (`src/**`) is the usual case; an absolute path inside the pro
 outside the project root is refused, unless it lies in a directory listed in
 `permissions.additionalDirectories` (a sibling checkout: `../other/.act/**` or its absolute path).
 
-`worker-write-scope` (`docs/ai/config.md` § Checks) checks it mechanically, the same way the cap is
-checked mechanically rather than from memory — for a Bash command this is best-effort (it catches
-redirection and the common write commands, not a full shell parse), not a complete guarantee: writes
+`worker-write-scope` (`docs/ai/config.md` § Checks) checks it; for a Bash command this is
+best-effort (it catches redirection and the common write commands, not a full shell parse): writes
 made from inside a program (`python -c "open(...)"`, a script file) stay invisible to it.
 
 `worker-scope-overlap` (`docs/ai/config.md` § Checks) refuses a start whose scope overlaps that of a
@@ -120,14 +170,11 @@ still stands.
 The orchestrator starts it only after that worker has ended — only a rule, since a hook can refuse a
 start but not wait.
 
-When several workers are to read the same material, the orchestrator reads it once and writes what
-it found to `.act-local/notes/brief-<slug>.md` (source, state, `<path>:<line>` references), then
-names that file in each assignment.
-
-The workers read the note instead of the sources and look up only what is missing from it.
-
-The note is the orchestrator's own text, not foreign content (`R-safe-foreign-text`): the one-day
-rule applies to the sources it rests on, the note itself only to the workers of this one start.
+The brief note `.act-local/notes/brief-<slug>.md` holds what the orchestrator found once (source,
+state, `<path>:<line>` references); the workers read it instead of the sources and look up only what is
+missing from it. The note is the orchestrator's own text, not foreign content (`R-safe-foreign-text`):
+the one-day rule applies to the sources it rests on, the note itself only to the workers of this one
+start.
 
 ## `R-cost-wait` — Let a started worker finish
 

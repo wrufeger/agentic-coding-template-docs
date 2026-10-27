@@ -798,6 +798,27 @@ def step_list_new_coding_entries(root: Path, plan: bool) -> tuple[str, list[Path
     return summary, ([] if plan else [root / rules.AREAS["coding"].project_file])
 
 
+def step_move_core_entries(root: Path, plan: bool) -> tuple[str, list[Path]]:
+    """Follow a rule the replaced .act/rules/ moved to another file in docs/ai/rules.md
+    (rules.move_core_entries). A docs/ai/rules.md that is still exactly its generated copy is
+    skipped: the bridge refresh re-derives it, and moving lines first would make it look edited.
+    Returns (summary, touched); nothing is written under plan."""
+    rel = rules.AREAS["core"].project_file
+    path = root / rel
+    if not path.is_file():
+        return "", []
+    try:
+        if actlib.generated_unchanged(path, actlib.read_cache()["generated"].get(rel, "")):
+            return "", []
+        messages = rules.move_core_entries(root, write=not plan)
+    except (OSError, UnicodeDecodeError) as exc:
+        return f"rule moves not checked ({exc.__class__.__name__}: {exc})", []
+    if not messages:
+        return "", []
+    verb = "would follow" if plan else "followed"
+    return f"{verb} in {rel}: {'; '.join(messages)}", ([] if plan else [path])
+
+
 def _print_content_diff(old_path: Path, new_path: Path, limit: int = 20) -> None:
     """Best-effort, capped unified diff for a changed non-rule file — rule/coding .md files keep
     the ID view instead (see the caller). Silently skipped for anything not decodable as UTF-8
@@ -1413,7 +1434,9 @@ def step_new_role_bridges(
     generated from — see _bridge_edited()) is backed up into `backup_dir` and regenerated, or left
     as it is and reported "kept (backup failed)" if the backup did not land; a template-generated
     "-high" variant (frontmatter `variant-of: <role>`) the new value no longer calls for is removed
-    the same way — a project's own "...-high" role without that field is never touched.
+    the same way — as is one whose role's bridge no longer declares a variant at all (`high-variant:`
+    in .act/bridges/agents/<role>.md), changed or not; a project's own "...-high" role without that
+    field is never touched.
 
     `notes`, if given, collects messages the same way step_fetch() above does. Returns (summary,
     touched_paths, reset_or_removed_edited, had_failure) — the last one true when a bridge that
@@ -1424,7 +1447,8 @@ def step_new_role_bridges(
     if plan:
         return (
             "would create bridges for roles new since the last update, and any missing "
-            "'-high' variant, leaving existing and deleted files untouched unless their role's "
+            "'-high' variant, remove generated variants their template role no longer declares, "
+            "leaving existing and deleted files untouched unless their role's "
             "row in docs/ai/config.md changed",
             [], [], False,
         )
@@ -1498,9 +1522,21 @@ def step_new_role_bridges(
         else:
             had_failure = True
 
-    # A changed role's template-generated "-high" variant the new value no longer calls for (e.g.
-    # the role moved to tier "expert", or to the top reasoning step).
+    # A template-generated "-high" variant the role no longer calls for: its bridge declares none
+    # (`high-variant:` absent — checked for every role, changed or not), or the role's new value
+    # rules it out (e.g. the role moved to tier "expert", or to the top reasoning step — changed
+    # roles only).
     changed = {_role_of(rel) for rel in targets} if force_all else set(changed_roles)
+    undeclared: set[str] = set()
+    undeclared_removed: list[str] = []
+    for base_rel, base_src in base_targets.items():
+        try:
+            base_fields, _body, _order = new_init.tiers.split_frontmatter(base_src.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError):
+            continue
+        if not new_init.bridge_wants_variant(root, base_src, base_fields):
+            changed.add(Path(base_rel).stem)
+            undeclared.add(Path(base_rel).stem)
     for role in sorted(changed):
         dest_rel = f".claude/agents/{role}-high.md"
         dest_path = root / dest_rel
@@ -1526,6 +1562,8 @@ def step_new_role_bridges(
         touched.append(dest_path)
         if edited:
             reset.append(dest_rel)
+            if role in undeclared:
+                undeclared_removed.append(dest_rel)
 
     if sorted(set(removed_by_user)) != sorted(set(lock.get("removed_by_user", []))):
         # written only when it changed ("nothing to change" must leave the lock untouched)
@@ -1535,7 +1573,8 @@ def step_new_role_bridges(
         _list_part(label, items, brief) for label, items in (
             ("created", created),
             ("restored (value changed)", restored),
-            ("reset, edit backed up (value changed)", reset),
+            ("reset, edit backed up (value changed)", [r for r in reset if r not in undeclared_removed]),
+            ("removed, edit backed up (its role no longer has a variant)", undeclared_removed),
             ("removed (no longer applies)", dropped),
             ("left deleted", left_deleted),
             ("kept (backup failed)", kept_failed),
@@ -2031,7 +2070,7 @@ def step_hooks_and_gitfiles(root: Path, plan: bool) -> tuple[str, list[Path]]:
     if plan:
         return (
             "would reconcile .claude/settings.json hook entries and the "
-            ".gitattributes/.gitignore template blocks",
+            ".gitattributes/.gitignore template blocks and the IDE exclusions for .act-local/",
             [],
         )
 
@@ -2079,6 +2118,12 @@ def step_hooks_and_gitfiles(root: Path, plan: bool) -> tuple[str, list[Path]]:
         touched.append(root / ".gitattributes")
     if ignore_changed:
         touched.append(root / ".gitignore")
+
+    # IDE exclusions for .act-local/ (JetBrains .iml, VS Code settings): one message per file, and only
+    # a tracked file goes into the template commit.
+    ide_messages, ide_changed = actlib.register_ide_excludes(root, False)
+    parts.extend(f"IDE: {m}" for m in ide_messages)
+    touched.extend(ide_changed)
 
     return ("; ".join(parts) if parts else "nothing to reconcile"), touched
 
@@ -2526,6 +2571,22 @@ def _relaunch_after_replace(
 # (which skips fetch/diff/replace because .act/ is already a clean, fetched-equivalent state)
 # ---------------------------------------------------------------------------
 
+def _print_tidy_preview(root: Path, notes: list[str]) -> None:
+    """One line on what the next session start's .act-local/ tidy would do (the updated
+    act_local_tidy.py, so this runs only after the self-relaunch). Never fails the update."""
+    try:
+        import act_local_tidy
+        if act_local_tidy.tidy_mode(root) == "off":
+            return
+        items = act_local_tidy.plan(root)
+        if items:
+            summary = act_local_tidy.format_summary(items, act_local_tidy.is_first_run(root))
+            if summary:
+                print(f"[act] act-local-tidy: next session start: {summary}")
+    except Exception as exc:
+        notes.append(f".act-local tidy preview skipped ({exc.__class__.__name__}: {exc})")
+
+
 def _finish_update(
     root: Path, no_commit: bool, source: str, notes: list[str],
     fetched_commit: Optional[str], rescue_active: bool, keep_commit: bool = False,
@@ -2549,8 +2610,10 @@ def _finish_update(
         notes.append(f"own skill/role copies not checked ({exc.__class__.__name__}: {exc})")
     frontmatter_summary, frontmatter_touched = step_refresh_role_frontmatter(root, False, notes)
     coding_summary, coding_touched = step_list_new_coding_entries(root, False)
-    sync_touched = [*sync_touched, *coding_touched]
-    _print_step(6, f"{sync_summary}; role frontmatter: {frontmatter_summary}; coding rules: {coding_summary}")
+    moved_summary, moved_touched = step_move_core_entries(root, False)
+    sync_touched = [*sync_touched, *coding_touched, *moved_touched]
+    _print_step(6, f"{sync_summary}; role frontmatter: {frontmatter_summary}; coding rules: {coding_summary}"
+                   + (f"; rule moves: {moved_summary}" if moved_summary else ""))
 
     hooks_gitfiles_summary, hooks_gitfiles_touched = step_hooks_and_gitfiles(root, False)
     _print_step(7, hooks_gitfiles_summary)
@@ -2585,6 +2648,8 @@ def _finish_update(
         (root / ".act-local" / "update-check-result.json").unlink()
     except OSError:
         pass
+
+    _print_tidy_preview(root, notes)
 
     if notes:
         print(f"[act] done - {len(notes)} open point(s)")

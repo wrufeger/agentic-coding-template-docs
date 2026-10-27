@@ -46,9 +46,16 @@
 # Known limits:
 #   - the SQL-string-concatenation patterns are a rough heuristic (an SQL keyword near a quote-and-
 #     `+` or an f-string/template-literal placeholder) - a real query builder's `.format()`/`%`-
-#     style call is not covered, and a false positive on ordinary string handling near the word
+#     style call is not covered, nor PHP's `.` concatenation, a `"... $var"` interpolation or a
+#     `+` continued on the next line; for SELECT and UPDATE the quote-and-`+` must sit within 200
+#     characters of the statement with no `;` in between (INSERT INTO and DELETE FROM: anywhere
+#     on the line), and a false positive on ordinary string handling near the word
 #     "select" is possible; documented as an open point for the concept rather than tuned further
-#     here (2026-09-25, review);
+#     here (2026-09-25, review). A query builder's tagged template literal (sql`...`) is the safe
+#     form and is blanked out first (see _SQL_TAGGED_TEMPLATE); only its first line is recognized
+#     as tagged, a later line of a multi-line literal is matched like any other line. Blanked out
+#     too, unseen: a tag named `sql` that binds nothing (`const sql = String.raw`), a raw fragment
+#     built on an earlier line and interpolated here, and a string concatenated onto the literal;
 #   - `yaml.load(...)` without `SafeLoader` is detected by *absence* of the word "SafeLoader"
 #     anywhere on the same added line — a `Loader=` argument written on a following line (a call
 #     split across lines) is invisible, same class of limit secret_scan.py already accepts for its
@@ -69,7 +76,7 @@ import re
 import sys
 import time
 from pathlib import Path
-from typing import NamedTuple, Optional
+from typing import Callable, NamedTuple, Optional
 
 import actlib
 
@@ -90,7 +97,7 @@ from .secret_scan import (
 
 __all__ = [
     "_ALLOW_MARK", "_HINTS_DIRNAME", "_MAX_FINDINGS", "_SECURITY_CHECK_LEVELS", "_DOC_EXTENSIONS",
-    "DangerPattern", "DANGER_PATTERNS", "_security_check_level", "_enabled_coding_sets",
+    "DangerPattern", "DANGER_PATTERNS", "_without_tagged_sql", "_security_check_level", "_enabled_coding_sets",
     "_is_scannable_path", "_active_patterns", "_match_line", "_scan_diff_text", "_scan_new_file", "_scan_commit",
     "_hints_file", "_load_noted", "_note_findings", "_format_finding", "_build_message",
     "check_danger_scan",
@@ -123,6 +130,7 @@ class DangerPattern(NamedTuple):
     label: str
     regex: "re.Pattern[str]"
     safe_regex: Optional["re.Pattern[str]"] = None  # a match on the same line exempts the hit
+    prepare: Optional[Callable[[str], str]] = None  # the line as this pattern sees it
 
 
 # SQL needs its structure, not just a keyword: "Update-Snapshot", a URL path ".../update-now" or the log
@@ -134,18 +142,49 @@ class DangerPattern(NamedTuple):
 _SQL_START = r"(?:(?<![\w/.\-])|(?<=\*/))"
 
 
-def _sql_struct(mid: str) -> str:
+# INSERT INTO and DELETE [t] FROM: no text between the two words that could hold a concatenation
+_SQL_PAIR = r"(?:insert\s+into\b | delete\s+(?:[\w.`{}]+\s+)?from\b)"
+
+
+def _sql_struct(mid: str, spanning: bool = False) -> str:
+    # spanning: `mid` holds the concatenation itself, so _SQL_PAIR is left out; otherwise every
+    # plain "DELETE FROM t" would count as concatenated
+    pair = "" if spanning else r" | " + _SQL_PAIR
     return (
-        r"(?:select\b" + mid + r"\bfrom\b"
-        r" | insert\s+into\b | insert\b" + mid + r"\bvalues\b"
-        r" | update\b" + mid + r"\bset\b"
-        r" | delete\s+(?:[\w.`{}]+\s+)?from\b)"
+        r"(?:select\b" + mid + r"\bfrom\b | insert\b" + mid + r"\bvalues\b"
+        r" | update\b" + mid + r"\bset\b" + pair + r")"
     )
 
 
 _SQL_STRUCT = _sql_struct(r"[^\n;]{0,200}?")
 # keyword and counterpart word in different literals of one concatenation
-_SQL_SPAN = _sql_struct(r"""[^\n;]{0,200}?["']\s*\+[^\n;]{0,200}?""")
+_SQL_SPAN = _sql_struct(r"""[^\n;]{0,200}?["']\s*\+[^\n;]{0,200}?""", spanning=True)
+# _SQL_PAIR with a quote-and-`+` (or `+=`) anywhere on the line - no window and `;` allowed, the reach
+# these two had while every one of them counted as concatenated
+_SQL_PAIR_ON_LINE = r"""^(?=.*?(?:["']\s*\+|\+=?\s*["'])).*?""" + _SQL_START + _SQL_PAIR
+
+# A tagged template literal of a query builder binds every `${...}` as a parameter - the safe form, not a
+# string built from values: sql`...` (Kysely, Drizzle, postgres.js), <name>.sql`...`, Prisma.sql`...`,
+# $queryRaw`...` and $executeRaw`...` (Prisma), also with a type argument (sql<number>`...`). The SQL
+# patterns see the line with such literals blanked out; one not closed on its line runs to the line end
+# (the first line of a multi-line literal). No space between tag and backtick, the way formatters write
+# it; the type argument is capped at 200 characters, so a long line full of `sql<` stays linear. A raw
+# helper anywhere on the line (sql.raw, sql.lit/sql.literal, sql.unsafe, Prisma.raw, $queryRawUnsafe, a
+# bare raw(...) as in sql-template-tag, sql.__dangerous__rawValue) puts text into the statement unbound,
+# so then nothing is blanked - stricter than "inside the literal", which a line regex cannot tell apart
+# reliably once literals nest.
+_SQL_TAGGED_TEMPLATE = re.compile(
+    r"""(?<![\w$])(?:sql|\$queryRaw|\$executeRaw)(?:<[\w\s,.|&\[\]{}:;?'"<>]{0,200}?>)?`[^`\n]*`?"""
+)
+_SQL_RAW_HELPER = re.compile(
+    r"\.(?:raw|lit|literal|unsafe)\b|RawUnsafe\b|(?<![\w$.])raw\s*\(|__dangerous__rawValue\b"
+)
+
+
+def _without_tagged_sql(line: str) -> str:
+    if _SQL_RAW_HELPER.search(line):
+        return line
+    return _SQL_TAGGED_TEMPLATE.sub(" ", line)
 
 
 # Grouped by the coding rule set (docs/project/coding_rules.md path) they belong to - see the
@@ -196,8 +235,10 @@ DANGER_PATTERNS: dict[str, tuple[DangerPattern, ...]] = {
             re.compile(
                 r"(?ix)" + _SQL_START + _SQL_STRUCT + r"""[^\n;]{0,200} ["']\s*\+
                   | """ + _SQL_START + _SQL_SPAN + r"""
-                  | \+\s*["'] [^\n;]{0,200}""" + _SQL_START + _SQL_STRUCT,
+                  | \+\s*["'] [^\n;]{0,200}""" + _SQL_START + _SQL_STRUCT + r"""
+                  | """ + _SQL_PAIR_ON_LINE,
             ),
+            prepare=_without_tagged_sql,
         ),
         DangerPattern(
             "sql-fstring", "SQL statement built from an f-string/template literal",
@@ -206,6 +247,7 @@ DANGER_PATTERNS: dict[str, tuple[DangerPattern, ...]] = {
                 + r"""| `[^`\n]{0,200} \$\{[^}]*\} [^`\n]{0,200}""" + _SQL_START + _SQL_STRUCT
                 + r"""| `[^`\n]{0,200}""" + _SQL_START + _SQL_STRUCT + r"""[^`\n]{0,200} \$\{""",
             ),
+            prepare=_without_tagged_sql,
         ),
     ),
 }
@@ -254,7 +296,8 @@ def _match_line(line: str, patterns: tuple[DangerPattern, ...]) -> Optional[Dang
     `act:allow-danger` exemption, checked once per line before this is even called (same split of
     responsibility as secret_scan._match_secret)."""
     for pattern in patterns:
-        if pattern.regex.search(line) and not (pattern.safe_regex and pattern.safe_regex.search(line)):
+        text = pattern.prepare(line) if pattern.prepare else line
+        if pattern.regex.search(text) and not (pattern.safe_regex and pattern.safe_regex.search(text)):
             return pattern
     return None
 
