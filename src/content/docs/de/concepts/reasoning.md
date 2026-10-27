@@ -3,7 +3,7 @@ title: Tiers und Reasoning
 description: Wie Rollen eine Modellkapazität (Tier) und eine Reasoning-Stufe bekommen, die -high-Varianten, Overrides und Caps.
 sidebar:
   order: 5
-sourceHash: 01b3d13004c97e4c265b63523712d4b2eff927cd8945830970bbaf37d61a4668
+sourceHash: 9bb794b7a59fd06421adff5c83444b07b2b5c68069c1734926a52adc7c5fa4f4
 ---
 
 Jede Worker-Rolle hat einen **Tier** (wie viel Modellkapazität) und eine **Reasoning**-Stufe (wie viel sie vor der Antwort nachdenkt). Beides steht in einer werkzeugneutralen Skala in der Definition der Rolle. Ein echter Modellname erscheint nur in `.act/tiers.json` und wird angewendet, wenn die Datei der Rolle für dein Werkzeug erzeugt wird.
@@ -37,7 +37,7 @@ Die [Rollenreferenz](/agentic-coding-template-docs/de/reference/roles/) wird aus
 
 ## Die -high-Varianten
 
-Neben `.claude/agents/<role>.md` erzeugt das Template `.claude/agents/<role>-high.md`: dieselbe Rolle mit dem Reasoning eine Stufe weiter oben auf der Skala. Der Assistent nennt die `-high`-Variante für einen einzelnen Auftrag, der mehr Nachdenken braucht, ohne die Rolle dauerhaft anzuheben. Eine Rolle, die schon an der Spitze der Skala steht (`expert-solver`), hat keine Variante.
+Neben `.claude/agents/<role>.md` erzeugt das Template für `builder` und `reviewer` `.claude/agents/<role>-high.md`: dieselbe Rolle mit dem Reasoning eine Stufe weiter oben auf der Skala. Der Assistent nennt die `-high`-Variante für einen einzelnen Auftrag, der mehr Nachdenken braucht, ohne die Rolle dauerhaft anzuheben. Die anderen Rollen der Vorlage haben keine Variante, ebenso wenig eine Rolle, die schon an der Spitze der Skala steht (`expert-solver`); ein Update entfernt früher erzeugte Varianten dieser Rollen. Eine eigene Rolle des Projekts behält ihre Variante. Ein Auftrag, der eine entfernte Variante nannte, nennt die Rolle selbst oder `builder-high` bzw. `reviewer-high`.
 
 ## Eine Rolle überschreiben
 

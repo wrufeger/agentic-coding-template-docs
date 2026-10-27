@@ -3,7 +3,7 @@ title: Konfiguration
 description: docs/ai/config.md steuert den Arbeitsablauf - seine Gruppen und was block, warn und off für Prüfungen bedeuten.
 sidebar:
   order: 4
-sourceHash: 37d7d0f70cd18d386f8af1acc399fe5aaebd6c284ff6ef91e24e40acb4251abd
+sourceHash: 3a3a7af2d5bde8e18619c4a43d525c97f23761d714db0a6acc8245bc547911be
 ---
 
 `docs/ai/config.md` ist die Datei, die steuert, wie am Projekt gearbeitet wird. Sie besteht aus Markdown-Tabellen, ein Abschnitt pro Thema. `init` trägt die Werte ein, die es erfragt oder erkannt hat; du änderst sie jederzeit. Nichts braucht einen Neuaufbau: Der Hook beim Sitzungsstart liest die Datei und meldet, was sich seit dem letzten Abgleich geändert hat. Jeder Schlüssel mit seinen erlaubten Werten steht in der [Konfigurationsreferenz](/agentic-coding-template-docs/de/reference/configuration/); diese Seite erklärt, wofür die Gruppen da sind.
@@ -43,6 +43,8 @@ Eine Prüfung herunterzustufen ist deine Entscheidung. Prüfungen wie `secret-sc
 `secret-scan` hält einen Commit an, dessen gestagter Diff ein Schlüssel- oder Token-Muster enthält. Eine Zeile mit einem `act:allow-secret`-Kommentar ist ausgenommen. Für eine Datei ohne Kommentare (JSON) steht die Zeile in `docs/ai/local/secret-accepted.md` als `- <path> <hash>: <reason>`; die Sperrmeldung druckt die fertige Zeile (Pfad und Zeilen-Hash, nie den Wert). Eine geänderte Zeile, dieselbe Zeile in einer anderen Datei oder eine fehlende oder unlesbare Liste sperrt wieder. Was jede Prüfung erkennt und wo ihre Grenzen liegen, steht auf der [Seite zu den Prüfungen](/agentic-coding-template-docs/de/reference/topics/#checks).
 
 `outside-root` hält Lesen und Schreiben im Projektordner und seinen erlaubten Orten, für den Assistenten und seine Worker. In neuen Projekten steht es auf `block`; ein Projekt ohne die Zeile führt es als `warn` aus. Ausnahmen kommen in `outside-root-allow`; beide Zeilen stehen in der [Konfigurationsreferenz](/agentic-coding-template-docs/de/reference/configuration/), die Regel in [`R-safe-outside-root`](/agentic-coding-template-docs/de/reference/rules/#r-safe-outside-root).
+
+`act-local-tidy` hält `.act-local/` klein. Beim Sitzungsstart entfernt es, höchstens einmal am Tag und in einem Hintergrundprozess, `tmp/`-Einträge und unbekannte Einträge direkt unter `.act-local/` (keine, die ein Skript der Vorlage anlegt), die älter als 7 Tage sind und deren Name nicht mit der Id einer offenen Aufgabe beginnt, und alle bis auf die neuesten 5 Backups von `update`. Der nächste Sitzungsstart meldet Anzahl, Größe und Namen. Der erste Lauf in einem Projekt meldet nur, was er entfernen würde; entfernt wird an einem späteren Tag, nachdem ein Sitzungsstart diese Meldung gezeigt hat. `warn` meldet nur, `off` überspringt die Prüfung. `act-local-keep` listet Muster relativ zu `.act-local/` (zum Beispiel `exports, tmp/long-*`), die nie entfernt werden, oder `none`. `python .act/scripts/act_local_tidy.py` zeigt den Plan, ohne etwas zu entfernen. Die Regel dahinter ist [`R-work-throwaway`](/agentic-coding-template-docs/de/reference/rules/#r-work-throwaway).
 
 ## Datei und Umgebung
 

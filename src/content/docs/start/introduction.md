@@ -19,7 +19,9 @@ scripts. It works in a new project and in one that already exists.
   session can continue from the board. A chat message that begins with `todo:`, `note:` or `idea:` is filed by a hook
   without a model turn.
 - **Recurring work as skills.** A skill is a plain `SKILL.md` that any assistant can follow, for example
-  `act-bug`, `act-commit`, `act-release`. See the [skills reference](/agentic-coding-template-docs/reference/skills/).
+  `act-bug`, `act-commit`, `act-release`. `/act <name>` shows a template skill's instructions in full, with or without its `act-` prefix
+  (`/act version` shows `act-version`); `act-version`, `act-export-settings` and `act-load-settings` start only
+  as typed slash commands. See the [skills reference](/agentic-coding-template-docs/reference/skills/).
 
 ## Who it is for
 

@@ -36,7 +36,7 @@ The [roles reference](/agentic-coding-template-docs/reference/roles/) is generat
 
 ## The -high variants
 
-Next to `.claude/agents/<role>.md`, the template generates `.claude/agents/<role>-high.md`: the same role with the reasoning one step further up the scale. The assistant names the `-high` variant for a single assignment that needs more thought, without raising the role for good. A role already at the top of the scale (`expert-solver`) has no variant.
+Next to `.claude/agents/<role>.md`, the template generates `.claude/agents/<role>-high.md` for `builder` and `reviewer`: the same role with the reasoning one step further up the scale. The assistant names the `-high` variant for a single assignment that needs more thought, without raising the role for good. The other template roles have no variant, and neither does a role already at the top of the scale (`expert-solver`); an update removes variants generated earlier for them. A project's own role keeps its variant. An assignment that named a removed variant names the role itself, or `builder-high` or `reviewer-high`.
 
 ## Overriding a role
 

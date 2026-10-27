@@ -69,6 +69,10 @@ The **board** is a generated snapshot: branch, recent journal entries, what is w
 
 The **status line** of Claude Code shows one line under the chat, for example `act · Q103 Q104 · tasks: 1 run, 1 wait, 4 new · ctx 127k`. `ctx` is the size of the session's context. A started task counts as waiting, and the board marks it "(waiting)", when its last state line was written with `entries.py state <id> --wait`, is older than `task-wait-hours`, or an open todo or question names it (see [Configuration](/agentic-coding-template-docs/concepts/configuration/)). Open questions and todos appear by id, reports and notes as a count per kind. To turn it off for good, set your own `statusLine` command in `.claude/settings.json`; the template never replaces an entry it did not generate.
 
+## Throwaway material
+
+Probes, throwaway projects and scratch files go into the system temp directory. Where the tool refuses that to a worker, they go into `.act-local/tmp/<task-id>-<slug>/`, never directly under `.act-local/` (`R-work-throwaway`). When the assistant commits a task, `act-commit` removes that task's folders (`act_local_tidy.py --task <id>`). What is left is cleared at session start by `act-local-tidy` after 7 days, unless the name starts with an open task's id or `act-local-keep` lists it, see [Configuration](/agentic-coding-template-docs/concepts/configuration/).
+
 ## Solo and team mode
 
 The `mode` key (`solo` or `team`) changes one thing: when an entry gets its short id.

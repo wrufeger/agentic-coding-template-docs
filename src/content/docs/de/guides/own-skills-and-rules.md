@@ -3,7 +3,7 @@ title: Eigene Regeln, Skills und Rollen
 description: Regeln des Templates abschalten, eigene ergänzen, Dateien des Templates unter docs/ai/local/ überschreiben, Skills und Rollen hinzufügen und in ein anderes Projekt mitnehmen.
 sidebar:
   order: 3
-sourceHash: 2405e81ca0d8804ddbfbf27aa3a6a5bb252add1b83a1c139a79fd782e65e4659
+sourceHash: 316be970cbabbba2cdaddb83df90ac76c7ab67a2c005271911e7211c1a7909da
 ---
 
 Das Projekt überschreibt immer das Template. Du bearbeitest nie etwas unter `.act/`; ein Wächter (`template-write-guard`) verweigert dort Schreibzugriffe. Alles, was dir gehört, kommt nach `docs/ai/` und `docs/project/` und übersteht jedes Update.
@@ -18,7 +18,7 @@ Das Projekt überschreibt immer das Template. Du bearbeitest nie etwas unter `.a
   - [ ] `R-code-encoding`
 ```
 
-- **Eine Regel abschalten**: Entferne ihr Kreuz. Die Datei wird weiterhin ganz geladen, aber eine nicht angekreuzte Regel gilt als aus.
+- **Eine Regel abschalten**: Entferne ihr Kreuz. Die Datei wird weiterhin ganz geladen, aber eine nicht angekreuzte Regel gilt als aus. Verschiebt ein Update der Vorlage eine Regel in eine andere Regeldatei, verschiebt `act-update` ihre Kästchenzeile in einer bearbeiteten `docs/ai/rules.md` mit, Kreuz und Begründung unverändert, sodass eine ausgeschaltete Regel ausgeschaltet bleibt. Importierst du die neue Datei nicht, wird die Verschiebung nur gemeldet.
 - **Einen ganzen Bereich abschalten**: Lösche seine `@`-Importzeile.
 - **Den Wortlaut einer Regel ersetzen**: Füge unter `## Overrides` einen Listenpunkt der Form ``- replaces `R-...`: <your version>`` hinzu, der die Regel und deine Fassung nennt (Zeilen, die mit `<!--` beginnen, werden übersprungen). Eine `replaces`-Zeile gewinnt gegenüber dem Text des Templates, egal ob die Regel angekreuzt ist oder nicht.
 - **Eigene Regeln hinzufügen**: Lege unter `## Own rules` einen Punkt pro Regel an, die im Template keine Entsprechung hat. Eine eingerückte Liste direkt unter einer eigenen Regel (oder einer `replaces`-Zeile) gehört zu ihr und wird als Teil ihres Textes gelesen.
@@ -44,6 +44,8 @@ Eine eigene Rolle ist eine Datei `docs/ai/local/agents/<name>.md` mit ihren Rege
 ## In ein anderes Projekt mitnehmen
 
 Zwei Skills tragen deine Abweichungen vom Template in ein anderes Projekt.
+
+Beide Skills starten nur als eingetippter Slash-Befehl (`/act-export-settings`, `/act-load-settings`); eine Bitte in normalen Worten startet sie nicht.
 
 **`act-export-settings`** schreibt, was du gegenüber dem Template geändert hast, in eine `settings.md`: deine eigenen Regeln, abgeschaltete Regeln und Gruppen, `replaces`-Overrides. Nichts über das Projekt selbst (Name, Arbeitsstand) kommt hinein. Optionen:
 

@@ -3,7 +3,7 @@ title: Schichten und Overrides
 description: Wie Template-Schicht und Projekt-Schicht zusammenpassen und wie du eine Regel änderst, ohne sie beim Update zu verlieren.
 sidebar:
   order: 1
-sourceHash: 10039c648cd87e9f5c428e5616e5d6c3f9fa3b0445c492002faabc43258ea4b1
+sourceHash: f22c4b843ebc8a09863306d6a78d062416d5f2c39e3c0c8615e81224a20d882b
 ---
 
 ## Zwei Schichten
@@ -13,7 +13,7 @@ sourceHash: 10039c648cd87e9f5c428e5616e5d6c3f9fa3b0445c492002faabc43258ea4b1
 | `.act/` | Regeln, Coding-Regelsätze, Skills, Agent-Rollen, Hooks, Scripts, Tier-Tabelle | Ein Update ersetzt sie als Ganzes. Du bearbeitest sie nie. |
 | `docs/` | `ai/` (Config, Regeln, Board, Inbox, Aufgaben, Journal) und `project/` (deine Dokumentation) | Dir und dem Assistenten. Ein Update überschreibt deine Inhalte nie; es frischt unbearbeitete erzeugte Dateien auf, legt Befunde in der Inbox ab und führt Migrationen aus. |
 
-`.act-local/` bleibt auf deinem Rechner: lokaler Zustand und Caches. Das erzeugte Board ist `docs/ai/board.md` (per gitignore ausgeschlossen) im Standardmodus `board: docs` und liegt nur im Modus `local` in `.act-local/`. In Claude Code blockiert ein Hook
+`.act-local/` bleibt auf deinem Rechner: lokaler Zustand und Caches. Die Prüfung `act-local-tidy` beim Sitzungsstart räumt altes Wegwerfmaterial daraus weg (siehe [Konfiguration](/agentic-coding-template-docs/de/concepts/configuration/)); `init` und `update` halten außerdem JetBrains und VS Code davon ab, den Ordner zu indizieren. Das erzeugte Board ist `docs/ai/board.md` (per gitignore ausgeschlossen) im Standardmodus `board: docs` und liegt nur im Modus `local` in `.act-local/`. In Claude Code blockiert ein Hook
 Schreibzugriffe nach `.act/`.
 
 ## Das Projekt gewinnt
@@ -39,7 +39,7 @@ um einen ganzen Bereich abzuschalten. Dein eigener Text kommt in die Abschnitte 
 
 ## Was die Hauptsitzung und was ein Worker lädt
 
-Die Hauptsitzung lädt `CLAUDE.md`, das `docs/ai/rules.md` importiert und darüber die geteilten Regeln, die Coding-Regeln und die Orchestrator-Regeln. Ein Worker lädt `CLAUDE.md` nicht; ein `SubagentStart`-Hook gibt ihm denselben Text ohne die Orchestrator-Regeln (siehe [Rollen](/agentic-coding-template-docs/de/concepts/roles/)). `python .act/scripts/rules.py --worker` zeigt, was ein Worker bekommt, `--imports`, was die Hauptsitzung lädt, mit der Größe jeder Datei in Zeichen und einer Summe, geteilt in den Anteil des Templates und den des Projekts. Die Regeln, die ein Hook mechanisch prüft, stehen in der Regeldatei gekürzt: Verbot oder Pflicht und der Name der Prüfung bleiben, was die Prüfung erkennt, ihre Grenzen, ihr Schalter und ihre Syntax stehen auf der [Seite zu den Prüfungen](/agentic-coding-template-docs/de/reference/topics/#checks).
+Die Hauptsitzung lädt `CLAUDE.md`, das `docs/ai/rules.md` importiert und darüber die geteilten Regeln, die Coding-Regeln und die Orchestrator-Regeln. Ein Worker lädt `CLAUDE.md` nicht; ein `SubagentStart`-Hook gibt ihm denselben Text ohne die Orchestrator-Regeln (siehe [Rollen](/agentic-coding-template-docs/de/concepts/roles/)). Die drei Git-Regeln `R-safe-no-secret-diff`, `R-safe-git-reset` und `R-safe-git-discard` stehen am Ende der Orchestrator-Regeln, weil nur die Hauptsitzung committet oder den Arbeitsbaum ändert; Worker laden sie nicht. Hast du `docs/ai/rules.md` bearbeitet, verschiebt ein Update ihre Kästchenzeilen mit, Kreuz und Begründung unverändert, sodass eine ausgeschaltete Regel ausgeschaltet bleibt; eine Regel, deren neue Datei du nicht importierst, wird nur gemeldet. `python .act/scripts/rules.py --worker` zeigt, was ein Worker bekommt, `--imports`, was die Hauptsitzung lädt, mit der Größe jeder Datei in Zeichen und einer Summe, geteilt in den Anteil des Templates und den des Projekts. Die Regeln, die ein Hook mechanisch prüft, stehen in der Regeldatei gekürzt: Verbot oder Pflicht und der Name der Prüfung bleiben, was die Prüfung erkennt, ihre Grenzen, ihr Schalter und ihre Syntax stehen auf der [Seite zu den Prüfungen](/agentic-coding-template-docs/de/reference/topics/#checks).
 
 ## Coding-Regelsätze
 

@@ -17,7 +17,7 @@ The project always overrides the template. You never edit anything under `.act/`
   - [ ] `R-code-encoding`
 ```
 
-- **Switch a rule off**: remove its cross. The file is still loaded whole, but an unchecked rule counts as off.
+- **Switch a rule off**: remove its cross. The file is still loaded whole, but an unchecked rule counts as off. If a template update moves a rule to another rule file, `act-update` moves its checkbox line along in an edited `docs/ai/rules.md`, mark and reason unchanged, so a rule you switched off stays off. If you do not import the new file, the move is only reported.
 - **Switch a whole area off**: delete its `@` import line.
 - **Replace a rule's wording**: under `## Overrides`, add a bullet of the form ``- replaces `R-...`: <your version>`` naming the rule and your version (lines starting with `<!--` are skipped). A `replaces` line wins over the template text whether the rule is checked or not.
 - **Add your own rules**: under `## Own rules`, one item per rule that has no counterpart in the template. An indented list directly below an own rule (or a `replaces` line) belongs to it and is read as part of its text.
@@ -43,6 +43,8 @@ An own role is a file `docs/ai/local/agents/<name>.md` with its rules. A new rol
 ## Taking it to another project
 
 Two skills carry your deviations from the template to another project.
+
+Both skills start only as typed slash commands (`/act-export-settings`, `/act-load-settings`); a request in plain words does not start them.
 
 **`act-export-settings`** writes what you changed against the template into one `settings.md`: your own rules, switched-off rules and groups, `replaces` overrides. Nothing about the project itself (name, work state) goes in. Options:
 

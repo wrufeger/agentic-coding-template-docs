@@ -52,13 +52,17 @@ and what `act-update` would take. It uses only `git ls-remote`, clones nothing a
    are kept and reported. Own skills and roles under `docs/ai/local/` get their
    copies here too. New coding sets and groups are entered in `docs/project/coding_rules.md` (a new set unchecked, a new
    group of a checked set checked; see [Own skills, roles and rules](/agentic-coding-template-docs/guides/own-skills-and-rules/)).
+   If you edited `docs/ai/rules.md`, a rule that moved to another rule file takes its checkbox line along (mark and
+   reason unchanged, so a rule switched off stays off); if you do not import the new file, it is only reported. An
+   unedited `docs/ai/rules.md` is re-derived as before. Only `builder` and `reviewer` keep a `-high` variant: generated
+   variants of the other template roles are removed, each named in the preview and summary.
    The template's roles (and their `-high` variants) get `omitClaudeMd: true`, so workers no longer load `CLAUDE.md`;
    your own roles and an explicit `omitClaudeMd: false` stay as they are, and an own role without the field keeps
    loading `CLAUDE.md`. Claude Code before 2.1.271 ignores the field, so workers there get the rules twice (costs
    tokens only).
 7. **Hooks and Git files.** Reconciles the hook entries in `.claude/settings.json` and the template blocks in
    `.gitattributes` and `.gitignore`, and sets `"enableArtifact": false` there unless `artifacts: on` is in
-   `docs/ai/config.md`. An existing project therefore starts without the `Artifact` tool after the update. It also adds the 12 `SubagentStart` entries that give workers their rules without the orchestrator rules (see step 6); an older set of six is replaced, your own hooks stay. `python .act/scripts/rules.py --worker` shows what a worker gets.
+   `docs/ai/config.md`. An existing project therefore starts without the `Artifact` tool after the update. It also adds the 12 `SubagentStart` entries that give workers their rules without the orchestrator rules (see step 6); an older set of six is replaced, your own hooks stay. `python .act/scripts/rules.py --worker` shows what a worker gets. It also keeps `.act-local/` out of IDE indexes: an `excludeFolder` in every JetBrains `.idea/*.iml`, and `files.watcherExclude` in `.vscode/settings.json` where `.vscode/` exists.
 8. **Migrations.** Runs any that are due. Each rewrites an affected file once and leaves it alone after.
 9. **Bridges and doctor.** First unedited generated bridges (`CLAUDE.md`, `AGENTS.md`, `docs/ai/rules.md`) are
    refreshed; with `session-start-refresh` at `warn` or `off` in `docs/ai/config.md` § Checks they are only
@@ -66,8 +70,19 @@ and what `act-update` would take. It uses only `git ls-remote`, clones nothing a
    drift; findings land in `docs/ai/inbox/`, never as a silent fix. A new tier proposal is filed there as a question of its own; the commit takes the report and the questions, and the summary names both.
 10. **Lock and commit.** `.act-lock.json` is rewritten and a commit is made, unless you pass `--no-commit`.
 
+The summary also names what the next session start will remove from `.act-local/` (the check `act-local-tidy`, see
+below).
+
 If the template has no newer state, `--plan` and the real run both say "nothing to update". A bridge file whose content
 would not change is not rewritten. A large update no longer fails on Windows with `WinError 206`.
+
+## Tidying `.act-local/`
+
+The session-start check `act-local-tidy` runs once a day in the background. It removes `tmp/` entries and unknown
+entries directly under `.act-local/` older than 7 days (unless the name starts with an open task's id or
+`act-local-keep` in `docs/ai/config.md` § Checks lists it), and all but the newest 5 backups of `update`. The first run
+only reports what it would remove; removal starts the day after a session start has shown that report. `act-local-tidy:
+warn` only reports, `off` skips it. `python .act/scripts/act_local_tidy.py` lists what would go.
 
 Then the assistant adds a journal line with the base-commit change and the number of findings.
 

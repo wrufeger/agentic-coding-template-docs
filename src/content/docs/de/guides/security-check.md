@@ -3,7 +3,7 @@ title: Sicherheitsprüfung
 description: Wonach die Sicherheitsprüfung vor einem Commit sucht - gefährliche Muster, verwundbare Abhängigkeiten, die tiefe Prüfung - und was jeder Wert von security-check ausführt.
 sidebar:
   order: 2
-sourceHash: 3a42f164a538874d05dc2d38db065717b4a71da7cb8e009117fb3da52c698297
+sourceHash: e10184f1aa8d2d2262e741b69a5d17f127af21faea3cd233754bd54373fbae4f
 ---
 
 Die Sicherheitsprüfung wird mit einem Schlüssel gesetzt, `security-check`, in der Tabelle Checks von `docs/ai/config.md`. Anders als die übrigen Prüfungen nimmt sie nicht `block`, `warn` oder `off`, sondern eine Stufe.
@@ -17,7 +17,7 @@ Die Sicherheitsprüfung wird mit einem Schlüssel gesetzt, `security-check`, in 
 
 ## Gefährliche Muster (alle Stufen außer `off`)
 
-Bei `git commit` werden die hinzugefügten Zeilen nach Konstrukten wie `eval`/`exec`, `shell=True`, `pickle.loads`, `yaml.load` ohne sicheren Loader, `v-html`, `innerHTML =` und per Zeichenkettenverkettung gebautem SQL durchsucht. Die SQL-Prüfungen verlangen eine Anweisungsstruktur (`SELECT ... FROM`, `INSERT INTO`, `UPDATE ... SET`, `DELETE ... FROM`); das Wort „update“ oder „select“ in Fließtext oder URL hält also keinen Commit auf. Gesucht wird nur nach den Coding-Regelsätzen, die du in `docs/project/coding_rules.md` eingeschaltet hast.
+Bei `git commit` werden die hinzugefügten Zeilen nach Konstrukten wie `eval`/`exec`, `shell=True`, `pickle.loads`, `yaml.load` ohne sicheren Loader, `v-html`, `innerHTML =` und per Zeichenkettenverkettung gebautem SQL durchsucht. Die SQL-Prüfungen verlangen eine Anweisungsstruktur (`SELECT ... FROM`, `INSERT INTO`, `UPDATE ... SET`, `DELETE ... FROM`); das Wort „update“ oder „select“ in Fließtext oder URL hält also keinen Commit auf. Das getaggte Template-Literal eines Query-Builders, in dem jedes `${…}` ein gebundener Parameter ist (``sql`select … where code = ${code}` `` in Kysely, Drizzle oder postgres.js, ``Prisma.sql`…` ``, ``$queryRaw`…` ``, ``$executeRaw`…` ``), wird nicht gemeldet; eine Zeile mit einem Raw-Helfer (`sql.raw`, `sql.unsafe`, `Prisma.raw`, `$queryRawUnsafe` und ähnliche), ein ungetaggtes Template-Literal oder echte `+`-Verkettung wird weiterhin gemeldet. Ein festes `DELETE … FROM`- oder `INSERT INTO`-Literal gilt nur dann als Verkettung, wenn seine Zeile ein Anführungszeichen und `+` enthält. Gesucht wird nur nach den Coding-Regelsätzen, die du in `docs/project/coding_rules.md` eingeschaltet hast.
 
 - Ein Treffer stoppt den Commit **einmal** pro Datei und Muster, mit Fundstelle. Behebe ihn, oder committe erneut, um ihn durchzulassen.
 - Eine Zeile mit `act:allow-danger` ist ausgenommen.

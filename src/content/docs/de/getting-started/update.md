@@ -3,7 +3,7 @@ title: Update
 description: Einen neueren Stand des Templates mit act-update in ein Projekt holen.
 sidebar:
   order: 3
-sourceHash: b38ef97f74b85e3af94845449f8025ff1d9cc7af57d89e32b488aca4d2197dcf
+sourceHash: e95c3956ac89f106d5ac75ae9bbd785384e4348edd8809bf40c4f8e91a5a79fd
 ---
 
 `act-update` holt einen neueren Stand des Templates in dein Projekt: Du siehst den Diff, du stimmst zu, und
@@ -56,13 +56,18 @@ Default-Branches und was `act-update` nehmen würde. Es nutzt nur `git ls-remote
    von dir bearbeitete Kopien bleiben erhalten und werden gemeldet. Eigene Skills und Rollen unter `docs/ai/local/` bekommen ihre Kopien
    hier ebenfalls. Neue Coding-Sätze und -Gruppen trägt `act-update` in `docs/project/coding_rules.md` ein (ein neuer Satz nicht angekreuzt,
    eine neue Gruppe eines angekreuzten Satzes angekreuzt; siehe [Eigene Skills, Rollen und Regeln](/agentic-coding-template-docs/de/guides/own-skills-and-rules/)).
+   Hast du `docs/ai/rules.md` bearbeitet, nimmt eine Regel, die in eine andere Regeldatei gewandert ist, ihre
+   Kästchenzeile mit (Kreuz und Begründung unverändert, eine abgeschaltete Regel bleibt also aus); importierst du die
+   neue Datei nicht, wird sie nur gemeldet. Eine unbearbeitete `docs/ai/rules.md` wird wie bisher neu abgeleitet. Nur
+   `builder` und `reviewer` behalten eine `-high`-Variante: erzeugte Varianten der übrigen Rollen des Templates werden
+   entfernt, jede in Vorschau und Zusammenfassung genannt.
    Die Rollen des Templates (und ihre `-high`-Varianten) bekommen `omitClaudeMd: true`, Worker laden `CLAUDE.md` also nicht
    mehr; eigene Rollen und ein ausdrückliches `omitClaudeMd: false` bleiben unverändert, eine eigene Rolle ohne das Feld
    lädt weiter `CLAUDE.md`. Claude Code vor 2.1.271 ignoriert das Feld, Worker bekommen die Regeln dort doppelt (kostet
    nur Tokens).
 7. **Hooks und Git-Dateien.** Gleicht die Hook-Einträge in `.claude/settings.json` und die Blöcke des Templates in
    `.gitattributes` und `.gitignore` ab und setzt dort `"enableArtifact": false`, außer `docs/ai/config.md` hat
-   `artifacts: on`. Ein bestehendes Projekt startet nach dem Update deshalb ohne das Werkzeug `Artifact`. Außerdem ergänzt dieser Schritt die 12 `SubagentStart`-Einträge, die Workern ihre Regeln ohne die Orchestrator-Regeln geben (siehe Schritt 6); ein älterer Satz von sechs wird ersetzt, eigene Hooks bleiben. `python .act/scripts/rules.py --worker` zeigt, was ein Worker bekommt.
+   `artifacts: on`. Ein bestehendes Projekt startet nach dem Update deshalb ohne das Werkzeug `Artifact`. Außerdem ergänzt dieser Schritt die 12 `SubagentStart`-Einträge, die Workern ihre Regeln ohne die Orchestrator-Regeln geben (siehe Schritt 6); ein älterer Satz von sechs wird ersetzt, eigene Hooks bleiben. `python .act/scripts/rules.py --worker` zeigt, was ein Worker bekommt. Außerdem hält er `.act-local/` aus den Indizes der IDEs heraus: ein `excludeFolder` in jeder JetBrains-`.idea/*.iml` und `files.watcherExclude` in `.vscode/settings.json`, wo `.vscode/` existiert.
 8. **Migrationen.** Führt alle fälligen aus. Jede schreibt eine betroffene Datei einmal um und lässt sie danach in Ruhe.
 9. **Brücken und Doctor.** Zuerst werden unbearbeitete erzeugte Brücken (`CLAUDE.md`, `AGENTS.md`,
    `docs/ai/rules.md`) aufgefrischt; steht `session-start-refresh` in `docs/ai/config.md` § Checks auf `warn` oder
@@ -70,8 +75,20 @@ Default-Branches und was `act-update` nehmen würde. Es nutzt nur `git ls-remote
 10. **Lock und Commit.** `.act-lock.json` wird neu geschrieben und ein Commit angelegt, außer du gibst
     `--no-commit` an.
 
+Die Zusammenfassung nennt auch, was der nächste Sitzungsstart aus `.act-local/` entfernen wird (die Prüfung
+`act-local-tidy`, siehe unten).
+
 Hat das Template keinen neueren Stand, melden `--plan` und der echte Lauf „nothing to update“. Eine Brückendatei, deren
 Inhalt gleich bliebe, wird nicht neu geschrieben. Ein großes Update scheitert unter Windows nicht mehr mit `WinError 206`.
+
+## `.act-local/` aufräumen
+
+Die Prüfung `act-local-tidy` läuft beim Sitzungsstart einmal am Tag im Hintergrund. Sie entfernt Einträge unter `tmp/`
+und unbekannte Einträge direkt unter `.act-local/`, die älter als 7 Tage sind (außer ihr Name beginnt mit der Id einer
+offenen Aufgabe oder `act-local-keep` in `docs/ai/config.md` § Checks nennt sie), und alle bis auf die neuesten 5
+Backups von `update`. Der erste Lauf meldet nur, was er entfernen würde; entfernt wird ab dem Tag nach einem
+Sitzungsstart, der diese Meldung gezeigt hat. `act-local-tidy: warn` meldet nur, `off` überspringt sie.
+`python .act/scripts/act_local_tidy.py` listet, was gehen würde.
 
 Danach ergänzt der Assistent eine Journalzeile mit der Änderung des Basis-Commits und der Zahl der Befunde.
 

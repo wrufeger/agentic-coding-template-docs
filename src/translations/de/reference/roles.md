@@ -30,14 +30,14 @@ Pflegt `docs/project/` — die Projektdokumentation, nicht den Arbeitsbereich de
 `docs/ai/`. Wendet `R-role-worker` an.
 
 ## expert-solver
-<!-- source: 67097544e420609b -->
-Eskalation mit hohem Reasoning, nur gerufen, wenn ein Worker dieselbe Aufgabe zweimal verfehlt hat oder auf einen unlösbaren Fehler gestoßen ist.
+<!-- source: 9cf56a48bb6fa371 -->
+Eskalation mit hohem Reasoning, nur gerufen, wenn ein Worker dieselbe Aufgabe zweimal verfehlt hat.
 
 ## expert-solver#about
-<!-- source: 32c7e6675fafecf5 -->
-Nur zur Eskalation nach `R-role-escalate` — gerufen, wenn ein Worker dieselbe Aufgabe zweimal verfehlt hat
-oder ein Sonderfall einen normalen Worker festhält. Erfahrener Architekt und Problemlöser genau für diesen
-Fall, nicht für Routine-Implementierung. Wendet `R-role-worker` an.
+<!-- source: a8b9c8ac95150364 -->
+Nur zur Eskalation nach `R-role-escalate` — gerufen, wenn ein Worker dieselbe Aufgabe zweimal verfehlt hat.
+Erfahrener Architekt und Problemlöser genau für diesen Fall, nicht für Routine-Implementierung. Wendet
+`R-role-worker` an.
 
 ## explorer
 <!-- source: 49430822cabdf716 -->

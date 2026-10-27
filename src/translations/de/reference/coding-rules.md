@@ -1116,7 +1116,7 @@ Linting. Gruppen-IDs (`CR-python-<name>`) sind stabil und werden nie neu vergebe
 nicht mehr gilt, bekommt eine neue ID und wird in diesem Kopf als `retired:` aufgeführt.
 
 ## CR-python-basics
-<!-- source: c03ef771d847127a -->
+<!-- source: ce389e33915991e1 -->
 Bewährte Python-Standards
 summary: Annotationen, f-strings, Context Manager, Exception-Behandlung, venv, Lint
 
@@ -1127,7 +1127,9 @@ summary: Annotationen, f-strings, Context Manager, Exception-Behandlung, venv, L
   im Funktionsrumpf initialisieren.
 - Spezifische Exception-Typen abfangen; nie ein nacktes `except Exception` ohne erneutes Auslösen oder
   Loggen. Jeder ausgelöste oder geloggte Fehler nennt, was woran gescheitert ist, mit welchem Wert — wer
-  aufruft oder das Log liest, muss die Ursache finden, ohne den Quellcode zu öffnen.
+  aufruft oder das Log liest, muss die Ursache finden, ohne den Quellcode zu öffnen. Nie ein Zugangsdatum
+  oder personenbezogene Daten als dieser Wert: stattdessen eine Kennung oder ein maskierter Wert
+  (`R-safe-no-secret-log`).
 - `is`/`is not` nur für Identitätsvergleiche verwenden (`None`, Singletons), nie für Werte.
 - Ein Virtual Environment (`venv`) pro Projekt, Abhängigkeiten in einer Lockfile festgeschrieben
   (`requirements.txt`, `poetry.lock`); nie eine globale Installation von Projektabhängigkeiten.

@@ -3,7 +3,7 @@ title: Neues Projekt
 description: Ein neues Projekt aus dem Template einrichten, mit dem Assistenten oder von Hand.
 sidebar:
   order: 1
-sourceHash: 65ab5c3c72c9e1e1ab9dee6777edb8e6a6b92513a42413cad3ea12e4fa942788
+sourceHash: b7373531d7f258dc4ff7e2ade0fe475d16ef577ac5c6e35bab56ec470b4366fd
 ---
 
 ## Das Template holen
@@ -63,7 +63,7 @@ Zehn feste Schritte, jeder ausgegeben als `[n/10]`:
 5. Dünnt die Brücken auf die gewählten Werkzeuge aus.
 6. Schreibt das Gerüst: `docs/ai/` (`config.md`, `rules.md`, `concept/`, Inbox, Arbeitsordner), `docs/project/coding_rules.md`, `docs/project/glossary.md`,
    `docs/README.md`, die Brückendateien, Skill-Kopien und die Hook-Einträge in `.claude/settings.json` (mit `"enableArtifact": false`, außer bei `artifacts: on`).
-7. Hängt Blöcke des Templates an `.gitattributes` und `.gitignore` an.
+7. Hängt Blöcke des Templates an `.gitattributes` und `.gitignore` an und hält `.act-local/` aus den Indizes der IDEs heraus (`excludeFolder` in `.idea/*.iml`, `files.watcherExclude` in `.vscode/settings.json`, wo `.vscode/` existiert).
 8. Nur im Klon: legt die eigenen Dateien des Templates still: README, `CHANGELOG.md` und die Community-Dateien unter
    `.github/` (Beitragshinweise, Sicherheit, Verhaltenskodex, Barrierefreiheit, Vorlagen für Issues und Pull Requests),
    und fragt, ob seine LICENSE bleibt.

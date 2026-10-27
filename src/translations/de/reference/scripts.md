@@ -3,6 +3,10 @@ source hash ties the text to its English source. Edit the German text by hand; r
 Never translate commands, keys, ids or code. Maintained by scripts/gen-reference.mjs --skeleton and
 scripts/check-translations.mjs; see README "Editing the site". -->
 
+## table:act_local_tidy.py
+<!-- source: b7fbdbeddce8b89c -->
+Hält `.act-local/` klein. Wegwerfmaterial (Proben, Wegwerfprojekte, alte Backups, Reste früherer Versionen) sammelt sich dort ohne…
+
 ## table:actlib.py
 <!-- source: 8911ee0e74f116a2 -->
 Gemeinsame Bibliothek für jedes Script unter .act/scripts/ und .act/hooks/ — die einzige Stelle, die weiß, wie Template und Projekt aufgelöst werden…

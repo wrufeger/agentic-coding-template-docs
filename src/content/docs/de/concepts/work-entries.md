@@ -3,7 +3,7 @@ title: Inbox, Aufgaben und Journal
 description: Was in docs/ai/ liegt - Inbox, Aufgaben, Backlog, Journal, Archiv, Ideen, das Board und die Statuszeile.
 sidebar:
   order: 3
-sourceHash: 26a5b347d1d555d96e10ab5ad07daca06000a3d07720683e3267ceb40bb3d962
+sourceHash: d946fad43f57c14ffb000148b3d69794cd3c6ea19859cc1a7178057e88804711
 ---
 
 `docs/ai/` ist das gemeinsame Arbeitsgedächtnis von dir und dem Assistenten. Alles darin ist eine einfache Datei, eine Datei pro Eintrag, versioniert mit dem Projekt. Übersichten wie das Board werden aus diesen Dateien erzeugt und nie von Hand gepflegt.
@@ -69,6 +69,10 @@ Jede Person hat ihre eigene Datei `docs/ai/concept/ideas-<identity>.md`, wobei `
 Das **Board** ist ein erzeugter Schnappschuss: Branch, jüngste Journal-Einträge, was auf dich wartet, offene Aufgaben, offene Entscheidungen im Backlog und das Backlog selbst. Es wird beim Sitzungsstart neu geschrieben und nach Git-Befehlen, die den ausgecheckten Stand ändern. Wohin es geht, hängt vom Schlüssel `board` ab: `docs` (Standard, `docs/ai/board.md`, per gitignore ausgeschlossen), `shared` (zusätzlich ein versioniertes `docs/ai/board-<identity>.md`, beim Commit geschrieben) oder `local` (unter `.act-local/`). Eine zweite erzeugte Datei, `.act-local/inbox-<identity>.md`, sammelt den vollen Text jedes offenen Eintrags, der an dich gerichtet ist, sodass eine Datei zum Lesen genügt.
 
 Die **Statuszeile** von Claude Code zeigt eine Zeile unter dem Chat, zum Beispiel `act · Q103 Q104 · tasks: 1 run, 1 wait, 4 new · ctx 127k`. `ctx` ist die Größe des Kontexts der Sitzung. Eine begonnene Aufgabe gilt als wartend, und das Board markiert sie mit „(waiting)“, wenn ihre letzte Arbeitsstand-Zeile mit `entries.py state <id> --wait` geschrieben wurde, älter als `task-wait-hours` ist oder ein offenes Todo oder eine offene Frage sie nennt (siehe [Konfiguration](/agentic-coding-template-docs/de/concepts/configuration/)). Offene Fragen und Todos erscheinen mit Id, Berichte und Notizen als Anzahl pro Art. Um sie dauerhaft abzuschalten, setze in `.claude/settings.json` einen eigenen `statusLine`-Befehl; das Template ersetzt nie einen Eintrag, den sie nicht selbst erzeugt hat.
+
+## Wegwerfmaterial
+
+Proben, Wegwerfprojekte und Arbeitsdateien gehören ins temporäre Verzeichnis des Systems. Verweigert das Werkzeug es einem Worker, kommen sie nach `.act-local/tmp/<task-id>-<slug>/`, nie direkt unter `.act-local/` (`R-work-throwaway`). Beim Commit einer Aufgabe entfernt `act-commit` deren Ordner (`act_local_tidy.py --task <id>`). Den Rest räumt `act-local-tidy` beim Sitzungsstart nach 7 Tagen auf, es sei denn, der Name beginnt mit der Id einer offenen Aufgabe oder `act-local-keep` führt ihn auf, siehe [Konfiguration](/agentic-coding-template-docs/de/concepts/configuration/).
 
 ## Solo- und Team-Modus
 

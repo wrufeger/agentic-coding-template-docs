@@ -12,7 +12,7 @@ sidebar:
 | `.act/` | Rules, coding rule sets, skills, agent roles, hooks, scripts, tier table | An update replaces it as a whole. You never edit it. |
 | `docs/` | `ai/` (config, rules, board, inbox, tasks, journal) and `project/` (your documentation) | You and the assistant. An update never overwrites your content; it refreshes unedited generated files, files findings in the inbox and runs migrations. |
 
-`.act-local/` stays on your machine: local state and caches. The generated board is `docs/ai/board.md` (gitignored) in the default `board: docs` mode and lives in `.act-local/` only in `local` mode. In Claude Code, a hook blocks
+`.act-local/` stays on your machine: local state and caches. The session-start check `act-local-tidy` clears old throwaway material from it (see [Configuration](/agentic-coding-template-docs/concepts/configuration/)); `init` and `update` also keep JetBrains and VS Code from indexing it. The generated board is `docs/ai/board.md` (gitignored) in the default `board: docs` mode and lives in `.act-local/` only in `local` mode. In Claude Code, a hook blocks
 writes into `.act/`.
 
 ## The project wins
@@ -37,7 +37,7 @@ text goes in the sections at the end of the file:
 
 ## What the main session and a worker load
 
-The main session loads `CLAUDE.md`, which imports `docs/ai/rules.md` and through it the shared rules, the coding rules and the orchestrator rules. A worker does not load `CLAUDE.md`; a `SubagentStart` hook gives it the same text without the orchestrator rules (see [Roles](/agentic-coding-template-docs/concepts/roles/)). `python .act/scripts/rules.py --worker` shows what a worker gets, `--imports` what the main session loads, with each file's size in characters and a total split into the template's share and the project's. The rules that a hook checks mechanically are kept short in the rule file: the ban or duty and the name of the check stay, while what the check recognises, its limits, its switch and its syntax stand on the [checks page](/agentic-coding-template-docs/reference/topics/#checks).
+The main session loads `CLAUDE.md`, which imports `docs/ai/rules.md` and through it the shared rules, the coding rules and the orchestrator rules. A worker does not load `CLAUDE.md`; a `SubagentStart` hook gives it the same text without the orchestrator rules (see [Roles](/agentic-coding-template-docs/concepts/roles/)). The three git rules `R-safe-no-secret-diff`, `R-safe-git-reset` and `R-safe-git-discard` sit at the end of the orchestrator rules, since only the main session commits or changes the working tree; workers do not load them. If you edited `docs/ai/rules.md`, an update moves their checkbox lines along with them, mark and reason unchanged, so a rule you switched off stays off; a rule whose new file you do not import is only reported. `python .act/scripts/rules.py --worker` shows what a worker gets, `--imports` what the main session loads, with each file's size in characters and a total split into the template's share and the project's. The rules that a hook checks mechanically are kept short in the rule file: the ban or duty and the name of the check stay, while what the check recognises, its limits, its switch and its syntax stand on the [checks page](/agentic-coding-template-docs/reference/topics/#checks).
 
 ## Coding rule sets
 
