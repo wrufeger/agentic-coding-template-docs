@@ -57,9 +57,10 @@ __all__ = [
     "_bootstrap_marker", "_first_line", "_is_bootstrap_copy",
     "_refresh_bridges", "_manifest_fingerprint", "_pulled_without_update",
     "_update_check_state_path", "_already_checked_today", "_mark_checked_today",
-    "_ls_remote_output", "_update_channel", "_version_tuple", "_remote_release_available", "_release_note", "_update_channel_is_default",
+    "_ls_remote_output", "_update_channel", "_version_tuple", "_remote_release_available", "_update_channel_is_default",
     "_update_channel_follows_tip_without_tags",
-    "_remote_update_available", "_update_check_result_path", "_consume_pending_update_note",
+    "_remote_update_available", "_update_check_result_path", "_pending_update_note",
+    "_commit_day", "_remote_commit_label", "_locked_commit",
     "_run_update_check_worker", "_spawn_update_check_worker", "_check_update_awareness",
     "_security_scan_state_path", "_security_scan_already_checked_today",
     "_mark_security_scan_checked_today", "_security_scan_result_path", "_run_security_scan_worker",
@@ -343,7 +344,6 @@ def _dependency_check_note(root: Path, config: dict[str, str]) -> Optional[str]:
 
 
 _COMPACT_KEEP_DAYS = 7  # entries archived within the last week stay single files (as `entries.py compact` has it)
-_COMPACT_WORKER_BATCH = 25  # entries one `light` worker shortens in a run
 
 
 def _parse_archive_compact(raw: str) -> "Optional[tuple[int, int]]":
@@ -355,13 +355,15 @@ def _parse_archive_compact(raw: str) -> "Optional[tuple[int, int]]":
     return (int(match.group(1)), int(match.group(2))) if match else (30, 300)
 
 
-def _single_entry_days(folder: Path, journal: bool) -> "list[date]":
-    """The date of every single entry file in `folder`, without Git: the header field `archived:`, a
-    journal file's date in its name, else `created:`, else the modification time. A collection, a
-    README and the monthly overview are no single entries."""
+def _single_entry_days(root: Path, folder: Path, journal: bool) -> "list[date]":
+    """The date of every single entry file in `folder`, counted like `entries.py compact` does
+    (entries.ArchiveDays: Git only for an archived file without `archived:`). A collection, a README
+    and the monthly overview are no single entries."""
+    import entries
     days: list[date] = []
     if not folder.is_dir():
         return days
+    dating = entries.ArchiveDays(root)
     for path in folder.glob("*.md"):
         if path.name.lower() == "readme.md" or (not journal and re.match(r"^\d{4}-\d{2}\.md$", path.name)):
             continue
@@ -373,23 +375,11 @@ def _single_entry_days(folder: Path, journal: bool) -> "list[date]":
             continue
         if actlib.is_collection(text):
             continue
-        header = actlib.header_block(text)
-        sources: list[str] = []
-        named = _LEDGER_DATE_IN_NAME_RE.match(path.name) if journal else None
-        if named:
-            sources.append(named.group(1))
-        for key in ("archived", "created"):
-            found = re.search(rf"(?im)^{key}:\s*(\d{{4}}-\d{{2}}-\d{{2}})", header)
-            if found:
-                sources.append(found.group(1))
-        day: Optional[date] = None
-        for source in sources:
-            try:
-                day = date.fromisoformat(source)
-                break
-            except ValueError:
-                continue
-        days.append(day or date.fromtimestamp(path.stat().st_mtime))
+        try:
+            name_day = entries.ArchiveDays.name_day(path, journal, bool(actlib.entry_ids(text)))
+        except ValueError:
+            continue  # an impossible date in the file name: `compact` leaves the file alone
+        days.append(dating.day(path, actlib.header_block(text), journal, name_day))
     return days
 
 
@@ -397,8 +387,8 @@ def _compact_due_note(root: Path, config: dict[str, str]) -> Optional[str]:
     """With `archive-compact` not `off`, a note (at most once a day) once the archive or the journal
     folder is due for `entries.py compact`: its oldest single entry is older than the day limit, or it
     holds more single files than the count limit, and at least one entry is older than a week. Names
-    the number of entries and, with `archive-shorten: on`, the worker runs the shortening takes. In
-    team mode only on the default branch, so two branches never write the same month file."""
+    the number of entries. In team mode only on the default branch, so two branches never write the
+    same month file."""
     limits = _parse_archive_compact(config.get("archive-compact", "30d 300"))
     if limits is None:
         return None
@@ -415,7 +405,7 @@ def _compact_due_note(root: Path, config: dict[str, str]) -> Optional[str]:
     foldable = 0
     for label, folder, journal in (("archive", root / "docs" / "ai" / "work" / "archive", False),
                                    ("journal", root / "docs" / "ai" / "work" / "ledger", True)):
-        days = _single_entry_days(folder, journal)
+        days = _single_entry_days(root, folder, journal)
         old = sum(1 for day in days if (today - day).days > _COMPACT_KEEP_DAYS)
         if not old:
             continue
@@ -430,13 +420,9 @@ def _compact_due_note(root: Path, config: dict[str, str]) -> Optional[str]:
     if not reasons:
         return None
     actlib.write_cache({"compact_due_last_noted": stamp})
-    cost = "merge only"
-    if config.get("archive-shorten", "on").strip().lower() != "off":
-        runs = -(-foldable // _COMPACT_WORKER_BATCH)
-        cost = f"about {runs} `light` worker run(s) of ~{_COMPACT_WORKER_BATCH} entries to shorten, plus one overview per month"
     return (f"[act] note: archive compaction is due ({'; '.join(reasons)}; limits {max_days}d / {max_files} files): "
-            f"{foldable} entr(ies) older than {_COMPACT_KEEP_DAYS} days, {cost} -- act-compact at the next task boundary "
-            "(archive-compact in docs/ai/config.md)")
+            f"{foldable} entr(ies) older than {_COMPACT_KEEP_DAYS} days to merge, no worker -- act-compact at the next "
+            "task boundary (archive-compact in docs/ai/config.md)")
 
 
 def _refresh_board(root: Path) -> None:
@@ -803,30 +789,6 @@ def _remote_release_available(root: Path) -> Optional[dict]:
     return {"release": best[1], "release_commit": best[2]}
 
 
-def _release_note(root: Path, tag: str, tag_commit: str) -> Optional[str]:
-    """The session-start note for a release newer than the installed one, None when the project is
-    at or ahead of it (a project that followed `main` past the newest tag stays quiet)."""
-    template = actlib.read_lock().get("template") or {}
-    installed_commit = template.get("commit") or ""
-    installed_version = str(template.get("version") or "")
-    if not installed_version:
-        version_file = root / ".act" / "VERSION"
-        try:
-            for line in version_file.read_text(encoding="utf-8").splitlines():
-                key, _, value = line.partition("=")
-                if key.strip() == "version":
-                    installed_version = value.strip()
-        except OSError:
-            pass
-    if installed_commit and installed_commit == tag_commit:
-        return None
-    wanted, have = _version_tuple(tag), _version_tuple(installed_version)
-    if wanted is not None and have is not None and have >= wanted:
-        return None
-    return (f"[act] note: template release {tag} available (installed {installed_version or 'unknown'}) "
-            "-- run `python .act/scripts/update.py`")
-
-
 def _remote_update_available(root: Path) -> Optional[str]:
     """None if the check could not be made at all (no source/commit recorded, no network, the
     source is not a git remote/repo, or it took too long) -- always silent in that case, never a
@@ -864,89 +826,89 @@ def _update_check_result_path(root: Path) -> Path:
     return root / ".act-local" / "update-check-result.json"
 
 
-def _consume_pending_update_note(root: Path) -> Optional[str]:
-    """Reads and deletes .act-local/update-check-result.json, written by a previous
-    _run_update_check_worker() run (see _spawn_update_check_worker) -- consuming it means the
-    note surfaces exactly once, on the first SessionStart after the background check finished,
-    same as the old synchronous check only ever reported it once (the run that found it). Silent
-    on any I/O problem; a missing file (nothing pending) is the common case, not an error.
-
-    The file only ever records `remote_commit` -- never a stale "available" flag by
-    itself, so a project that ran `update.py` between the background check and this session
-    doesn't get told about an update it already has: the note fires only if `remote_commit` still
-    differs from the *current* lock's `template.commit`, re-read here rather than trusted from
-    whatever the worker saw at the time. A result file from an older version has no `channel`; it
-    was written when the tip was the only thing followed, so it counts as `latest`.
-    A tip result reaches a release project only on the default, or when the worker marked it
-    `tip_fallback` (a source without release tags) and the key still allows that."""
-    path = _update_check_result_path(root)
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+def _pending_update_note(root: Path, state: Optional[dict] = None) -> Optional[str]:
+    """The session-start note for a template update the background check found earlier
+    (.act-local/update-check-result.json, written by _run_update_check_worker). The result stays
+    until the project has caught up: every session start repeats the note while the update is
+    pending, and the file is removed only once the lock says the state is installed. The decision
+    is actlib.pending_update()'s -- the lock and the channel are re-read now, not trusted from
+    whatever the worker saw -- shared with the board and the status line. Fills `state["update"]` with
+    the value to show for the human line. Silent on any I/O problem."""
+    info = actlib.pending_update(root)
+    if info is None:
         return None
-    try:
-        path.unlink()
-    except OSError:
-        pass
-    if not isinstance(data, dict):
+    if not info["pending"]:
+        try:
+            actlib.update_result_path(root).unlink()
+        except OSError:
+            pass
+        if info.get("stale"):
+            # the lock moved since the check: look again at this start instead of tomorrow
+            try:
+                _update_check_state_path(root).unlink()
+            except OSError:
+                pass
         return None
-    release = data.get("release")
-    if release:
-        # a release found by the release channel: only counts while that channel is still the
-        # project's, and while the project is still behind that tag (re-read now, not trusted)
-        if data.get("channel") != "release" or _update_channel(root) != "release":
-            return None
-        return _release_note(root, str(release), str(data.get("release_commit") or ""))
-    remote_commit = data.get("remote_commit")
-    if not remote_commit:
-        return None
-    # a tip result in a release project: only the default (as before the channel existed) or the
-    # fallback on a source without release tags, never an older result file or one from `latest`
-    if data.get("channel", "latest") == "latest" and _update_channel(root) != "latest" and not (
-            _update_channel_is_default(root)
-            or (data.get("tip_fallback") and _update_channel_follows_tip_without_tags(root))):
-        return None
-    lock = actlib.read_lock()
-    current_commit = (lock.get("template") or {}).get("commit") or ""
-    if remote_commit == current_commit:
-        return None
+    if state is not None:
+        state["update"] = info["label"]
+    if info["release"]:
+        return (f"[act] note: template release {info['release']} available "
+                f"(installed {info['installed'] or 'unknown'}) -- run `python .act/scripts/update.py`")
     return "[act] note: a template update is available -- run `python .act/scripts/update.py`"
+
+
+def _commit_day(repo: Path, commit: str) -> Optional[str]:
+    """The committer date of `commit` in `repo`, read locally (actlib.commit_day)."""
+    return actlib.commit_day(repo, commit)
+
+
+def _remote_commit_label(root: Path, commit: str) -> str:
+    """What the status line and the board show for a remote tip: its date or its short hash
+    (actlib.remote_commit_label, shared with update.py)."""
+    return actlib.remote_commit_label(root, commit)
+
+
+def _locked_commit(root: Optional[Path] = None) -> str:
+    """The template commit the lock records now -- stored with a tip result, so a later start can tell
+    that the lock moved on since the check (actlib.pending_update's `stale`)."""
+    return actlib.locked_commit(root or actlib.repo_root())
 
 
 def _run_update_check_worker(root: Path) -> int:
     """Body of the detached background process _spawn_update_check_worker() launches: the actual
     network lookup, isolated from the SessionStart hook so its result can only ever help the
-    *next* session, never delay this one. Writes update-check-result.json with the remote commit
-    found; leaves any existing file alone when the lookup was inconclusive (None), so a
+    *next* session, never delay this one. Writes update-check-result.json with the release or the remote
+    commit found, plus a `label` to show (the release without its `v`, the commit's date or its short
+    hash); leaves any existing file alone when the lookup was inconclusive (None), so a
     stale-but-valid earlier result is not clobbered by a run that itself couldn't tell. Whether
     that remote commit still means "update available" is decided later, by
-    _consume_pending_update_note() against the lock as it stands then -- not here, since this
-    process's result may sit unread across more than one later `update.py` run. Always exits 0 --
+    _pending_update_note() against the lock as it stands then -- not here, since this
+    process's result may sit across more than one later `update.py` run. Always exits 0 --
     nothing reads this process's own exit code, and every exception here must stay inside this
     process."""
     try:
         if _update_channel(root) == "release":
             found = _remote_release_available(root)
-            result = {"channel": "release", **found} if found else None
+            result = ({"channel": "release", **found, "label": str(found["release"]).lstrip("vV")}
+                      if found else None)
             if found == {} and _update_channel_follows_tip_without_tags(root):
                 # the default or `release` in config.md on a source without any release tag (a local
                 # copy, a young repository): follow the tip, as update.py does in the same case
                 remote_commit = _remote_update_available(root)
-                result = ({"channel": "latest", "remote_commit": remote_commit, "tip_fallback": True}
+                result = ({"channel": "latest", "remote_commit": remote_commit, "tip_fallback": True,
+                           "label": _remote_commit_label(root, remote_commit),
+                           "installed_commit": _locked_commit(root)}
                           if remote_commit else None)
         else:
             remote_commit = _remote_update_available(root)
-            result = {"channel": "latest", "remote_commit": remote_commit} if remote_commit else None
+            result = ({"channel": "latest", "remote_commit": remote_commit,
+                       "label": _remote_commit_label(root, remote_commit),
+                       "installed_commit": _locked_commit(root)} if remote_commit else None)
     except Exception:
         return 0
     if result is None:
         return 0
-    try:
-        path = _update_check_result_path(root)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(result) + "\n", encoding="utf-8")
-    except OSError:
-        pass
+    actlib.record_update_result(root, result)
     return 0
 
 
@@ -981,21 +943,23 @@ def _spawn_update_check_worker(root: Path) -> None:
         pass
 
 
-def _check_update_awareness(root: Path, config: dict[str, str]) -> tuple[list[str], list[str]]:
+def _check_update_awareness(root: Path, config: dict[str, str],
+                            state: Optional[dict] = None) -> tuple[list[str], list[str]]:
     """Check 2b's two notes, gated by the single `update-check` row (docs/ai/config.md § Checks,
     default "block" == on; "off" skips both notes and never spawns the background worker below).
 
     Returns (pre_notes, post_notes) -- pre_notes belong before the fixed-format status line,
     post_notes after it (dispatch.py's docstring / SessionStart output format): the pulled-
     without-update note is local, cheap and synchronous, so it stays a pre_note like before; the
-    remote "update available" note is now always a *previous* run's finding (see
+    remote "update available" note is always a *previous* run's finding (see
     _spawn_update_check_worker below), so it prints as a postscript after the status line rather
-    than ahead of it.
+    than ahead of it. It repeats at every start until the update is installed; `state["update"]`
+    then carries the value to show for the human line.
 
     The remote lookup itself is throttled to once a day via .act-local/update-check.json
     (gitignored, per-checkout): when not yet checked today, this kicks off a detached background
     process (_spawn_update_check_worker) and marks today as checked immediately, without waiting
-    for that process -- its result, if any, is picked up by _consume_pending_update_note() on a
+    for that process -- its result, if any, is picked up by _pending_update_note() on a
     later SessionStart. Never raises."""
     mode = _check_mode(config, "update-check", default="block")
     if mode == "off":
@@ -1004,7 +968,7 @@ def _check_update_awareness(root: Path, config: dict[str, str]) -> tuple[list[st
     post_notes: list[str] = []
     if _pulled_without_update(root):
         pre_notes.append("[act] note: .act/ was pulled in without update.py -- run `python .act/scripts/update.py` (or --catch-up) to finish it")
-    pending = _consume_pending_update_note(root)
+    pending = _pending_update_note(root, state)
     if pending:
         post_notes.append(pending)
     if not _already_checked_today(root):
@@ -1162,8 +1126,8 @@ def _spawn_security_scan_worker(
 def _consume_pending_security_scan_note(root: Path) -> Optional[str]:
     """Reads and deletes `security-scan-result.json`, written by a previous
     `_run_security_scan_worker()` run -- consuming it means the note surfaces exactly once, on the
-    first SessionStart after the background scan finished (same contract as
-    `_consume_pending_update_note`). Silent on any I/O problem; a missing file (nothing pending, or
+    first SessionStart after the background scan finished (unlike the update note, which stays
+    until the update is installed). Silent on any I/O problem; a missing file (nothing pending, or
     the last scan found nothing to report) is the common case, not an error."""
     path = _security_scan_result_path(root)
     try:
@@ -2041,6 +2005,8 @@ def _human_line(state: dict) -> Optional[str]:
         parts.append(f"ideas: {state['ideas']} new")
     if state.get("old_imports"):
         parts.append("docs/ai/rules.md uses the old import form, see note")
+    if state.get("update"):
+        parts.append(f"update {state['update']} available")
     if state.get("tidy"):
         parts.append(str(state["tidy"]))
     return "act · " + " · ".join(parts) if parts else None
@@ -2420,7 +2386,7 @@ def _collect_session(payload: dict, state: dict, rules_text: dict) -> bool:
 
     post_update_notes: list[str] = []
     try:
-        pre_update_notes, post_update_notes = _check_update_awareness(root, config)
+        pre_update_notes, post_update_notes = _check_update_awareness(root, config, state)
         for note in pre_update_notes:
             print(note)
     except Exception:
@@ -2468,7 +2434,7 @@ def _collect_session(payload: dict, state: dict, rules_text: dict) -> bool:
             rules_text["excerpt"] = excerpt
             print(_EXCERPT_MARK)
     # Printed after the status line, not before: an "update available" note here is always a
-    # previous SessionStart's background finding (_consume_pending_update_note), never something
+    # previous SessionStart's background finding (_pending_update_note), never something
     # this run just checked, so it reads as a postscript rather than part of this run's status.
     for note in post_update_notes:
         print(note)

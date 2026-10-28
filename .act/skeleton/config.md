@@ -230,7 +230,7 @@ refuses") treats `block` as `warn`.
 | `status-poll` | block | repeated status queries on a running worker with no real work in between — refused from the second in a row (`R-cost-wait`) |
 | `encoding-hint` | block | writing to a file that is not UTF-8 — the first write per session and file is stopped once with a note, the repeat goes through; `warn` only notes after the write (`R-code-encoding`) |
 | `update-branch-hint` | warn | update or settings import on a branch other than the default one: one note that the others get it only with the merge — never refuses, `block` counts as `warn`, `off` drops the note |
-| `update-check` | block | at session start: a note if `.act/` was pulled in without `update.py`, and — at most once a day — a note if the template has moved on; never refuses, `off` skips both |
+| `update-check` | block | at session start: a note if `.act/` was pulled in without `update.py`, and — checked at most once a day — a note that the template has moved on, repeated at every start and shown on the board and in the status line until the update is installed; never refuses, `off` skips both |
 
 ## Logging
 
@@ -276,15 +276,12 @@ the tip of the source's default branch. `--channel` on `update.py` overrides it 
 | Key | Value |
 | :--- | :--- |
 | `archive-compact` | 30d 300 |
-| `archive-shorten` | on |
 
 `archive-compact`: `<n>d <n>` \| `off`. `entries.py compact` is due for the archive or the journal folder once its
 oldest single entry is older than this many days, or the folder holds more than this many single files; the session
-start says so once a day, with the number of entries and the worker runs to expect (`act-compact`). Only entries
-archived more than 7 days ago are merged. A missing or malformed value counts as `30d 300`; in team mode the note
-appears only on the default branch. `archive-shorten`: `on` \| `off`. `on` (the default) has workers shorten the
-merged sections and write a monthly topic overview `archive/YYYY-MM.md`, checked by `compact_check.py`; `off` merges
-only.
+start says so once a day, with the number of entries (`act-compact`). Only entries archived more than 7 days ago are
+merged, word for word, with a monthly overview `archive/YYYY-MM.md` of one line per entry; no worker takes part. A
+missing or malformed value counts as `30d 300`; in team mode the note appears only on the default branch.
 
 ## Tips
 
