@@ -199,7 +199,7 @@ so gelangt ein globales Token nicht an einen fremden Host. Ohne Eintrag laufen L
 `http://` erreicht wird, wird genauso behandelt, bis seine Adresse `https://` ist.
 
 ## Checks
-<!-- source: 48fe04e4a527011b -->
+<!-- source: 083b18cb519b159f -->
 Jede der folgenden Prüfungen läuft vor der Aktion, die sie nennt; `block` verweigert die Aktion, `warn` erlaubt sie
 mit einem Hinweis, `off` überspringt die Prüfung ganz. Eine Prüfung, die nur hinweist (markiert mit „never
 refuses“), behandelt `block` wie `warn`.
@@ -231,7 +231,7 @@ refuses“), behandelt `block` wie `warn`.
 | `status-poll` | block | wiederholte Statusabfragen an einen laufenden Worker ohne echte Arbeit dazwischen — ab der zweiten in Folge verweigert (`R-cost-wait`) |
 | `encoding-hint` | block | Schreiben in eine Datei, die nicht UTF-8 ist — der erste Schreibzugriff je Sitzung und Datei wird einmal mit einem Hinweis gestoppt, die Wiederholung geht durch; `warn` weist erst nach dem Schreiben hin (`R-code-encoding`) |
 | `update-branch-hint` | warn | Update oder Einstellungsimport auf einem anderen Branch als dem Default-Branch: ein Hinweis, dass die anderen es erst mit dem Merge bekommen — verweigert nie, `block` zählt als `warn`, `off` lässt den Hinweis weg |
-| `update-check` | block | beim Sitzungsstart: ein Hinweis, wenn `.act/` ohne `update.py` hereingeholt wurde, und — höchstens einmal am Tag — ein Hinweis, wenn das Template weitergezogen ist; verweigert nie, `off` überspringt beides |
+| `update-check` | block | beim Sitzungsstart: ein Hinweis, wenn `.act/` ohne `update.py` hereingeholt wurde, und — höchstens einmal am Tag geprüft — ein Hinweis, dass das Template weitergezogen ist, bei jedem Start wiederholt und auf dem Board und in der Statuszeile gezeigt, bis das Update eingespielt ist; verweigert nie, `off` überspringt beides |
 
 ## Logging
 <!-- source: 9fb49fc66248da1d -->
@@ -273,19 +273,16 @@ Default-Branches der Quelle. `--channel` bei `update.py` überschreibt den Wert 
 `.act/skills/act-update/SKILL.md`.
 
 ## Archive
-<!-- source: bfec751944984980 -->
+<!-- source: 22f803977e867975 -->
 | Schlüssel | Wert |
 | :--- | :--- |
 | `archive-compact` | 30d 300 |
-| `archive-shorten` | on |
 
 `archive-compact`: `<n>d <n>` \| `off`. `entries.py compact` ist für das Archiv oder den Journal-Ordner fällig, sobald
 sein ältester einzelner Eintrag älter als diese Anzahl Tage ist oder der Ordner mehr als diese Anzahl Einzeldateien
-enthält; der Sitzungsstart sagt das einmal am Tag, mit der Zahl der Einträge und der Worker-Läufe, mit denen zu rechnen
-ist (`act-compact`). Zusammengeführt werden nur Einträge, die vor mehr als 7 Tagen archiviert wurden. Ein fehlender oder
-fehlerhafter Wert zählt als `30d 300`; im Team-Modus erscheint der Hinweis nur auf dem Default-Branch.
-`archive-shorten`: `on` \| `off`. `on` (der Standard) lässt Worker die zusammengeführten Abschnitte kürzen und eine
-monatliche Themenübersicht `archive/YYYY-MM.md` schreiben, geprüft von `compact_check.py`; `off` führt nur zusammen.
+enthält; der Sitzungsstart sagt das einmal am Tag, mit der Zahl der Einträge (`act-compact`). Zusammengeführt werden nur Einträge, die vor mehr als 7 Tagen archiviert
+wurden, wörtlich und mit einer Monatsübersicht `archive/YYYY-MM.md` aus einer Zeile je Eintrag; kein Worker wirkt mit.
+Ein fehlender oder fehlerhafter Wert zählt als `30d 300`; im Team-Modus erscheint der Hinweis nur auf dem Default-Branch.
 
 ## Tips
 <!-- source: 1a90246f22239098 -->

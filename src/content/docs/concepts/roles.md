@@ -41,7 +41,7 @@ Every assignment states its tier, an estimate, and a cap as `Cap: <n>` tool call
 applies: `light` 10, `standard` 40, `elevated` 60, `high` and `expert` 80. The worker gets one note at the cap
 and is refused from 1.5 times the cap. It also states a `Write scope:` of paths relative to the project;
 `Write scope: none` means read-only in the project. Every worker, whatever its scope, may still write into the system temp directory when the path is written out (`/tmp/...` in Bash, or its absolute path), unless the project itself lies there; throwaway material goes there (`R-work-throwaway`). A scope `dir/**` also covers creating `dir` itself. Brackets in a pattern are read literally, so `server/api/[id]/**` names the folder called `[id]`, and a shell command whose wildcard reaches outside the scope is refused. Both are checked mechanically by hooks (`worker-cap`, `worker-write-scope`
-in `docs/ai/config.md` § Checks, each `block`, `warn`, or `off`). The exact syntax of `Cap:` and `Write scope:` and the limits of the checks are on the [checks page](/agentic-coding-template-docs/reference/topics/#checks); the block messages name the syntax too. Workers running at the same time need separate write scopes: `worker-scope-overlap` refuses a start whose scope overlaps that of a worker still running. An assignment that reads another worker's result names it as `Depends on:` and starts only after that worker has ended.
+in `docs/ai/config.md` § Checks, each `block`, `warn`, or `off`). The exact syntax of `Cap:` and `Write scope:` and the limits of the checks are on the [checks page](/agentic-coding-template-docs/reference/topics/#checks); the block messages name the syntax too. `worker-write-scope` also reads inline interpreter code (`python`, `python3`, `py` or `node` with `-c`/`-e`, or code from a heredoc, here-string or pipe, in Bash or PowerShell): it refuses when the code holds a write call and a written-out path outside the scope, the temp directory and the scratchpad. This is best effort; script files, paths built at run time and `subprocess` stay unseen. Workers running at the same time need separate write scopes: `worker-scope-overlap` refuses a start whose scope overlaps that of a worker still running. An assignment that reads another worker's result names it as `Depends on:` and starts only after that worker has ended.
 
 ## How a worker gets its rules
 
@@ -51,6 +51,7 @@ A worker does not load `CLAUDE.md`: the template's roles carry `omitClaudeMd: tr
 
 - Never commit, and never write to `docs/ai/`.
 - Never ask you directly: open questions go back to the orchestrator with the result.
+- Never make a write that a check refused another way (interpreter, script, other tool); report the refusal with the result.
 - Git is read-only (`status`, `diff`, `log`, `show`).
 - Never start another worker. If a task should be split, it says so and the orchestrator decides.
 - Return a result plus evidence in at most 40 lines, no raw dumps.

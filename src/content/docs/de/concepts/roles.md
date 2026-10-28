@@ -3,7 +3,7 @@ title: Rollen und Worker
 description: Der Orchestrator, die Worker-Rollen, Tiers, Caps, Write Scope und was ein Worker nicht darf.
 sidebar:
   order: 2
-sourceHash: d1bd97f976383288cc5c7939cffffa338e6afa3c7b06072aacb4964122794df3
+sourceHash: af5c3df7ef57c18f635bcb35eded72bdba7a98b85d53a3f01ce6d282e3ee8111
 ---
 
 ## Orchestrator und Worker
@@ -44,7 +44,7 @@ Jeder Auftrag nennt sein Tier, eine Schätzung und ein Cap als `Cap: <n>` Tool-A
 Standardwert des Tiers: `light` 10, `standard` 40, `elevated` 60, `high` und `expert` 80. Der Worker bekommt am
 Cap einen Hinweis und wird ab dem 1,5-Fachen des Caps abgewiesen. Außerdem nennt der Auftrag seinen Write Scope als `Write scope:`
 aus Pfaden relativ zum Projekt; `Write scope: none` heißt nur lesend im Projekt. In das temporäre Verzeichnis des Systems darf jeder Worker, gleich welcher Scope, trotzdem schreiben, wenn der Pfad ausgeschrieben ist (`/tmp/...` in Bash oder sein absoluter Pfad), es sei denn, das Projekt selbst liegt dort; Wegwerfmaterial gehört dorthin (`R-work-throwaway`). Ein Bereich `dir/**` deckt auch das Anlegen von `dir` selbst ab. Eckige Klammern in einem Muster werden wörtlich gelesen, `server/api/[id]/**` meint also den Ordner namens `[id]`, und ein Shell-Befehl, dessen Platzhalter über den Bereich hinausreicht, wird abgelehnt. Beides prüfen Hooks mechanisch (`worker-cap`,
-`worker-write-scope` in `docs/ai/config.md` § Checks, jeweils `block`, `warn` oder `off`). Die genaue Syntax von `Cap:` und `Write scope:` und die Grenzen der Prüfungen stehen auf der [Seite zu den Prüfungen](/agentic-coding-template-docs/de/reference/topics/#checks); auch die Sperrmeldungen nennen die Syntax. Gleichzeitig laufende Worker brauchen getrennte Write Scopes: `worker-scope-overlap` lehnt einen Start ab, dessen Bereich sich mit dem eines noch laufenden Workers überschneidet. Ein Auftrag, der das Ergebnis eines anderen Workers liest, nennt diesen als `Depends on:` und startet erst, wenn jener Worker fertig ist.
+`worker-write-scope` in `docs/ai/config.md` § Checks, jeweils `block`, `warn` oder `off`). Die genaue Syntax von `Cap:` und `Write scope:` und die Grenzen der Prüfungen stehen auf der [Seite zu den Prüfungen](/agentic-coding-template-docs/de/reference/topics/#checks); auch die Sperrmeldungen nennen die Syntax. `worker-write-scope` liest außerdem Inline-Code von Interpretern (`python`, `python3`, `py` oder `node` mit `-c`/`-e` oder Code aus Heredoc, Here-String oder Pipe, in Bash oder PowerShell): Er lehnt ab, wenn der Code einen Schreibaufruf und einen ausgeschriebenen Pfad außerhalb des Bereichs, des Temp-Verzeichnisses und des Scratchpads enthält. Das ist Best Effort; Script-Dateien, zur Laufzeit gebildete Pfade und `subprocess` bleiben unsichtbar. Gleichzeitig laufende Worker brauchen getrennte Write Scopes: `worker-scope-overlap` lehnt einen Start ab, dessen Bereich sich mit dem eines noch laufenden Workers überschneidet. Ein Auftrag, der das Ergebnis eines anderen Workers liest, nennt diesen als `Depends on:` und startet erst, wenn jener Worker fertig ist.
 
 ## Wie ein Worker seine Regeln bekommt
 
@@ -54,6 +54,7 @@ Ein Worker lädt `CLAUDE.md` nicht: Die Rollen der Vorlage tragen `omitClaudeMd:
 
 - Nie committen und nie nach `docs/ai/` schreiben.
 - Dich nie direkt fragen: offene Fragen gehen mit dem Ergebnis an den Orchestrator zurück.
+- Einen Schreibzugriff, den eine Prüfung abgelehnt hat, nie auf anderem Weg machen (Interpreter, Script, anderes Werkzeug); die Ablehnung mit dem Ergebnis melden.
 - Git ist nur lesend (`status`, `diff`, `log`, `show`).
 - Nie einen weiteren Worker starten. Sollte eine Aufgabe geteilt werden, sagt er das, und der Orchestrator entscheidet.
 - Ein Ergebnis samt Beleg in höchstens 40 Zeilen liefern, keine Rohdaten.

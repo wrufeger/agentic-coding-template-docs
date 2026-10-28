@@ -17,7 +17,7 @@ comes first: a git remote named `template` is used only if the lock names no sou
 took. If the fetch fails, the message names the source, where it came from, and the way out (`--source`, `--ref`).
 
 ```bash
-python .act/scripts/update.py --plan      # show the diff and describe the later steps, write nothing
+python .act/scripts/update.py --plan      # show the diff and describe the later steps, write nothing but the update note
 python .act/scripts/update.py             # the real run, asks for consent
 ```
 
@@ -33,12 +33,22 @@ python .act/scripts/update.py             # the real run, asks for consent
   `docs/ai/config.md`. `--channel release` and an invalid value stop with a hint to use `--ref` or `latest`.
 - On `release` the session start reports "template release vX.Y.Z available", on `latest` "a template update is
   available". `.act-lock.json` records the installed tag as `template.ref` on `release` and the branch on `latest`.
+- A pending update stays visible until it is installed: the session start names it in the line you see
+  (`update 2.4.0 available`) and repeats it to the assistant at every start, the board lists it under Status, and
+  Claude Code's status line shows `update: 2.4.0` on `release` or `update: <date>` on `latest` (the newer commit's
+  date as `DD.MM.YYYY` when `language-docs` is `de`, else `YYYY-MM-DD`; its short hash where the date cannot be read
+  without the network). If the lock has moved on since the check (an update pulled from another checkout), the old finding is dropped and
+  the next check runs at once.
 - Existing projects keep their `config.md`; without the key they get a one-time note from `act-update`.
   `act-doctor` reports a value other than `release` or `latest`.
 
 To see where you stand, ask `/act-version` or run `python .act/scripts/update.py --versions`. It lists the installed
 version and channel, the source's releases (`--all` for every one, not the five newest), the tip of the default branch,
-and what `act-update` would take. It uses only `git ls-remote`, clones nothing and writes nothing.
+and what `act-update` would take. It uses only `git ls-remote` and clones nothing. The only thing it writes is the
+local update note under `.act-local/` (status line, board), judged for the project's own channel and source. `--plan`
+and an update run refresh that note too (or clear it when the project is up to date); `--channel`, `--source` and
+`--ref` aim a single run elsewhere and leave it alone. `act-update` answers a question about the installed or newest
+version with `update.py --versions`.
 
 ## The ten steps
 

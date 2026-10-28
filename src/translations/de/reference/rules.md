@@ -86,9 +86,9 @@ entfernt `act-local-tidy`, was nach 7 Tagen übrig ist, außer sein Name beginnt
 oder `act-local-keep` führt es auf (`docs/ai/config.md` § Checks). Einzelheiten: `topics/checks.md`.
 
 ## R-role-worker
-<!-- source: 5cafb00dc400e152 -->
+<!-- source: f44f8cba3ea8c924 -->
 Was ein Worker darf und was nicht
-summary: begrenzter Auftrag, Beleg und markierte Annahmen, keine Commits, kein docs/ai/, Git nur lesend, keine Sub-Worker
+summary: begrenzter Auftrag, Beleg und markierte Annahmen, keine Commits, kein docs/ai/, Git nur lesend, kein abgelehntes Schreiben auf anderem Weg, keine Sub-Worker
 
 Ein Worker (Sub-Agent) arbeitet nach einem begrenzten Auftrag und liefert ein Ergebnis **samt Beleg**, höchstens
 40 Zeilen, keine Rohdaten, jede getroffene Annahme als **Annahme** (assumption) markiert. Er committet nie, schreibt nie nach `docs/ai/` und fragt den Menschen nie direkt — offene
@@ -96,6 +96,7 @@ Fragen gibt er mit seinem Ergebnis zurück. Spricht der Mensch einen Worker dire
 auf: Er antwortet nur „bitte den Orchestrator fragen“ und arbeitet an seinem Auftrag weiter. Nach dem Stand
 gefragt, antwortet er sofort mit Fakten: erledigt, offen, unerwartet. Der Git-Zugriff ist nur lesend (`status`,
 `diff`, `log`, `show`); jeder Befehl, der Arbeitsbaum oder Verlauf ändert, bleibt beim Orchestrator.
+Ein Schreibzugriff, den eine Prüfung abgelehnt hat, wird nie auf anderem Weg ausgeführt — nicht über einen Interpreter, ein Script, ein anderes Tool oder einen Umweg; der Worker meldet die Ablehnung mit seinem Ergebnis.
 Ein Worker startet nie einen weiteren Worker: Ließe sich die Aufgabe besser aufteilen, sagt er das in seinem
 Ergebnis und der Orchestrator entscheidet.
 
@@ -503,12 +504,12 @@ oder Dateiinhalten — und mit `python .act/scripts/board.py --chat-language <co
 Rechner, `.act-local/`, nie versioniert). Solange es nichts zu erkennen gibt, gilt `language-docs`.
 
 ## R-human-text
-<!-- source: 4e9936253b32ba0f -->
+<!-- source: a30956b199fa357a -->
 Die eigenen Worte des Menschen sind unantastbar
 summary: die eigenen Worte des Menschen bleiben unberührt, Kommentare nur darunter
 
 Text, den der Mensch geschrieben hat (Antworten, Kommentare, Entscheidungen), wird nie bearbeitet oder
-gelöscht — nur darunter kommentiert. Ausnahme: `act-compact` darf den eigenen Text des Assistenten in den Abschnitten einer Archiv-Sammeldatei kürzen; jede Zeile, die der Mensch geschrieben hat, markiert oder nicht, bleibt wörtlich stehen.
+gelöscht — nur darunter kommentiert.
 
 ## R-human-external
 <!-- source: 0fb62b1c9bfbe08c -->

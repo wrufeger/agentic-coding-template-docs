@@ -3,7 +3,7 @@ title: Update
 description: Einen neueren Stand des Templates mit act-update in ein Projekt holen.
 sidebar:
   order: 3
-sourceHash: e95c3956ac89f106d5ac75ae9bbd785384e4348edd8809bf40c4f8e91a5a79fd
+sourceHash: e966dbbf0389c0de0d05f6b85dd61e910ca01cd5ab6e7b3972cc386065da3c65
 ---
 
 `act-update` holt einen neueren Stand des Templates in dein Projekt: Du siehst den Diff, du stimmst zu, und
@@ -19,7 +19,7 @@ nennt, und das Script sagt, welche es genommen hat. Schlägt der Abruf fehl, nen
 stammt, und den Ausweg (`--source`, `--ref`).
 
 ```bash
-python .act/scripts/update.py --plan      # show the diff and describe the later steps, write nothing
+python .act/scripts/update.py --plan      # show the diff and describe the later steps, write nothing but the update note
 python .act/scripts/update.py             # the real run, asks for consent
 ```
 
@@ -36,12 +36,22 @@ python .act/scripts/update.py             # the real run, asks for consent
   `latest` zu nehmen.
 - Auf `release` meldet der Sitzungsstart „template release vX.Y.Z available“, auf `latest` „a template update is
   available“. `.act-lock.json` hält als `template.ref` auf `release` das installierte Tag fest, auf `latest` den Branch.
+- Ein ausstehendes Update bleibt sichtbar, bis es installiert ist: Der Sitzungsstart nennt es in der Zeile, die du
+  siehst (`update 2.4.0 available`), und wiederholt es bei jedem Start gegenüber dem Assistenten, das Board führt es
+  unter Status, und die Statuszeile von Claude Code zeigt `update: 2.4.0` auf `release` oder `update: <Datum>` auf
+  `latest` (das Datum des neueren Commits, als `DD.MM.YYYY`, wenn `language-docs` `de` ist, sonst `YYYY-MM-DD`; dessen
+  kurzer Hash, wo sich das Datum nicht ohne Netz lesen lässt). Ist die Sperrdatei seit der Prüfung weitergezogen (ein Update aus einem anderen Checkout),
+  fällt der alte Befund weg, und die nächste Prüfung läuft sofort.
 - Bestehende Projekte behalten ihre `config.md`; ohne den Schlüssel bekommen sie einen einmaligen Hinweis von
   `act-update`. `act-doctor` meldet einen Wert außer `release` oder `latest`.
 
 Wo du stehst, siehst du mit `/act-version` oder `python .act/scripts/update.py --versions`. Es listet die installierte
 Version und den Channel, die Releases der Quelle (`--all` für alle statt der fünf neuesten), die Spitze des
-Default-Branches und was `act-update` nehmen würde. Es nutzt nur `git ls-remote`, klont nichts und schreibt nichts.
+Default-Branches und was `act-update` nehmen würde. Es nutzt nur `git ls-remote` und klont nichts. Geschrieben wird
+nur die lokale Update-Notiz unter `.act-local/` (Statuszeile, Board), beurteilt für den eigenen Channel und die eigene
+Quelle des Projekts. Auch `--plan` und ein Update-Lauf frischen diese Notiz auf (oder löschen sie, wenn das Projekt auf
+dem neuesten Stand ist); `--channel`, `--source` und `--ref` richten einen einzelnen Lauf woandershin und lassen sie
+unberührt. `act-update` beantwortet die Frage nach der installierten oder neuesten Version mit `update.py --versions`.
 
 ## Die zehn Schritte
 

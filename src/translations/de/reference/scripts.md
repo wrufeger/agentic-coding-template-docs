@@ -36,8 +36,8 @@ Rein lesende Sichtung der Dokumentation und des KI-Werkzeug-Materials eines best
 Erzeugt das Board — einen vollständig abgeleiteten Schnappschuss (aktueller Branch, letzter Commit, Änderungsstand, jüngste Journal-Einträge, eine Liste „Waiting for you“…
 
 ## table:compact_check.py
-<!-- source: 77a7201ee7c38c60 -->
-Prüft die gekürzten Abschnitte der Archiv-Sammeldateien (`entries.py compact`) gegen ihren vollen Text sowie die monatliche Themenübersicht…
+<!-- source: 7c8d387d4d19041a -->
+Prüft die Abschnitte der Archiv-Sammeldateien (`entries.py compact`) gegen ihren vollen Text sowie die monatliche Übersicht…
 
 ## table:context_size.py
 <!-- source: d62daa6d3fd3b671 -->

@@ -3,7 +3,7 @@ title: Neues Projekt
 description: Ein neues Projekt aus dem Template einrichten, mit dem Assistenten oder von Hand.
 sidebar:
   order: 1
-sourceHash: b7373531d7f258dc4ff7e2ade0fe475d16ef577ac5c6e35bab56ec470b4366fd
+sourceHash: da0a7fcfaa090f6ab42cbcd45060c7ef597c745fe2e5800df9b823cd6f322d6f
 ---
 
 ## Das Template holen
@@ -19,18 +19,24 @@ Was auch immer deine erste Nachricht ist, der Assistent startet den Skill `act-s
 vorhanden ist, fragt, wohin das Projekt kommt, zeigt den Plan und führt ihn aus. Zum Beispiel:
 
 ```text
+start
 Erstelle hier im Verzeichnis ein neues Projekt.
 Erstelle ein neues Projekt in ../shop-api.
+Übernimm mein bestehendes Projekt in ~/dev/shop — es hat schon eine CLAUDE.md und eigene Doku.
 ```
 
-Jede Sprache funktioniert. Es gibt zwei Wege:
+Jede Sprache funktioniert. Es gibt drei Wege:
 
 1. **Genau hier.** Der Klon wird zum Projekt. Der Remote `origin` wird entfernt, wenn er auf das
    Template-Repository zeigt, und das Projekt startet auf einem frischen `main` ohne die Historie des Templates.
    Spätere Updates des Templates kommen nur über
    [`act-update`](/agentic-coding-template-docs/de/getting-started/update/).
-2. **Woanders.** Ein leerer oder fehlender Ordner wird direkt mit `--target` eingerichtet. Ein Ordner, der schon
-   ein Projekt enthält, geht an [`act-adopt`](/agentic-coding-template-docs/de/getting-started/existing-project/).
+2. **Woanders.** Ein leerer oder fehlender Ordner wird direkt mit `--target` eingerichtet.
+3. **Ein bestehendes Projekt.** Ein Ordner, der schon ein Projekt enthält — eigene Doku, eine `CLAUDE.md`, ein
+   älteres KI-Setup —, wird mit `act-adopt` übernommen. Der Assistent sichtet jede Quelle für Doku und KI-Werkzeuge,
+   schlägt je Quelle eine Aktion vor, wartet, bis du die Tabelle einmal freigibst, und zieht das Material dann auf
+   einem Branch `act-adopt` um, ohne es zu committen. Die Schritte stehen unter
+   [Bestehendes Projekt](/agentic-coding-template-docs/de/getting-started/existing-project/).
 
 Der Assistent führt die Befehle selbst aus. Er hat kein Terminal, in dem er dir Fragen stellen könnte, also
 übernimmt `init.py` die Standardwerte und schreibt jeden offenen Punkt (Name, Owner, Stack, Werkzeuge) in die
@@ -51,6 +57,13 @@ python .act/scripts/init.py --non-interactive         # no questions: defaults, 
 
 Nützliche Optionen: `--language-docs <code>` (Sprache von `docs/`, Standard `en`), `--language-chat <code|auto>`,
 `--update-channel <release|latest>` (was `act-update` verfolgt, siehe [Update](/agentic-coding-template-docs/de/getting-started/update/#update-channel); `init` fragt, wenn du es weglässt), `--no-commit`. Alle Optionen stehen in der [Scripts-Referenz](/agentic-coding-template-docs/de/reference/scripts/).
+
+Bei einem **bestehenden Projekt** überschreibt `init.py --target <dir>` nie eine Datei. Es ergänzt `.act/` und alles,
+was fehlt, hängt seine eigenen Blöcke an `.gitignore`/`.gitattributes` an, führt seine Hook-Einträge in
+`.claude/settings.json` zusammen und lässt jede andere Datei genau so, wie sie ist — auch eine vorhandene
+`CLAUDE.md`, der dann noch der Import der Regeln fehlt. Was aus der eigenen Doku und den KI-Dateien des Projekts
+werden soll, ist eine Einzelfallentscheidung je Datei, und die braucht einen Assistenten:
+[`act-adopt`](/agentic-coding-template-docs/de/getting-started/existing-project/).
 
 ## Was init tut
 

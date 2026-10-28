@@ -18,17 +18,22 @@ Whatever your first message is, the assistant starts the `act-setup` skill. It c
 the project goes, shows the plan, and runs it. For example:
 
 ```text
+start
 Set up a new project right here.
 Set up a new project in ../shop-api.
+Take over my existing project in ~/dev/shop — it already has a CLAUDE.md and its own docs.
 ```
 
-Any language works. There are two ways:
+Any language works. There are three ways:
 
 1. **Right here.** The clone becomes the project. The `origin` remote is removed if it points at the template repository, and the project starts on a
    fresh `main` with no history of the template. Later template updates come only through
    [`act-update`](/agentic-coding-template-docs/getting-started/update/).
-2. **Somewhere else.** An empty or missing folder is set up directly with `--target`. A folder that already
-   holds a project goes to [`act-adopt`](/agentic-coding-template-docs/getting-started/existing-project/).
+2. **Somewhere else.** An empty or missing folder is set up directly with `--target`.
+3. **An existing project.** A folder that already holds a project — its own docs, a `CLAUDE.md`, an older AI
+   setup — is taken over with `act-adopt`. The assistant sights every documentation and AI-tool source, proposes an
+   action per source, waits until you approve the table once, then moves the material over on a branch `act-adopt`
+   without committing it. The steps are on [Existing project](/agentic-coding-template-docs/getting-started/existing-project/).
 
 The assistant runs the commands itself. It has no terminal to ask you questions in, so `init.py` takes its
 defaults and writes every open point (name, owner, stack, tools) to the inbox. You go through that note with
@@ -49,6 +54,12 @@ python .act/scripts/init.py --non-interactive         # no questions: defaults, 
 
 Useful options: `--language-docs <code>` (language of `docs/`, default `en`), `--language-chat <code|auto>`,
 `--update-channel <release|latest>` (what `act-update` follows, see [Update](/agentic-coding-template-docs/getting-started/update/#update-channel); `init` asks if you leave it out), `--no-commit`. All options are in the [scripts reference](/agentic-coding-template-docs/reference/scripts/).
+
+For an **existing project**, `init.py --target <dir>` never overwrites a file. It adds `.act/` and whatever is
+missing, appends its own blocks to `.gitignore`/`.gitattributes`, merges its hook entries into
+`.claude/settings.json`, and leaves every other file exactly as it is — including an existing `CLAUDE.md`, which then
+still lacks the import of the rules. What should become of the project's own docs and AI files is a judgment per
+file, and that takes an assistant: [`act-adopt`](/agentic-coding-template-docs/getting-started/existing-project/).
 
 ## What init does
 

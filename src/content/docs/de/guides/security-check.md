@@ -3,7 +3,7 @@ title: Sicherheitsprüfung
 description: Wonach die Sicherheitsprüfung vor einem Commit sucht - gefährliche Muster, verwundbare Abhängigkeiten, die tiefe Prüfung - und was jeder Wert von security-check ausführt.
 sidebar:
   order: 2
-sourceHash: e10184f1aa8d2d2262e741b69a5d17f127af21faea3cd233754bd54373fbae4f
+sourceHash: 82d61651a0c00a4890bdfb122ed2238140b9c80a56489906e3a7ac303dcbd49a
 ---
 
 Die Sicherheitsprüfung wird mit einem Schlüssel gesetzt, `security-check`, in der Tabelle Checks von `docs/ai/config.md`. Anders als die übrigen Prüfungen nimmt sie nicht `block`, `warn` oder `off`, sondern eine Stufe.
@@ -23,7 +23,7 @@ Bei `git commit` werden die hinzugefügten Zeilen nach Konstrukten wie `eval`/`e
 - Eine Zeile mit `act:allow-danger` ist ausgenommen.
 - Dokumentation (`.md`, `.txt`, `.rst`) und alles unter `.act/` wird nie gescannt.
 
-Das ist getrennt von `secret-scan`, einer regulären `block`/`warn`/`off`-Prüfung, die einen Commit stoppt, dessen vorgemerkter Diff einen Schlüssel, Token, privaten Schlüssel, eine `.env`-Datei oder eine Zuweisung mit hoher Entropie enthält. Sie erkennt außerdem Zugangsdaten in einem URL-Query-String, einen Schlüssel in einfachen Anführungszeichen (`{'token': '...'}`), einen PHP-Array-Eintrag (`'token' => '...'`), einen Literal-Fallback hinter einer Umgebungsvariablen-Abfrage (`os.environ.get("API_TOKEN", "...")`, `process.env.API_TOKEN || "..."`) und ein Zugangsdaten-Paar in einem Wert in Anführungszeichen. Eine Zeile mit `act:allow-secret` ist ausgenommen.
+Das ist getrennt von `secret-scan`, einer regulären `block`/`warn`/`off`-Prüfung, die einen Commit stoppt, dessen vorgemerkter Diff einen Schlüssel, Token, privaten Schlüssel, eine `.env`-Datei oder eine Zuweisung mit hoher Entropie enthält. Sie erkennt außerdem Zugangsdaten in einem URL-Query-String, einen Schlüssel in einfachen Anführungszeichen (`{'token': '...'}`), einen PHP-Array-Eintrag (`'token' => '...'`), einen Literal-Fallback hinter einer Umgebungsvariablen-Abfrage (`os.environ.get("API_TOKEN", "...")`, `process.env.API_TOKEN || "..."`) und ein Zugangsdaten-Paar in einem Wert in Anführungszeichen. Eine Zeile mit `act:allow-secret` ist ausgenommen. Ausgenommen ist auch eine Form in `.act-lock.json` im Projektwurzelverzeichnis: der Override-Hash, den `doctor --accept` schreibt, mit einer Regel-ID als Schlüssel und genau 64 kleingeschriebenen Hex-Ziffern als Wert, sonst nichts in der Zeile (eine Regel-ID wie `R-safe-no-secret-cli` neben einem Hex-Wert gilt nicht mehr als Zugangsdaten). Eine bekannte Token-Form in dieser Zeile wird weiter erkannt.
 
 Eine Datei, die keinen Kommentar tragen kann (JSON, etwa ein Script-Eintrag, dessen Name nach Zugangsdaten aussieht), wird stattdessen über eine Liste behandelt: `docs/ai/local/secret-accepted.md`, pro angenommener Zeile eine Zeile `- <path> <hash>: <reason>`. `<path>` ist relativ zur Projektwurzel mit `/`, `<hash>` ein Hash der Zeile. Du rechnest ihn nicht selbst aus: Die Sperrmeldung druckt für jeden Fund den fertigen Eintrag (Pfad und Hash, nie den Wert), den du einfügst. Die Ausnahme fällt, sobald sich die Zeile ändert oder dieselbe Zeile in einer anderen Datei steht; der Commit wird dann wieder gesperrt. Eine fehlende, zu große oder unlesbare Liste nimmt nichts aus, und ein Eintrag, der die Liste selbst nennt, wird ignoriert.
 
