@@ -820,15 +820,20 @@ summary: Verzeichnisstruktur, Datenabruf, typisierte Handler, Runtime-Konfigurat
     Port des Eigentümers gehört ihm: erst fragen (`R-safe-dev-server`).
 
 ## CR-nuxt-root-folders
-<!-- source: a3ad57821a6f8362 -->
+<!-- source: f338f1501a84673b -->
 Feste Root-Ordner mit eigenen Aliasen
-summary: /types, /constants und /server im Repo-Root, jeweils der einzige Ort seiner Art
+summary: /types, /constants, /server und shared/utils/ im Repo-Root, jeweils der einzige Ort seiner Art
 
-- Drei Ordner im Repository-Root halten, jeweils mit eigenem Alias und jeweils der einzige Ort seiner Art:
+- Vier Ordner im Repository-Root halten, jeweils mit eigenem Alias und jeweils der einzige Ort seiner Art:
   `/types` (`~types`, gemeinsame Typen und Interfaces), `/constants` (`~constants`, Konstanten,
-  Enumerationen, feste Schlüssel), `/server` (`~server`, das Nitro-Backend).
+  Enumerationen, feste Schlüssel), `/server` (`~server`, das Nitro-Backend), `shared/utils/` (Nuxts `#shared`,
+  Code, den App und Server beide ausführen, etwa Formatierung, Validierung oder Berechnungen).
 - Typen und Konstanten von dort importieren, statt sie in Komponenten zu duplizieren. Ein zweiter
-  Typen-Ordner unter `app/types/` ist ein Fehler, keine Ergänzung.
+  Typen-Ordner unter `app/types/` oder `shared/types/` ist ein Fehler, keine Ergänzung: Typen bleiben in `/types`.
+- Code in `shared/` importiert weder Vue noch Nitro-Code (Nuxts eigene Grenze). Code, den nur die App ausführt,
+  bleibt in `app/utils/`, Code, den nur der Server ausführt, in `server/utils/`.
+- `shared/` braucht Nuxt 3.14 oder neuer (`R-code-version`). Nuxt 4 importiert `shared/utils/` in App und Server
+  automatisch; Nuxt 3 tut das nur mit `future.compatibilityVersion: 4`, sonst aus `#shared/utils/…` importieren.
 
 ## CR-nuxt-ssr
 <!-- source: 4301f7390de1d1f2 -->
@@ -916,7 +921,7 @@ summary: `NUXT_B8013` heißt abgeschaltet, Pinia 4 mit seinem Peer, der i18n-Rü
 - Die Nitro-v2-Brücke (`NUXT_B9003`) nie im eigenen Code nachbauen.
 
 ## CR-nuxt5-server
-<!-- source: 9df75b2e2a6a67e5 -->
+<!-- source: eec520585fa1d7f1 -->
 Nitro 3 und h3 v2
 summary: ausdrückliche Imports aus `nuxt/server`, `event.req` als Web-Request, typisierte Bodies, `status`/`statusText`
 
@@ -927,7 +932,7 @@ summary: ausdrückliche Imports aus `nuxt/server`, `event.req` als Web-Request, 
 - `readBody<T>()` mit einem eigenen `interface`, Fallback `.catch((): Body => ({}))`. Der Typ ist keine
   Validierung — den Body wie bisher validieren (z. B. mit einer Schema-Bibliothek).
 - Eine Antwort am Rückgabewert typisieren (`const response: ApiThing = …; return response`), der Typ im
-  gemeinsamen Typen-Ordner (`CR-nuxt-root-folders`).
+  `/types` (`CR-nuxt-root-folders`).
 - Fehler mit `createError({ status, statusText })`; `statusText` nur in ASCII (z. B. `'Unprocessable Entity'`),
   lokalisierter Text kommt in `data`.
 - Im Client kommt `createError({ data })` unter `response._data.data` an; die Feldfehler einer 422 liegen unter

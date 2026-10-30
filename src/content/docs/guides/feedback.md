@@ -24,7 +24,7 @@ New projects start with `confirm` whenever nobody chooses: a run without a termi
 
 ## Cadence and scope
 
-`feedback-cadence` is an upper limit, never an obligation: `manual`, `immediate`, `hourly`, `daily`, `weekly` (the usual value) or `adaptive`, which learns from how often reminders are acted on or postponed. With nothing to report, nothing is sent, however short the cadence.
+`feedback-cadence` is an upper limit, never an obligation: `manual`, `immediate`, `hourly`, `daily`, `weekly` (the usual value) or `adaptive`, which learns from how often reminders are acted on or postponed. With nothing to report, nothing is sent, however short the cadence. With `immediate`, `feedback.py --add` sends each entry when it is added (consent and mode still apply; `--help` says so), so `--send` with an empty outbox sends nothing and says so; `--send --force` sends anyway.
 
 `feedback-scope` says what the assistant may collect **on its own**:
 
@@ -34,7 +34,7 @@ New projects start with `confirm` whenever nobody chooses: a run without a termi
 | `b` | rule and structure changes |
 | `c` | tool usage: how many agents, skills and scripts exist, and how often each of the template's own skills and scripts was used since the last sending (a skill started by typing its slash command counts too). Your own skills and scripts appear only as one `own` count per kind, never by name. No MCP server names are sent. |
 
-The metrics of scope `a` count only the project's files (`git ls-files`), so a vendor, IDE or media folder that git ignores adds nothing. A finding written by hand always goes into the outbox, whatever the scope.
+The metrics of scope `a` count only the project's files (`git ls-files`), so a vendor, IDE or media folder that git ignores adds nothing; outside a git checkout, a directory or link that cannot be read is skipped. A finding written by hand always goes into the outbox, whatever the scope.
 
 ## Two ways to send
 

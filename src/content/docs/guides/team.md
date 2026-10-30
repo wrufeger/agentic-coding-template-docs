@@ -19,7 +19,7 @@ In `solo` mode the assistant gives a task (`T7`), backlog item (`B5`), question 
 
 ## Addressing with for:
 
-Entries and tasks carry a `for:` field: `all` for everyone, or a workspace identity, the short name in `.act-local/identity.json`. A task is created for the current identity unless you pass `--for`; todos, reports and notes default to `all`, except a quick-captured `todo:` or `note:` (a chat message with that prefix), which is for its writer. The board lists your tasks and shared ones, and with `board-others` on (the default in team mode) a separate section for tasks assigned to other people. Your inbox view `.act-local/inbox-<identity>.md` collects the open entries addressed to you or to `all`.
+Entries and tasks carry a `for:` field: `all` for everyone, or a workspace identity, the short name in `.act-local/identity.json`. A task is created for the current identity unless you pass `--for`; todos, reports and notes default to `all`, except a quick-captured `todo:` or `note:` (a chat message with that prefix), which is for its writer. The board lists your tasks and shared ones, and with `board-others` on (the default in team mode) a separate section for tasks assigned to other people. The session start creates `.act-local/identity.json` when it is missing or has no `identity` (a fresh clone, a second machine), taking the short name from `git config user.name`, and says so in one `[act] identity` line; without a usable git name it asks you to set one with `python .act/scripts/board.py --identity <name>`, which also changes an existing identity (files of a former identity are not renamed). Your inbox view `.act-local/inbox-<identity>.md` collects the open entries addressed to you or to `all`.
 
 ## Per-person files
 

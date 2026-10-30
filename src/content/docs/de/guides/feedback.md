@@ -3,7 +3,7 @@ title: Feedback
 description: Freiwilliges Feedback an den Autor des Templates - die Modi, Takt und Scope, was nie gesendet wird und wo die lokale Kopie bleibt.
 sidebar:
   order: 1
-sourceHash: 78d19e8974224de6540a8ca7cc9a3e6bd4ba721260bb503f2234945f5417c2c6
+sourceHash: 6a561b8f677c8f05876ba386ca009315c18398d5d45f3a618cc9d97e2848a38a
 ---
 
 Du kannst dem Autor des Templates als Feedback melden, was der Arbeitsweise gutgetan hat oder fehlte. Feedback ist freiwillig, betrifft **nur die Arbeitsweise, nie dein Projekt**, und alles, was den Rechner verlässt, wird auch lokal aufbewahrt.
@@ -25,7 +25,7 @@ Neue Projekte starten mit `confirm`, wenn niemand wählt: bei einem Lauf ohne Te
 
 ## Takt und Scope
 
-`feedback-cadence` ist eine Obergrenze, nie eine Pflicht: `manual`, `immediate`, `hourly`, `daily`, `weekly` (der übliche Wert) oder `adaptive`, das daraus lernt, wie oft auf Erinnerungen reagiert oder sie verschoben werden. Gibt es nichts zu melden, wird nichts gesendet, egal wie kurz der Takt ist.
+`feedback-cadence` ist eine Obergrenze, nie eine Pflicht: `manual`, `immediate`, `hourly`, `daily`, `weekly` (der übliche Wert) oder `adaptive`, das daraus lernt, wie oft auf Erinnerungen reagiert oder sie verschoben werden. Gibt es nichts zu melden, wird nichts gesendet, egal wie kurz der Takt ist. Bei `immediate` sendet `feedback.py --add` jeden Eintrag gleich beim Hinzufügen (Einwilligung und Modus gelten weiter; `--help` sagt das), darum sendet `--send` mit leerem Ausgang nichts und sagt es; `--send --force` sendet trotzdem.
 
 `feedback-scope` sagt, was der Assistent **von sich aus** sammeln darf:
 
@@ -35,7 +35,7 @@ Neue Projekte starten mit `confirm`, wenn niemand wählt: bei einem Lauf ohne Te
 | `b` | Regel- und Strukturänderungen |
 | `c` | Werkzeugnutzung: wie viele Agenten, Skills und Scripts es gibt und wie oft jeder Skill und jedes Script des Templates seit dem letzten Senden benutzt wurde (auch ein Skill, der durch Eintippen seines Slash-Befehls gestartet wurde, zählt). Deine eigenen Skills und Scripts erscheinen nur als eine `own`-Zahl je Art, nie mit Namen. Namen von MCP-Servern werden nicht gesendet. |
 
-Die Kennzahlen von Scope `a` zählen nur die Dateien des Projekts (`git ls-files`); ein Vendor-, IDE- oder Medienordner, den git ignoriert, geht also nicht ein. Ein von Hand geschriebener Befund landet immer im Ausgang, egal welcher Scope gilt.
+Die Kennzahlen von Scope `a` zählen nur die Dateien des Projekts (`git ls-files`); ein Vendor-, IDE- oder Medienordner, den git ignoriert, geht also nicht ein; außerhalb eines git-Checkouts wird ein Ordner oder Link, der sich nicht lesen lässt, übersprungen. Ein von Hand geschriebener Befund landet immer im Ausgang, egal welcher Scope gilt.
 
 ## Zwei Wege zum Senden
 

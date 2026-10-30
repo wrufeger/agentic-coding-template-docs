@@ -20,7 +20,7 @@ scripts. It works in a new project and in one that already exists.
   without a model turn.
 - **Recurring work as skills.** A skill is a plain `SKILL.md` that any assistant can follow, for example
   `act-bug`, `act-commit`, `act-release`. `/act <name>` shows a template skill's instructions in full, with or without its `act-` prefix
-  (`/act version` shows `act-version`); `act-version`, `act-export-settings` and `act-load-settings` start only
+  (`/act version` shows `act-version`); `act-version`, `act-info` (which project a session works in and its state), `act-export-settings` and `act-load-settings` start only
   as typed slash commands. See the [skills reference](/agentic-coding-template-docs/reference/skills/).
 
 ## Who it is for

@@ -68,10 +68,10 @@ Ten fixed steps, each printed as `[n/10]`:
 1. Collects the settings: name, owner, languages, stack, commands, tools, mode, feedback, update channel (`release` or `latest`, written to `docs/ai/config.md` § Update). It notes when the clone is already past the newest release.
 2. Resolves Git: in place it removes `origin` and rebuilds `main`; with `--target` it runs `git init` if needed.
 3. Checks your Git identity.
-4. Writes your workspace identity and the local import folder `.act-local/import/`.
+4. Writes your workspace identity (also when `.act-local/identity.json` exists but lacks `identity`) and the local import folder `.act-local/import/`.
 5. Thins the bridges down to the tools you chose.
 6. Writes the skeleton: `docs/ai/` (`config.md`, `rules.md`, `concept/`, inbox, work folders), `docs/project/coding_rules.md`, `docs/project/glossary.md`,
-   `docs/README.md`, the bridge files, skill copies, and the hook entries in `.claude/settings.json` (with `"enableArtifact": false` unless `artifacts: on`).
+   `docs/README.md`, the bridge files, skill copies, and the hook entries in `.claude/settings.json` (with `"enableArtifact": false` unless `artifacts: on`, and `PYTHON_BASIC_REPL=1` under `env`, so that on Windows an empty heredoc in a Bash call cannot hang on Python 3.13 and later).
 7. Appends template blocks to `.gitattributes` and `.gitignore`, and keeps `.act-local/` out of IDE indexes (`excludeFolder` in `.idea/*.iml`, `files.watcherExclude` in `.vscode/settings.json` where `.vscode/` exists).
 8. In place only: retires the template's own README, `CHANGELOG.md`, and community files under `.github/`
    (contributing, security, code of conduct, accessibility, issue and pull request templates), and asks whether to keep
@@ -79,7 +79,7 @@ Ten fixed steps, each printed as `[n/10]`:
 9. Writes `.act-lock.json` (the recorded template source and version) and `.act/MANIFEST.json`.
 10. Makes the first commit.
 
-`init.py` never overwrites a file the project already has. A `language-docs` other than English leaves the
+`init.py` never overwrites a file the project already has. A question that gets no input takes its shown default. A `language-docs` other than English leaves the
 scaffold in English. `act-setup` translates it in the same run; after a plain `init.py` an inbox note asks the
 assistant to do it once;
 common English technical terms (Skill, Inbox, Hook, Branch …) stay, above all in headings.

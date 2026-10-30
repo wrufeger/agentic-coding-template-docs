@@ -64,25 +64,29 @@ gespeicherten Daten korrektes UTF-8 bleiben. Allgemeiner: Auf einen Workaround w
 eine zweite, unabhängige Prüfung die Diagnose bestätigt hat, nicht schon bei der ersten plausiblen Erklärung.
 
 ## R-work-bounded-output
-<!-- source: eb2d4e0dd9b16837 -->
+<!-- source: 0055a93cea2daf6b -->
 Ausgabe unbekannter Länge aus dem Kontext heraushalten
-summary: head/tail/grep oder eine Datei im System-Temp-Verzeichnis für unbegrenzte Ausgabe; von einem Build- oder Testlauf nur die Fehlschläge lesen; große Dateien in Ausschnitten
+summary: head/tail/grep oder eine Datei im Wegwerf-Ordner der Aufgabe für unbegrenzte Ausgabe; von einem Build- oder Testlauf nur die Fehlschläge lesen; große Dateien in Ausschnitten
 
 Ausgabe, deren Länge vorher nicht bekannt ist, wird mit `head`/`tail`/`grep` beschnitten oder in eine Datei im
-System-Temp-Verzeichnis geschrieben (für jeden Worker beschreibbar, als ausgeschriebener Pfad) und von dort
-gelesen, nie vollständig in den Kontext genommen. Build- und Testausgabe geht denselben Weg: Gelesen werden nur
+Wegwerf-Ordner der Aufgabe (`R-work-throwaway`) geschrieben und von dort gelesen, nie vollständig in den Kontext
+genommen; ein Worker, dessen Auftrag keinen solchen Ordner nennt, beschneidet stattdessen. Build- und Testausgabe geht denselben Weg: Gelesen werden nur
 die Fehlschläge. Eine große Datei wird in Ausschnitten gelesen (`offset`/`limit`), nicht vollständig. Jede Zeile,
 die in den Kontext gelangt, wird mit jedem folgenden Schritt erneut gelesen.
 
 ## R-work-throwaway
-<!-- source: a76ca211c2afb813 -->
+<!-- source: c01cef9005dc0468 -->
 Wegwerfmaterial hat einen Ort und verschwindet wieder
-summary: Proben, Wegwerfprojekte und Arbeitsdateien im System-Temp-Verzeichnis, sonst in .act-local/tmp/<task-id>-<slug>/; mit dem Commit der Aufgabe entfernt; act-local-tidy räumt den Rest; mechanisch geprüft
+summary: Proben, Wegwerfprojekte, Klone und Arbeitsdateien nur bei Bedarf und nur unter .act-local/tmp/<task-id>-<slug>/, nie im System-Temp-Verzeichnis; von dem entfernt, der sie angelegt hat; kein Zugriffsrecht, das der Eigentümer nicht zurücknehmen kann; act-local-tidy räumt den Rest; mechanisch geprüft
 
-Wegwerfmaterial — Proben, Wegwerfprojekte, Arbeitsdateien — kommt in das System-Temp-Verzeichnis. Verweigert das
-Werkzeug einem Worker das, kommt es nach `.act-local/tmp/<task-id>-<slug>/`, nie direkt unter `.act-local/`. Der
-Orchestrator entfernt die Ordner einer Aufgabe, wenn er die Aufgabe committet (`act-commit`). Beim Sitzungsstart
-entfernt `act-local-tidy`, was nach 7 Tagen übrig ist, außer sein Name beginnt mit der ID einer offenen Aufgabe
+Wegwerfmaterial — Proben, Wegwerfprojekte, Klone, Ausgabedateien, Arbeitsdateien — wird nur angelegt, wenn die
+Arbeit es braucht, und nur unter `.act-local/tmp/<task-id>-<slug>/`: nie im System-Temp-Verzeichnis, wo niemand es
+verfolgt oder entfernt, und nie direkt unter `.act-local/`. Wer es anlegt, entfernt es wieder, sobald es seinen Zweck
+erfüllt hat; ein Worker schreibt in seinem Ergebnis, dass er es getan hat oder was übrig ist und warum, und ein
+Auftrag, der einen solchen Ordner braucht, nennt ihn in seinem `Write scope:`. Eine Probe setzt nie ein Zugriffsrecht,
+das ihr Eigentümer nicht allein zurücknehmen könnte, und nimmt jedes Recht, das sie gesetzt hat, in einem `finally`
+zurück. Der Orchestrator entfernt die Ordner einer Aufgabe, wenn er die Aufgabe committet (`act-commit`). Beim
+Sitzungsstart entfernt `act-local-tidy`, was nach 7 Tagen übrig ist, außer sein Name beginnt mit der ID einer offenen Aufgabe
 oder `act-local-keep` führt es auf (`docs/ai/config.md` § Checks). Einzelheiten: `topics/checks.md`.
 
 ## R-role-worker
@@ -352,13 +356,13 @@ kommt dorthin, wohin `inbox-decisions` sie legt (`R-human-ask`), auch eine, die 
 der Mensch im Chat trifft, kommt sofort beantwortet in die Inbox.
 
 ## R-work-session-start
-<!-- source: 7c63e0571705d010 -->
+<!-- source: 4ca3df76a333e432 -->
 Neustarts selbst prüfen; „weiter“ heißt arbeiten
 summary: einen erzwungenen Neustart überprüfen; ein bloßes „weiter“ heißt, weiterzuarbeiten
 
 Nach einem erzwungenen Neustart (nötig, damit ein Hook, eine Werkzeugeinstellung oder eine neue Regeldatei
 wirkt) wird ungefragt geprüft, ob es geklappt hat, und das Ergebnis gemeldet. Ein bloßes „weiter“ oder „mach
-weiter“ heißt: den aktuellen Stand lesen und von dort weiterarbeiten — keine Rückfrage an den Menschen. Ist
+weiter“, auch das nach `/clear` an einer Aufgabengrenze (`R-work-handover`), heißt: den aktuellen Stand lesen und von dort weiterarbeiten — keine Rückfrage an den Menschen. Ist
 `board-at-start` an (`docs/ai/config.md`), arbeitet ein bloßes „weiter“ mit dem Board-Auszug vom Sitzungsstart
 und liest nur die genannte Aufgabe und ihren Stand weiter.
 
@@ -381,9 +385,9 @@ unverändert. Ändert sich das Projekt in einer Weise, die `config.md` beschreib
 aktualisiert.
 
 ## R-work-handover
-<!-- source: d06263c37489b02c -->
+<!-- source: 2918171cee38d83b -->
 Jeder Schritt endet übergabebereit
-summary: Stand, offene Aufgabe, Entscheidungen und akzeptierte Annahmen, damit eine frische Sitzung weitermachen kann; /clear wird an einer Aufgabengrenze vorgeschlagen, sobald der Kontext groß ist
+summary: Stand, offene Aufgabe, Entscheidungen und akzeptierte Annahmen, damit eine frische Sitzung weitermachen kann; an einer Aufgabengrenze, sobald der Kontext groß ist, zuerst die Übergabe geprüft, dann /clear und ein bloßes „weiter“
 
 Auch ein Teilschritt (eine Etappe, eine Teilaufgabe) ist erst erledigt, wenn eine frische Sitzung ohne
 Vorwissen daran anknüpfen könnte: Stand und nächster Schritt festgehalten mit `entries.py state <id> <text>`
@@ -394,14 +398,17 @@ dem Menschen in der Inbox vorgelegt oder mit dem Stand der Aufgabe festgehalten 
 belassen. Ein Arbeitsplatz
 außerhalb des Repos — ein zweiter Checkout, ein Worktree — kommt mit vollem Pfad in die Aufgabe. Bevor vor
 einem großen Umbau zu einem Neustart geraten wird, wird zuerst bestätigt, dass diese Übergabe tatsächlich
-trägt; erst dann folgt der Rat. Vor `/clear` oder einem Neustart wird `act-handover` ausgeführt. Vor einer manuellen Verdichtung (`/compact`) wird der Stand zuerst mit
+trägt; erst dann folgt der Rat. Vor einem Neustart wird `act-handover` ausgeführt. Vor einer manuellen Verdichtung (`/compact`) wird der Stand zuerst mit
 `entries.py state` festgehalten; nach jeder Verdichtung wird der Stand der offenen Aufgabe erneut gelesen, bevor
 es weitergeht — die Zusammenfassung kann Details verloren haben. Eine Aufgabe, die auf jemanden oder etwas
 wartet, bekommt ihren Stand mit `entries.py state <id> --wait <text>`.
 
-An einer Aufgabengrenze (Aufgabe erledigt und committet, kein Worker läuft, nichts steht nur im Chat) schlägt
-die Schlusszeile `/clear` vor, sobald der Kontext `context-hint` (`docs/ai/config.md`) erreicht hat;
-`act-handover` prüft die Übergabe und liefert den Satz für die neue Sitzung.
+An einer Aufgabengrenze (Aufgabe erledigt und committet, kein Worker läuft, nichts steht nur im Chat) wird,
+sobald der Kontext `context-hint` (`docs/ai/config.md`) erreicht hat, die Übergabe zuerst selbst geprüft:
+`python .act/scripts/handover.py` ausführen, beheben, was es findet, und die Stand-Zeile jeder offenen Aufgabe so
+hinterlassen, dass das Board allein ihren nächsten Schritt nennt. Erst dann sagt die Schlusszeile „jetzt `/clear`“ —
+ohne einen Satz zum Kopieren: nach `/clear` setzt ein bloßes „weiter“ vom Board aus fort (`R-work-session-start`).
+`act-handover` bleibt für die Frage des Menschen, ob die Sitzung verlassen werden kann.
 
 ## rules/orchestrator/20-human.md
 <!-- source: f80a9fa41de030e0 -->
@@ -528,7 +535,7 @@ Kostenregeln
 summary: wann delegieren, Delegations-Tiers und Caps, auf Worker warten, einen laufenden Auftrag ergänzen, wiederkehrende Prüfungen als Script, Commit-Schranke, die Secret-Prüfung des Diffs, Reset und Verwerfen
 
 ## R-cost-delegate
-<!-- source: 80d003c4bbd1ff60 -->
+<!-- source: 3297dd462b3c8734 -->
 Tier, Schätzung und Cap nennen
 summary: delegieren, wo sich eine Übergabe lohnt, Rollen des Templates vor den eigenen Agenten des Werkzeugs; Tier, Schätzung in Minuten und tkn fresh/cache, mechanisch geprüfter Cap, kleine Aufträge
 
@@ -552,8 +559,9 @@ kompakter Kopf, Standard-Cap je Tier, der Hinweis am Cap und die Abweisung darü
 
 Jeder Auftrag nennt außerdem seinen Write Scope als Zeile `Write scope: <glob>[, <glob> ...]`, Muster relativ
 zum Projektstamm; `Write scope: none` heißt nur lesend. Mechanisch geprüft durch `worker-write-scope`
-(`docs/ai/config.md` § Checks); Muster-Syntax, die Ausnahme für das temporäre Verzeichnis und Grenzen:
-`topics/checks.md`.
+(`docs/ai/config.md` § Checks); ein Worker mit Scope schreibt sonst
+nirgends, auch nicht ins temporäre Systemverzeichnis oder in sein Scratchpad, ein Auftrag, der Wegwerfmaterial braucht,
+nennt deshalb `.act-local/tmp/<task-id>-<slug>/**` darin. Muster-Syntax und Grenzen: `topics/checks.md`.
 
 Worker, die gleichzeitig laufen, bekommen getrennte Write Scopes, sonst laufen sie nacheinander
 (`worker-scope-overlap`, `docs/ai/config.md` § Checks).

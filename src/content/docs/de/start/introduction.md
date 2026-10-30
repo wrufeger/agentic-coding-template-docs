@@ -3,7 +3,7 @@ title: Einführung
 description: Was das Template ist, für wen sie gedacht ist und wie sie in einem Bild funktioniert.
 sidebar:
   order: 1
-sourceHash: 2c84eb7597eaead812fd23feabe746824ed04cc687fc9b5ece2c4403dd941361
+sourceHash: 732c2432724a86256d77d191d36ed625cdfbac49b50c0302180afcc7791b3b41
 ---
 
 Das Agentic-Coding-Template, kurz *act*, ist ein Satz von Dateien, den du in ein Projekt legst, damit dein
@@ -21,7 +21,7 @@ Sub-Agenten, Hooks und Scripts. Es funktioniert in einem neuen und in einem bere
   ohne Modell-Durchlauf ab.
 - **Wiederkehrende Arbeit als Skills.** Ein Skill ist eine schlichte `SKILL.md`, der jeder Assistent folgen kann,
   zum Beispiel `act-bug`, `act-commit`, `act-release`. `/act <name>` zeigt die Anweisungen eines Skills der Vorlage vollständig an, mit oder ohne das Präfix `act-`
-  (`/act version` zeigt `act-version`); `act-version`, `act-export-settings` und `act-load-settings` starten nur
+  (`/act version` zeigt `act-version`); `act-version`, `act-info` (in welchem Projekt eine Sitzung arbeitet, und dessen Stand), `act-export-settings` und `act-load-settings` starten nur
   als eingetippter Slash-Befehl. Siehe die [Skills-Referenz](/agentic-coding-template-docs/de/reference/skills/).
 
 ## Für wen es gedacht ist

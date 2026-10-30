@@ -3,7 +3,7 @@ title: Update
 description: Einen neueren Stand des Templates mit act-update in ein Projekt holen.
 sidebar:
   order: 3
-sourceHash: e966dbbf0389c0de0d05f6b85dd61e910ca01cd5ab6e7b3972cc386065da3c65
+sourceHash: 3e43d63e1cb7bb76e06ba993a301e8153310811bab8c2ab6bad2f8159a8c44ce
 ---
 
 `act-update` holt einen neueren Stand des Templates in dein Projekt: Du siehst den Diff, du stimmst zu, und
@@ -53,6 +53,22 @@ Quelle des Projekts. Auch `--plan` und ein Update-Lauf frischen diese Notiz auf 
 dem neuesten Stand ist); `--channel`, `--source` und `--ref` richten einen einzelnen Lauf woandershin und lassen sie
 unberührt. `act-update` beantwortet die Frage nach der installierten oder neuesten Version mit `update.py --versions`.
 
+## Advisories
+
+Der Autor des Templates kann Projekte warnen, die eine betroffene Template-Version nutzen. Die tägliche
+Update-Prüfung im Hintergrund schaut auch auf den Branch `advisories` der Template-Quelle und holt, wenn er sich
+geändert hat, nur diesen Branch nach `.act-local/advisories.git` (nie ins `.git` des Projekts). Verwendet wird nur
+geprüftes JSON; ein Link wird angezeigt, nie geöffnet. Ein `critical`-Advisory, das zur installierten Version passt,
+erscheint bei jedem Sitzungsstart, als `⚠ A<n>` in der Statuszeile, unter dem Board-Titel und einmal als Inbox-Todo;
+ein `warning` nur beim Sitzungsstart, einmal oder bei jedem Start, wie das Advisory es festlegt.
+
+Ein Advisory endet, wenn `act-update` eine Version außerhalb seines Bereichs bringt, wenn du „Warnung quittiert“
+sagst (oder `python .act/scripts/advisory.py --ack A<n>` ausführst) oder wenn die genannten Dateien den fehlerhaften
+Ausschnitt nicht mehr enthalten. `advisory-check: off` in `docs/ai/config.md` schaltet es aus; `advisory.py --status`
+zeigt den Stand, `--refresh` prüft sofort. Das `git ls-remote` der Prüfung erlaubt nur die Protokolle `file`, `git`,
+`http`, `https` und `ssh`: Eine Quelle hinter einem anderen Remote-Helper bekommt beim Sitzungsstart keine
+Update-Notiz, `act-update` selbst bleibt unverändert.
+
 ## Die zehn Schritte
 
 1. **Holen** des Templates in einen temporären Checkout. Nichts daraus wird ausgeführt.
@@ -76,7 +92,7 @@ unberührt. `act-update` beantwortet die Frage nach der installierten oder neues
    lädt weiter `CLAUDE.md`. Claude Code vor 2.1.271 ignoriert das Feld, Worker bekommen die Regeln dort doppelt (kostet
    nur Tokens).
 7. **Hooks und Git-Dateien.** Gleicht die Hook-Einträge in `.claude/settings.json` und die Blöcke des Templates in
-   `.gitattributes` und `.gitignore` ab und setzt dort `"enableArtifact": false`, außer `docs/ai/config.md` hat
+   `.gitattributes` und `.gitignore` ab, setzt dort `PYTHON_BASIC_REPL=1` unter `env` (unter Windows hängt ein leeres Heredoc in einem Bash-Aufruf unter Python 3.13 und neuer nicht mehr; ein selbst gesetzter Wert bleibt, der Bericht nennt die ergänzten env-Schlüssel) und `"enableArtifact": false`, außer `docs/ai/config.md` hat
    `artifacts: on`. Ein bestehendes Projekt startet nach dem Update deshalb ohne das Werkzeug `Artifact`. Außerdem ergänzt dieser Schritt die 12 `SubagentStart`-Einträge, die Workern ihre Regeln ohne die Orchestrator-Regeln geben (siehe Schritt 6); ein älterer Satz von sechs wird ersetzt, eigene Hooks bleiben. `python .act/scripts/rules.py --worker` zeigt, was ein Worker bekommt. Außerdem hält er `.act-local/` aus den Indizes der IDEs heraus: ein `excludeFolder` in jeder JetBrains-`.idea/*.iml` und `files.watcherExclude` in `.vscode/settings.json`, wo `.vscode/` existiert.
 8. **Migrationen.** Führt alle fälligen aus. Jede schreibt eine betroffene Datei einmal um und lässt sie danach in Ruhe.
 9. **Brücken und Doctor.** Zuerst werden unbearbeitete erzeugte Brücken (`CLAUDE.md`, `AGENTS.md`,
@@ -91,6 +107,12 @@ Die Zusammenfassung nennt auch, was der nächste Sitzungsstart aus `.act-local/`
 Hat das Template keinen neueren Stand, melden `--plan` und der echte Lauf „nothing to update“. Eine Brückendatei, deren
 Inhalt gleich bliebe, wird nicht neu geschrieben. Ein großes Update scheitert unter Windows nicht mehr mit `WinError 206`.
 
+## Wenn eine Frage keine Eingabe bekommt
+
+Fragt `update.py` und kommt keine Eingabe an, obwohl stdin wie ein Terminal aussieht (unter Windows zählt
+`< /dev/null` dazu), nimmt es den sicheren Standardwert statt mit einem Traceback abzubrechen: keine Zustimmung zum
+Update und `abort` bei lokalen Änderungen in `.act/`.
+
 ## `.act-local/` aufräumen
 
 Die Prüfung `act-local-tidy` läuft beim Sitzungsstart einmal am Tag im Hintergrund. Sie entfernt Einträge unter `tmp/`
@@ -101,6 +123,27 @@ Sitzungsstart, der diese Meldung gezeigt hat. `act-local-tidy: warn` meldet nur,
 `python .act/scripts/act_local_tidy.py` listet, was gehen würde.
 
 Danach ergänzt der Assistent eine Journalzeile mit der Änderung des Basis-Commits und der Zahl der Befunde.
+
+## Upgrade auf 2.4.0
+
+Von v2.3.0 aus führst du `act-update` wie gewohnt aus und startest danach eine neue Sitzung, damit die neuen Hooks
+greifen. Eine neue Migration gibt es nicht.
+
+- **Einstellungen, Rollen und Regelzeilen** (Schritte 6 und 7): Das Update setzt `PYTHON_BASIC_REPL=1` unter `env` in
+  `.claude/settings.json`, entfernt die `-high`-Varianten von sechs Rollen (ein Auftrag, der eine davon nannte, nennt
+  die Rolle selbst oder `builder-high`/`reviewer-high`) und verschiebt in einer bearbeiteten `docs/ai/rules.md` die
+  Zeilen von `R-safe-no-secret-diff`, `R-safe-git-reset` und `R-safe-git-discard` in den Block von
+  `orchestrator/30-cost.md`, Kreuze unverändert.
+- **Der Sitzungstitel** folgt dem Namen des Projekts (`session-name`, Standard `project`). `session-name: auto`
+  überlässt die Benennung Claude Code; einen mit `/rename` oder `claude -n` gesetzten Titel überschreibt sie nie.
+- **Worker mit einer Zeile `Write scope:`** können nicht mehr ins Temp-Verzeichnis des Systems oder in ihr Scratchpad
+  schreiben. Ein Auftrag, der Wegwerfmaterial braucht, nennt `.act-local/tmp/<task-id>-<slug>/**` in seinem Scope.
+- **Advisories** sind an (siehe [Advisories](#advisories)); `advisory-check: off` in `docs/ai/config.md` schaltet sie aus.
+- **`act-local-tidy`** meldet beim ersten Lauf in einem Projekt nur (siehe oben); `act-local-keep` schützt deine
+  eigenen Einträge unter `.act-local/`.
+- **`act-version`, `act-export-settings` und `act-load-settings`** starten nur noch, wenn du sie als Slash-Befehl tippst.
+- **`archive-shorten`** wird nicht mehr gelesen und kann aus `docs/ai/config.md` raus. Sobald jedes Projekt auf dem
+  Rechner aktualisiert ist, kann ein alter Ordner `act-pycache` im Temp-Verzeichnis des Systems gelöscht werden.
 
 ## Upgrade auf 2.3.0
 

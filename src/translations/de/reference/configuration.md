@@ -106,12 +106,13 @@ Nötige — keinen Zwischenstand, eine Antwort je Frage; `verbose` schreibt Antw
 verstanden wurde, Gründe, Hinweise zu selbst geschriebenem Code und worauf zu achten ist.
 
 ## Session length
-<!-- source: df0187c35f79f9bf -->
+<!-- source: 7e5c3fac8f383b0d -->
 | Schlüssel | Wert |
 | :--- | :--- |
 | `context-hint` | 180000 |
 | `task-wait-hours` | 12 |
 | `board-at-start` | on |
+| `session-name` | project |
 | `artifacts` | off |
 
 `board-at-start`: `on` \| `off`. `on` (Standard; ein fehlender Schlüssel gilt als `on`) hängt dem Sitzungsstart einen
@@ -120,6 +121,14 @@ Auszug des Boards an — die Abschnitte „Open tasks“ (mit der letzten Stand-
 wartenden Einträge füllen den Rest und enden in einer Zeile `+N more` — so kann ein bloßes „weiter“ damit arbeiten,
 ohne erst das Board zu lesen. Er wird zuerst gekürzt oder weggelassen, wenn die Ausgabe des Sitzungsstarts an ihre
 Größengrenze stößt, und nach einer Verdichtung (Compaction) entfällt er (die Compaction-Notiz nennt die Aufgaben schon).
+
+`session-name`: `project` \| `auto` \| beliebiger anderer Text. `project` (Standard; ein fehlender Schlüssel gilt als
+`project`) setzt den Titel der Claude-Code-Sitzung auf den `name` aus dieser Datei, oder auf den Namen des
+Projektordners, solange `name` leer oder noch der Platzhalter ist, sodass eine Remote-Control-Sitzung auf dem Handy
+zeigt, zu welchem Projekt sie gehört. `auto` überlässt die Benennung dem Werkzeug. Jeder andere Text wird selbst als
+Titel verwendet (Steuerzeichen entfernt, höchstens 80 Zeichen). Gilt nur für Claude Code; der Titel wird gesetzt,
+wenn eine Sitzung startet, fortgesetzt oder gegabelt wird, und überschreibt nie einen, den du mit `/rename` oder
+`claude -n` gesetzt hast. Eine benannte Sitzung behält ihren Titel über `/clear` hinweg.
 
 `artifacts`: `on` \| `off`. `off` (Standard; ein fehlender Schlüssel oder jeder andere Wert gilt als `off`) trägt
 `"enableArtifact": false` in `.claude/settings.json` ein, sodass Claude Code das Werkzeug `Artifact` nicht mehr lädt —
@@ -199,7 +208,7 @@ so gelangt ein globales Token nicht an einen fremden Host. Ohne Eintrag laufen L
 `http://` erreicht wird, wird genauso behandelt, bis seine Adresse `https://` ist.
 
 ## Checks
-<!-- source: 083b18cb519b159f -->
+<!-- source: 8e85b20ee5e2006a -->
 Jede der folgenden Prüfungen läuft vor der Aktion, die sie nennt; `block` verweigert die Aktion, `warn` erlaubt sie
 mit einem Hinweis, `off` überspringt die Prüfung ganz. Eine Prüfung, die nur hinweist (markiert mit „never
 refuses“), behandelt `block` wie `warn`.
@@ -207,7 +216,7 @@ refuses“), behandelt `block` wie `warn`.
 | Prüfung | Wert | Schützt |
 | :--- | :--- | :--- |
 | `template-write-guard` | block | Schreibzugriffe unter `.act/` — stattdessen eine Projektfassung in `docs/ai/local/<same path>` ablegen |
-| `session-start-refresh` | block | baut die erzeugten Brücken und das Board beim Sitzungsstart neu; `warn` meldet nur, was es erneuern würde (einmal je Änderung, nicht bei jedem Start), und schreibt nichts, hier wie im Brücken-Schritt von `update.py`; `off` überspringt es, und `update.py` meldet dann ebenfalls nur |
+| `session-start-refresh` | block | baut die erzeugten Brücken und das Board beim Sitzungsstart neu; `warn` meldet nur, was es erneuern würde (einmal je Änderung, nicht bei jedem Start), und schreibt nichts (eine Ausnahme: eine fehlende `.act-local/identity.json` wird trotzdem aus `git config user.name` angelegt), hier wie im Brücken-Schritt von `update.py`; `off` überspringt es, und `update.py` meldet dann ebenfalls nur |
 | `orchestrator-rules` | block | nur als Rückfall: solange `docs/ai/rules.md` die Orchestrator-Regeln nicht importiert (eine ältere, lokal geänderte Kopie), nennt sie der Sitzungsstart in Kürze; `off` überspringt es |
 | `worker-nesting-guard` | block | ein Sub-Agent, der `Agent`/`Task` aufruft (keine Sub-Sub-Agenten, `R-role-worker`) — `warn` meldet ohne zu sperren, `off` überspringt es |
 | `worker-write-scope` | block | ein Worker, der außerhalb der `Write scope:`-Zeile seines Auftrags schreibt (`R-cost-delegate`) — `warn` meldet ohne zu sperren, `off` überspringt es |
@@ -262,15 +271,22 @@ lokal (`.act-local/feedback/sent/`, per gitignore ausgeschlossen) — jedes Send
 zufälligen Projekt-Kennung (eine Antwortadresse nur, wenn du eine nennst). Details: `.act/rules/topics/feedback.md`.
 
 ## Update
-<!-- source: c7288267161bca7c -->
+<!-- source: 2438a24ce0992602 -->
 | Schlüssel | Wert |
 | :--- | :--- |
 | `update-channel` | <update-channel> |
+| `advisory-check` | on |
 
 `update-channel`: `release` \| `latest`. Mit `release` (dem Standard) bietet `act-update` nur das neueste stabile
 Release-Tag der Template-Quelle an, und der Sitzungsstart meldet nur dieses; mit `latest` folgt es der Spitze des
 Default-Branches der Quelle. `--channel` bei `update.py` überschreibt den Wert für einen Lauf. Details:
 `.act/skills/act-update/SKILL.md`.
+
+`advisory-check`: `on` \| `off`. `on` (Standard; ein fehlender Schlüssel gilt als `on`): Die tägliche Hintergrundprüfung
+fragt bei der Template-Quelle auch nach Warnungen zu Template-Versionen mit einem bekannten ernsten Problem und zeigt die,
+die auf deine installierte Version zutreffen (Sitzungsstart, Statuszeile, Board, Inbox), bis du aktualisierst oder sie
+quittierst; `off` fragt und zeigt nichts. Die Abfrage läuft mit dem Hintergrundlauf von `update-check`, `update-check: off`
+stoppt sie also ebenfalls. Details: `python .act/scripts/advisory.py --help`.
 
 ## Archive
 <!-- source: 22f803977e867975 -->

@@ -50,6 +50,21 @@ and an update run refresh that note too (or clear it when the project is up to d
 `--ref` aim a single run elsewhere and leave it alone. `act-update` answers a question about the installed or newest
 version with `update.py --versions`.
 
+## Advisories
+
+The template author can warn projects that run an affected template version. The daily background update check also
+looks at the `advisories` branch of the template source and, when it changed, fetches only that branch into
+`.act-local/advisories.git` (never the project's `.git`). Only validated JSON is used; a link is shown, never opened.
+A `critical` advisory that matches the installed version shows at every session start, as `⚠ A<n>` in the status line,
+below the board title and once as an inbox todo; a `warning` shows at session start only, once or at every
+start as the advisory sets it.
+
+An advisory ends when `act-update` brings a version outside its range, when you say "warning acknowledged" (or run
+`python .act/scripts/advisory.py --ack A<n>`), or when the files it lists no longer hold the faulty snippet.
+`advisory-check: off` in `docs/ai/config.md` switches it off; `advisory.py --status` shows the state and `--refresh`
+checks at once. The check's `git ls-remote` allows only the `file`, `git`, `http`, `https` and `ssh` protocols: a source
+behind another remote helper gets no update note at session start, while `act-update` itself is unchanged.
+
 ## The ten steps
 
 1. **Fetch** the template into a temporary checkout. Nothing from it is run.
@@ -71,7 +86,7 @@ version with `update.py --versions`.
    loading `CLAUDE.md`. Claude Code before 2.1.271 ignores the field, so workers there get the rules twice (costs
    tokens only).
 7. **Hooks and Git files.** Reconciles the hook entries in `.claude/settings.json` and the template blocks in
-   `.gitattributes` and `.gitignore`, and sets `"enableArtifact": false` there unless `artifacts: on` is in
+   `.gitattributes` and `.gitignore`, sets `PYTHON_BASIC_REPL=1` under `env` there (on Windows, an empty heredoc in a Bash call no longer hangs on Python 3.13 and later; a value you set yourself is kept, and the report names the env keys added), and sets `"enableArtifact": false` there unless `artifacts: on` is in
    `docs/ai/config.md`. An existing project therefore starts without the `Artifact` tool after the update. It also adds the 12 `SubagentStart` entries that give workers their rules without the orchestrator rules (see step 6); an older set of six is replaced, your own hooks stay. `python .act/scripts/rules.py --worker` shows what a worker gets. It also keeps `.act-local/` out of IDE indexes: an `excludeFolder` in every JetBrains `.idea/*.iml`, and `files.watcherExclude` in `.vscode/settings.json` where `.vscode/` exists.
 8. **Migrations.** Runs any that are due. Each rewrites an affected file once and leaves it alone after.
 9. **Bridges and doctor.** First unedited generated bridges (`CLAUDE.md`, `AGENTS.md`, `docs/ai/rules.md`) are
@@ -86,6 +101,12 @@ below).
 If the template has no newer state, `--plan` and the real run both say "nothing to update". A bridge file whose content
 would not change is not rewritten. A large update no longer fails on Windows with `WinError 206`.
 
+## When a question gets no input
+
+If `update.py` asks a question and no input arrives although stdin looks like a terminal (on Windows `< /dev/null`
+counts as one), it takes the safe default instead of stopping with a traceback: no consent to the update, and `abort`
+on local changes in `.act/`.
+
 ## Tidying `.act-local/`
 
 The session-start check `act-local-tidy` runs once a day in the background. It removes `tmp/` entries and unknown
@@ -95,6 +116,27 @@ only reports what it would remove; removal starts the day after a session start 
 warn` only reports, `off` skips it. `python .act/scripts/act_local_tidy.py` lists what would go.
 
 Then the assistant adds a journal line with the base-commit change and the number of findings.
+
+## Upgrading to 2.4.0
+
+From v2.3.0, run `act-update` as usual, then start a new session so the new hooks take effect. There is no new
+migration.
+
+- **Settings, roles and rule lines** (steps 6 and 7): the update sets `PYTHON_BASIC_REPL=1` under `env` in
+  `.claude/settings.json`, removes the `-high` variants of six roles (an assignment that named one names the role
+  itself, or `builder-high`/`reviewer-high`), and in an edited `docs/ai/rules.md` moves the lines of
+  `R-safe-no-secret-diff`, `R-safe-git-reset` and `R-safe-git-discard` to the block of `orchestrator/30-cost.md`,
+  marks unchanged.
+- **The session title** follows the project's name (`session-name`, default `project`). `session-name: auto` leaves
+  naming to Claude Code; a title set with `/rename` or `claude -n` is never overwritten.
+- **Workers with a `Write scope:` line** can no longer write to the system temp directory or their scratchpad. An
+  assignment that needs throwaway material names `.act-local/tmp/<task-id>-<slug>/**` in its scope.
+- **Advisories** are on (see [Advisories](#advisories)); `advisory-check: off` in `docs/ai/config.md` switches them off.
+- **`act-local-tidy`** only reports on its first run in a project (see above); `act-local-keep` protects your own
+  entries under `.act-local/`.
+- **`act-version`, `act-export-settings` and `act-load-settings`** start only when typed as a slash command.
+- **`archive-shorten`** is no longer read and can go from `docs/ai/config.md`. Once every project on the machine is
+  updated, an old `act-pycache` folder in the system temp directory can be deleted.
 
 ## Upgrading to 2.3.0
 

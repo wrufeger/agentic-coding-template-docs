@@ -3,7 +3,7 @@ title: Im Team arbeiten
 description: Team-Modus - Ids, die auf dem Standard-Branch vergeben werden, Adressierung mit for:, Dateien pro Person und was wie zu mergen ist.
 sidebar:
   order: 4
-sourceHash: 87fa4f667f2164ba27ad6e6c5ae0b41606b07c6acde4c4a6358c9c24f53f973c
+sourceHash: 4596fbd958b23f6e42f6180cb1d7f5d7b92ded41302c82592d2c3da324d7f837
 ---
 
 Mehrere Personen können in einem Projekt arbeiten, jede mit eigenen Assistenten-Sitzungen, weil jeder Eintrag eine eigene Datei ist und jede persönliche Ansicht ebenfalls.
@@ -20,7 +20,7 @@ Im Modus `solo` gibt der Assistent einer Aufgabe (`T7`), einem Backlog-Eintrag (
 
 ## Adressieren mit for:
 
-Einträge und Aufgaben tragen ein Feld `for:`: `all` für alle, oder eine Workspace-Identität, den Kurznamen in `.act-local/identity.json`. Eine Aufgabe wird für die aktuelle Identität angelegt, sofern du nicht `--for` übergibst; Todos, Berichte und Notizen sind standardmäßig `all`, außer einem per Quick Capture abgelegten `todo:` oder `note:` (Chat-Nachricht mit diesem Präfix), das für den Schreibenden ist. Das Board listet deine und die geteilten Aufgaben, und mit eingeschaltetem `board-others` (im Team-Modus Standard) einen eigenen Abschnitt für Aufgaben, die anderen Personen zugewiesen sind. Deine Inbox-Ansicht `.act-local/inbox-<identity>.md` sammelt die offenen Einträge, die an dich oder an `all` gerichtet sind.
+Einträge und Aufgaben tragen ein Feld `for:`: `all` für alle, oder eine Workspace-Identität, den Kurznamen in `.act-local/identity.json`. Eine Aufgabe wird für die aktuelle Identität angelegt, sofern du nicht `--for` übergibst; Todos, Berichte und Notizen sind standardmäßig `all`, außer einem per Quick Capture abgelegten `todo:` oder `note:` (Chat-Nachricht mit diesem Präfix), das für den Schreibenden ist. Das Board listet deine und die geteilten Aufgaben, und mit eingeschaltetem `board-others` (im Team-Modus Standard) einen eigenen Abschnitt für Aufgaben, die anderen Personen zugewiesen sind. Der Sitzungsstart legt `.act-local/identity.json` an, wenn sie fehlt oder keine `identity` enthält (frischer Klon, zweiter Rechner), nimmt den Kurznamen aus `git config user.name` und sagt das in einer `[act] identity`-Zeile; ohne brauchbaren git-Namen bittet er dich, einen mit `python .act/scripts/board.py --identity <name>` zu setzen, womit sich auch eine vorhandene Identität ändern lässt (Dateien einer früheren Identität werden nicht umbenannt). Deine Inbox-Ansicht `.act-local/inbox-<identity>.md` sammelt die offenen Einträge, die an dich oder an `all` gerichtet sind.
 
 ## Dateien pro Person
 

@@ -31,6 +31,10 @@ Mechanisches Einfügen der eigenen Passagen eines übernommenen Projekts in docs
 <!-- source: cc1b929d0ace3c8f -->
 Rein lesende Sichtung der Dokumentation und des KI-Werkzeug-Materials eines bestehenden Projekts vor der Übernahme (Skill `act-adopt`). Durchläuft das Ziel…
 
+## table:advisory.py
+<!-- source: d3e6a8e4a02e0ebc -->
+Warnungen des Template-Autors an Projekte, die eine betroffene Template-Version einsetzen („Advisories“). Die Template-Quelle trägt einen verwaisten…
+
 ## table:board.py
 <!-- source: 4bb21fb40b4a4068 -->
 Erzeugt das Board — einen vollständig abgeleiteten Schnappschuss (aktueller Branch, letzter Commit, Änderungsstand, jüngste Journal-Einträge, eine Liste „Waiting for you“…
@@ -78,6 +82,10 @@ Prüft die Übersetzungsdateien eines Projekts auf Vollständigkeit und Konsiste
 ## table:ideas.py
 <!-- source: b2df8059a1b0ea78 -->
 Die Ideen-Datei je Person `docs/ai/concept/ideas-<identity>.md` — eine versionierte Datei für jede Person eines Projekts, von dieser Person geschrieben…
+
+## table:info.py
+<!-- source: 3bbc667bf24cde04 -->
+Zeigt in einem kompakten Block, in welchem Projekt diese Sitzung arbeitet und wie es dort steht: Projektname, Ordner und Host, der Sitzungsname, den das Projekt…
 
 ## table:init.py
 <!-- source: d2e5bd01a6c2fdf3 -->

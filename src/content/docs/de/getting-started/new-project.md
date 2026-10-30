@@ -3,7 +3,7 @@ title: Neues Projekt
 description: Ein neues Projekt aus dem Template einrichten, mit dem Assistenten oder von Hand.
 sidebar:
   order: 1
-sourceHash: da0a7fcfaa090f6ab42cbcd45060c7ef597c745fe2e5800df9b823cd6f322d6f
+sourceHash: a9953cdd99328b0a04d3fd7c076c43a52b36809896eca9ba5ed34580e8af2a0f
 ---
 
 ## Das Template holen
@@ -72,10 +72,10 @@ Zehn feste Schritte, jeder ausgegeben als `[n/10]`:
 1. Sammelt die Einstellungen: Name, Owner, Sprachen, Stack, Befehle, Werkzeuge, Modus, Feedback, Update-Channel (`release` oder `latest`, geschrieben nach `docs/ai/config.md` § Update). Es weist darauf hin, wenn der Klon schon über dem neuesten Release liegt.
 2. Klärt Git: im Klon entfernt es `origin` und baut `main` neu auf; mit `--target` führt es bei Bedarf `git init` aus.
 3. Prüft deine Git-Identität.
-4. Schreibt deine Workspace-Identität und den lokalen Import-Ordner `.act-local/import/`.
+4. Schreibt deine Workspace-Identität (auch wenn `.act-local/identity.json` existiert, aber `identity` fehlt) und den lokalen Import-Ordner `.act-local/import/`.
 5. Dünnt die Brücken auf die gewählten Werkzeuge aus.
 6. Schreibt das Gerüst: `docs/ai/` (`config.md`, `rules.md`, `concept/`, Inbox, Arbeitsordner), `docs/project/coding_rules.md`, `docs/project/glossary.md`,
-   `docs/README.md`, die Brückendateien, Skill-Kopien und die Hook-Einträge in `.claude/settings.json` (mit `"enableArtifact": false`, außer bei `artifacts: on`).
+   `docs/README.md`, die Brückendateien, Skill-Kopien und die Hook-Einträge in `.claude/settings.json` (mit `"enableArtifact": false`, außer bei `artifacts: on`, und `PYTHON_BASIC_REPL=1` unter `env`, damit unter Windows ein leeres Heredoc in einem Bash-Aufruf unter Python 3.13 und neuer nicht hängt).
 7. Hängt Blöcke des Templates an `.gitattributes` und `.gitignore` an und hält `.act-local/` aus den Indizes der IDEs heraus (`excludeFolder` in `.idea/*.iml`, `files.watcherExclude` in `.vscode/settings.json`, wo `.vscode/` existiert).
 8. Nur im Klon: legt die eigenen Dateien des Templates still: README, `CHANGELOG.md` und die Community-Dateien unter
    `.github/` (Beitragshinweise, Sicherheit, Verhaltenskodex, Barrierefreiheit, Vorlagen für Issues und Pull Requests),
@@ -83,7 +83,7 @@ Zehn feste Schritte, jeder ausgegeben als `[n/10]`:
 9. Schreibt `.act-lock.json` (die festgehaltene Quelle und Version des Templates) und `.act/MANIFEST.json`.
 10. Macht den ersten Commit.
 
-`init.py` überschreibt nie eine Datei, die das Projekt schon hat. Eine `language-docs` außer Englisch lässt das
+`init.py` überschreibt nie eine Datei, die das Projekt schon hat. Eine Frage ohne Eingabe nimmt ihren angezeigten Standardwert. Eine `language-docs` außer Englisch lässt das
 Gerüst auf Englisch. `act-setup` übersetzt es im selben Lauf; nach einem einfachen `init.py` bittet eine Inbox-Notiz den
 Assistenten, es einmal zu übersetzen;
 gängige englische Fachbegriffe (Skill, Inbox, Hook, Branch …) bleiben stehen, vor allem in Überschriften.

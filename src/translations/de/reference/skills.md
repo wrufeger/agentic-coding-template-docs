@@ -64,12 +64,16 @@ Verwenden, um das Setup dieses Projekts an ein neues Projekt zu übergeben oder 
 Verwenden, wenn gebeten wird, Feedback zu senden, „ans Template zurückzumelden“ oder bei „feedback: <Text>“, oder wenn eine Regel, ein Workflow, ein Script oder ein Skill des Templates selbst geholfen hat, versagt hat oder fehlte, auch bei einem Bug im Template. Sendet ein Muster zur Arbeitsmethode an den Template-Autor, nie Projektspezifisches.
 
 ## act-handover
-<!-- source: 333f10aac50592dc -->
-Verwenden, wenn der Mensch die Sitzung übergeben oder verlassen will - „übergib“, „kann ich die Sitzung schließen“, „ist /clear sicher“, „neue Sitzung“. Prüft, dass nichts verloren geht, behebt, was sich beheben lässt, und endet mit dem Satz, der in die neue Sitzung einzugeben ist. Löscht nie von sich aus.
+<!-- source: 9e1fec39b3708d8a -->
+Verwenden, wenn der Mensch die Sitzung übergeben oder verlassen will - „übergib“, „kann ich die Sitzung schließen“, „ist /clear sicher“, „neue Sitzung“. Prüft, dass nichts verloren geht, behebt, was sich beheben lässt, und endet bereit für ein bloßes „weiter“ in der neuen Sitzung. Löscht nie von sich aus.
 
 ## act-idea
 <!-- source: 82c3e3a95d5f8d77 -->
 Verwenden, wenn ein Feature, eine Idee oder ein Änderungswunsch vorgeschlagen wird: „können wir X ergänzen“, „es wäre gut, wenn“, „Änderungswunsch“. Prüft, was existiert, legt Optionen mit Empfehlung dar und legt nach der Entscheidung eine Aufwandsschätzung als Backlog-Eintrag und Aufgabe ab. Nicht zum Planen eines entschiedenen Blocks - dafür act-prepare.
+
+## act-info
+<!-- source: 350fc5f1d0e8abeb -->
+Verwenden, wenn gefragt wird, in welchem Projekt, Ordner, Branch oder mit welcher Template-Version diese Sitzung arbeitet oder was hier offen ist („act-info“, „wo bin ich“, „Projektstand“). Gibt einen kurzen Block aus einem Script aus, rein lesend und ohne Netz. Nicht für die neueste verfügbare Version - dafür act-version.
 
 ## act-integrations
 <!-- source: 88dd3fba699d56ce -->

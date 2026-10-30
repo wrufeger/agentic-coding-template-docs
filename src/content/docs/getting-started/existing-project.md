@@ -59,7 +59,7 @@ Old entries' ids are not reused: the reserved ids are kept in the versioned `doc
 mode the workspace identity follows the adopted owner; in team mode you only get a note.
 
 Your wording stays as it is: titles and bodies are copied from the old text, never summarized or translated. The one exception is a title longer than 80 characters: `adopt_entries.py` shortens it to its first sentence, else to a cut at a word boundary with "…", and the full old text opens the entry's body.
-`init.py` merges its hook entries into `.claude/settings.json` and leaves your own entries in place. Unless `artifacts: on` is set, it also adds `"enableArtifact": false`.
+`init.py` merges its hook entries into `.claude/settings.json` and leaves your own entries in place. Unless `artifacts: on` is set, it also adds `"enableArtifact": false`. It also sets `PYTHON_BASIC_REPL=1` under `env` (a value you set yourself is kept).
 With a `language-docs` other than English, `act-adopt` translates the scaffold in the same run. `feedback` defaults to
 `confirm` (every message is shown and sent only after your yes).
 

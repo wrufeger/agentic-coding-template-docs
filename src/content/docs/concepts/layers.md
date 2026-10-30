@@ -12,7 +12,7 @@ sidebar:
 | `.act/` | Rules, coding rule sets, skills, agent roles, hooks, scripts, tier table | An update replaces it as a whole. You never edit it. |
 | `docs/` | `ai/` (config, rules, board, inbox, tasks, journal) and `project/` (your documentation) | You and the assistant. An update never overwrites your content; it refreshes unedited generated files, files findings in the inbox and runs migrations. |
 
-`.act-local/` stays on your machine: local state and caches. The session-start check `act-local-tidy` clears old throwaway material from it (see [Configuration](/agentic-coding-template-docs/concepts/configuration/)); `init` and `update` also keep JetBrains and VS Code from indexing it. The generated board is `docs/ai/board.md` (gitignored) in the default `board: docs` mode and lives in `.act-local/` only in `local` mode. In Claude Code, a hook blocks
+`.act-local/` stays on your machine: local state and caches (the hooks' compiled-module cache lives in `.act-local/pyc/`, throwaway material in `.act-local/tmp/`). The session-start check `act-local-tidy` clears old throwaway material from it (see [Configuration](/agentic-coding-template-docs/concepts/configuration/)); `init` and `update` also keep JetBrains and VS Code from indexing it. The generated board is `docs/ai/board.md` (gitignored) in the default `board: docs` mode and lives in `.act-local/` only in `local` mode. In Claude Code, a hook blocks
 writes into `.act/`.
 
 ## The project wins
