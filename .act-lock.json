@@ -36,11 +36,11 @@
     ]
   },
   "template": {
-    "version": "2.3.0",
-    "commit": "4a20786e515a08b21bd73bfd36b7047a98e85903",
+    "version": "2.4.0",
+    "commit": "fa7d7c87672711ee2884ddc0a02168123b848da7",
     "source": "D:/dev/rufeger/agentic-coding-template",
     "ref": "main",
-    "manifest_sha256": "f3096a2f5425942a050f671e3ef893bbdb807297c89b71cc5c1bde4f46fbec56"
+    "manifest_sha256": "ca246e16a546b3276b307f8f154ec42ad54aac725b431ac5055fda1b1c8be6b4"
   },
   "copies": {
     ".claude/skills/act/SKILL.md": {
