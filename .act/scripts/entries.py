@@ -326,6 +326,22 @@ def _recipient_value(recipient: Optional[str]) -> str:
     return "all" if text.lower() == "all" else actlib.recipient_slug(text)
 
 
+_PERMISSION_RETRY_PAUSES = (0.2, 0.3, 0.5)  # three retries within about a second
+
+
+def _retry_on_permission_error(action: Callable[[], object]) -> None:
+    """Run `action`; on a PermissionError retry up to three times with short pauses (an editor or
+    indexer on Windows often holds a just-written file open for a moment), then raise the last
+    error. Any other OSError is raised at once."""
+    for pause in _PERMISSION_RETRY_PAUSES:
+        try:
+            action()
+            return
+        except PermissionError:
+            time.sleep(pause)
+    action()
+
+
 def _rename_with_id(path: Path, entry_id: str) -> Path:
     """Rename `path` to "<entry_id>-<slug>.md" in the same directory (cmd_assign()'s second half,
     after _insert_id() has written the header) — slug via _derive_slug(path.stem). A name collision
@@ -342,7 +358,7 @@ def _rename_with_id(path: Path, entry_id: str) -> Path:
         if dest.exists():
             n += 1
             continue
-        path.rename(dest)
+        _retry_on_permission_error(lambda: path.rename(dest))
         return dest
 
 
@@ -852,6 +868,27 @@ def write_dependency_check_note(root: Path, dependency_check: str, plan: bool = 
     return create_todo(root, title, body, slug="dependency-check")[0]
 
 
+_ANSWER_LABEL_LINE = re.compile(
+    r" {0,3}\*\*(?:"
+    + "|".join(re.escape(actlib.answer_label(language).strip("*").rstrip(":")) for language in ("en", "de"))
+    + r")\b")
+_CODE_FENCE = re.compile(r" {0,3}(?:```|~~~)")
+
+
+def _has_answer_label(body: str) -> bool:
+    """True when a line of `body` starts with an answer label in either scaffold language
+    (`**Answer:**`, `**Antwort:**`, also with a note before the colon) — whatever `language-docs`
+    says, since a text taken over may come from a project in the other language. A label quoted in
+    a code block (fenced, or indented by four spaces or a tab) does not count."""
+    in_fence = False
+    for line in body.splitlines():
+        if _CODE_FENCE.match(line):
+            in_fence = not in_fence
+        elif not in_fence and _ANSWER_LABEL_LINE.match(line):
+            return True
+    return False
+
+
 def cmd_new(
     root: Path, kind: str, title_words: list[str], entry_id: Optional[str] = None,
     formerly: Optional[str] = None, status: Optional[str] = None, recipient: Optional[str] = None,
@@ -872,11 +909,12 @@ def cmd_new(
             print(f"entries: {problem} — nothing written", file=sys.stderr)
         return 2
 
-    # Only a question asked now gets the empty answer label; one taken over from an older numbering
-    # (--id, --formerly) or already answered keeps its text as it was.
-    fresh_question = kind == "question" and entry_id is None and formerly is None and status != "answered"
+    # A question still waiting for its answer ends with the empty answer label, also one filed under
+    # an id it already had (--id, --formerly). One already answered, or whose text carries an answer
+    # label already, keeps its text as it was — never a second label.
+    open_question = kind == "question" and status != "answered" and not _has_answer_label(body)
     dest, assigned_id = create_entry(root, kind, title, entry_id, formerly, status, recipient, body,
-                                     answer_block=fresh_question)
+                                     answer_block=open_question)
     if kind == "ledger":
         label = "no id — journal entries aren't numbered"
     elif kind in ("report", "note"):
@@ -1367,12 +1405,12 @@ def cmd_archive(root: Path, ref: str) -> int:
             target = archive / name
             shutil.copy2(source, target)
             created.append(target)
-        entry.unlink()  # last step that can fail the whole run; the rollback below covers it
+        _retry_on_permission_error(entry.unlink)  # last step that can fail the whole run; the rollback below covers it
     except OSError as exc:
         stuck: list[str] = []
         for path in created:
             try:
-                path.unlink()
+                _retry_on_permission_error(path.unlink)
             except OSError as undo_exc:
                 stuck.append(f"{_rel(path, root)} ({undo_exc!r})")
         print(f"entries: archiving {_rel(entry, root)} failed ({exc!r}) — the entry stays where it is",
@@ -1911,7 +1949,8 @@ def build_parser() -> argparse.ArgumentParser:
                             "task default this identity; all = shared)")
     p_new.add_argument("--body-file", metavar="PATH",
                        help="body below the heading, copied verbatim (UTF-8); a question ends with an "
-                            "empty answer label below it")
+                            "empty answer label below it, unless --status answered or the text has "
+                            "one already")
 
     sub.add_parser("assign", help="hand out ids still missing ('team' mode: only on the default branch)")
 

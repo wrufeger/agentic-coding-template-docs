@@ -28,10 +28,9 @@ import io
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
-import tempfile
+import threading
 import time
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -62,6 +61,7 @@ __all__ = [
     "_remote_update_available", "_update_check_result_path", "_pending_update_note",
     "_commit_day", "_remote_commit_label", "_locked_commit",
     "_run_update_check_worker", "_spawn_update_check_worker", "_check_update_awareness",
+    "_run_update_lookup", "_run_advisory_lookup", "_advisory_notes",
     "_security_scan_state_path", "_security_scan_already_checked_today",
     "_mark_security_scan_checked_today", "_security_scan_result_path", "_run_security_scan_worker",
     "_spawn_security_scan_worker", "_consume_pending_security_scan_note",
@@ -703,11 +703,13 @@ def _ls_remote_output(root: Path, source: str, patterns: list[str]) -> Optional[
     env["GIT_TERMINAL_PROMPT"] = "0"
     env["GCM_INTERACTIVE"] = "never"
     env.setdefault("GIT_SSH_COMMAND", "ssh -o BatchMode=yes -o ConnectTimeout=3")
-    # mkdtemp + rmtree(ignore_errors): on Windows a git child can still hold a file open after the
-    # timeout, and a failing cleanup must not raise
-    tmp_dir = tempfile.mkdtemp(prefix="act-update-check-")
-    try:
-        out_path = Path(tmp_dir) / "ls-remote.out"
+    # never a user value here: a source such as `ext::<command>` must not start a program
+    env["GIT_ALLOW_PROTOCOL"] = "file:git:http:https:ssh"
+    # The output folder lives under the project's .act-local/tmp/ and is removed again with retries:
+    # on Windows a git child can still hold a file open after the timeout, and a failing cleanup must
+    # not raise. git itself runs in `root`, never in the folder.
+    with actlib.scratch_dir("update-check", root) as tmp_dir:
+        out_path = tmp_dir / "ls-remote.out"
         try:
             with open(out_path, "wb") as out_file:
                 result = subprocess.run(
@@ -722,13 +724,6 @@ def _ls_remote_output(root: Path, source: str, patterns: list[str]) -> Optional[
             return out_path.read_text(encoding="utf-8", errors="replace").strip()
         except (OSError, subprocess.TimeoutExpired):
             return None
-    finally:
-        # a git child may still hold a file open for a moment after the timeout (Windows)
-        for _attempt in range(8):
-            shutil.rmtree(tmp_dir, ignore_errors=True)
-            if not os.path.isdir(tmp_dir):
-                break
-            time.sleep(0.25)
 
 
 def _update_channel(root: Path) -> str:
@@ -875,7 +870,37 @@ def _locked_commit(root: Optional[Path] = None) -> str:
 
 
 def _run_update_check_worker(root: Path) -> int:
-    """Body of the detached background process _spawn_update_check_worker() launches: the actual
+    """Body of the detached background process _spawn_update_check_worker() launches: the update
+    lookup (_run_update_lookup) and, side by side in a thread, the lookup of the template author's
+    advisories (_run_advisory_lookup). Side by side because each waits up to 5 s on an unreachable
+    source; one after the other, the process would take twice as long. Each is isolated from the other
+    and from the SessionStart hook; always exits 0 -- nothing reads this process's own exit code, and
+    every exception here must stay inside this process."""
+    advisories = threading.Thread(target=_run_advisory_lookup, args=(root,))
+    advisories.start()
+    try:
+        _run_update_lookup(root)
+    except Exception:
+        pass
+    advisories.join()
+    return 0
+
+
+def _run_advisory_lookup(root: Path) -> None:
+    """The second job of the daily background process: ask the template source for its `advisories`
+    branch and refresh the cache (advisory.refresh(): its own ls-remote and, only when the branch moved,
+    a fetch into .act-local/advisories.git). Uses advisory.py's own git helper (same 5 s limit and
+    no-prompt environment, plus a fixed protocol list the user's environment cannot widen).
+    `advisory-check: off` does nothing. Never raises; only the next session start sees the result."""
+    try:
+        import advisory  # deferred like update: a broken advisory.py must not touch the update check
+        advisory.refresh(root)
+    except Exception:
+        pass
+
+
+def _run_update_lookup(root: Path) -> None:
+    """The update half of the background process: the actual
     network lookup, isolated from the SessionStart hook so its result can only ever help the
     *next* session, never delay this one. Writes update-check-result.json with the release or the remote
     commit found, plus a `label` to show (the release without its `v`, the commit's date or its short
@@ -883,9 +908,8 @@ def _run_update_check_worker(root: Path) -> int:
     stale-but-valid earlier result is not clobbered by a run that itself couldn't tell. Whether
     that remote commit still means "update available" is decided later, by
     _pending_update_note() against the lock as it stands then -- not here, since this
-    process's result may sit across more than one later `update.py` run. Always exits 0 --
-    nothing reads this process's own exit code, and every exception here must stay inside this
-    process."""
+    process's result may sit across more than one later `update.py` run. Exceptions are the
+    caller's to swallow."""
     try:
         if _update_channel(root) == "release":
             found = _remote_release_available(root)
@@ -905,11 +929,10 @@ def _run_update_check_worker(root: Path) -> int:
                        "label": _remote_commit_label(root, remote_commit),
                        "installed_commit": _locked_commit(root)} if remote_commit else None)
     except Exception:
-        return 0
+        return
     if result is None:
-        return 0
+        return
     actlib.record_update_result(root, result)
-    return 0
 
 
 def _spawn_update_check_worker(root: Path) -> None:
@@ -941,6 +964,23 @@ def _spawn_update_check_worker(root: Path) -> None:
             )
     except OSError:
         pass
+
+
+def _advisory_notes(root: Path, config: dict[str, str], state: dict) -> list[str]:
+    """The template author's warnings that apply to this project (advisory.py), from files only -- no
+    git, no network; the background worker keeps the cache current. Puts the visible lines (critical
+    first) in `state["advisory"]` for the human line and returns the notes for the model. A critical one
+    also gets its inbox todo, once, unless `session-start-refresh` is off. `advisory-check: off` shows
+    nothing. Never raises."""
+    try:
+        import advisory  # deferred like update: a broken advisory.py must not end the session
+        file_todos = _check_mode(config, "session-start-refresh", default="block") != "off"
+        report = advisory.session_report(root, file_todos=file_todos)
+    except Exception:
+        return []
+    if report.lines:
+        state["advisory"] = report.lines
+    return report.notes
 
 
 def _check_update_awareness(root: Path, config: dict[str, str],
@@ -1589,6 +1629,24 @@ def _compact_note(root: Path) -> str:
     return "\n".join(lines)
 
 
+def _identity_note(root: Path) -> Optional[str]:
+    """Make sure this checkout has an identity (.act-local/identity.json is gitignored, so a fresh
+    clone or a second machine lacks it): create it from `git config user.name` and say so in one
+    line; with no usable git name say that none exists. None when it was there already."""
+    status, data = actlib.ensure_identity(root)
+    if status == "created" and data:
+        return (f"[act] identity `{data['identity']}` created from git user.name (workspace "
+                f"{data.get('workspace', '?')}); change with `python .act/scripts/board.py --identity <name>`")
+    if status == "unreadable":
+        return ("[act] `.act-local/identity.json` is unreadable: fix it or run "
+                "`python .act/scripts/board.py --identity <name>`")
+    if status == "none":
+        return ("[act] no identity for this checkout (git user.name is not set or has no letter or digit); board, ideas and new "
+                "entries need one: ask the human for their name, then run "
+                "`python .act/scripts/board.py --identity <name>`")
+    return None
+
+
 def _env_override_note() -> Optional[str]:
     """One note naming every active environment override, or None when none is set."""
     active = [name for name in _ENV_OVERRIDES if os.environ.get(name, "").strip()]
@@ -1986,8 +2044,14 @@ def _chat_language_short(config: dict[str, str]) -> str:
 
 
 def _human_line(state: dict) -> Optional[str]:
-    """The one `systemMessage` line: rule files loaded, chat language, and the inbox: entries
-    answered but not yet processed, and the open ones (the status line's "waiting for you" count)."""
+    """The `systemMessage`: one line with the rule files loaded, chat language, and the inbox: entries
+    answered but not yet processed, and the open ones (the status line's "waiting for you" count) --
+    preceded by one line per active template advisory (state["advisory"]), when there are any."""
+    advisory_lines = [str(line) for line in state.get("advisory") or []]
+    if advisory_lines:
+        # a warning of the template author goes first, each on its own line, ahead of the `act ·` line
+        rest = _human_line({key: value for key, value in state.items() if key != "advisory"})
+        return "\n".join(advisory_lines + ([rest] if rest else []))
     if not state:
         return None
     parts: list[str] = []
@@ -2040,6 +2104,22 @@ def _fit_context(text: str, rules_full: str, rules_compact: str, excerpt: str = 
     return kept + "\n" + tail
 
 
+def _session_title_for(payload: dict) -> Optional[str]:
+    """The title `session-name` asks for, or None. Claude Code applies a SessionStart title only
+    when the session starts, resumes or forks, so any other source gets none; a title the human
+    already set (`/rename`, `--name`) arrives as `session_title` and is never overwritten. Any
+    error means no title - the rest of the session-start output stays as it is."""
+    try:
+        if payload.get("source") not in ("startup", "resume", "fork"):
+            return None
+        existing = payload.get("session_title")
+        if isinstance(existing, str) and existing.strip():
+            return None
+        return actlib.session_title(actlib.read_config(), actlib.repo_root())
+    except Exception:  # never fail the session over a title
+        return None
+
+
 def refresh_session(payload: dict) -> int:
     """Check 2: runs only for SessionStart. Never fails the session. Prints exactly one JSON
     object: the notes and the status line as `hookSpecificOutput.additionalContext`, one
@@ -2057,6 +2137,9 @@ def refresh_session(payload: dict) -> int:
         return 0
     context = _fit_context(buffer.getvalue(), rules_text["full"], rules_text["compact"], rules_text["excerpt"])
     output: dict = {"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": context}}
+    title = _session_title_for(payload)
+    if title:
+        output["hookSpecificOutput"]["sessionTitle"] = title
     message = _human_line(state)
     if message:
         output["systemMessage"] = message
@@ -2084,6 +2167,16 @@ def _collect_session(payload: dict, state: dict, rules_text: dict) -> bool:
     # topic's own switch (docs/ai/config.md § Logging/Feedback), not this check, decides whether
     # it is active, and its rule file has to be named either way — "session-start-refresh: off"
     # only turns off the bridge/board/rules re-derivation this function does, not topic awareness.
+    # The identity first, so the "ideas" topic below already sees one created now (fresh clone). It is
+    # written even when session-start-refresh is "warn" or "off": without it nothing else works.
+    try:
+        identity_note = _identity_note(root)
+    except Exception as exc:  # never block the session over an identity
+        print(f"[act] identity check failed ({exc.__class__.__name__})", file=sys.stderr)
+        identity_note = None
+    if identity_note:
+        print(identity_note)
+
     try:
         topics = _active_topics(root, config)
     except Exception:
@@ -2103,6 +2196,11 @@ def _collect_session(payload: dict, state: dict, rules_text: dict) -> bool:
         depth_line = None  # informational only, must never block the session
     if depth_line:
         print(depth_line)
+
+    # The template author's warnings come first among the notes (they must not be cut off by the context
+    # limit) and are independent of `session-start-refresh`: they show whatever that row says.
+    for advisory_note in _advisory_notes(root, config, state):
+        print(advisory_note)
 
     try:
         env_note = _env_override_note()

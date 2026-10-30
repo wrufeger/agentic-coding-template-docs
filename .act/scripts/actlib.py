@@ -21,16 +21,21 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
 import re
+import shutil
+import stat
 import subprocess
 import sys
+import tempfile
 import time
+import unicodedata
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Iterator, Optional
 
 
 # Pauses between the replace attempts below, in seconds: about 0.35 s in all, so a hook stays fast.
@@ -52,6 +57,63 @@ def replace_file(src: "str | os.PathLike[str]", dst: "str | os.PathLike[str]") -
         except PermissionError:
             time.sleep(pause)
     os.replace(src, dst)
+
+
+# ---------------------------------------------------------------------------
+# Short-lived folders: <project>/.act-local/tmp/, else the system temp directory
+# ---------------------------------------------------------------------------
+
+def scratch_base(root: "Optional[Path]") -> Optional[str]:
+    """`<root>/.act-local/tmp` (created if needed) when `root` is a project (it has `.act/` or
+    `.act-local/`), else None -- the caller then falls back to the system temp directory. Never raises."""
+    if root is None:
+        return None
+    try:
+        root = Path(root)
+        if not ((root / ".act").is_dir() or (root / ".act-local").is_dir()):
+            return None
+        base = root / ".act-local" / "tmp"
+        base.mkdir(parents=True, exist_ok=True)
+        return str(base)
+    except OSError:
+        return None
+
+
+def remove_tree(path: "str | os.PathLike[str]") -> None:
+    """Removes a folder the caller made, never raising: read-only files are made writable first
+    (Windows refuses to delete them), and a few short retries cover a git child or a scanner that still
+    holds a file open for a moment."""
+    for attempt in range(8):
+        shutil.rmtree(path, ignore_errors=True)
+        if not os.path.isdir(path):
+            return
+        for folder, _dirs, files in os.walk(path):
+            for name in files:
+                try:
+                    os.chmod(os.path.join(folder, name), stat.S_IWRITE | stat.S_IREAD)
+                except OSError:
+                    pass
+        if attempt < 7:
+            time.sleep(0.25)
+
+
+@contextlib.contextmanager
+def scratch_dir(purpose: str, root: "Optional[Path]" = None) -> Iterator[Path]:
+    """A short-lived folder `act-<purpose>-<random>`: under `<root>/.act-local/tmp/` when `root` is a
+    project, else in the system temp directory. Removed on leaving the block, whatever happens.
+    Git calls with this folder as cwd would find the project's repository above it -- run them
+    with GIT_CEILING_DIRECTORIES set, or do not run git there."""
+    base = scratch_base(root)
+    try:
+        path = tempfile.mkdtemp(prefix=f"act-{purpose}-", dir=base)
+    except OSError:
+        if base is None:
+            raise
+        path = tempfile.mkdtemp(prefix=f"act-{purpose}-")  # the project folder is not writable
+    try:
+        yield Path(path)
+    finally:
+        remove_tree(path)
 
 
 # ---------------------------------------------------------------------------
@@ -132,7 +194,8 @@ def _write_json_merged(path: Path, data: dict) -> dict:
     merged.update(data)
     if existing is not None and merged == existing:
         return merged  # nothing changed: leave the file (and a versioned one's git status) alone
-    overwrite_text(path, json.dumps(merged, indent=2, ensure_ascii=False) + "\n")
+    # LF on every platform: .act-lock.json is versioned in that form.
+    write_text_lf(path, json.dumps(merged, indent=2, ensure_ascii=False) + "\n")
     return merged
 
 
@@ -368,6 +431,73 @@ def write_identity(data: dict) -> dict:
     return _write_json_merged(_identity_path(), data)
 
 
+# Git user names that stand for "nobody set this" (init.py shows the same ones as placeholders).
+PLACEHOLDER_GIT_NAMES = {"test", "your name", "user"}
+
+
+def git_user_name(root: Path) -> str:
+    """`git config user.name` as seen from `root`, or "" when unset, a placeholder, or git fails."""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), "config", "user.name"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10,
+            stdin=subprocess.DEVNULL, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    name = result.stdout.strip() if result.returncode == 0 else ""
+    return "" if name.lower() in PLACEHOLDER_GIT_NAMES else name
+
+
+def _identity_fill(root: Path, slug: str, existing: Optional[dict]) -> dict:
+    """Merge `slug` onto the identity file of `root`, adding a workspace id and creation date only
+    where the file has none; every other key stays. Returns the merged dict."""
+    import uuid
+    data: dict = {"identity": slug}
+    if not str((existing or {}).get("workspace") or "").strip():
+        data["workspace"] = uuid.uuid4().hex[:12]
+    if not str((existing or {}).get("created") or "").strip():
+        data["created"] = datetime.now().date().isoformat()
+    return _write_json_merged(_identity_path(root), data)
+
+
+def ensure_identity(root: Path, owner: Optional[str] = None, plan: bool = False) -> tuple[str, Optional[dict]]:
+    """Make sure `.act-local/identity.json` of `root` has an `identity`. Returns (status, data):
+    "present" (nothing written), "created" (the file was missing or had no/empty `identity`;
+    `data` is the file as written), "unreadable" (the file exists but is no JSON object -- nothing
+    written, so a person's identity, chat language and workspace id are not lost; `data` is None)
+    or "none" (nothing to derive it from: no `owner`, no usable `git config user.name`, or a name
+    with no letter or digit that would only become the guessed slug `user` -- nothing is guessed
+    and nothing written). The identity is the slug of `owner` if given, else of the git user name.
+    A present identity is never overwritten; other keys (e.g. `chat_language`) are kept. With
+    `plan` nothing is written; `data` then shows what would be."""
+    existing = read_identity(root)
+    if existing is None and _identity_path(root).is_file():
+        return "unreadable", None
+    if str((existing or {}).get("identity") or "").strip():
+        return "present", existing
+    name = (owner or "").strip() or git_user_name(root)
+    slug = identity_slug(name) if name else ""
+    if not slug or (slug == "user" and name.strip().lower() != "user"):
+        return "none", None
+    if plan:
+        return "created", {**(existing or {}), "identity": slug}
+    return "created", _identity_fill(root, slug, existing)
+
+
+def set_identity(root: Path, name: str) -> tuple[str, dict]:
+    """Set the identity of `root` to the slug of `name` (an explicit choice, so it replaces an
+    existing one, and an unreadable file too). Returns (previous identity or "", data as written).
+    Other keys stay; a missing workspace id is added. Raises ValueError for a name with no letter
+    or digit (`???`), which would silently become the slug `user`."""
+    slug = identity_slug(name)
+    if slug == "user" and name.strip().lower() != "user":
+        raise ValueError(f"{name.strip()!r} has no letter or digit to form an identity from")
+    existing = read_identity(root)
+    previous = str((existing or {}).get("identity") or "").strip()
+    return previous, _identity_fill(root, slug, existing)
+
+
 # ---------------------------------------------------------------------------
 # .act-local/cache.json — generated-file cache, gitignored
 # ---------------------------------------------------------------------------
@@ -537,6 +667,38 @@ def docs_language(root: Optional[Path] = None) -> str:
     (`R-work-language`). A thin wrapper over read_config()/language_settings() so a writer needs
     neither name itself."""
     return language_settings(read_config(root))[1]
+
+
+# ---------------------------------------------------------------------------
+# Session title — the name the SessionStart hook gives a Claude Code session (`session-name`),
+# shown in the session list, in Remote Control and on the phone.
+# ---------------------------------------------------------------------------
+
+SESSION_TITLE_MAX = 80
+# Unicode categories never part of a title shown on another device: control, format (bidi,
+# zero width, tags), private use, surrogates and the line/paragraph separators.
+_TITLE_UNSAFE_CATEGORIES = frozenset({"Cc", "Cf", "Co", "Cs", "Zl", "Zp"})
+
+
+def session_title(config: dict[str, str], root: Path) -> Optional[str]:
+    """The session title `session-name` in a read_config() result asks for, or None for `auto`.
+    `project` (also a missing or empty key) takes `name`, falling back to the name of the
+    project folder `root` while `name` is empty or still an unfilled `<...>` placeholder; any
+    other value is the title itself. Unsafe characters become spaces, whitespace is collapsed and
+    the result capped at SESSION_TITLE_MAX characters; None when nothing is left."""
+    mode = config.get("session-name", "").strip().strip("`").strip()
+    if mode.lower() == "auto":
+        return None
+    if not mode or mode.lower() == "project":
+        title = config.get("name", "").strip().strip("`").strip()
+        if not title or (title.startswith("<") and title.endswith(">")):
+            title = root.name
+    else:
+        title = mode
+    title = "".join(" " if unicodedata.category(char) in _TITLE_UNSAFE_CATEGORIES else char
+                    for char in title)
+    title = " ".join(title.split())
+    return title[:SESSION_TITLE_MAX].rstrip() or None
 
 
 def localized(language: str, en: str, de: str) -> str:
@@ -1086,7 +1248,10 @@ def merge_settings_status_line(current: dict, bridge_data: dict) -> tuple[dict, 
 def merge_settings_env(current: dict, bridge_data: dict) -> tuple[dict, bool]:
     """Merges bridge_data["env"] (e.g. settings.hooks.json's top-level "env" key —
     CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR=1: without it a Bash tool's own `cd` survives
-    across tool calls, breaking the hooks' file lookup by relative path) onto `current["env"]`.
+    across tool calls, breaking the hooks' file lookup by relative path; PYTHON_BASIC_REPL=1: on
+    Windows, Python 3.13+ reads an empty heredoc (`python - <<'EOF'` with nothing in it) as a
+    console, starts its new REPL, finds no console handle and writes the same traceback endlessly
+    until the Bash tool's timeout) onto `current["env"]`.
     Additive only — adds a key `current` does not already have, never overwrites or removes a key
     the project set itself, even to a different value. Returns (new_current, changed); `changed`
     is False and `new_current` is `current` itself, unchanged, when there is nothing to add — the
@@ -1204,7 +1369,7 @@ def write_settings_booking(root: Path, booking: Optional[dict]) -> None:
     else:
         new_lock.pop(SETTINGS_BOOKED_KEY, None)
     if new_lock != lock or not lock_path.is_file():
-        overwrite_text(lock_path, json.dumps(new_lock, indent=2, ensure_ascii=False) + "\n")
+        write_text_lf(lock_path, json.dumps(new_lock, indent=2, ensure_ascii=False) + "\n")
 
 
 # Earlier wordings of a template block line that a project from before line-state tracking
@@ -1593,7 +1758,8 @@ MIN_GIT_VERSION = (2, 25)  # git add/commit --pathspec-from-file
 def git_version() -> Optional[tuple[int, ...]]:
     """The installed git's version as a tuple of ints (e.g. (2, 56, 0)), or None if it cannot be read."""
     try:
-        out = subprocess.run(["git", "--version"], capture_output=True, text=True, encoding="utf-8").stdout
+        out = subprocess.run(["git", "--version"], capture_output=True, text=True, encoding="utf-8",
+                             errors="replace").stdout
     except OSError:
         return None
     found = re.search(r"(\d+)\.(\d+)(?:\.(\d+))?", out)
@@ -1621,6 +1787,7 @@ def git_pathspec_stdin(args: list[str], rels: list[str], cwd: Path, check: bool 
     full = [*args, "--pathspec-from-file=-", "--pathspec-file-nul"]
     result = subprocess.run(
         ["git", *full], cwd=cwd, capture_output=True, text=True, encoding="utf-8",
+        errors="surrogateescape",  # a path in a legacy encoding travels back to git byte for byte; "replace" would turn it into a "?" wildcard
         input="".join(f"{rel}\0" for rel in rels),
     )
     if check and result.returncode != 0:

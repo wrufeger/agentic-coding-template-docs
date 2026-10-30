@@ -28,7 +28,7 @@
 #   python .act/scripts/update.py --source <path-or-url> --ref <tag-or-commit>
 #   python .act/scripts/update.py --channel release|latest   # for this run; else `update-channel` in docs/ai/config.md, else release
 #   python .act/scripts/update.py --versions [--all]     # installed version, channel, source's releases and tip; git ls-remote only
-#   python .act/scripts/update.py --plan                 # show steps 1-3, describe 5-10, write nothing
+#   python .act/scripts/update.py --plan                 # show steps 1-3, describe 5-10; writes only the local update-check files
 #   python .act/scripts/update.py --allow-downgrade       # accept a fetched state older than (or unrelated to) the installed commit
 #   python .act/scripts/update.py --yes               # skip the interactive consent prompt (step 4)
 #   python .act/scripts/update.py --on-local-changes rescue|discard|abort   # skip the step-2 prompt
@@ -55,8 +55,6 @@ import shutil
 import stat
 import subprocess
 import sys
-import tempfile
-import time
 from datetime import date, datetime
 from pathlib import Path
 from typing import Optional
@@ -88,7 +86,8 @@ def _categorize(rel_path: str) -> str:
 
 def _git(args: list[str], cwd: Path, check: bool = True) -> subprocess.CompletedProcess:
     result = subprocess.run(
-        ["git", *args], cwd=cwd, capture_output=True, text=True, encoding="utf-8"
+        ["git", *args], cwd=cwd, capture_output=True, text=True, encoding="utf-8",
+        errors="replace",  # a name that is not UTF-8 never equals a known path; at worst git rejects it later
     )
     if check and result.returncode != 0:
         raise RuntimeError(f"git {' '.join(args)} failed: {result.stderr.strip()}")
@@ -121,7 +120,13 @@ def _print_step(n: int, text: str) -> None:
 
 
 def _ask_choice(prompt_text: str, choices: tuple[str, ...], default: str) -> str:
-    raw = input(f"{prompt_text} [{'/'.join(choices)}] ({default}): ").strip().lower()
+    try:
+        raw = input(f"{prompt_text} [{'/'.join(choices)}] ({default}): ").strip().lower()
+    except (EOFError, OSError):
+        # isatty() can say yes with nothing to read: on Windows the NUL device (`< /dev/null`) counts as
+        # a terminal. Same safe answer as an empty one; the caller's next line names what happens.
+        print(f"(no input, taking '{default}')")
+        return default
     return raw if raw in choices else default
 
 
@@ -270,12 +275,12 @@ def _read_remote_refs(source: str, cwd: Path) -> tuple[Optional[RemoteRefs], str
     env["GIT_TERMINAL_PROMPT"] = "0"
     env["GCM_INTERACTIVE"] = "never"
     env.setdefault("GIT_SSH_COMMAND", "ssh -o BatchMode=yes -o ConnectTimeout=5")
-    # mkdtemp + rmtree(ignore_errors): on Windows a git child can still hold err.txt open after the
-    # timeout, and a failing cleanup must neither replace the timeout message nor raise
-    tmp_dir = tempfile.mkdtemp(prefix="act-ls-remote-")
-    try:
-        out_path = Path(tmp_dir) / "out.txt"
-        err_path = Path(tmp_dir) / "err.txt"
+    # The output folder lives under the project's .act-local/tmp/ (`cwd` is the project) and is removed
+    # again with retries: on Windows a git child can still hold err.txt open after the timeout, and a
+    # failing cleanup must neither replace the timeout message nor raise. git runs in `cwd`, not in it.
+    with actlib.scratch_dir("ls-remote", cwd) as tmp_dir:
+        out_path = tmp_dir / "out.txt"
+        err_path = tmp_dir / "err.txt"
         try:
             with open(out_path, "wb") as out_file, open(err_path, "wb") as err_file:
                 result = subprocess.run(
@@ -289,13 +294,6 @@ def _read_remote_refs(source: str, cwd: Path) -> tuple[Optional[RemoteRefs], str
             return None, f"git ls-remote timed out after {_LS_REMOTE_TIMEOUT} s"
         except OSError as exc:
             return None, _mask_url_user(f"git ls-remote could not run: {exc}")
-    finally:
-        # a git child may still hold a file open for a moment after the timeout (Windows)
-        for _attempt in range(8):
-            shutil.rmtree(tmp_dir, ignore_errors=True)
-            if not os.path.isdir(tmp_dir):
-                break
-            time.sleep(0.25)
     if result.returncode != 0:
         return None, _mask_url_user(error.splitlines()[-1] if error else f"git ls-remote exited {result.returncode}")
     refs = RemoteRefs()
@@ -371,7 +369,7 @@ def _channel_hint_once(root: Path, origin: str, plan: bool) -> None:
         "default branch instead."
     )
     if plan:
-        return  # a plan writes nothing, so the hint stays due for the real run
+        return  # a plan leaves the marker unwritten, so the hint stays due for the real run
     try:
         marker.parent.mkdir(parents=True, exist_ok=True)
         marker.write_text("shown\n", encoding="utf-8")
@@ -676,7 +674,7 @@ def _local_act_differences_from_git(root: Path) -> Optional[list[str]]:
     try:
         result = subprocess.run(
             ["git", "status", "--porcelain", "--", ".act"],
-            cwd=root, capture_output=True, text=True, encoding="utf-8",
+            cwd=root, capture_output=True, text=True, encoding="utf-8", errors="replace",
         )
     except OSError:
         return None
@@ -942,8 +940,10 @@ def step_replace(root: Path, new_act_dir: Path, plan: bool) -> str:
 # "entries" and "board" are here because init.py imports entries (which imports board): left out, the
 # fresh init.py would bind the entries module this run loaded at start-up — the older one, without the
 # functions the new init.py calls — and, being cached, board's older copy under it. "unit_copies"
-# imports init the same way, so a cached copy of it would keep the older init bound.
-_PROBE_MODULE_NAMES = ("actlib", "rules", "init", "tiers", "frontmatter", "ideas", "entries", "board", "unit_copies")
+# imports init the same way, so a cached copy of it would keep the older init bound. "advisory" is
+# imported by board (and entries, through board), so the same holds for it.
+_PROBE_MODULE_NAMES = ("actlib", "rules", "init", "tiers", "frontmatter", "ideas", "entries", "board", "unit_copies",
+                       "advisory")
 
 
 def _project_tools(root: Path) -> list[str]:
@@ -1387,8 +1387,8 @@ def _bridge_edited(
         return True
     try:
         current = dest_path.read_text(encoding="utf-8")
-        with tempfile.TemporaryDirectory() as tmp:
-            reference_path = Path(tmp) / dest_path.name
+        with actlib.scratch_dir("bridge-check", root) as tmp:
+            reference_path = tmp / dest_path.name
             new_init.write_agent_bridge_file(
                 role, source_path, reference_path, False, root, tiers_data, overrides, variant, None,
             )
@@ -1662,8 +1662,8 @@ def _render_tool_bridge(new_init, root: Path, key: str, spec: dict) -> Optional[
     reference a removal compares against. None if it cannot be rendered."""
     src = root / ".act" / "bridges" / key
     try:
-        with tempfile.TemporaryDirectory() as tmp:
-            dest = Path(tmp) / Path(spec["dest"]).name
+        with actlib.scratch_dir("bridge-render", root) as tmp:
+            dest = tmp / Path(spec["dest"]).name
             if spec["kind"] == "json-merge":
                 new_init._merge_settings_hooks(src, dest, False, None)
             else:
@@ -2349,6 +2349,7 @@ def step_doctor(root: Path, plan: bool) -> tuple[str, list[Path], list[Path]]:
         return f"{bridge_summary}; would run: python .act/scripts/doctor.py --inbox", [], []
     result = subprocess.run(
         [sys.executable, str(doctor_path), "--inbox"], cwd=root, capture_output=True, text=True, encoding="utf-8",
+        errors="replace",
     )
     if result.returncode not in (0, 1):
         detail = (result.stderr or result.stdout).strip().splitlines()
@@ -2796,7 +2797,9 @@ def main(argv: list[str]) -> int:
     ))
     parser.add_argument("--on-local-changes", choices=("rescue", "discard", "abort"), help="skip the step-2 prompt")
     parser.add_argument("--yes", action="store_true", help="skip the interactive consent prompt (step 4)")
-    parser.add_argument("--plan", action="store_true", help="show steps 1-3, describe 5-10, change nothing")
+    parser.add_argument("--plan", action="store_true",
+                        help="show steps 1-3, describe 5-10; changes nothing in the project, only the local "
+                             "update-check files under .act-local/ may be refreshed")
     parser.add_argument("--no-commit", action="store_true", help="do everything except the final commit")
     parser.add_argument("--non-interactive", action="store_true", help="never prompt")
     parser.add_argument("--catch-up", action="store_true", help=(
@@ -2925,7 +2928,7 @@ def main(argv: list[str]) -> int:
             print("[act]   [8/10] " + _plan_migrations_summary(new_act_dir))
             print("[act]   [9/10] " + step_doctor(root, True)[0])
             print("[act]   [10/10] " + step_lock(root, True, source, {}, fetched_commit, ref=lock_ref))
-            print("[act] done - --plan: nothing was written")
+            print("[act] done - --plan: nothing changed in the project (at most the local update note was refreshed)")
             return 0
 
         resume_migrations_note = ""

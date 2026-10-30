@@ -37,10 +37,10 @@
   },
   "template": {
     "version": "2.3.0",
-    "commit": "f5ad22af9b78292ee25da362da6c132c7c1c1526",
+    "commit": "4a20786e515a08b21bd73bfd36b7047a98e85903",
     "source": "D:/dev/rufeger/agentic-coding-template",
     "ref": "main",
-    "manifest_sha256": "734b71ce430409d1900d0e853dfbf19c845a2895055f6feff76746f763f2ed6a"
+    "manifest_sha256": "f3096a2f5425942a050f671e3ef893bbdb807297c89b71cc5c1bde4f46fbec56"
   },
   "copies": {
     ".claude/skills/act/SKILL.md": {
@@ -153,7 +153,7 @@
     },
     ".claude/skills/act-handover/SKILL.md": {
       "source": ".act/skills/act-handover/SKILL.md",
-      "sha256": "2aaf5204b9c7a40e627af4cbe88a631f4dc3f913c379f335f2e7e51d98f35d53"
+      "sha256": "929195a23a7444683c8e4141cb77a7f3bb51404a1e07dccdb678f3ee1d2a7625"
     },
     ".claude/skills/act-integrations/references/catalog.md": {
       "source": ".act/skills/act-integrations/references/catalog.md",
@@ -206,6 +206,10 @@
     ".claude/skills/act-version/SKILL.md": {
       "source": ".act/skills/act-version/SKILL.md",
       "sha256": "df19764993c2190811825bd2dc4f5425e44f30b8fca00d45a39eda7e44f6b685"
+    },
+    ".claude/skills/act-info/SKILL.md": {
+      "source": ".act/skills/act-info/SKILL.md",
+      "sha256": "bc0fa1d098a1e1e8e91d65643132ee463fcf86328e4dc571afc389c8f2415cbb"
     }
   },
   "removed_by_user": [],

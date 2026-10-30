@@ -26,10 +26,14 @@
 #          this machine while `language-chat` is `auto` (R-human-language) — per checkout in
 #          .act-local/identity.json, never versioned; the session start names it again.
 #
+#          `--identity` sets or changes the identity of this checkout (the short form of the name
+#          given); the session start creates it from `git config user.name` when it is missing.
+#
 # Usage:
 #   python .act/scripts/board.py
 #   python .act/scripts/board.py --shared             # `board: shared`: also the versioned board
 #   python .act/scripts/board.py --chat-language de   # remember the owner's chat language here
+#   python .act/scripts/board.py --identity "Jane Doe" # identity `jane-doe` for this checkout
 #
 # Output format:
 #   Writes the view chosen by `board` (docs/ai/board.md, or .act-local/board-<branch>.md for
@@ -668,6 +672,17 @@ def read_update_line(root: Path) -> Optional[str]:
     return f"Template update available: {info['label']} — run `python .act/scripts/update.py`"
 
 
+def read_advisory_lines(root: Path) -> list[str]:
+    """One line per template advisory of critical severity that applies to this project and is not
+    acknowledged (advisory.board_lines(): files only), for the top of the board; empty when there is none
+    or advisory.py cannot be used."""
+    try:
+        import advisory
+        return advisory.board_lines(root)
+    except Exception:
+        return []
+
+
 def render_board(
     branch_label: str,
     commit: Optional[dict[str, str]],
@@ -686,14 +701,19 @@ def render_board(
     others: Optional[list[str]] = None,
     footer: bool = True,
     update_line: Optional[str] = None,
+    advisory_lines: Optional[list[str]] = None,
 ) -> str:
     """`update_line` (a pending template update) goes under "Status" when that section is shown.
+    `advisory_lines` (active critical template advisories) go right below the title, whatever sections follow.
     `footer` False leaves the closing "Generated" lines out (the session-start excerpt).
     `generated_at` None (mode `shared`) leaves the timestamp out; with `commit` and `dirty` None
     as well the output holds nothing volatile. `heading` replaces the branch in the title;
     `decisions` (open decisions in the backlog) and `others` (section "Others", None = off) are
     left out when empty/None respectively."""
     lines: list[str] = [f"# Board — {heading or branch_label}", ""]
+    if advisory_lines:
+        lines.extend(advisory_lines)
+        lines.append("")
 
     if commit is not None or dirty is not None:
         lines.append("## Status")
@@ -904,12 +924,38 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--chat-language", metavar="CODE",
                         help="remember the chat language recognized for this person on this machine "
                              "(.act-local/identity.json) while language-chat is auto, then exit")
+    parser.add_argument("--identity", metavar="NAME",
+                        help="set or change this checkout's identity (the short form of NAME, "
+                             ".act-local/identity.json), keep its other keys, then exit; board and "
+                             "ideas files of a former identity are not renamed")
     parser.add_argument("--shared", action="store_true",
                         help="with `board: shared`: also write the versioned docs/ai/board-<identity>.md "
                              "(act-commit calls it; a plain run never touches that file)")
     args = parser.parse_args(argv)
 
     root = actlib.repo_root()
+
+    if args.identity is not None:
+        if not args.identity.strip():
+            print("board: --identity needs a name", file=sys.stderr)
+            return 2
+        try:
+            previous, data = actlib.set_identity(root, args.identity)
+        except ValueError as exc:
+            print(f"board: --identity: {exc}; give a name with letters or digits (a-z, 0-9)", file=sys.stderr)
+            return 2
+        print(f"board: identity {data['identity']!r} set for this checkout in .act-local/identity.json"
+              + (f" (was {previous!r})" if previous and previous != data["identity"] else ""))
+        if previous and previous != data["identity"]:
+            old_files = [p for p in (root / ".act-local" / f"board-{previous}.md",
+                                     root / ".act-local" / f"inbox-{previous}.md",
+                                     root / "docs" / "ai" / f"board-{previous}.md",
+                                     root / "docs" / "ai" / "concept" / f"ideas-{previous}.md")
+                         if p.is_file()]
+            if old_files:
+                print("board: files of the former identity stay as they are (rename or merge them by hand): "
+                      + ", ".join(p.relative_to(root).as_posix() for p in old_files))
+        return 0
 
     if args.chat_language is not None:
         code = actlib.normalize_language(args.chat_language)
@@ -1020,6 +1066,7 @@ def main(argv: list[str]) -> int:
         branch_label, commit, dirty, ledger_entries, waiting_mine, waiting_all,
         waiting_other_count, answered_entries, task_titles, backlog_titles, generated_at,
         heading=None, decisions=decisions, others=others, update_line=read_update_line(root),
+        advisory_lines=read_advisory_lines(root),
     )
 
     board_path = root / board_rel

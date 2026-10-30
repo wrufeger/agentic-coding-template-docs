@@ -43,8 +43,6 @@ import re
 import shutil
 import subprocess
 import sys
-import tempfile
-import uuid
 from datetime import date
 from pathlib import Path
 from typing import Callable, NamedTuple, Optional, TypedDict, Union
@@ -90,7 +88,7 @@ class BridgeSpec(TypedDict):
 # ---------------------------------------------------------------------------
 
 # Recognizable placeholder git identities (step 3). Compared case-insensitively.
-PLACEHOLDER_NAMES = {"test", "your name", "user"}
+PLACEHOLDER_NAMES = actlib.PLACEHOLDER_GIT_NAMES
 PLACEHOLDER_EMAIL_SUFFIXES = ("@example.com",)
 
 # Known origins of the template itself (step 2). A repo whose "origin" normalizes to one of these
@@ -165,7 +163,8 @@ def _git(args: list[str], cwd: Path, check: bool = True) -> subprocess.Completed
     while not cwd.is_dir() and cwd != cwd.parent:
         cwd = cwd.parent
     result = subprocess.run(
-        ["git", *args], cwd=cwd, capture_output=True, text=True, encoding="utf-8"
+        ["git", *args], cwd=cwd, capture_output=True, text=True, encoding="utf-8",
+        errors="replace",  # a name that is not UTF-8 never equals a known path; at worst git rejects it later
     )
     if check and result.returncode != 0:
         raise RuntimeError(f"git {' '.join(args)} failed: {result.stderr.strip()}")
@@ -179,7 +178,12 @@ def _print_step(n: int, text: str) -> None:
 def _ask(prompt_text: str, default: str, interactive: bool) -> str:
     if not interactive:
         return default
-    raw = input(f"{prompt_text} [{default}]: ").strip()
+    try:
+        raw = input(f"{prompt_text} [{default}]: ").strip()
+    except (EOFError, OSError):
+        # isatty() can say yes with nothing to read (on Windows the NUL device): take the default.
+        print(f"(no input, taking '{default}')")
+        return default
     return raw or default
 
 
@@ -822,13 +826,15 @@ def step_identity(root: Path, plan: bool, interactive: bool, notes: list[str]) -
 # ---------------------------------------------------------------------------
 
 def step_workspace_identity(root: Path, plan: bool, owner: str) -> str:
-    if actlib.read_identity() is not None:
+    status, data = actlib.ensure_identity(root, owner=owner, plan=plan)
+    if status == "unreadable":
+        return ".act-local/identity.json is unreadable, left unchanged: fix it or run board.py --identity <name>"
+    if status == "none":
+        return "no usable name, nothing created: run board.py --identity <name>"
+    if status != "created" or data is None:
         return "already present, left unchanged"
-    slug = actlib.identity_slug(owner)
-    workspace = uuid.uuid4().hex[:12]
-    if not plan:
-        actlib.write_identity({"identity": slug, "workspace": workspace, "created": date.today().isoformat()})
-    return f"identity '{slug}', workspace '{workspace}'" + (" (plan)" if plan else "")
+    return (f"identity '{data['identity']}', workspace '{data.get('workspace', '(to be created)')}'"
+            + (" (plan)" if plan else ""))
 
 
 _IMPORT_README_TEXT = """\
@@ -1724,7 +1730,9 @@ def _merge_settings_hooks(
         # finding 6).
         return f"{_relative_label(dest, root)}: not a valid hooks structure, left unchanged", False
     new_current, changed_events = actlib.merge_settings_hooks(current, bridge_data)
+    env_before = new_current.get("env") if isinstance(new_current.get("env"), dict) else {}
     new_current, env_changed = actlib.merge_settings_env(new_current, bridge_data)
+    env_added = sorted(set(new_current["env"]) - set(env_before)) if env_changed else []
     # `artifacts` (config.md): only against a real project root -- update.py's reference rendering
     # passes none, and a plan books nothing.
     artifact_changed, artifact_notes, booking = False, [], None
@@ -1750,7 +1758,7 @@ def _merge_settings_hooks(
     if changed_events:
         parts.append(f"hook entries for {', '.join(changed_events)}")
     if env_changed:
-        parts.append("env")
+        parts.append(f"env ({', '.join(env_added)})")
     if artifact_changed:
         parts.append(actlib.ARTIFACT_SETTING)
     if plan:
@@ -1822,8 +1830,9 @@ def _carry_over_area(root: Path, source_root: Path, area: "rules.Area", plan: bo
             "committed there (HEAD), the working-tree edits were not taken along; commit them in the "
             "source project and copy them by hand."
         )
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        head_copy = Path(tmp_dir) / source_path.name
+    # the target project's own scratch folder: this run is about to write into it anyway
+    with actlib.scratch_dir("carry-over", root) as tmp_dir:
+        head_copy = tmp_dir / source_path.name
         head_copy.write_bytes(head_bytes)
         source_project = rules.parse_project_file(head_copy, area)
     has_deviation = source_project.overrides or source_project.own_rules or any(

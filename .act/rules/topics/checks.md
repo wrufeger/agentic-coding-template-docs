@@ -91,14 +91,22 @@ directory), and nobody writes `.vscode/tasks.json` with a shell command, or adds
 the edit produces); the human writes such a file themselves. Limit: what a program or script writes
 itself (`pre-commit install`, `python -c "open(...)"`) is invisible to the check.
 
-## `R-work-throwaway` — Throwaway material in the system temp directory
+## `R-work-throwaway` — Throwaway material under `.act-local/tmp/`
 
 Checks: act-local-tidy.
 
-Throwaway material (probes, scratch projects, scratch files) goes into the system temp directory; where
-the tool refuses that to a worker, into `.act-local/tmp/<task-id>-<slug>/`, never directly under
+Throwaway material (probes, scratch projects, clones, output files, scratch files) goes into
+`.act-local/tmp/<task-id>-<slug>/`, never into the system temp directory and never directly under
 `.act-local/`. The orchestrator removes a task's folders when it commits the task
-(`python .act/scripts/act_local_tidy.py --task <id>`).
+(`python .act/scripts/act_local_tidy.py --task <id>`); whoever made a folder removes it earlier, once
+it has served. The template's own scripts keep to the same place: their short-lived folders are
+`.act-local/tmp/act-<purpose>-*`, removed when the script ends (outside a project they use the system
+temp directory), and the hooks' compiled-module cache is `.act-local/pyc/`. Such a folder lies inside the project's work tree: git run in a subfolder that is not a
+repository of its own finds the project's repository and acts on it, so set `GIT_CEILING_DIRECTORIES`
+to the folder above it, `.act-local/tmp` (git never climbs into a ceiling folder, so a throwaway
+repository still finds itself), or call git only on a repository of its own. A deny entry on Windows can
+lock out the owner too (`(RX)` also denies `READ_CONTROL` and `SYNCHRONIZE`): deny only the one right
+the probe needs, such as `(RD)`, and run `icacls <path> /reset` in the `finally`.
 
 Checked mechanically by `act-local-tidy` (`docs/ai/config.md` § Checks), once a day at session start in a
 detached process; the next start reports the result in one line. It removes: `.act-local/tmp/` entries
@@ -140,9 +148,16 @@ out falls back to the tier's own default: `light` 10, `standard` 40, `elevated` 
 The worker gets one note on reaching the cap ("cap reached — deliver your current state now") and is
 refused from 1.5× the cap onward — wrap up and report rather than push past it.
 
-`Write scope: none` allows no writes in the project, only into the system temp directory as a path
-written out (`/tmp/...` in Bash, or its absolute path) — every worker may write there, unless the
-project itself lies inside it. Leaving the `Write scope:` line out means no restriction beyond the
+`Write scope: none` allows no writes at all: not in the project, and not in the system temp directory or
+the worker's scratchpad either (only `/dev/null`, `NUL` and the standard streams stay free). A worker with
+any `Write scope:` line writes only what that scope allows; the system temp directory and the scratchpad
+are no exception. Throwaway material goes under `.act-local/tmp/<task-id>-<slug>/` (`R-work-throwaway`),
+and an assignment that needs it names the folder in its scope (`.act-local/tmp/<task-id>-<slug>/**`); the
+refusal of a write into the system temp directory or the scratchpad, every refusal under `none`, and the
+refusal of a target that starts with a temp variable (`$TEMP`, `${TMPDIR}`, `$env:TEMP` ...) say so. Limit:
+`mktemp` (also `-d`, `-p`), PowerShell `New-TemporaryFile` and `tempfile` in inline code create a file in
+the system temp directory without a path in the command, so the check does not see it; a later write
+through the variable that holds the name is refused. Leaving the `Write scope:` line out means no restriction beyond the
 template's own `.act/` write-guard. Patterns are relative to the project root, `/` as the separator,
 `*` crossing `/` freely (so `src/*` already reaches any depth under `src/`); a whole directory can also be named as `dir/**` or, as a
 shorthand, `dir/` (read the same way); brackets in a path are taken literally, so
@@ -164,7 +179,7 @@ without a `Write scope:` line and the orchestrator are not affected). A Bash or 
 `python`, `python3`, `python3.N`, `pythonw`, `py` (also `py -3`) or `node` (an `.exe` suffix and a
 directory in front are fine, and so are the usual prefixes such as `env`) with code of its own is refused
 when the code holds **a write call and a path written out as a literal that lies outside the scope** (the
-system temp directory and the worker's scratchpad stay open, as for any write). The code comes from `-c`
+system temp directory and the worker's scratchpad are not exempt, as for any write). The code comes from `-c`
 (also a cluster such as `-Ic`, with options like `-X utf8` before it) or `node -e`/`--eval`/`-p`/`--print`
 (also after `-i`/`--interactive`, which still runs the code); or from standard input - `-` or no script argument, with a heredoc (`python - <<'EOF'`), a here-string, or
 a literal piped in (`cat <<'EOF' | python -`, `{ cat <<'EOF'; } | python -`, `cat <<'EOF' | (python -)`,

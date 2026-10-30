@@ -114,7 +114,9 @@
 #                 moves a hook output into a file and shows the model a 2,000-character
 #                 preview), and a top-level `systemMessage` holds one line for the human (rule
 #                 files loaded per `rules.py --imports`, chat language, inbox entries to
-#                 process). The lines: an optional
+#                 process). `hookSpecificOutput.sessionTitle` names the session after the project
+#                 (config key `session-name`) on source startup, resume or fork, unless the
+#                 input already carries a `session_title`. The lines: an optional
 #                 block of orchestrator-only rules, one line per rule plus where the full text
 #                 lives (main session only, never seen by a sub-agent), zero or more "[act] note: ..."
 #                 lines (a changed/unrefreshable bridge, an unresolvable tier/reasoning value, a
@@ -197,6 +199,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import os
 import sys
 import time
 
@@ -210,14 +213,31 @@ from pathlib import Path  # noqa: E402
 _HOOK_STARTED = time.monotonic()
 
 # Must run before importing anything under .act/ (actlib/manifest/tiers, the checks package):
-# compiled caches go to the system temp directory instead of __pycache__/ folders under the
+# compiled caches go to <project>/.act-local/pyc instead of __pycache__/ folders under the
 # template tree. Keeping them (rather than sys.dont_write_bytecode) saves ~35 ms per hook call,
-# which runs twice for every tool call. Not under .act-local/: pycache_prefix mirrors the full
-# source path below the prefix, which inside the project doubles the path length and breaks
-# Windows' 260-character limit (and `git clean`) in deep checkouts. Writing a cache is best
-# effort in Python — a failure there never fails the hook.
-import tempfile  # noqa: E402
-sys.pycache_prefix = str(Path(tempfile.gettempdir()) / "act-pycache")
+# which runs twice for every tool call. The project, not the system temp directory: a cache there
+# grows with every project path and is never cleaned up; here it is gitignored with the rest of
+# .act-local/ and goes away with the project. The limit: pycache_prefix mirrors the full source path
+# (without the drive letter) below the prefix, so inside the project the cache path is about twice as
+# long as the source path, and Windows fails at 260 characters (deleting the folder, `git clean`).
+# If the longest cache path of this tree or of the standard library (cached below the prefix too)
+# could pass _PYC_PATH_BUDGET, no cache is written at all — sys.dont_write_bytecode, so there is no
+# __pycache__/ under .act/ either. Writing a cache is best effort in Python — a failure there never
+# fails the hook.
+_PYC_PATH_BUDGET = 240  # characters; Windows' limit is 260 including the drive and the file name
+_PYC_LONGEST_TAIL = 70  # below .act/: "/hooks/checks/<longest module>.cpython-3NN.pyc" is about 50 today
+try:
+    _project_root = Path(__file__).resolve().parents[2]
+    _pyc_prefix = _project_root / ".act-local" / "pyc"
+    # The mirrored path drops only a drive letter ("D:"); a UNC share stays in it.
+    _sources = (str(_project_root / ".act"), os.path.dirname(os.__file__))
+    _longest_source = max(len(s) - 2 if s[1:2] == ":" else len(s) for s in _sources)
+    if len(str(_pyc_prefix)) + _longest_source + _PYC_LONGEST_TAIL > _PYC_PATH_BUDGET:
+        sys.dont_write_bytecode = True
+    else:
+        sys.pycache_prefix = str(_pyc_prefix)
+except (IndexError, OSError, ValueError, RuntimeError):  # no usable project path: no cache either
+    sys.dont_write_bytecode = True
 
 # PostToolUse fires after every tool call, but only a worker's calls (cap note) and the writing
 # tools (encoding note, secret-scan note after a commit) can produce a note. Everything else
@@ -265,6 +285,28 @@ if len(sys.argv) == 3 and sys.argv[1] == "UserPromptSubmit" and sys.argv[2] == "
     if _payload2.get("agent_id"):
         sys.exit(0)  # a worker's own payload — nothing to do here
     if _match2 is None:
+        # Advisory acknowledgement: the whole prompt is a sentence like "Warnung quittiert" (optionally
+        # with advisory ids). The cheap start test decides before checks.advisory_ack is imported; the
+        # module answers only when at least one advisory is active (files only), else the prompt goes on
+        # unchanged. A block answers like the quick capture below: the prompt never reaches the model.
+        if isinstance(_prompt2, str) and _re.match(r"\s*(?:warnung|hinweis|warning|notice)\s", _prompt2, _re.IGNORECASE):
+            sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+            sys.path.insert(0, str(Path(__file__).resolve().parent))
+            try:
+                from checks import advisory_ack as _advisory_ack  # noqa: E402
+                _reason4 = _advisory_ack.handle(Path(__file__).resolve().parents[2], _payload2)
+            except Exception as _exc4:  # noqa: BLE001 -- a bug here must never eat the user's prompt
+                print(f"[act] advisory acknowledgement: failed, message passed through ({_exc4!r})", file=sys.stderr)
+                _reason4 = None
+            if _reason4:
+                try:
+                    sys.stdout.reconfigure(encoding="utf-8")
+                except (AttributeError, ValueError):
+                    pass
+                print(json.dumps({"decision": "block", "reason": _reason4,
+                                  "hookSpecificOutput": {"hookEventName": "UserPromptSubmit",
+                                                         "suppressOriginalPrompt": True}}, ensure_ascii=False))
+                sys.exit(0)
         # Quick capture: the first non-blank line starts with todo:/note:/idea: (case-insensitive).
         # One regex on the raw prompt decides, before checks.quick_capture is imported; every other
         # prompt ends here. capture() files the entries and returns the text to show, or None

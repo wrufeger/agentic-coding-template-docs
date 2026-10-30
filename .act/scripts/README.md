@@ -13,6 +13,7 @@ One row per script under `.act/scripts/`; the per-script sections below are each
 | `adopt_entries.py` | Batch writer for the content step of an adoption (skill `act-adopt`). The model reads the old material in whatever format it has and writes… | direct (used by skill `act-adopt` (stage 6)) |
 | `adopt_passages.py` | Mechanical insertion of an adopted project's own passages into docs/project/coding_rules.md and docs/README.md (skill `act-adopt`, step 6… | direct (used by skill `act-adopt` (stage 6)) |
 | `adopt_scan.py` | Read-only sighting of an existing project's documentation and AI-tooling material, before adoption (skill `act-adopt`). Walks the target… | direct (used by skill `act-adopt` (stage 6)) |
+| `advisory.py` | Warnings from the template author to projects running an affected template version ("advisories"). The template source carries an orphan… | direct (session start fetches daily in the background; `--ack` also by the chat sentences) |
 | `board.py` | Generate the board — a fully derived snapshot (current branch, last commit, dirty state, recent journal entries, one "Waiting for you" list… | direct |
 | `compact_check.py` | Check the sections of the archive collection files (`entries.py compact`) against their full text, and the monthly overview against the ids… | skill `act-compact` |
 | `context_size.py` | Context size of the running Claude Code session, for the status line ("ctx 127k") and for the one-time /clear hint… | direct (also imported by the status line and the context hint) |
@@ -25,6 +26,7 @@ One row per script under `.act/scripts/`; the per-script sections below are each
 | `handover.py` | Answer "can this session be left now?" mechanically, read-only: uncommitted changes, started tasks without a working-state line, inbox… | skill `act-handover` |
 | `i18n_check.py` | Check a project's translation files for completeness and consistency — the mechanical half of skill `act-check-translations`. Code-only… | skill `act-check-translations` |
 | `ideas.py` | The per-person ideas file `docs/ai/concept/ideas-<identity>.md` — one versioned file for every person on a project, written by that person… | direct (session start and init call it; run by hand to record entries as processed) |
+| `info.py` | Show, in a compact block, which project this session works in and its state: project name, folder and host, the session name the project… | skill `act-info` |
 | `init.py` | Turn a checkout of this template into a project ("here, in this clone"), or dock onto an existing/empty directory ("--target"). Ten steps… | direct |
 | `integrations.py` | Find out which ways lead from this project to its repo host and issue tracker (REST access through forge.py, MCP servers) and what each one… | skill `act-integrations` (`status` alone is direct) |
 | `log.py` | Write one line to ai.log at the project root (AGENTS.md § "Logging (optional)", .act/rules/topics/logging.md) and the small tools to read… | direct |
@@ -318,12 +320,34 @@ Line breaks do not count: a line that is a stretch of a base paragraph (whitespa
 least 20 characters) is the template's.
 ```
 
+## `advisory.py`
+
+Call: direct (session start fetches daily in the background; `--ack` also by the chat sentences)
+
+```text
+usage: advisory.py [-h] [--status | --ack [ID ...] | --check-file PATH | --refresh]
+
+Warnings from the template author for the installed template version (advisories). Without an
+option: --status.
+
+options:
+  -h, --help         show this help message and exit
+  --status           show the installed version, the cache and each advisory as active, acked or
+                     not affected (default)
+  --ack [ID ...]     acknowledge the named advisories (no id: every active one); it then no longer
+                     shows at session start, in the status line or on the board
+  --check-file PATH  validate an advisories.json file: print the accepted ids and each rejection
+                     with its reason, exit 1 if anything was rejected; works outside a project
+  --refresh          fetch the source's advisories branch now (5 s limit per git call) instead of
+                     waiting for the daily background check; needs `advisory-check` on
+```
+
 ## `board.py`
 
 Call: direct
 
 ```text
-usage: board.py [-h] [--chat-language CODE] [--shared]
+usage: board.py [-h] [--chat-language CODE] [--identity NAME] [--shared]
 
 Write the board view chosen by `board` in docs/ai/config.md: docs/ai/board.md (docs, shared) or
 .act-local/board-<branch>.md (local).
@@ -332,6 +356,9 @@ options:
   -h, --help            show this help message and exit
   --chat-language CODE  remember the chat language recognized for this person on this machine
                         (.act-local/identity.json) while language-chat is auto, then exit
+  --identity NAME       set or change this checkout's identity (the short form of NAME, .act-
+                        local/identity.json), keep its other keys, then exit; board and ideas
+                        files of a former identity are not renamed
   --shared              with `board: shared`: also write the versioned docs/ai/board-<identity>.md
                         (act-commit calls it; a plain run never touches that file)
 ```
@@ -451,7 +478,8 @@ options:
   --for IDENTITY        task/todo/report/note entry: recipient (todo/report/note default all, task
                         default this identity; all = shared)
   --body-file PATH      body below the heading, copied verbatim (UTF-8); a question ends with an
-                        empty answer label below it
+                        empty answer label below it, unless --status answered or the text has one
+                        already
 ```
 
 ### `entries.py assign`
@@ -572,7 +600,8 @@ options:
   --status              show the current state
   --enable              set consent
   --disable             revoke consent
-  --add                 store a finding in the outbox
+  --add                 store a finding in the outbox; sends it at once with mode 'automatic' and
+                        cadence 'immediate', or with --kind bug (consent and mode still apply)
   --plan                show the payload, send nothing (default)
   --send                send if consent, the privacy check and the cadence gate all allow it
   --direct TEXT         send a hand-written message at once - works even with feedback off
@@ -677,6 +706,22 @@ options:
   --check     list new or changed entries (default)
   --seen      record every entry as processed
   --ensure    create the README.md and own file if missing
+```
+
+## `info.py`
+
+Call: skill `act-info`
+
+```text
+usage: info.py [-h] [--limit N]
+
+Show which project this session works in and its state: name, folder, host, session name, branch,
+last commit, uncommitted changes, installed template version and channel, open tasks and what
+waits for a human. Read-only, no network.
+
+options:
+  -h, --help  show this help message and exit
+  --limit N   list at most N tasks and N waiting entries, then '+n more' (default 5)
 ```
 
 ## `init.py`
@@ -1010,7 +1055,8 @@ options:
   --on-local-changes {rescue,discard,abort}
                         skip the step-2 prompt
   --yes                 skip the interactive consent prompt (step 4)
-  --plan                show steps 1-3, describe 5-10, change nothing
+  --plan                show steps 1-3, describe 5-10; changes nothing in the project, only the
+                        local update-check files under .act-local/ may be refreshed
   --no-commit           do everything except the final commit
   --non-interactive     never prompt
   --catch-up            skip the fetch/diff/replace; finish steps 6-10 from the .act/ already on
