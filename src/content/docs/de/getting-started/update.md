@@ -3,7 +3,7 @@ title: Update
 description: Einen neueren Stand des Templates mit act-update in ein Projekt holen.
 sidebar:
   order: 3
-sourceHash: 3e43d63e1cb7bb76e06ba993a301e8153310811bab8c2ab6bad2f8159a8c44ce
+sourceHash: 0d08e409a1a74da21e951570d7f16a1959718a5f7db34a35e87b47fa73054589
 ---
 
 `act-update` holt einen neueren Stand des Templates in dein Projekt: Du siehst den Diff, du stimmst zu, und
@@ -101,7 +101,7 @@ Update-Notiz, `act-update` selbst bleibt unverändert.
 10. **Lock und Commit.** `.act-lock.json` wird neu geschrieben und ein Commit angelegt, außer du gibst
     `--no-commit` an.
 
-Die Zusammenfassung nennt auch, was der nächste Sitzungsstart aus `.act-local/` entfernen wird (die Prüfung
+Die Zusammenfassung sagt auch, wie viel der nächste Sitzungsstart aus `.act-local/` entfernen wird (die Prüfung
 `act-local-tidy`, siehe unten).
 
 Hat das Template keinen neueren Stand, melden `--plan` und der echte Lauf „nothing to update“. Eine Brückendatei, deren

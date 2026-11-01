@@ -95,7 +95,7 @@ behind another remote helper gets no update note at session start, while `act-up
    drift; findings land in `docs/ai/inbox/`, never as a silent fix. A new tier proposal is filed there as a question of its own; the commit takes the report and the questions, and the summary names both.
 10. **Lock and commit.** `.act-lock.json` is rewritten and a commit is made, unless you pass `--no-commit`.
 
-The summary also names what the next session start will remove from `.act-local/` (the check `act-local-tidy`, see
+The summary also says how much the next session start will remove from `.act-local/` (the check `act-local-tidy`, see
 below).
 
 If the template has no newer state, `--plan` and the real run both say "nothing to update". A bridge file whose content
