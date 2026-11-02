@@ -10,6 +10,7 @@ npm run dev                    # local preview
 npm run build                  # production build (checks the generated reference first)
 npm run gen                    # regenerate the reference pages from the template
 npm run check:translations     # report stale German pages
+npm run check:links            # check the links on the further-reading pages (network)
 npm run sync                   # plan: what a template update would change
 npm run sync -- --apply        # update the template state, regenerate, list pages to review
 ```
