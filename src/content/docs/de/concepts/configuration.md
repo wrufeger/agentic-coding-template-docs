@@ -3,7 +3,7 @@ title: Konfiguration
 description: docs/ai/config.md steuert den Arbeitsablauf - seine Gruppen und was block, warn und off für Prüfungen bedeuten.
 sidebar:
   order: 4
-sourceHash: 3f46149b2b8abeb7f9bcb7bb869ddae6b7ce7891b21a40a7a07e1154d30e49c4
+sourceHash: 8474a8523b9ea6a54ce33b1d3e1bd4fd5b1f5cd4296f9f3cb9b99bdd01555fdd
 ---
 
 `docs/ai/config.md` ist die Datei, die steuert, wie am Projekt gearbeitet wird. Sie besteht aus Markdown-Tabellen, ein Abschnitt pro Thema. `init` trägt die Werte ein, die es erfragt oder erkannt hat; du änderst sie jederzeit. Nichts braucht einen Neuaufbau: Der Hook beim Sitzungsstart liest die Datei und meldet, was sich seit dem letzten Abgleich geändert hat. Jeder Schlüssel mit seinen erlaubten Werten steht in der [Konfigurationsreferenz](/agentic-coding-template-docs/de/reference/configuration/); diese Seite erklärt, wofür die Gruppen da sind.
@@ -45,6 +45,10 @@ Eine Prüfung herunterzustufen ist deine Entscheidung. Prüfungen wie `secret-sc
 `outside-root` hält Lesen und Schreiben im Projektordner und seinen erlaubten Orten, für den Assistenten und seine Worker. In neuen Projekten steht es auf `block`; ein Projekt ohne die Zeile führt es als `warn` aus. Ausnahmen kommen in `outside-root-allow`; beide Zeilen stehen in der [Konfigurationsreferenz](/agentic-coding-template-docs/de/reference/configuration/), die Regel in [`R-safe-outside-root`](/agentic-coding-template-docs/de/reference/rules/#r-safe-outside-root).
 
 `act-local-tidy` hält `.act-local/` klein. Beim Sitzungsstart entfernt es, höchstens einmal am Tag und in einem Hintergrundprozess, `tmp/`-Einträge und unbekannte Einträge direkt unter `.act-local/` (keine, die ein Skript der Vorlage anlegt), die älter als 7 Tage sind und deren Name nicht mit der Id einer offenen Aufgabe beginnt, und alle bis auf die neuesten 5 Backups von `update`. Der nächste Sitzungsstart meldet Anzahl, Größe und Art; mit Namen nennt er nur Einträge, die sich nicht entfernen ließen. Der erste Lauf in einem Projekt meldet nur, was er entfernen würde; entfernt wird an einem späteren Tag, nachdem ein Sitzungsstart diese Meldung gezeigt hat. `warn` meldet nur, `off` überspringt die Prüfung. `act-local-keep` listet Muster relativ zu `.act-local/` (zum Beispiel `exports, tmp/long-*`), die nie entfernt werden, oder `none`. `python .act/scripts/act_local_tidy.py` zeigt den Plan, ohne etwas zu entfernen. Die Regel dahinter ist [`R-work-throwaway`](/agentic-coding-template-docs/de/reference/rules/#r-work-throwaway).
+
+### Ignore-Dateien und was die Prüfungen nicht sind
+
+Eine `.claudeignore` gibt es nicht: Claude Code übergeht eine solche Datei kommentarlos. Seine Werkzeuge Glob und Grep lassen schon aus, was `.gitignore` ausschließt, `node_modules` und Build-Ordner eingeschlossen; die Vorlage legt deshalb keine eigene Ignore-Datei an. `permissions.deny` mit `Read(...)`-Regeln erreicht die eigenen Datei-Werkzeuge von Claude Code, einen Shell-Befehl aber nur, wo seine Sandbox eingeschaltet ist. Ein gezielter, begrenzter Blick in die Quellen einer Bibliothek (`grep -n … | head`) bleibt erlaubt; oft findet sich so ein Fehler in einer Abhängigkeit ([`R-work-bounded-output`](/agentic-coding-template-docs/de/reference/rules/#r-work-bounded-output)). Geheimnis-Dateien sperrt `secret-read`, auch in Shell-Befehlen, in den Grenzen, die seine Regel nennt ([`R-safe-no-secret-read`](/agentic-coding-template-docs/de/reference/rules/#r-safe-no-secret-read)). Die Prüfungen sind Leitplanken gegen Versehen, keine Sandbox: Weder eine Ignore-Datei noch eine deny-Regel hält für sich allein einen Agenten, oder einen in seinen Prompt eingeschleusten Text, davon ab, eine Datei über die Shell zu lesen. Dafür braucht es eine Trennung außerhalb des Agenten, etwa einen Container oder die Sandbox des Werkzeugs.
 
 ## Datei und Umgebung
 
