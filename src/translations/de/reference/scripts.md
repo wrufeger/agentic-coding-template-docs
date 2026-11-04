@@ -43,6 +43,10 @@ Erzeugt das Board — einen vollständig abgeleiteten Schnappschuss (aktueller B
 <!-- source: 7c8d387d4d19041a -->
 Prüft die Abschnitte der Archiv-Sammeldateien (`entries.py compact`) gegen ihren vollen Text sowie die monatliche Übersicht…
 
+## table:config.py
+<!-- source: fb19cffef5f5961a -->
+Zeigt und setzt die Einstellungen in docs/ai/config.md ohne Modell: die Übersicht aller Einstellungen, eine einzelne Einstellung mit ihren erlaubten Werten…
+
 ## table:context_size.py
 <!-- source: d62daa6d3fd3b671 -->
 Kontextgröße der laufenden Claude-Code-Sitzung, für die Statuszeile („ctx 127k“) und für den einmaligen /clear-Hinweis…
@@ -79,6 +83,14 @@ Beantwortet „Kann diese Sitzung jetzt verlassen werden?“ mechanisch und rein
 <!-- source: 8238d909d48803ef -->
 Prüft die Übersetzungsdateien eines Projekts auf Vollständigkeit und Konsistenz — die mechanische Hälfte des Skills `act-check-translations`. Nur Code…
 
+## table:id_links_install.py
+<!-- source: 8b674e85db3320ec -->
+Einmalige Einrichtung je Rechner für die anklickbaren Eintrags-IDs (Editor-Unterstützung). Kopiert den Language Server und sein Hilfsmodul in einen Ordner je Benutzer…
+
+## table:id_links_lsp.py
+<!-- source: d929c6c7f4b8d78a -->
+Language Server, der Eintrags-IDs wie T12, B7, Q3 oder U5 in Markdown-Dateien anklickbar macht, die in einem Editor geöffnet sind (VS Code, IntelliJ mit einem…
+
 ## table:ideas.py
 <!-- source: b2df8059a1b0ea78 -->
 Die Ideen-Datei je Person `docs/ai/concept/ideas-<identity>.md` — eine versionierte Datei für jede Person eines Projekts, von dieser Person geschrieben…
@@ -103,6 +115,10 @@ Schreibt eine Zeile in ai.log im Projektwurzelverzeichnis (AGENTS.md § „Loggi
 <!-- source: da5917c3a95a3d83 -->
 Erzeugt oder prüft .act/MANIFEST.json — einen SHA-256-Hash je Datei unter .act/, um lokale Änderungen am Template vor einem Update zu erkennen…
 
+## table:move_doc.py
+<!-- source: 0a8b407ddcba2d45 -->
+Verschiebt ein Dokument (eine Datei oder einen Ordner samt Inhalt) unterhalb von docs/ an eine neue Stelle und zieht die Verweise mit, sodass eine Neuordnung…
+
 ## table:rules.py
 <!-- source: 5c387e9b86e110f4 -->
 Liest die *wirksamen* Regeln — die Regelsätze des Templates, nachdem die Kästchen, Ersetzungen und Ergänzungen des Projekts angewendet wurden. Ein…
@@ -122,6 +138,14 @@ Sicherheitsprüfung Art B: eine Live-Abfrage nach Schwachstellen in Bibliotheken
 ## table:seo_check.py
 <!-- source: 0f59373b6b4c9139 -->
 SEO-Prüfungen nur im Code über HTML, Templates, Markdown-Seiten und Framework-Konfiguration eines Projekts — die mechanische Hälfte des Skills `act-seo`. Liest…
+
+## table:seo_crawl.py
+<!-- source: b3a87b3dec4db361 -->
+Crawl einer laufenden Website — die Crawl-Hälfte des Skills `act-seo`. Startet bei einer Basis-URL und folgt den internen Links desselben Ursprungs (Schema…
+
+## table:seo_lighthouse.py
+<!-- source: 2e371af94e7a7a7b -->
+Lighthouse-Messung für die URLs einer laufenden Website — die Labormess-Hälfte des Skills `act-seo`. Führt eine festgelegte Lighthouse-Version aus…
 
 ## table:settings_export.py
 <!-- source: 36814737f8168627 -->

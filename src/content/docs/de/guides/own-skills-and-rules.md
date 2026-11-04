@@ -3,7 +3,7 @@ title: Eigene Regeln, Skills und Rollen
 description: Regeln des Templates abschalten, eigene ergänzen, Dateien des Templates unter docs/ai/local/ überschreiben, Skills und Rollen hinzufügen und in ein anderes Projekt mitnehmen.
 sidebar:
   order: 3
-sourceHash: 3f6cce4c7d0a7e5c3ec027c6d422b08013de88facd239d9024a36b480d600d90
+sourceHash: 1850c22ff7cf817f98e7224311bbddbaad3e35b787a9103c8295416a454d691f
 ---
 
 Das Projekt überschreibt immer das Template. Du bearbeitest nie etwas unter `.act/`; ein Wächter (`template-write-guard`) verweigert dort Schreibzugriffe. Alles, was dir gehört, kommt nach `docs/ai/` und `docs/project/` und übersteht jedes Update.
@@ -19,6 +19,7 @@ Das Projekt überschreibt immer das Template. Du bearbeitest nie etwas unter `.a
 ```
 
 - **Eine Regel abschalten**: Entferne ihr Kreuz. Die Datei wird weiterhin ganz geladen, aber eine nicht angekreuzte Regel gilt als aus. Verschiebt ein Update der Vorlage eine Regel in eine andere Regeldatei, verschiebt `act-update` ihre Kästchenzeile in einer bearbeiteten `docs/ai/rules.md` mit, Kreuz und Begründung unverändert, sodass eine ausgeschaltete Regel ausgeschaltet bleibt. Importierst du die neue Datei nicht, wird die Verschiebung nur gemeldet.
+- **Neue Regeln der Vorlage**: `act-update` und der Sitzungsstart tragen von der Vorlage neu hinzugefügte Regeln auch in eine bearbeitete `docs/ai/rules.md` ein, als Kästchenzeile je Regel, und eine neue Regeldatei als Import-Block am Ende ihres Abschnitts. Dein eigener Text, nicht angekreuzte Kästchen und von dir entfernte Imports bleiben unverändert, und eine entfernte Zeile kommt nicht zurück (`.act-lock.json` merkt sich, was angeboten wurde); ihre Regel gilt trotzdem als eingeschaltet, ausgeschaltet wird sie über das Kreuz. Was sich nicht sicher eintragen lässt, nennt `python .act/scripts/rules.py --add-missing`.
 - **Einen ganzen Bereich abschalten**: Lösche seine `@`-Importzeile.
 - **Den Wortlaut einer Regel ersetzen**: Füge unter `## Overrides` einen Listenpunkt der Form ``- replaces `R-...`: <your version>`` hinzu, der die Regel und deine Fassung nennt (Zeilen, die mit `<!--` beginnen, werden übersprungen). Eine `replaces`-Zeile gewinnt gegenüber dem Text des Templates, egal ob die Regel angekreuzt ist oder nicht.
 - **Eigene Regeln hinzufügen**: Lege unter `## Own rules` einen Punkt pro Regel an, die im Template keine Entsprechung hat. Eine eingerückte Liste direkt unter einer eigenen Regel (oder einer `replaces`-Zeile) gehört zu ihr und wird als Teil ihres Textes gelesen.

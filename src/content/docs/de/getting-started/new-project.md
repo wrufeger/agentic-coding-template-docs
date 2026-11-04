@@ -3,7 +3,7 @@ title: Neues Projekt
 description: Ein neues Projekt aus dem Template einrichten, mit dem Assistenten oder von Hand.
 sidebar:
   order: 1
-sourceHash: a9953cdd99328b0a04d3fd7c076c43a52b36809896eca9ba5ed34580e8af2a0f
+sourceHash: 0db9bd29b920b07be58436336065ea7cb2bf477e9b8461b1519cd29006941380
 ---
 
 ## Das Template holen
@@ -41,7 +41,7 @@ Jede Sprache funktioniert. Es gibt drei Wege:
 Der Assistent führt die Befehle selbst aus. Er hat kein Terminal, in dem er dir Fragen stellen könnte, also
 übernimmt `init.py` die Standardwerte und schreibt jeden offenen Punkt (Name, Owner, Stack, Werkzeuge) in die
 Inbox. Du gehst diese Notiz mit dem Assistenten durch, und die Antworten kommen in `docs/ai/config.md`. Ohne Antwort steht `feedback` auf `confirm`: Jede Nachricht an den
-Template-Autor wird gezeigt und erst nach deinem Ja gesendet. `off` ist mit einer Änderung in `docs/ai/config.md` gesetzt.
+Template-Autor wird gezeigt und erst nach deinem Ja gesendet. `off` ist mit einer Änderung in `docs/ai/config.md` gesetzt, ebenso `local`: Es wird nie etwas gesendet, Funde werden zu Backlog-Einträgen im Projekt. `/act-config feedback local` setzt es ohne Modell-Durchlauf; `/act-config` allein listet alle Einstellungen.
 
 ## Von Hand: `init.py`
 
@@ -75,7 +75,7 @@ Zehn feste Schritte, jeder ausgegeben als `[n/10]`:
 4. Schreibt deine Workspace-Identität (auch wenn `.act-local/identity.json` existiert, aber `identity` fehlt) und den lokalen Import-Ordner `.act-local/import/`.
 5. Dünnt die Brücken auf die gewählten Werkzeuge aus.
 6. Schreibt das Gerüst: `docs/ai/` (`config.md`, `rules.md`, `concept/`, Inbox, Arbeitsordner), `docs/project/coding_rules.md`, `docs/project/glossary.md`,
-   `docs/README.md`, die Brückendateien, Skill-Kopien und die Hook-Einträge in `.claude/settings.json` (mit `"enableArtifact": false`, außer bei `artifacts: on`, und `PYTHON_BASIC_REPL=1` unter `env`, damit unter Windows ein leeres Heredoc in einem Bash-Aufruf unter Python 3.13 und neuer nicht hängt).
+   `docs/project/README.md` (der Index der Projektdoku, eine Zeile je Datei), `docs/ai/local/resources.md`, `docs/README.md`, die Brückendateien, Skill-Kopien und die Hook-Einträge in `.claude/settings.json` (mit `"enableArtifact": false`, außer bei `artifacts: on`, und `PYTHON_BASIC_REPL=1` unter `env`, damit unter Windows ein leeres Heredoc in einem Bash-Aufruf unter Python 3.13 und neuer nicht hängt).
 7. Hängt Blöcke des Templates an `.gitattributes` und `.gitignore` an und hält `.act-local/` aus den Indizes der IDEs heraus (`excludeFolder` in `.idea/*.iml`, `files.watcherExclude` in `.vscode/settings.json`, wo `.vscode/` existiert).
 8. Nur im Klon: legt die eigenen Dateien des Templates still: README, `CHANGELOG.md` und die Community-Dateien unter
    `.github/` (Beitragshinweise, Sicherheit, Verhaltenskodex, Barrierefreiheit, Vorlagen für Issues und Pull Requests),

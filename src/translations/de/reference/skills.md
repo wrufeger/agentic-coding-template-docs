@@ -35,6 +35,10 @@ Verwenden direkt nach der Abnahme einer Aufgabe, wenn ihr Beleg (ein Testlauf, e
 <!-- source: b504d144bb4873ff -->
 Verwenden, wenn der Sitzungsstart meldet, dass eine Archiv-Verdichtung fällig ist, oder wenn gebeten wird, das Archiv oder das Journal zu verdichten oder zusammenzuführen. Führt alte archivierte Einträge und Journal-Einträge wörtlich zu einer Datei je Art und Monat mit einer Monatsübersicht zusammen, prüft, dass nichts verloren ging, und committet den Lauf für sich. Wird nie von einem Sub-Agent ausgeführt.
 
+## act-config
+<!-- source: 352fa55b90df8820 -->
+Verwenden, wenn gebeten wird, eine Einstellung in docs/ai/config.md anzuzeigen oder zu ändern („act-config“, „setze feedback auf manual“, „welche Einstellungen gibt es“). Listet die Einstellungen auf, erklärt eine einzelne oder schreibt einen neuen Wert, beantwortet von einem Script ohne das Modell. Nicht für die Rollen-Tabelle - die wird von Hand bearbeitet.
+
 ## act-deps
 <!-- source: 35b59128504491c4 -->
 Verwenden, wenn Abhängigkeiten veraltet sind, ein Security Advisory zu prüfen ist oder gebeten wird, Pakete zu aktualisieren oder das Alter der Abhängigkeiten zu prüfen. Aktualisiert in nachvollziehbaren Schritten - Patch und Minor gebündelt, je Major ein Commit - mit grünen Checks nach jedem.
@@ -108,8 +112,8 @@ Verwenden, wenn gebeten wird, bestehenden Code zu refactoren, aufzuräumen oder 
 Verwenden, wenn gebeten wird, ein Release vorzubereiten, eine neue Version zu veröffentlichen, eine Version zu taggen oder einen Changelog zu erzeugen. Ergebnis ist eine getaggte Semantic Version mit lesbarem Changelog aus den Commits. Nicht für gewöhnliche Commits - dafür act-commit.
 
 ## act-seo
-<!-- source: 74e78fe24bf98aaa -->
-Verwenden, wenn gebeten wird, SEO zu prüfen, warum Seiten in der Suche schlecht gefunden werden, oder vor dem Start einer Website. Liefert eine Befundliste im Seitencode (Metadaten, Überschriften, Links, robots.txt, Sitemap) und behebt die freigegebenen. Nur Code, kein Abruf der Live-Seite.
+<!-- source: 8f61c28599c207d8 -->
+Verwenden, wenn gebeten wird, SEO zu prüfen, warum Seiten in der Suche schlecht gefunden werden, nach Lighthouse-Werten, nach der Seitengeschwindigkeit oder vor dem Start einer Website. Standard ist eine Codeprüfung (Metadaten, Überschriften, Links, hreflang, strukturierte Daten, Duplikate, robots.txt, Sitemap); auf Wunsch zusätzlich ein Crawl und ein Lighthouse-Lauf gegen den Produktions-Build (--live) oder die öffentliche URL. Behebt nur, was freigegeben wurde.
 
 ## act-setup
 <!-- source: b4e6df57eca48795 -->

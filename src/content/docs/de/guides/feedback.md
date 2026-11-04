@@ -3,7 +3,7 @@ title: Feedback
 description: Freiwilliges Feedback an den Autor des Templates - die Modi, Takt und Scope, was nie gesendet wird und wo die lokale Kopie bleibt.
 sidebar:
   order: 1
-sourceHash: 6a561b8f677c8f05876ba386ca009315c18398d5d45f3a618cc9d97e2848a38a
+sourceHash: dbb41ca5efe146f1b88c02f39946e61a4b7026bb54a0b4989be2bc45fcc9c374
 ---
 
 Du kannst dem Autor des Templates als Feedback melden, was der Arbeitsweise gutgetan hat oder fehlte. Feedback ist freiwillig, betrifft **nur die Arbeitsweise, nie dein Projekt**, und alles, was den Rechner verlässt, wird auch lokal aufbewahrt.
@@ -20,8 +20,13 @@ Drei Schlüssel im Abschnitt Feedback von `docs/ai/config.md` steuern das:
 | `confirm` | der Assistent zeigt dir die Nutzlast und fragt |
 | `automatic` | die Nutzlast wird ohne Rückfrage gesendet |
 | `manual` | Einträge werden gesammelt, aber nie von selbst gesendet; nur der Skill `act-feedback` sendet |
+| `local` | nichts wird je an den Autor des Templates gesendet; Befunde werden Backlog-Einträge in deinem Projekt |
 
-Neue Projekte starten mit `confirm`, wenn niemand wählt: bei einem Lauf ohne Terminal (so laufen `act-setup` und `act-adopt`), einer leeren Antwort oder dreimal ungültiger Eingabe; `off` bleibt eine Änderung entfernt. Eine `config.md` ohne den Schlüssel zählt weiterhin als `off`. `python .act/scripts/feedback.py --enable [--mode off|confirm|automatic|manual]` setzt den Modus; `--enable` ohne `--mode` bedeutet `automatic`, das ohne Rückfrage sendet; `--disable` schaltet es ab.
+Neue Projekte starten mit `confirm`, wenn niemand wählt: bei einem Lauf ohne Terminal (so laufen `act-setup` und `act-adopt`), einer leeren Antwort oder dreimal ungültiger Eingabe; `off` bleibt eine Änderung entfernt. Eine `config.md` ohne den Schlüssel zählt weiterhin als `off`. `python .act/scripts/feedback.py --enable [--mode off|confirm|automatic|manual|local]` setzt den Modus; `--enable` ohne `--mode` bedeutet `automatic`, das ohne Rückfrage sendet; `--disable` schaltet es ab.
+
+## Modus `local`
+
+Mit `feedback: local` sendet das Projekt nie etwas: `feedback.py --send` (auch mit `--force`), `--direct` und `--add` verweigern und verweisen auf das Backlog, `--plan` zeigt nichts, und Erinnerungen werden nie fällig. Was sonst hinausginge, wird ein Backlog-Eintrag in deinem Projekt (`entries.py new backlog`): ein Fehler in der Vorlage selbst, ein Satz, den du hinter `feedback:` schreibst (in deinen Worten, unverändert), und die wiederkehrenden Befunde, die die Feedback-Regel nennt (eine unpraktische Regel oder ein unpraktisches Format, ein fehlender Ablauf, eine nötige Umgehung); sie legt der Assistent ohne Rückfrage an. `/act-config feedback local` setzt ihn ebenfalls. Die folgenden Abschnitte gelten für die anderen Modi.
 
 ## Takt und Scope
 

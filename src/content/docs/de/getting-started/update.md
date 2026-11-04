@@ -3,7 +3,7 @@ title: Update
 description: Einen neueren Stand des Templates mit act-update in ein Projekt holen.
 sidebar:
   order: 3
-sourceHash: 0d08e409a1a74da21e951570d7f16a1959718a5f7db34a35e87b47fa73054589
+sourceHash: a7e09ef5932a3e2939391c6c0a6e91ffe9d3201b0137c5cd145d2f5482e40179
 ---
 
 `act-update` holt einen neueren Stand des Templates in dein Projekt: Du siehst den Diff, du stimmst zu, und
@@ -84,7 +84,7 @@ Update-Notiz, `act-update` selbst bleibt unverändert.
    eine neue Gruppe eines angekreuzten Satzes angekreuzt; siehe [Eigene Skills, Rollen und Regeln](/agentic-coding-template-docs/de/guides/own-skills-and-rules/)).
    Hast du `docs/ai/rules.md` bearbeitet, nimmt eine Regel, die in eine andere Regeldatei gewandert ist, ihre
    Kästchenzeile mit (Kreuz und Begründung unverändert, eine abgeschaltete Regel bleibt also aus); importierst du die
-   neue Datei nicht, wird sie nur gemeldet. Eine unbearbeitete `docs/ai/rules.md` wird wie bisher neu abgeleitet. Nur
+   neue Datei nicht, wird sie nur gemeldet. Eine unbearbeitete `docs/ai/rules.md` wird wie bisher neu abgeleitet. In einer bearbeiteten trägt das Update ein, was das Template an Regeln oder Regeldateien ergänzt hat: eine Kästchenzeile je neue Regel, eine neue Regeldatei als Import-Block am Ende ihres Abschnitts. Dein eigener Text, abgewählte Kästen und entfernte Imports bleiben unangetastet; `.act-lock.json` hält fest, was angeboten wurde (`rules_offered`), eine entfernte Zeile kehrt also nicht zurück, und ihre Regel gilt weiter als eingeschaltet (ausgeschaltet wird sie über das Kreuz). Was sich nicht sicher eintragen lässt, nennt `python .act/scripts/rules.py --add-missing`; der Sitzungsstart trägt neue Regeln ebenso ein. Nur
    `builder` und `reviewer` behalten eine `-high`-Variante: erzeugte Varianten der übrigen Rollen des Templates werden
    entfernt, jede in Vorschau und Zusammenfassung genannt.
    Die Rollen des Templates (und ihre `-high`-Varianten) bekommen `omitClaudeMd: true`, Worker laden `CLAUDE.md` also nicht
@@ -94,7 +94,7 @@ Update-Notiz, `act-update` selbst bleibt unverändert.
 7. **Hooks und Git-Dateien.** Gleicht die Hook-Einträge in `.claude/settings.json` und die Blöcke des Templates in
    `.gitattributes` und `.gitignore` ab, setzt dort `PYTHON_BASIC_REPL=1` unter `env` (unter Windows hängt ein leeres Heredoc in einem Bash-Aufruf unter Python 3.13 und neuer nicht mehr; ein selbst gesetzter Wert bleibt, der Bericht nennt die ergänzten env-Schlüssel) und `"enableArtifact": false`, außer `docs/ai/config.md` hat
    `artifacts: on`. Ein bestehendes Projekt startet nach dem Update deshalb ohne das Werkzeug `Artifact`. Außerdem ergänzt dieser Schritt die 12 `SubagentStart`-Einträge, die Workern ihre Regeln ohne die Orchestrator-Regeln geben (siehe Schritt 6); ein älterer Satz von sechs wird ersetzt, eigene Hooks bleiben. `python .act/scripts/rules.py --worker` zeigt, was ein Worker bekommt. Außerdem hält er `.act-local/` aus den Indizes der IDEs heraus: ein `excludeFolder` in jeder JetBrains-`.idea/*.iml` und `files.watcherExclude` in `.vscode/settings.json`, wo `.vscode/` existiert.
-8. **Migrationen.** Führt alle fälligen aus. Jede schreibt eine betroffene Datei einmal um und lässt sie danach in Ruhe.
+8. **Migrationen.** Führt alle fälligen aus. Jede schreibt eine betroffene Datei einmal um und lässt sie danach in Ruhe. Zwei legen einem bestehenden Projekt einmal eine fehlende Datei an: `docs/ai/local/resources.md` (deine Leseliste) und `docs/project/README.md` (der Index der Projektdoku). Eine vorhandene Datei bleibt unberührt, eine von dir gelöschte kommt nicht zurück.
 9. **Brücken und Doctor.** Zuerst werden unbearbeitete erzeugte Brücken (`CLAUDE.md`, `AGENTS.md`,
    `docs/ai/rules.md`) aufgefrischt; steht `session-start-refresh` in `docs/ai/config.md` § Checks auf `warn` oder
    `off`, werden sie nur gemeldet („would refresh … not written“). Danach prüft `doctor.py` auf Abweichungen; Befunde landen in `docs/ai/inbox/`, nie als stille Korrektur. Ein neuer Tier-Vorschlag wird dort als eigene Frage angelegt; der Commit nimmt den Bericht und die Fragen mit, und die Zusammenfassung nennt beide.
@@ -173,6 +173,10 @@ Von v2.1.0 aus führst du `act-update` wie gewohnt aus; mehr ist nicht nötig. `
 - **Quick capture** ist an: Eine Chat-Nachricht, die mit `todo:`, `note:` oder `idea:` beginnt, legt ein Hook ohne
   Modell-Durchlauf ab. `quick-capture: off` in `docs/ai/config.md` schaltet es aus.
 
+## Erledigte Einträge
+
+Unter Git steht `done-entries` in `docs/ai/config.md` § Archiv standardmäßig auf `delete`: Ein erledigter Backlog-Punkt oder Inbox-Eintrag, den Git unverändert hält, wird gelöscht statt archiviert (`keep` stellt das Archivieren wieder her und gilt ohne Git). Seine Id bleibt über `docs/ai/work/reserved-ids.json` vergeben, und `act-commit` führt `entries.py purge` aus. Eine erledigte Aufgabe kommt mit ihrem Stempel `finished:` ins Archiv und wird beim nächsten `purge` entfernt, sobald ein Commit sie hält. Ein vorhandenes Archiv bleibt: Der erste Sitzungsstart nach dem Update nennt einmal die Zahl seiner Dateien, und `python .act/scripts/entries.py purge --plan` zeigt, was entfallen würde.
+
 ## Schutz vor Downgrade
 
 Ist der geholte Stand älter als der installierte, oder kennt die Quelle den installierten Commit nicht (zum Beispiel
@@ -182,7 +186,7 @@ ein lokaler Checkout mit ungepushten Commits), warnt `--plan`, und ein echter La
 ## Deine eigenen Änderungen
 
 `.act/` wird ersetzt, bearbeite es also nie. Lege eine Projektfassung einer Regel, eines Skills oder einer Rolle
-in `docs/ai/local/<gleicher Pfad>` ab; ein Update überschreibt diesen Ordner nie, ebenso wenig deine eigenen
+in `docs/ai/local/<gleicher Pfad>` ab; überschreibst du das Script `workflow.js` von `act-audit-docs`, benenne deine Datei in `workflow.js.txt` um (so heißt das Script des Templates jetzt, das Update entfernt das alte). Ein Update überschreibt diesen Ordner nie, ebenso wenig deine eigenen
 Inhalte in `docs/ai/` und `docs/project/`. Es frischt nur unbearbeitete erzeugte Dateien auf (etwa eine
 unbearbeitete `docs/ai/rules.md`), legt Befunde in der Inbox ab und führt Migrationen aus. Siehe
 [Schichten und Overrides](/agentic-coding-template-docs/de/concepts/layers/).

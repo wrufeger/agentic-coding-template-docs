@@ -19,8 +19,13 @@ Three keys in the Feedback section of `docs/ai/config.md` control it:
 | `confirm` | the assistant shows you the payload and asks |
 | `automatic` | the payload is sent without asking |
 | `manual` | entries are collected but never sent on their own; only the `act-feedback` skill sends |
+| `local` | nothing is ever sent to the template author; findings become backlog entries in your project |
 
-New projects start with `confirm` whenever nobody chooses: a run without a terminal (as `act-setup` and `act-adopt` run it), an empty answer or three invalid ones; `off` stays one edit away. A `config.md` without the key still counts as `off`. `python .act/scripts/feedback.py --enable [--mode off|confirm|automatic|manual]` sets the mode; `--enable` without `--mode` means `automatic`, which sends without asking; `--disable` turns it off.
+New projects start with `confirm` whenever nobody chooses: a run without a terminal (as `act-setup` and `act-adopt` run it), an empty answer or three invalid ones; `off` stays one edit away. A `config.md` without the key still counts as `off`. `python .act/scripts/feedback.py --enable [--mode off|confirm|automatic|manual|local]` sets the mode; `--enable` without `--mode` means `automatic`, which sends without asking; `--disable` turns it off.
+
+## Mode `local`
+
+With `feedback: local` the project never sends anything: `feedback.py --send` (also with `--force`), `--direct` and `--add` refuse and point to the backlog, `--plan` shows nothing, and reminders never fall due. What would otherwise go out becomes a backlog entry in your project (`entries.py new backlog`): a bug in the template itself, a sentence you write after `feedback:` (in your words, unchanged) and the recurring findings the feedback rule names (an impractical rule or format, a missing workflow, a needed workaround), which the assistant files without asking. `/act-config feedback local` sets it too. The sections below apply to the other modes.
 
 ## Cadence and scope
 

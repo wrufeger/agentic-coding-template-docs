@@ -18,6 +18,7 @@ The project always overrides the template. You never edit anything under `.act/`
 ```
 
 - **Switch a rule off**: remove its cross. The file is still loaded whole, but an unchecked rule counts as off. If a template update moves a rule to another rule file, `act-update` moves its checkbox line along in an edited `docs/ai/rules.md`, mark and reason unchanged, so a rule you switched off stays off. If you do not import the new file, the move is only reported.
+- **New template rules**: `act-update` and the session start also enter rules the template added into an edited `docs/ai/rules.md`, as a checkbox line per rule, and a new rule file as an import block at the end of its section. Your own text, unchecked boxes and imports you removed stay as they are, and a removed line does not come back (`.act-lock.json` records what was offered); its rule still counts as on, so remove the cross to switch it off. What cannot be entered safely is named by `python .act/scripts/rules.py --add-missing`.
 - **Switch a whole area off**: delete its `@` import line.
 - **Replace a rule's wording**: under `## Overrides`, add a bullet of the form ``- replaces `R-...`: <your version>`` naming the rule and your version (lines starting with `<!--` are skipped). A `replaces` line wins over the template text whether the rule is checked or not.
 - **Add your own rules**: under `## Own rules`, one item per rule that has no counterpart in the template. An indented list directly below an own rule (or a `replaces` line) belongs to it and is read as part of its text.

@@ -79,7 +79,7 @@ behind another remote helper gets no update note at session start, while `act-up
    group of a checked set checked; see [Own skills, roles and rules](/agentic-coding-template-docs/guides/own-skills-and-rules/)).
    If you edited `docs/ai/rules.md`, a rule that moved to another rule file takes its checkbox line along (mark and
    reason unchanged, so a rule switched off stays off); if you do not import the new file, it is only reported. An
-   unedited `docs/ai/rules.md` is re-derived as before. Only `builder` and `reviewer` keep a `-high` variant: generated
+   unedited `docs/ai/rules.md` is re-derived as before. In an edited one, a rule or rule file the template added is entered: a checkbox line per new rule, a new rule file as an import block at the end of its section. Your own text, unchecked boxes and imports you removed stay as they are, and `.act-lock.json` records what was offered (`rules_offered`), so a removed line does not come back, and its rule still counts as on (remove the cross to switch it off). What cannot be entered safely is named with `python .act/scripts/rules.py --add-missing`; the session start enters new rules the same way. Only `builder` and `reviewer` keep a `-high` variant: generated
    variants of the other template roles are removed, each named in the preview and summary.
    The template's roles (and their `-high` variants) get `omitClaudeMd: true`, so workers no longer load `CLAUDE.md`;
    your own roles and an explicit `omitClaudeMd: false` stay as they are, and an own role without the field keeps
@@ -88,7 +88,7 @@ behind another remote helper gets no update note at session start, while `act-up
 7. **Hooks and Git files.** Reconciles the hook entries in `.claude/settings.json` and the template blocks in
    `.gitattributes` and `.gitignore`, sets `PYTHON_BASIC_REPL=1` under `env` there (on Windows, an empty heredoc in a Bash call no longer hangs on Python 3.13 and later; a value you set yourself is kept, and the report names the env keys added), and sets `"enableArtifact": false` there unless `artifacts: on` is in
    `docs/ai/config.md`. An existing project therefore starts without the `Artifact` tool after the update. It also adds the 12 `SubagentStart` entries that give workers their rules without the orchestrator rules (see step 6); an older set of six is replaced, your own hooks stay. `python .act/scripts/rules.py --worker` shows what a worker gets. It also keeps `.act-local/` out of IDE indexes: an `excludeFolder` in every JetBrains `.idea/*.iml`, and `files.watcherExclude` in `.vscode/settings.json` where `.vscode/` exists.
-8. **Migrations.** Runs any that are due. Each rewrites an affected file once and leaves it alone after.
+8. **Migrations.** Runs any that are due. Each rewrites an affected file once and leaves it alone after. Two give an existing project a missing file once: `docs/ai/local/resources.md` (your reading list) and `docs/project/README.md` (the index of the project docs). A file that exists is never touched, and one you delete does not come back.
 9. **Bridges and doctor.** First unedited generated bridges (`CLAUDE.md`, `AGENTS.md`, `docs/ai/rules.md`) are
    refreshed; with `session-start-refresh` at `warn` or `off` in `docs/ai/config.md` § Checks they are only
    reported ("would refresh … not written"). Then `doctor.py` checks for
@@ -165,6 +165,10 @@ From v2.1.0, run `act-update` as usual; nothing else is needed. `--plan` first l
 - **Quick capture** is on: a chat message that begins with `todo:`, `note:` or `idea:` is filed by a hook without a
   model turn. `quick-capture: off` in `docs/ai/config.md` switches it off.
 
+## Finished entries
+
+Under Git, `done-entries` in `docs/ai/config.md` § Archive defaults to `delete`: a finished backlog item or inbox entry that Git holds unchanged is deleted instead of archived (`keep` restores archiving, and is the value without Git). Its id stays taken through `docs/ai/work/reserved-ids.json`, and `act-commit` runs `entries.py purge`. A finished task goes to the archive with its `finished:` stamp and is removed by the next `purge` once a commit holds it. An archive already in the project stays: the first session start after the update names its file count once, and `python .act/scripts/entries.py purge --plan` shows what would go.
+
 ## Downgrade guard
 
 If the fetched state is older than the installed one, or the installed commit is unknown to the source (for example a
@@ -174,7 +178,7 @@ usual fix is `--source <local template checkout>`.
 ## Your own changes
 
 `.act/` is replaced, so never edit it. Put a project version of a rule, skill, or role into
-`docs/ai/local/<same path>`; an update never overwrites that folder or your own content in `docs/ai/` and `docs/project/`. It refreshes only unedited generated files (such as an unedited `docs/ai/rules.md`), files findings in the inbox and runs migrations. See
+`docs/ai/local/<same path>`; if you override the `act-audit-docs` script `workflow.js`, rename your file to `workflow.js.txt` (the template's script has that name now, and the update removes the old one). An update never overwrites that folder or your own content in `docs/ai/` and `docs/project/`. It refreshes only unedited generated files (such as an unedited `docs/ai/rules.md`), files findings in the inbox and runs migrations. See
 [Layers and overrides](/agentic-coding-template-docs/concepts/layers/).
 
 ## If `.act/` was replaced another way

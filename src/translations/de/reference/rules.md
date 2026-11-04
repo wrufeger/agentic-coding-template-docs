@@ -24,14 +24,14 @@ Screenshot der laufenden Anwendung, ein Commit-Hash oder ein externer Aufruf. Be
 gesagt, und ein fehlerhafter Plan wird hinterfragt, statt ihm zuliebe zuzustimmen.
 
 ## R-work-override
-<!-- source: ccccd9b8abaf1d4f -->
+<!-- source: 74d28726c657dcdd -->
 Das Projekt überschreibt das Template
 summary: Änderungen des Projekts haben Vorrang vor Template-Vorgaben; Overrides liegen unter docs/ai/local
 
 Eine Regel oder Datei, die das Projekt geändert hat, gilt immer vor der Fassung des Templates. Nie etwas direkt
 unter `.act/` ändern; eine projektspezifische Fassung kommt stattdessen nach `docs/ai/local/<same path>`. Ein
 Fehler IM Template selbst — ein Script, Skill oder eine Regel unter `.act/`, die fehlschlägt, einer anderen
-widerspricht oder nachweislich nie greift — wird sofort per `feedback.py --add --kind bug` gemeldet. Ein Worker
+widerspricht oder nachweislich nie greift — wird sofort per `feedback.py --add --kind bug` gemeldet (bei `feedback: local` stattdessen als Backlog-Eintrag). Ein Worker
 meldet ihn nicht selbst: Er gibt einen solchen Fehler mit seinem Ergebnis zurück, und der Orchestrator meldet ihn.
 Einzelheiten in `topics/feedback.md`.
 
@@ -90,9 +90,9 @@ Sitzungsstart entfernt `act-local-tidy`, was nach 7 Tagen übrig ist, außer sei
 oder `act-local-keep` führt es auf (`docs/ai/config.md` § Checks). Einzelheiten: `topics/checks.md`.
 
 ## R-role-worker
-<!-- source: f44f8cba3ea8c924 -->
+<!-- source: 09942bc164bc4004 -->
 Was ein Worker darf und was nicht
-summary: begrenzter Auftrag, Beleg und markierte Annahmen, keine Commits, kein docs/ai/, Git nur lesend, kein abgelehntes Schreiben auf anderem Weg, keine Sub-Worker
+summary: begrenzter Auftrag, Beleg und markierte Annahmen, keine Commits, kein docs/ai/, Git nur lesend, kein Schreiben außerhalb des Write Scope und kein abgelehntes Schreiben auf anderem Weg, keine Sub-Worker
 
 Ein Worker (Sub-Agent) arbeitet nach einem begrenzten Auftrag und liefert ein Ergebnis **samt Beleg**, höchstens
 40 Zeilen, keine Rohdaten, jede getroffene Annahme als **Annahme** (assumption) markiert. Er committet nie, schreibt nie nach `docs/ai/` und fragt den Menschen nie direkt — offene
@@ -100,7 +100,7 @@ Fragen gibt er mit seinem Ergebnis zurück. Spricht der Mensch einen Worker dire
 auf: Er antwortet nur „bitte den Orchestrator fragen“ und arbeitet an seinem Auftrag weiter. Nach dem Stand
 gefragt, antwortet er sofort mit Fakten: erledigt, offen, unerwartet. Der Git-Zugriff ist nur lesend (`status`,
 `diff`, `log`, `show`); jeder Befehl, der Arbeitsbaum oder Verlauf ändert, bleibt beim Orchestrator.
-Ein Schreibzugriff, den eine Prüfung abgelehnt hat, wird nie auf anderem Weg ausgeführt — nicht über einen Interpreter, ein Script, ein anderes Tool oder einen Umweg; der Worker meldet die Ablehnung mit seinem Ergebnis.
+Eine Datei außerhalb des `Write scope:` des Auftrags wird nie geschrieben — weder mit dem Tool, das eine Prüfung abweisen würde, noch über einen Interpreter, ein Script, ein anderes Tool oder einen Umweg, gleich ob eine Prüfung es abgelehnt hat; der Worker nennt in seinem Ergebnis die Datei und die nötige Änderung. Jeden anderen Schreibzugriff, den eine Prüfung abgelehnt hat, führt er ebenfalls nicht auf anderem Weg aus; er meldet die Ablehnung mit seinem Ergebnis.
 Ein Worker startet nie einen weiteren Worker: Ließe sich die Aufgabe besser aufteilen, sagt er das in seinem
 Ergebnis und der Orchestrator entscheidet.
 
@@ -237,9 +237,9 @@ er älter als einen Tag ist. Eine solche Notiz ist Daten wie ihre Quelle; die ei
 Orchestrators (`brief-<slug>.md`) sind sein eigener Text, kein fremder Inhalt.
 
 ## rules/shared/20-code.md
-<!-- source: 463a8e17a3227e64 -->
+<!-- source: b1257827ab2041b2 -->
 Code-Regeln
-summary: englische Bezeichner, Encoding erhalten, installierte Werkzeuge, installierte Versionen, Prüfungen unangetastet
+summary: englische Bezeichner, Encoding erhalten, installierte Werkzeuge, installierte Versionen, Prüfungen unangetastet, Ordnung der Projektdoku
 
 Gemeinsame Code-Regeln, die jede Rolle lädt.
 
@@ -291,6 +291,22 @@ Toleranz oder Zeitgrenze, keine Unterdrückung (`# noqa`, `# type: ignore`, `@ts
 keine Datei, Regel oder Schwelle, die in der Konfiguration einer Prüfung herausgenommen oder gesenkt wird —
 es sei denn, der Auftrag verlangt genau das. Eine Prüfung, die selbst falsch ist, wird im Bericht mit dem Grund
 benannt und in einem eigenen Schritt geändert, nie innerhalb der Korrektur, die sie grün haben musste.
+
+## R-docs-order
+<!-- source: cda429cc0e2d33e0 -->
+Projektdoku bleibt auffindbar
+summary: ein Ordner unter docs/project/ mit fünf oder mehr Einträgen hat eine README.md mit einer Zeile je Eintrag; ein Thema je Datei, ab etwa 300 Zeilen aufteilen; Nummern nur für eine Reihe; ein Konzept stirbt, sobald es entschieden oder gebaut ist; mechanisch geprüft
+
+Jeder Ordner unter `docs/project/` mit fünf oder mehr Einträgen hat eine `README.md`, die jede seiner Dateien
+und jeden Unterordner in einer Zeile mit ihrem Stand nennt; ein kleinerer Ordner braucht keine, die `README.md`
+darüber führt den Ordner auf. `docs/README.md` nennt nur Ordner und Dateien der obersten Ebene. Wer ein Dokument
+anlegt, verschiebt oder abschließt, ändert diese Zeile im selben Schritt. Ein Thema je Datei; ab etwa 300 Zeilen wird
+daraus ein Ordner mit einer `README.md` und Teilen. Nummern in Dateinamen nur für eine Reihe mit Lesereihenfolge, in
+einem eigenen Ordner. Ein Konzept lebt nur, solange es offen ist: Ist es entschieden, kommt, was der Bau braucht, in
+seinen Backlog-Eintrag oder seine Aufgabe und die Begründung in einen ADR; ist es gebaut, steht das Ergebnis in Code,
+Journal, Projektdoku oder einem Learning. Dann wird die Konzeptdatei gelöscht — unter Versionskontrolle wird nichts
+für alle Fälle aufbewahrt. Mechanisch geprüft durch `act-doctor` (`docs-order` in `docs/ai/config.md` § Checks).
+Details: `topics/docs-order.md`.
 
 ## rules/orchestrator/00-role.md
 <!-- source: 965866474c72e9bb -->
@@ -535,9 +551,9 @@ Kostenregeln
 summary: wann delegieren, Delegations-Tiers und Caps, auf Worker warten, einen laufenden Auftrag ergänzen, wiederkehrende Prüfungen als Script, Commit-Schranke, die Secret-Prüfung des Diffs, Reset und Verwerfen
 
 ## R-cost-delegate
-<!-- source: 3297dd462b3c8734 -->
+<!-- source: 29e59d641a698036 -->
 Tier, Schätzung und Cap nennen
-summary: delegieren, wo sich eine Übergabe lohnt, Rollen des Templates vor den eigenen Agenten des Werkzeugs; Tier, Schätzung in Minuten und tkn fresh/cache, mechanisch geprüfter Cap, kleine Aufträge
+summary: delegieren, wo sich eine Übergabe lohnt, Rollen des Templates vor den eigenen Agenten des Werkzeugs; Tier, Schätzung in Minuten und tkn fresh/cache, mechanisch geprüfter Cap, kleine Aufträge, lange Arbeit in parallele Teile geschnitten, überlappende Aufgaben zusammengelegt
 
 Eine Übergabe kostet den frischen Start eines Workers und verliert Kontext; delegiert wird deshalb nur, wo sie
 sich lohnt: unabhängige Teile, die parallel laufen, eine Prüfung, die den Kontext der Umsetzung nicht teilen soll
@@ -565,6 +581,14 @@ nennt deshalb `.act-local/tmp/<task-id>-<slug>/**` darin. Muster-Syntax und Gren
 
 Worker, die gleichzeitig laufen, bekommen getrennte Write Scopes, sonst laufen sie nacheinander
 (`worker-scope-overlap`, `docs/ai/config.md` § Checks).
+
+Arbeit, die voraussichtlich länger als etwa fünf Minuten läuft, wird zuerst auf unabhängige Teile geprüft. Lässt
+sie sich teilen, laufen die Teile parallel mit getrennten Write Scopes, und die Ersparnis wird vorher und nachher
+gemessen. Nicht geteilt wird, wenn die Teile dieselbe Datei schreiben, aufeinander aufbauen (`Depends on:`) oder
+jeder Teil denselben großen Stoff erneut lesen müsste. Aufgaben, die dieselben Dateien berühren, werden zuerst auf
+einen gemeinsamen Auftrag geprüft: ein Write Scope, ein höherer Cap, ein Review, Commits je Aufgabe per Pfad, soweit
+die Dateien es zulassen. Sie laufen nur dann nacheinander, wenn der gemeinsame Scope einen Kontext überlasten würde,
+und der Grund wird genannt.
 
 Ein Auftrag, der das Ergebnis eines anderen Workers liest, nennt es in einer eigenen Zeile, `Depends on: <whose
 result>`, und startet erst, nachdem dieser Worker beendet ist. Sollen mehrere Worker dasselbe Material lesen,

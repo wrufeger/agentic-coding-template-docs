@@ -3,7 +3,7 @@ title: Rollen und Worker
 description: Der Orchestrator, die Worker-Rollen, Tiers, Caps, Write Scope und was ein Worker nicht darf.
 sidebar:
   order: 2
-sourceHash: 631b211fd4d94a7f12c202268b4525a69e3e484e9dc3cc19348caf82471c5cce
+sourceHash: 4c6775901049521cb6f9cc8fecb03ad00a9b018465cf122e27ff423c596555f7
 ---
 
 ## Orchestrator und Worker
@@ -20,7 +20,7 @@ einzusetzen. Er gibt Arbeit nur ab, wo es sich lohnt: unabhängige Teile, die pa
 | `builder` | Umsetzung: Code, Migration, Tests, Konfiguration. |
 | `explorer` | Lesende Recherche über viele Dateien; Funde als `path:line`. |
 | `reviewer` | Kritische Prüfung vor der Abnahme; ALLOW, CONDITIONAL oder BLOCK. |
-| `doc-writer` | Änderungen an `docs/project/`, nie an `docs/ai/`. |
+| `doc-writer` | Änderungen an `docs/project/` und seinen Indexzeilen (`R-docs-order`), nie an `docs/ai/`. |
 | `test-writer` | Tests für bestehenden Code oder Test-first aus einem Konzept. |
 | `quick-check` | Feste, lesende Abfragen ohne Bewertung. |
 | `debugger` | Findet die Ursache eines Fehlers per Hypothese, nur lesend. |
@@ -44,7 +44,7 @@ Jeder Auftrag nennt sein Tier, eine Schätzung und ein Cap als `Cap: <n>` Tool-A
 Standardwert des Tiers: `light` 10, `standard` 40, `elevated` 60, `high` und `expert` 80. Der Worker bekommt am
 Cap einen Hinweis und wird ab dem 1,5-Fachen des Caps abgewiesen. Außerdem nennt der Auftrag seinen Write Scope als `Write scope:`
 aus Pfaden relativ zum Projekt; `Write scope: none` erlaubt gar keine Schreibzugriffe. Mit einer `Write scope:`-Zeile wird ein Ziel im temporären Verzeichnis des Systems oder im Scratchpad des Workers wie jedes andere Ziel außerhalb des Bereichs abgelehnt. Wegwerfmaterial gehört nach `.act-local/tmp/<task-id>-<slug>/`, das der Auftrag in seinem Bereich als `.act-local/tmp/<task-id>-<slug>/**` nennt (`R-work-throwaway`); die Ablehnung sagt es auch. Ein Worker, dessen Auftrag keine `Write scope:`-Zeile hat, wird von dieser Prüfung nicht eingeschränkt. Ein Bereich `dir/**` deckt auch das Anlegen von `dir` selbst ab. Eckige Klammern in einem Muster werden wörtlich gelesen, `server/api/[id]/**` meint also den Ordner namens `[id]`, und ein Shell-Befehl, dessen Platzhalter über den Bereich hinausreicht, wird abgelehnt. Beides prüfen Hooks mechanisch (`worker-cap`,
-`worker-write-scope` in `docs/ai/config.md` § Checks, jeweils `block`, `warn` oder `off`). Die genaue Syntax von `Cap:` und `Write scope:` und die Grenzen der Prüfungen stehen auf der [Seite zu den Prüfungen](/agentic-coding-template-docs/de/reference/topics/#checks); auch die Sperrmeldungen nennen die Syntax. `worker-write-scope` liest außerdem Inline-Code von Interpretern (`python`, `python3`, `py` oder `node` mit `-c`/`-e` oder Code aus Heredoc, Here-String oder Pipe, in Bash oder PowerShell): Er lehnt ab, wenn der Code einen Schreibaufruf und einen ausgeschriebenen Pfad außerhalb des Bereichs enthält. Das ist Best Effort; Script-Dateien, zur Laufzeit gebildete Pfade und `subprocess` bleiben unsichtbar. Gleichzeitig laufende Worker brauchen getrennte Write Scopes: `worker-scope-overlap` lehnt einen Start ab, dessen Bereich sich mit dem eines noch laufenden Workers überschneidet. Ein Auftrag, der das Ergebnis eines anderen Workers liest, nennt diesen als `Depends on:` und startet erst, wenn jener Worker fertig ist.
+`worker-write-scope` in `docs/ai/config.md` § Checks, jeweils `block`, `warn` oder `off`). Die genaue Syntax von `Cap:` und `Write scope:` und die Grenzen der Prüfungen stehen auf der [Seite zu den Prüfungen](/agentic-coding-template-docs/de/reference/topics/#checks); auch die Sperrmeldungen nennen die Syntax. `worker-write-scope` liest außerdem Inline-Code von Interpretern (`python`, `python3`, `py` oder `node` mit `-c`/`-e` oder Code aus Heredoc, Here-String oder Pipe, in Bash oder PowerShell): Er lehnt ab, wenn der Code einen Schreibaufruf und einen ausgeschriebenen Pfad außerhalb des Bereichs enthält. Das ist Best Effort; Script-Dateien, zur Laufzeit gebildete Pfade und `subprocess` bleiben unsichtbar. Gleichzeitig laufende Worker brauchen getrennte Write Scopes: `worker-scope-overlap` lehnt einen Start ab, dessen Bereich sich mit dem eines noch laufenden Workers überschneidet; die Ablehnung nennt drei Auswege: getrennte Bereiche, einen gemeinsamen Auftrag für Aufgaben an denselben Dateien (nach `R-cost-delegate`: ein Bereich, ein höheres Cap, ein Review) oder Warten. Arbeit, die voraussichtlich länger als etwa fünf Minuten läuft, wird zuerst auf unabhängige Teile geprüft, die parallel laufen können (`R-cost-delegate`). Ein Auftrag, der das Ergebnis eines anderen Workers liest, nennt diesen als `Depends on:` und startet erst, wenn jener Worker fertig ist.
 
 ## Wie ein Worker seine Regeln bekommt
 

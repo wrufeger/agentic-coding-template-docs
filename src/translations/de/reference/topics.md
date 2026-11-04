@@ -13,15 +13,30 @@ erwartet, steht hier, ein Abschnitt je Regel. Die Sperrmeldungen der Prüfungen 
 hierher. Die Prüfungen werden in `docs/ai/config.md` § Checks geschaltet (`block`, `warn` oder `off`). Die Sätze
 darunter sind der frühere Text der Regeln, unverändert hierher verschoben.
 
+## docs-order
+<!-- source: 8eee00eea2bb607b -->
+Projektdoku-Ordnung — Details
+
+summary: was `R-docs-order` verlangt, was `act-doctor` meldet, wie sich die Prüfung schalten lässt, wie ein Dokument verschoben wird
+
 ## feedback
-<!-- source: 8e66813319a3b7e4 -->
+<!-- source: b41a7d72dc2ef07f -->
 Feedback an den Template-Autor
 
 Detailseite zu einer Regel, die sie als `topics/feedback.md` referenziert. Lies sie, wenn in
 `docs/ai/config.md` § Feedback der Schalter `feedback` auf etwas anderes als `off` steht, oder wenn ein
-Template-Bug gemeldet werden muss, unabhängig von diesem Schalter (siehe „Immediate trigger“ unten).
+Template-Bug gemeldet werden muss, unabhängig von diesem Schalter (siehe „Immediate trigger“ unten; bei `local`
+siehe „`feedback: local`“).
 Mechanik: `.act/scripts/feedback.py` (Datenschutzprüfungen in `feedback_privacy.py`), Skill
 `act-feedback`.
+
+## id-links
+<!-- source: 4363a9e55850d0bc -->
+Anklickbare Eintrags-IDs
+
+Detailseite zur optionalen Editor-Unterstützung, die Eintrags-IDs in Markdown-Dateien in Links verwandelt. Wird
+vom Sitzungsstart nicht geladen und hängt an keiner Regel: lesen, wenn jemand IDs wie `T12` in seinem
+Editor anklickbar haben will. Für ein Projekt, dessen Leute sie nicht installieren, gilt nichts davon.
 
 ## ide
 <!-- source: ab54a19c2036e1f1 -->

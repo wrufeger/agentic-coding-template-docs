@@ -3,7 +3,7 @@ title: Bestehendes Projekt
 description: Ein Projekt mit eigener Doku oder eigenem KI-Setup mit act-adopt übernehmen.
 sidebar:
   order: 2
-sourceHash: 9884a5d95c7797a358f306fc5e6cae8848426137595cb99f9175a55607f09716
+sourceHash: 544c6dbe296c2100ef15313b93718e39f669ee0827031ade1ee59f37d53638bc
 ---
 
 Ein Projekt, das schon Doku, eine `CLAUDE.md` oder ein älteres KI-Setup hat, läuft über `act-adopt`, nicht allein
@@ -68,7 +68,7 @@ Deine Formulierungen bleiben, wie sie sind: Titel und Texte werden aus dem alten
 zusammengefasst oder übersetzt. Einzige Ausnahme ist ein Titel über 80 Zeichen: `adopt_entries.py` kürzt ihn auf seinen ersten Satz, sonst auf einen Schnitt an einer Wortgrenze mit „…“, und der volle alte Text steht am Anfang des Eintrags. `init.py` führt seine Hook-Einträge in `.claude/settings.json` zusammen und lässt
 deine eigenen Einträge stehen. Ohne `artifacts: on` trägt er zusätzlich `"enableArtifact": false` ein. Außerdem setzt er `PYTHON_BASIC_REPL=1` unter `env` (ein selbst gesetzter Wert bleibt).
 Bei einer `language-docs` außer Englisch übersetzt `act-adopt` das Gerüst im selben Lauf. `feedback` steht standardmäßig
-auf `confirm` (jede Nachricht wird gezeigt und erst nach deinem Ja gesendet).
+auf `confirm` (jede Nachricht wird gezeigt und erst nach deinem Ja gesendet); `local` (es wird nie etwas gesendet) setzt `/act-config feedback local`.
 
 ## Ohne die vollständige Übernahme
 

@@ -3,7 +3,7 @@ title: Einführung
 description: Was das Template ist, für wen sie gedacht ist und wie sie in einem Bild funktioniert.
 sidebar:
   order: 1
-sourceHash: 732c2432724a86256d77d191d36ed625cdfbac49b50c0302180afcc7791b3b41
+sourceHash: 91e21035c7f69f12ad86fb1c253cac88950456e1be2798925aae8414eb3774c3
 ---
 
 Das Agentic-Coding-Template, kurz *act*, ist ein Satz von Dateien, den du in ein Projekt legst, damit dein
@@ -18,7 +18,7 @@ Sub-Agenten, Hooks und Scripts. Es funktioniert in einem neuen und in einem bere
   gilt nur als fertig, wenn ein Testlauf, ein Commit oder ein Aufruf nach außen es belegt.
 - **Der Stand im Repository.** Aufgaben, Backlog, Fragen, Inbox und Journal liegen in `docs/ai/`, sodass jede
   Sitzung am Board weitermachen kann. Eine Chat-Nachricht, die mit `todo:`, `note:` oder `idea:` beginnt, legt ein Hook
-  ohne Modell-Durchlauf ab.
+  ohne Modell-Durchlauf ab, und `/act-config` zeigt und setzt die Einstellungen in `docs/ai/config.md` auf dieselbe Weise.
 - **Wiederkehrende Arbeit als Skills.** Ein Skill ist eine schlichte `SKILL.md`, der jeder Assistent folgen kann,
   zum Beispiel `act-bug`, `act-commit`, `act-release`. `/act <name>` zeigt die Anweisungen eines Skills der Vorlage vollständig an, mit oder ohne das Präfix `act-`
   (`/act version` zeigt `act-version`); `act-version`, `act-info` (in welchem Projekt eine Sitzung arbeitet, und dessen Stand), `act-export-settings` und `act-load-settings` starten nur

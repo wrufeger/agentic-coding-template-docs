@@ -38,7 +38,7 @@ Any language works. There are three ways:
 The assistant runs the commands itself. It has no terminal to ask you questions in, so `init.py` takes its
 defaults and writes every open point (name, owner, stack, tools) to the inbox. You go through that note with
 the assistant and the answers go into `docs/ai/config.md`. Without an answer, `feedback` defaults to `confirm`: every
-message to the template author is shown and sent only after your yes. `off` is one edit away in `docs/ai/config.md`.
+message to the template author is shown and sent only after your yes. `off` is one edit away in `docs/ai/config.md`, and so is `local`: nothing is ever sent, and findings become backlog entries in the project. `/act-config feedback local` sets it without a model turn; `/act-config` alone lists every setting.
 
 ## By hand: `init.py`
 
@@ -71,7 +71,7 @@ Ten fixed steps, each printed as `[n/10]`:
 4. Writes your workspace identity (also when `.act-local/identity.json` exists but lacks `identity`) and the local import folder `.act-local/import/`.
 5. Thins the bridges down to the tools you chose.
 6. Writes the skeleton: `docs/ai/` (`config.md`, `rules.md`, `concept/`, inbox, work folders), `docs/project/coding_rules.md`, `docs/project/glossary.md`,
-   `docs/README.md`, the bridge files, skill copies, and the hook entries in `.claude/settings.json` (with `"enableArtifact": false` unless `artifacts: on`, and `PYTHON_BASIC_REPL=1` under `env`, so that on Windows an empty heredoc in a Bash call cannot hang on Python 3.13 and later).
+   `docs/project/README.md` (the index of the project docs, one line per file), `docs/ai/local/resources.md`, `docs/README.md`, the bridge files, skill copies, and the hook entries in `.claude/settings.json` (with `"enableArtifact": false` unless `artifacts: on`, and `PYTHON_BASIC_REPL=1` under `env`, so that on Windows an empty heredoc in a Bash call cannot hang on Python 3.13 and later).
 7. Appends template blocks to `.gitattributes` and `.gitignore`, and keeps `.act-local/` out of IDE indexes (`excludeFolder` in `.idea/*.iml`, `files.watcherExclude` in `.vscode/settings.json` where `.vscode/` exists).
 8. In place only: retires the template's own README, `CHANGELOG.md`, and community files under `.github/`
    (contributing, security, code of conduct, accessibility, issue and pull request templates), and asks whether to keep
