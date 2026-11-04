@@ -49,7 +49,7 @@ __all__ = [
     "_LEDGER_DATE_IN_NAME_RE", "_parse_docs_audit_due", "_ledger_entry_date",
     "_last_ledger_entry_with_prefix", "_last_docs_audit_entry", "_commits_since", "_docs_audit_note",
     "_DEPENDENCY_CHECK_TITLE_PREFIX", "_DEPENDENCY_CHECK_DUE_DAYS", "_dependency_check_note",
-    "_parse_archive_compact", "_compact_due_note",
+    "_parse_archive_compact", "_compact_due_note", "_archive_leftover_note",
     "_refresh_board", "_BRIDGE_MAP", "_TOPIC_SWITCHES", "_IDE_SERVER_NAME_HINTS",
     "_IDE_SERVER_EXACT_NAMES", "_is_ide_server_name", "_servers_match_ide_hint", "_user_mcp_servers",
     "_same_project_path", "_ide_mcp_connected", "_active_topics",
@@ -57,7 +57,7 @@ __all__ = [
     "_refresh_bridges", "_manifest_fingerprint", "_pulled_without_update",
     "_update_check_state_path", "_already_checked_today", "_mark_checked_today",
     "_ls_remote_output", "_update_channel", "_version_tuple", "_remote_release_available", "_update_channel_is_default",
-    "_update_channel_follows_tip_without_tags",
+    "_update_channel_follows_tip_without_tags", "_folder_source_result",
     "_remote_update_available", "_update_check_result_path", "_pending_update_note",
     "_commit_day", "_remote_commit_label", "_locked_commit",
     "_run_update_check_worker", "_spawn_update_check_worker", "_check_update_awareness",
@@ -403,8 +403,11 @@ def _compact_due_note(root: Path, config: dict[str, str]) -> Optional[str]:
             return None
     reasons: list[str] = []
     foldable = 0
+    journal_only = actlib.done_entries_mode(root) == "delete"  # a delete project folds only the journal
     for label, folder, journal in (("archive", root / "docs" / "ai" / "work" / "archive", False),
                                    ("journal", root / "docs" / "ai" / "work" / "ledger", True)):
+        if journal_only and not journal:
+            continue
         days = _single_entry_days(root, folder, journal)
         old = sum(1 for day in days if (today - day).days > _COMPACT_KEEP_DAYS)
         if not old:
@@ -423,6 +426,34 @@ def _compact_due_note(root: Path, config: dict[str, str]) -> Optional[str]:
     return (f"[act] note: archive compaction is due ({'; '.join(reasons)}; limits {max_days}d / {max_files} files): "
             f"{foldable} entr(ies) older than {_COMPACT_KEEP_DAYS} days to merge, no worker -- act-compact at the next "
             "task boundary (archive-compact in docs/ai/config.md)")
+
+
+_ARCHIVE_NOTE_MARKER = Path(".act-local") / "done-entries-hint"
+
+
+def _archive_leftover_note(root: Path) -> Optional[str]:
+    """Once per checkout: with `done-entries` on `delete`, a note that the archive still holds finished
+    entries from before, how many files, the command that deletes what Git holds unchanged and the
+    way to keep them (`done-entries: keep`). The marker is written at the first session start under
+    `delete`, with or without a note, so only a project that had an archive when it moved to `delete`
+    (an update, or a switch from `keep`) hears it, and never the files a later `archive` leaves
+    behind until the next commit. A project on `keep` writes no marker and checks nothing."""
+    if actlib.done_entries_mode(root) != "delete":
+        return None
+    marker = root / _ARCHIVE_NOTE_MARKER
+    if marker.exists():
+        return None
+    import entries
+    files = entries.purgeable_archive_files(root)
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text(f"noted {date.today().isoformat()}, {len(files)} file(s) in the archive\n", encoding="utf-8")
+    if not files:
+        return None
+    return (f"[act] note: done-entries is `delete`, and docs/ai/work/archive/ still holds {len(files)} file(s) of finished "
+            "entries from before (the journal files, ledger-*.md and YYYY-MM-DD-*.md, not counted). They stay until you decide: "
+            "`python .act/scripts/entries.py purge --plan` lists what would go, `python .act/scripts/entries.py purge` "
+            "deletes what Git holds unchanged (the ids stay reserved); `done-entries: keep` in docs/ai/config.md "
+            "keeps the archive instead. Said once.")
 
 
 def _refresh_board(root: Path) -> None:
@@ -513,6 +544,37 @@ def _apply_artifact_setting(root: Path, config: dict[str, str], write: bool) -> 
              "[act] note: Artifact tool would no longer be switched off (`artifacts: on`; warn mode, not applied)"
              for n in pending]
     return [n for n in notes if n not in pending], would
+
+
+def _follow_rules_md(root: Path, write: bool) -> list[str]:
+    """Notes on what a locally edited docs/ai/rules.md lacks of the template and what was entered into
+    it (rules.add_missing_core_entries; with write=False only said, nothing written). Never raises."""
+    try:
+        import rules  # deferred like the other rules.py uses here: a broken rules.py must not end the session
+        result = rules.add_missing_core_entries(root, write=write)
+    except Exception:  # noqa: BLE001 - a failed look is no reason to stop the session
+        return []
+    notes: list[str] = []
+    if result.messages:
+        verb = "entered" if write else "would be entered (warn mode, not applied)"
+        notes.append(f"[act] note: docs/ai/rules.md {verb}: {'; '.join(result.messages)}")
+    notes.extend(f"[act] note: docs/ai/rules.md: {problem}" for problem in result.problems)
+    # No record of what was offered yet: files it does not import are named, once (the cache keeps the
+    # wording shown last), never entered here — the first update starts the record from git.
+    unlisted_note = ""
+    if result.unlisted:
+        unlisted_note = (f"[act] note: docs/ai/rules.md does not import {', '.join(result.unlisted)}; nothing "
+                         f"tells whether you left them out on purpose. To enter them: {rules.ADD_MISSING_COMMAND}")
+    try:
+        if actlib.read_cache().get("rules_unlisted_note", "") != unlisted_note:
+            if write:
+                actlib.write_cache({"rules_unlisted_note": unlisted_note})
+            if unlisted_note:
+                notes.append(unlisted_note)
+    except Exception:  # noqa: BLE001 - a broken cache must not hide the note
+        if unlisted_note:
+            notes.append(unlisted_note)
+    return notes
 
 
 def _refresh_bridges(root: Path, write: bool, only_changed: bool = True) -> tuple[list[str], list[str], list[str]]:
@@ -784,6 +846,28 @@ def _remote_release_available(root: Path) -> Optional[dict]:
     return {"release": best[1], "release_commit": best[2]}
 
 
+def _folder_source_result(root: Path) -> Optional[dict]:
+    """The update-check result for a recorded source that is a plain folder without git: {} when the
+    folder's manifest is the one the project last applied (nothing pending, the caller drops an old
+    result), a tip-style result keyed by the manifest fingerprint when it differs, None when the
+    folder cannot be judged (not a folder, git after all, no manifest, nothing applied yet)."""
+    template = actlib.read_lock().get("template") or {}
+    source = str(template.get("source") or "")
+    applied = str(template.get("manifest_sha256") or "")
+    if not source or not applied:
+        return None
+    folder = Path(root, source)
+    if not folder.is_dir() or (folder / ".git").exists() or not (folder / ".act" / "MANIFEST.json").is_file():
+        return None
+    offered = _manifest_fingerprint(folder / ".act")
+    if not offered:
+        return None
+    if offered == applied:
+        return {}
+    return {"channel": "latest", "remote_commit": offered, "tip_fallback": True, "label": offered[:7],
+            "installed_commit": _locked_commit(root), "folder_source": True}
+
+
 def _remote_update_available(root: Path) -> Optional[str]:
     """None if the check could not be made at all (no source/commit recorded, no network, the
     source is not a git remote/repo, or it took too long) -- always silent in that case, never a
@@ -923,6 +1007,13 @@ def _run_update_lookup(root: Path) -> None:
                            "label": _remote_commit_label(root, remote_commit),
                            "installed_commit": _locked_commit(root)}
                           if remote_commit else None)
+            elif found is None and _update_channel_follows_tip_without_tags(root):
+                # a source folder without git has no tags and no tip commit: compare its manifest
+                # with the one the project last applied (update.py takes such a folder as it is)
+                result = _folder_source_result(root)
+                if result == {}:
+                    actlib.record_update_result(root, None)
+                    return
         else:
             remote_commit = _remote_update_available(root)
             result = ({"channel": "latest", "remote_commit": remote_commit,
@@ -2253,6 +2344,13 @@ def _collect_session(payload: dict, state: dict, rules_text: dict) -> bool:
     if compact_due:
         print(compact_due)
 
+    try:
+        archive_note = _archive_leftover_note(root)
+    except Exception:
+        archive_note = None  # informational only, must never block the session
+    if archive_note:
+        print(archive_note)
+
     mode = _check_mode(config, "session-start-refresh", default="block")
     if mode == "off":
         return True
@@ -2379,6 +2477,15 @@ def _collect_session(payload: dict, state: dict, rules_text: dict) -> bool:
                 print(own_note)
 
     for dest_rel in changed_bridges:
+        if dest_rel == "docs/ai/rules.md":
+            # Edited locally, so not re-derived: enter what the template has and the file does not know
+            # (the same function update.py uses), leave everything the owner wrote as it is.
+            entry_notes = _follow_rules_md(root, write=(mode == "block"))
+            if mode == "block":
+                for entry_note in entry_notes:
+                    print(entry_note)
+            else:
+                warn_notes.extend(entry_notes)
         if dest_rel == "docs/ai/rules.md" and _old_rules_imports(root)[0]:
             continue  # the more specific import note below replaces this one
         note = _changed_bridge_note(root, dest_rel)

@@ -16,6 +16,7 @@ One row per script under `.act/scripts/`; the per-script sections below are each
 | `advisory.py` | Warnings from the template author to projects running an affected template version ("advisories"). The template source carries an orphan… | direct (session start fetches daily in the background; `--ack` also by the chat sentences) |
 | `board.py` | Generate the board — a fully derived snapshot (current branch, last commit, dirty state, recent journal entries, one "Waiting for you" list… | direct |
 | `compact_check.py` | Check the sections of the archive collection files (`entries.py compact`) against their full text, and the monthly overview against the ids… | skill `act-compact` |
+| `config.py` | Show and set the settings in docs/ai/config.md without a model: the overview of every setting, one setting with its allowed values… | direct (also answers `/act-config` through dispatch.py) |
 | `context_size.py` | Context size of the running Claude Code session, for the status line ("ctx 127k") and for the one-time /clear hint… | direct (also imported by the status line and the context hint) |
 | `doctor.py` | Mechanical half of the reconcile skill `act-doctor` — the cheap checks that run after every update and on demand, without a model in the… | direct (judging the findings: skill `act-doctor`) |
 | `entries.py` | Create and account for the project's short-lived entry files — tasks, backlog items, journal entries, and docs/ai/inbox/ entries (question… | direct |
@@ -25,17 +26,22 @@ One row per script under `.act/scripts/`; the per-script sections below are each
 | `frontmatter.py` | One shared frontmatter parser for every "---\n...\n---\n" block under .act/ and docs/ai/local/ -- used to be two: tiers.py's… | library |
 | `handover.py` | Answer "can this session be left now?" mechanically, read-only: uncommitted changes, started tasks without a working-state line, inbox… | skill `act-handover` |
 | `i18n_check.py` | Check a project's translation files for completeness and consistency — the mechanical half of skill `act-check-translations`. Code-only… | skill `act-check-translations` |
+| `id_links_install.py` | One-time, per-machine setup of the clickable entry ids (editor support). Copies the language server and its helper to a per-user folder… | direct (optional editor support, see `topics/id-links.md`; writes only under `~/.act/id-links/`) |
+| `id_links_lsp.py` | Language server that makes entry ids such as T12, B7, Q3 or U5 clickable in Markdown files opened in an editor (VS Code, IntelliJ with an… | direct (language server over stdio, started by the editor from the copy `id_links_install.py` makes, not by hand) |
 | `ideas.py` | The per-person ideas file `docs/ai/concept/ideas-<identity>.md` — one versioned file for every person on a project, written by that person… | direct (session start and init call it; run by hand to record entries as processed) |
 | `info.py` | Show, in a compact block, which project this session works in and its state: project name, folder and host, the session name the project… | skill `act-info` |
 | `init.py` | Turn a checkout of this template into a project ("here, in this clone"), or dock onto an existing/empty directory ("--target"). Ten steps… | direct |
 | `integrations.py` | Find out which ways lead from this project to its repo host and issue tracker (REST access through forge.py, MCP servers) and what each one… | skill `act-integrations` (`status` alone is direct) |
 | `log.py` | Write one line to ai.log at the project root (AGENTS.md § "Logging (optional)", .act/rules/topics/logging.md) and the small tools to read… | direct |
 | `manifest.py` | Generate or verify .act/MANIFEST.json — a SHA-256 hash per file under .act/, used to detect local edits to the template before an update… | direct |
+| `move_doc.py` | Moves a document (a file, or a folder with everything in it) below docs/ to a new place and pulls the references along, so a reorganisation… | skill `act-audit-docs` |
 | `rules.py` | Read the *effective* rules — the template's rule sets after the project's own checkboxes, replacements and additions are applied. One… | direct |
 | `script_docs.py` | Generate .act/scripts/README.md — a reference for every script under .act/scripts/, built from each script's own `--help` output plus a… | direct |
 | `security_deep.py` | Security check "Art C": a deep, cross-language scan with Semgrep over the files changed since a ref (default: the latest tag) or the whole… | direct (used by skill `act-release` with `security-check: full`) |
 | `security_scan.py` | Security check Art B: a live library-vulnerability lookup against the lock files an ecosystem actually has, run either as a manual command… | direct (also run before a commit that touches a lock file and daily at session start, with `security-check: deps`/`full`) |
 | `seo_check.py` | Code-only SEO checks over a project's HTML, templates, Markdown pages and framework config — the mechanical half of skill `act-seo`. Reads… | skill `act-seo` |
+| `seo_crawl.py` | Crawl of a running site — the crawl half of skill `act-seo`. Starts at one base URL, follows the internal links of the same origin (scheme… | skill `act-seo` |
+| `seo_lighthouse.py` | Lighthouse measurement for the URLs of a running site — the lab-measurement half of skill `act-seo`. Runs a pinned Lighthouse version… | skill `act-seo` |
 | `settings_export.py` | `act-export-settings` — write the project's own rule deviations (and, with a switch, local scripts/checklists) to a portable settings file… | skill `act-export-settings` |
 | `settings_format.py` | Data model, parser and serializer for the settings file ("settings.md") — the portable snapshot of a project's own rule deviations (and, in… | library |
 | `settings_load.py` | `act-load-settings` — import a portable settings file (or several) into this project: the counterpart to settings_export.py. Runs the same… | skill `act-load-settings` |
@@ -380,6 +386,25 @@ options:
   --no-overview    skip the check of the monthly overview
 ```
 
+## `config.py`
+
+Call: direct (also answers `/act-config` through dispatch.py)
+
+```text
+usage: config.py [-h] [--root PATH] [KEY [VALUE ...] ...]
+
+Show or set the settings in docs/ai/config.md. No arguments: every setting. One key: its value,
+allowed values, default, effect and notes. A key and a value: write the value into that row
+(nothing is committed).
+
+positional arguments:
+  KEY [VALUE ...]  the key, then the value (words are joined with one space)
+
+options:
+  -h, --help       show this help message and exit
+  --root PATH      project root (default: the project this script belongs to)
+```
+
 ## `context_size.py`
 
 Call: direct (also imported by the status line and the context hint)
@@ -421,13 +446,13 @@ options:
 Call: direct
 
 ```text
-usage: entries.py [-h] {new,assign,state,start,list,check,archive,compact} ...
+usage: entries.py [-h] {new,assign,state,start,list,check,archive,compact,purge} ...
 
 Create and account for docs/ai/'s per-entry task/backlog/ledger/inbox files (inbox: question |
 todo | report | note).
 
 positional arguments:
-  {new,assign,state,start,list,check,archive,compact}
+  {new,assign,state,start,list,check,archive,compact,purge}
     new                 create a new entry file
     assign              hand out ids still missing ('team' mode: only on the default branch)
     state               append a working-state line for an open task to .act-local/state/ — needs
@@ -440,9 +465,10 @@ positional arguments:
     list                list entries, optionally filtered by kind
     check               report a duplicate id or an entry file that isn't valid UTF-8
     archive             archive a finished task, backlog item or inbox entry to
-                        docs/ai/work/archive/ — an inbox entry gets `status: done`; files it links
-                        beside itself (pasted images) move along, generic or colliding names get
-                        the entry's id in front, links are rewritten
+                        docs/ai/work/archive/ — an inbox entry gets `status: done`, a task
+                        `finished: <timestamp>`; files it links beside itself (pasted images) move
+                        along, generic or colliding names get the entry's id in front, links are
+                        rewritten
     compact             merge archived entries older than 7 days (and journal entries) into one
                         collection file per kind and month in docs/ai/work/archive/ (Q-2026-09.md,
                         T-, B-, U-, other-, ledger-), one section per entry with an anchor such as
@@ -450,6 +476,12 @@ positional arguments:
                         names the commit that holds the full text; each month's overview <YYYY-
                         MM>.md gets one line per Q, T, B and U entry; needs the entries committed;
                         running it twice changes nothing
+    purge               with `done-entries: delete`: delete what is left in docs/ai/work/archive/
+                        (finished entries, their pasted files, collections, monthly overviews) as
+                        far as Git holds it unchanged, keeping the README and the journal
+                        collections ledger-<YYYY-MM>.md; the ids stay reserved, references to a
+                        deleted entry become its bare id; a file Git does not hold yet stays until
+                        a commit does
 
 options:
   -h, --help            show this help message and exit
@@ -554,8 +586,8 @@ options:
 usage: entries.py archive [-h] ID-OR-FILE
 
 archive a finished task, backlog item or inbox entry to docs/ai/work/archive/ — an inbox entry
-gets `status: done`; files it links beside itself (pasted images) move along, generic or colliding
-names get the entry's id in front, links are rewritten
+gets `status: done`, a task `finished: <timestamp>`; files it links beside itself (pasted images)
+move along, generic or colliding names get the entry's id in front, links are rewritten
 
 positional arguments:
   ID-OR-FILE  an id such as Q<n> or T<n>, or the entry file's path
@@ -581,6 +613,21 @@ options:
   --today YYYY-MM-DD  count the keep window from this day (tests)
 ```
 
+### `entries.py purge`
+
+```text
+usage: entries.py purge [-h] [--plan]
+
+with `done-entries: delete`: delete what is left in docs/ai/work/archive/ (finished entries, their
+pasted files, collections, monthly overviews) as far as Git holds it unchanged, keeping the README
+and the journal collections ledger-<YYYY-MM>.md; the ids stay reserved, references to a deleted
+entry become its bare id; a file Git does not hold yet stays until a commit does
+
+options:
+  -h, --help  show this help message and exit
+  --plan      show what would be deleted, write nothing
+```
+
 ## `feedback.py`
 
 Call: skill `act-feedback` (`--status`/`--due` alone are direct)
@@ -591,7 +638,7 @@ usage: feedback.py [-h] [--status | --enable | --disable | --add | --plan | --se
                    [--contact EMAIL] [--target DIR]
                    [--kind {rule,script,skill,workflow,docs,bug,mcp,link}] [--title TITLE]
                    [--text TEXT] [--url URL] [--repo-url REPO_URL]
-                   [--mode {off,confirm,automatic,manual}] [--force] [--yes]
+                   [--mode {off,confirm,automatic,manual,local}] [--force] [--yes]
 
 Voluntary feedback to the template author - never without consent, never unseen.
 
@@ -601,10 +648,12 @@ options:
   --enable              set consent
   --disable             revoke consent
   --add                 store a finding in the outbox; sends it at once with mode 'automatic' and
-                        cadence 'immediate', or with --kind bug (consent and mode still apply)
+                        cadence 'immediate', or with --kind bug (consent and mode still apply);
+                        refused with mode 'local'
   --plan                show the payload, send nothing (default)
   --send                send if consent, the privacy check and the cadence gate all allow it
-  --direct TEXT         send a hand-written message at once - works even with feedback off
+  --direct TEXT         send a hand-written message at once - works even with feedback off, never
+                        with local
   --due                 report whether a reminder is due under the current cadence
   --postpone DAYS       pause the due reminder for this many days and count it as a postponement
   --clear               discard every waiting entry, send nothing
@@ -617,8 +666,9 @@ options:
   --text TEXT           with --add: two to six sentences
   --url URL             with --add --kind link: the public address
   --repo-url REPO_URL   with --enable: public repo URL (optional)
-  --mode {off,confirm,automatic,manual}
-                        with --enable: off, confirm, automatic (default), manual
+  --mode {off,confirm,automatic,manual,local}
+                        with --enable: off, confirm, automatic (default), manual, local (never
+                        sends anything)
   --force               with --send: lift the cadence gate (not the consent gate)
   --yes                 with --send and mode 'confirm': actually send after showing the payload
 ```
@@ -690,6 +740,39 @@ options:
   --base BASE  base locale (default: en, else the largest)
   --json       print the report as JSON
   --no-code    skip the used/unused key check against source code
+```
+
+## `id_links_install.py`
+
+Call: direct (optional editor support, see `topics/id-links.md`; writes only under `~/.act/id-links/`)
+
+```text
+usage: id_links_install.py [-h] [--home HOME]
+
+Set up clickable entry ids for the editors: copies the language server to <home>/.act/id-links/,
+packs the VS Code extension as a .vsix there and writes an import template for IntelliJ (LSP4IJ).
+Installs nothing into an editor; prints the next steps and the way back. Safe to run again
+(overwrites the same files).
+
+options:
+  -h, --help   show this help message and exit
+  --home HOME  folder that takes the place of your home folder (default: your home folder)
+```
+
+## `id_links_lsp.py`
+
+Call: direct (language server over stdio, started by the editor from the copy `id_links_install.py` makes, not by hand)
+
+```text
+usage: id_links_lsp.py [-h]
+
+Language server (stdio) that turns entry ids such as T12 in Markdown files into links, go-to-
+definition targets and hover cards for the matching entry under docs/ai/. Read-only, no network.
+Started by an editor integration; without arguments it serves the Language Server Protocol on
+stdin/stdout.
+
+options:
+  -h, --help  show this help message and exit
 ```
 
 ## `ideas.py`
@@ -773,11 +856,13 @@ docs/project/integrations.md. Never writes to a live system.
 
 positional arguments:
   <command>
-    check     detect, probe read-only, optionally write the file
-    status    exit 0 if the file exists and is fresh, else 3
+    check       detect, probe read-only, optionally write the file
+    status      exit 0 if the file exists and is fresh, else 3
+    read-tools  allow the read-only tools of a catalog server in .claude/settings.local.json
+                (--remove undoes it)
 
 options:
-  -h, --help  show this help message and exit
+  -h, --help    show this help message and exit
 ```
 
 ## `log.py`
@@ -815,13 +900,32 @@ Call: direct
 usage: manifest.py --write | --check
 ```
 
+## `move_doc.py`
+
+Call: skill `act-audit-docs`
+
+```text
+usage: move_doc.py [-h] [--apply] [--root ROOT] source dest
+
+Move a document below docs/ and pull its references along.
+
+positional arguments:
+  source       file or folder to move (project-relative)
+  dest         new path (project-relative); must not exist
+
+options:
+  -h, --help   show this help message and exit
+  --apply      do it; without it only the plan is printed
+  --root ROOT  project root (default: current folder)
+```
+
 ## `rules.py`
 
 Call: direct
 
 ```text
-usage: rules.py [-h] [--area {coding,core}] [--list | --validate | --imports | --worker]
-                [--from FILE]
+usage: rules.py [-h] [--area {coding,core}] [--list | --validate | --add-missing | --imports |
+                --worker] [--from FILE]
                 [id]
 
 Read the effective coding/core rules after the project's checkboxes and replacements are applied.
@@ -834,6 +938,9 @@ options:
   --area {coding,core}  which rule area to read (default: coding)
   --list                human overview, one line per set/group
   --validate            schema + cross-checks, exit 1 on findings
+  --add-missing         enter the rules and rule files of the template that docs/ai/rules.md does
+                        not know (--area core is implied); exit 1 if something could not be
+                        entered
   --imports             files Claude Code loads through @-imports with their size in characters
                         and totals, exit 1 on any it cannot follow
   --worker              the parts a worker is handed instead of CLAUDE.md: size and sources per
@@ -894,15 +1001,114 @@ options:
 Call: skill `act-seo`
 
 ```text
-usage: seo_check.py [-h] [--root ROOT] [--json]
+usage: seo_check.py [-h] [--root ROOT] [--json] [--dup-threshold DUP_THRESHOLD]
+                    [--dup-min-words DUP_MIN_WORDS]
 
 Code-only SEO checks: title, description, headings, lang, canonical, Open Graph, image alt,
 internal links, robots.txt and sitemap.
 
 options:
-  -h, --help   show this help message and exit
-  --root ROOT  project root (default: current directory)
-  --json       print the report as JSON
+  -h, --help            show this help message and exit
+  --root ROOT           project root (default: current directory)
+  --json                print the report as JSON
+  --dup-threshold DUP_THRESHOLD
+                        share of identical text from which two pages count as duplicates, 0 < x <=
+                        1 (default 0.9)
+  --dup-min-words DUP_MIN_WORDS
+                        pages with fewer words are not compared (default 25)
+```
+
+## `seo_crawl.py`
+
+Call: skill `act-seo`
+
+```text
+usage: seo_crawl.py [-h] [--max-pages MAX_PAGES] [--max-depth MAX_DEPTH] [--timeout TIMEOUT]
+                    [--max-bytes MAX_BYTES] [--no-external] [--external-delay EXTERNAL_DELAY]
+                    [--max-external MAX_EXTERNAL] [--max-time MAX_TIME] [--slow-ttfb SLOW_TTFB]
+                    [--dup-threshold DUP_THRESHOLD] [--dup-min-words DUP_MIN_WORDS] [--public]
+                    [--delay DELAY] [--max-assets MAX_ASSETS] [--json]
+                    base_url
+
+Crawl a running site from one base URL (same origin only): status codes, redirects, TTFB, broken
+internal and external links, duplicate pages, then the seo_check.py page checks on the rendered
+HTML. Starts no server and writes no file. Outgoing traffic: GET requests to the site itself and,
+unless --no-external, one HEAD request per external link (throttled per host; GET only after a
+405, headers only). No cookie, no page content leaves the machine.
+
+positional arguments:
+  base_url              http(s) URL of the running site, e.g. http://127.0.0.1:3100/
+
+options:
+  -h, --help            show this help message and exit
+  --max-pages MAX_PAGES
+                        internal URLs fetched at most (default 500, with --public 100)
+  --max-depth MAX_DEPTH
+                        link hops from the start page (default 10)
+  --timeout TIMEOUT     seconds per request (default 10.0)
+  --max-bytes MAX_BYTES
+                        largest response read; a larger page is not parsed (default 5000000)
+  --no-external         do not check external links (nothing leaves the site)
+  --external-delay EXTERNAL_DELAY
+                        seconds between two requests to one external host (default 1.0)
+  --max-external MAX_EXTERNAL
+                        external links checked at most (default 200)
+  --max-time MAX_TIME   seconds for the whole crawl, external links included (default 1800.0)
+  --slow-ttfb SLOW_TTFB
+                        TTFB in ms from which a page is reported (default 600.0)
+  --dup-threshold DUP_THRESHOLD
+                        share of identical text for the near-copy check of seo_check (default 0.9)
+  --dup-min-words DUP_MIN_WORDS
+                        pages with fewer words are not compared (default 25)
+  --public              the site is on the internet: read-only and throttled (--delay, default 1 s
+                        between requests, 100 pages unless --max-pages), plus HTTP header checks
+                        (HSTS, CSP, X-Content-Type-Options, Referrer-Policy), compression and
+                        caching of HTML and assets, the http -> https redirect, and a real TTFB.
+                        Extra requests: one GET for http:// and one per sampled asset, headers
+                        only
+  --delay DELAY         seconds between two requests to the site itself (default 0, with --public
+                        1)
+  --max-assets MAX_ASSETS
+                        scripts and stylesheets sampled for compression and caching with --public
+                        (default 10)
+  --json                machine-readable output
+```
+
+## `seo_lighthouse.py`
+
+Call: skill `act-seo`
+
+```text
+usage: seo_lighthouse.py [-h] [--runs RUNS] [--form-factor {mobile,desktop}] [--workdir WORKDIR]
+                         [--root ROOT] [--keep-raw] [--timeout TIMEOUT]
+                         [--from-json FILE [FILE ...]] [--pagespeed] [--json]
+                         [urls ...]
+
+Lighthouse median over several runs per URL, spread per value, axe findings, report by severity.
+Takes URLs of an already running site; starts no server and fixes nothing.
+
+positional arguments:
+  urls                  http(s) URLs to measure
+
+options:
+  -h, --help            show this help message and exit
+  --runs RUNS           runs per URL (default 3, with --pagespeed 1)
+  --form-factor {mobile,desktop}
+                        Lighthouse emulation (default mobile)
+  --workdir WORKDIR     folder for Chrome profile, raw data and temp files (default <root>/.act-
+                        local/tmp/seo-lighthouse)
+  --root ROOT           project root for the default workdir (default: current directory)
+  --keep-raw            keep the raw Lighthouse JSON under <workdir>/raw
+  --timeout TIMEOUT     seconds per run (default 240)
+  --from-json FILE [FILE ...]
+                        evaluate existing Lighthouse JSON files instead of measuring
+  --pagespeed           measure a PUBLIC url with Google PageSpeed Insights instead of local
+                        Chrome: THE URL IS SENT TO GOOGLE, whose servers fetch the page. Same
+                        evaluation, plus field data (CrUX) when Google has it. The API key is read
+                        from the environment variable PAGESPEED_API_KEY only, never from an
+                        argument; Google's quota without a key is 0 per day, so a key is needed.
+                        No Node or Chrome needed
+  --json                machine-readable output
 ```
 
 ## `settings_export.py`

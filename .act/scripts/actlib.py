@@ -35,7 +35,7 @@ import time
 import unicodedata
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterator, Optional
+from typing import Any, Iterator, NamedTuple, Optional
 
 
 # Pauses between the replace attempts below, in seconds: about 0.35 s in all, so a hook stays fast.
@@ -87,14 +87,56 @@ def remove_tree(path: "str | os.PathLike[str]") -> None:
         shutil.rmtree(path, ignore_errors=True)
         if not os.path.isdir(path):
             return
-        for folder, _dirs, files in os.walk(path):
-            for name in files:
-                try:
-                    os.chmod(os.path.join(folder, name), stat.S_IWRITE | stat.S_IREAD)
-                except OSError:
-                    pass
+        _make_writable(path)
         if attempt < 7:
             time.sleep(0.25)
+
+
+def _is_link_or_junction(info: os.stat_result) -> bool:
+    """True for a symbolic link and, on Windows, any reparse point (a junction too: before Python 3.12
+    `os.walk` and `os.path.islink` take a junction for a plain folder and enter it)."""
+    return stat.S_ISLNK(info.st_mode) or bool(getattr(info, "st_file_attributes", 0) & 0x400)
+
+
+def _make_writable(path: "str | os.PathLike[str]") -> None:
+    """Clears the read-only bit of every file below `path`, never entering or touching a link or junction
+    (`chmod` would follow it to a target that may lie outside the folder)."""
+    stack = [os.fspath(path)]
+    while stack:
+        folder = stack.pop()
+        try:
+            with os.scandir(folder) as entries:
+                children = list(entries)
+        except OSError:
+            continue
+        for child in children:
+            try:
+                info = child.stat(follow_symlinks=False)
+            except OSError:
+                continue
+            if _is_link_or_junction(info):
+                continue
+            if stat.S_ISDIR(info.st_mode):
+                stack.append(child.path)
+                continue
+            try:
+                os.chmod(child.path, stat.S_IWRITE | stat.S_IREAD)
+            except OSError:
+                pass
+
+
+_JS_SUFFIXES = (".js", ".mjs", ".cjs")
+
+
+def lint_exclusion_hint(root: Path) -> Optional[str]:
+    """One report line naming the lint exclusion a project needs, or None. Only when the delivered
+    .act/ holds a JavaScript file (*.js, *.mjs, *.cjs): a JS linter such as ESLint collects those
+    and does not skip dot folders, so the project must exclude the template's folders itself."""
+    for _folder, _dirs, files in os.walk(root / ".act"):
+        if any(name.endswith(_JS_SUFFIXES) for name in files):
+            return ("[act] note: the template ships JavaScript files under .act/; exclude `.act/**` and "
+                    "`.claude/skills/act-*/**` in your JS linter (for ESLint: `ignores` in the flat config)")
+    return None
 
 
 @contextlib.contextmanager
@@ -184,10 +226,11 @@ def _read_json(path: Path) -> Optional[dict]:
     return data if isinstance(data, dict) else None
 
 
-def _write_json_merged(path: Path, data: dict) -> dict:
+def _write_json_merged(path: Path, data: dict, atomic: bool = False) -> dict:
     """Write `data` to `path` as JSON, merging onto whatever is already there so unknown top-level
-    keys already present on disk survive the write. Creates the parent directory if needed.
-    Returns the merged dict actually written."""
+    keys already present on disk survive the write. Creates the parent directory if needed. With
+    `atomic` the file is replaced in one step (write_text_atomic()), so a reader or a second writer
+    never sees it half written. Returns the merged dict actually written."""
     path.parent.mkdir(parents=True, exist_ok=True)
     existing = _read_json(path)
     merged = dict(existing or {})
@@ -195,7 +238,11 @@ def _write_json_merged(path: Path, data: dict) -> dict:
     if existing is not None and merged == existing:
         return merged  # nothing changed: leave the file (and a versioned one's git status) alone
     # LF on every platform: .act-lock.json is versioned in that form.
-    write_text_lf(path, json.dumps(merged, indent=2, ensure_ascii=False) + "\n")
+    text = json.dumps(merged, indent=2, ensure_ascii=False) + "\n"
+    if atomic:
+        write_text_atomic(path, text)
+    else:
+        write_text_lf(path, text)
     return merged
 
 
@@ -234,6 +281,30 @@ def read_lock() -> dict:
     result = _default_lock()
     result.update(data)
     return result
+
+
+def read_rules_offered(root: Path) -> Optional[dict]:
+    """The lock's `rules_offered` record at `root`: per rule file of the template (root-relative,
+    e.g. ".act/rules/shared/00-core.md"), the rule IDs docs/ai/rules.md has been offered so far. A file
+    named here that docs/ai/rules.md does not import, or an ID it does not list, was taken out on
+    purpose and is not offered again. None when the lock or the field does not exist (a project from
+    before this record). Takes `root` explicitly, so it never depends on the working directory."""
+    data = _read_json(root / ".act-lock.json")
+    offered = data.get("rules_offered") if data else None
+    if not isinstance(offered, dict):
+        return None
+    return {str(key): [str(item) for item in value] for key, value in offered.items()
+            if isinstance(value, list)}
+
+
+def write_rules_offered(root: Path, offered: dict) -> bool:
+    """Record `offered` as the lock's `rules_offered` (see read_rules_offered). Only an existing lock is
+    written: a project without one is not set up by this. Returns whether the lock holds the record."""
+    path = root / ".act-lock.json"
+    if not path.is_file() or _read_json(path) is None:
+        return False  # none, or one that cannot be read (conflict marks...): writing would drop its other keys
+    _write_json_merged(path, {"rules_offered": offered})
+    return True
 
 
 def write_lock(data: dict) -> dict:
@@ -427,8 +498,15 @@ def recipient_slug(text: str) -> str:
 
 def write_identity(data: dict) -> dict:
     """Merge `data` (expected keys: identity, workspace, created) onto .act-local/identity.json,
-    creating the .act-local/ directory if needed. Returns the merged dict actually written."""
-    return _write_json_merged(_identity_path(), data)
+    creating the .act-local/ directory if needed; the file is replaced in one step. Returns the merged
+    dict actually written. Raises ValueError if the file exists but is no JSON object: a merge onto it
+    would drop the identity, chat language and workspace id it held (set_identity() is the explicit
+    way to replace it)."""
+    path = _identity_path()
+    if path.is_file() and _read_json(path) is None:
+        raise ValueError(f"{path} exists but is not a JSON object; fix or delete it by hand "
+                         f"(`board.py --identity <name>` replaces it)")
+    return _write_json_merged(path, data, atomic=True)
 
 
 # Git user names that stand for "nobody set this" (init.py shows the same ones as placeholders).
@@ -458,7 +536,7 @@ def _identity_fill(root: Path, slug: str, existing: Optional[dict]) -> dict:
         data["workspace"] = uuid.uuid4().hex[:12]
     if not str((existing or {}).get("created") or "").strip():
         data["created"] = datetime.now().date().isoformat()
-    return _write_json_merged(_identity_path(root), data)
+    return _write_json_merged(_identity_path(root), data, atomic=True)
 
 
 def ensure_identity(root: Path, owner: Optional[str] = None, plan: bool = False) -> tuple[str, Optional[dict]]:
@@ -568,6 +646,7 @@ def read_config(root: Optional[Path] = None) -> dict[str, str]:
     row are taken as (key, value), so a third column such as "Guards" in the Checks table is
     ignored; backticks around the key are dropped. The header row and the "---" separator row are
     skipped.
+    A `|` inside a cell is written `\\|` and read back as `|`.
     Robust against a missing file and against lines that are not a two-cell table row — those are
     silently ignored rather than raising.
 
@@ -589,7 +668,7 @@ def read_config(root: Optional[Path] = None) -> dict[str, str]:
         if not stripped.startswith("|") or not stripped.endswith("|"):
             continue
         inner = stripped[1:-1]
-        cells = [cell.strip() for cell in inner.split("|")]
+        cells = split_table_row(inner)
         if len(cells) < 2:
             continue
         key, value = cells[0].strip("`").strip(), cells[1]
@@ -603,6 +682,15 @@ def read_config(root: Optional[Path] = None) -> dict[str, str]:
     return config
 
 
+_UNESCAPED_PIPE_RE = re.compile(r"(?<!\\)\|")
+
+
+def split_table_row(inner: str) -> list[str]:
+    """The cells of a Markdown table row without its outer pipes: split only at a `|` that is not
+    preceded by a backslash, then read `\\|` inside a cell as a literal `|`. Cells are stripped."""
+    return [cell.replace("\\|", "|").strip() for cell in _UNESCAPED_PIPE_RE.split(inner)]
+
+
 def _is_header_row(lines: list[str], index: int) -> bool:
     """True if the table row at `index` is a header row: the next non-empty line is a
     separator row. Word-free on purpose — the header may be written in any language."""
@@ -612,7 +700,7 @@ def _is_header_row(lines: list[str], index: int) -> bool:
             continue
         if not (stripped.startswith("|") and stripped.endswith("|")):
             return False
-        cells = [cell.strip() for cell in stripped[1:-1].split("|")]
+        cells = split_table_row(stripped[1:-1])
         return bool(cells) and all(_is_separator_cell(cell) for cell in cells)
     return False
 
@@ -621,6 +709,140 @@ def _is_separator_cell(cell: str) -> bool:
     """True for a Markdown table separator cell such as ":---", "---", "---:", ":---:"."""
     body = cell.strip(":")
     return bool(body) and set(body) == {"-"}
+
+
+# ---------------------------------------------------------------------------
+# Schema of the config.md keys — what each key accepts, its default and when a change takes
+# effect. One source for `config.py` (show and set) and for the doctor's value check.
+# ---------------------------------------------------------------------------
+
+class ConfigKey(NamedTuple):
+    """A NamedTuple, not a dataclass: a dataclass looks its string annotations up in sys.modules, so
+    actlib loaded by path under another name (a probe, a tool) would fail at import.
+    One row of docs/ai/config.md. `values` lists the allowed values in their canonical spelling
+    (None: no enumeration); `pattern` is a regular expression a value may match instead
+    (`re.fullmatch`, case-insensitive); both None means free text. `default` is the default as the
+    scaffold's prose states it ("" where it names none). `effect` is "now" (read at every hook or
+    script call) or "next-session" (read only at session start or from the loaded rules)."""
+    key: str
+    section: str
+    values: Optional[tuple[str, ...]]
+    pattern: Optional[str]
+    default: str
+    effect: str
+
+
+_MODE3 = ("block", "warn", "off")
+_ON_OFF = ("on", "off")
+
+
+def _language_pattern(allow_auto: bool) -> str:
+    """What normalize_language() accepts: a code ("de", "pt-BR"), a name from LANGUAGE_NAMES and, where
+    `allow_auto` permits it, "auto" and its spellings. Called when the schema is built, after both are
+    defined."""
+    words = [re.escape(name) for name in LANGUAGE_NAMES]
+    if allow_auto:
+        words = ["auto", "automatic", "automatisch"] + words
+    return "|".join(words + [_LANGUAGE_CODE_RE.pattern.strip("^$")])
+
+
+def _build_config_schema() -> dict[str, ConfigKey]:
+    """The schema, in the order of the scaffold's tables (Roles is not a key table). A `pattern` accepts
+    at least every form the code that reads the key accepts (take that code's own regex, its splitting
+    and stripping): a stricter one makes the doctor report a value that works."""
+    entries: list[ConfigKey] = []
+
+    def add(key: str, section: str, values: Optional[tuple[str, ...]] = None,
+            pattern: Optional[str] = None, default: str = "", effect: str = "now") -> None:
+        entries.append(ConfigKey(key, section, values, pattern, default, effect))
+
+    nxt = "next-session"
+    add("name", "Project", effect=nxt)
+    add("owner", "Project", effect=nxt)
+    add("language-chat", "Project", pattern=_language_pattern(True), default="auto", effect=nxt)
+    add("language-docs", "Project", pattern=_language_pattern(False), default="en", effect=nxt)
+    add("stack", "Project", effect=nxt)
+    add("commands", "Project", effect=nxt)
+    add("tools", "Project")
+    add("mode", "Project", values=("solo", "team"), default="solo")
+    add("run", "Project", default="(not set)", effect=nxt)
+    add("board", "Board", values=("docs", "shared", "local"), default="docs")
+    add("board-others", "Board", values=_ON_OFF, default="")  # empty: on with mode team, else off
+    add("inbox-decisions", "Inbox", values=("immediate", "at-start"), default="immediate", effect=nxt)
+    add("quick-capture", "Inbox", values=_ON_OFF, default="on")
+    add("output-depth", "Output depth", values=("verbose", "normal", "sparse"), default="normal", effect=nxt)
+    add("context-hint", "Session length", values=("off",), pattern=r"\d+", default="180000")
+    add("task-wait-hours", "Session length", pattern=r"`?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?`?", default="12")
+    add("board-at-start", "Session length", values=_ON_OFF, default="on", effect=nxt)
+    add("session-name", "Session length", default="project", effect=nxt)
+    add("artifacts", "Session length", values=_ON_OFF, default="off", effect=nxt)
+    add("teach-lessons", "Teaching", values=("local", "docs"), default="local")
+    add("dependency-check", "Dependencies", values=("never", "once", "regularly"), default="regularly",
+        effect=nxt)
+    add("docs-audit-due", "Docs audit", values=("off",), pattern=r"\d+\s*d\s*/\s*\d+\s*c", default="30d/100c",
+        effect=nxt)
+    add("target-branch", "Git hosting", default="auto")
+    add("forge", "Git hosting", values=("auto", "github", "gitlab"), pattern=r"\(not set\)", default="auto")
+    add("forge-host", "Git hosting", default="auto")
+    for check in ("template-write-guard", "session-start-refresh", "orchestrator-rules",
+                  "worker-nesting-guard", "worker-write-scope", "worker-scope-overlap",
+                  "commit-pathspec", "git-reset-hard", "git-discard", "git-metadata-guard",
+                  "recursive-delete", "secret-scan", "secret-read", "outside-root"):
+        add(check, "Checks", values=_MODE3,
+            default="warn" if check == "outside-root" else "block",
+            effect=nxt if check in ("session-start-refresh", "orchestrator-rules") else "now")
+    add("outside-root-allow", "Checks", default="none")
+    add("act-local-tidy", "Checks", values=_MODE3, default="block", effect=nxt)
+    add("act-local-keep", "Checks", default="none", effect=nxt)
+    add("security-check", "Checks", values=("off", "local", "deps", "full"), default="local")
+    for check in ("worker-docs-ai", "worker-git-write", "ide-mcp", "worker-cap", "status-poll",
+                  "encoding-hint"):
+        add(check, "Checks", values=_MODE3, default="block")
+    add("update-branch-hint", "Checks", values=_MODE3, default="warn")
+    add("update-check", "Checks", values=_MODE3, default="block", effect=nxt)
+    add("docs-order", "Checks", values=_MODE3, default="warn")
+    add("logging", "Logging", values=_ON_OFF, default="off")
+    add("log-level", "Logging", values=("DEBUG", "INFO", "WARN", "ERROR"), default="INFO")
+    add("feedback", "Feedback", values=("off", "confirm", "automatic", "manual", "local"), default="off")
+    add("feedback-cadence", "Feedback",
+        values=("manual", "immediate", "hourly", "daily", "weekly", "adaptive"), default="weekly")
+    add("feedback-scope", "Feedback", pattern=r"\s*[abc]\s*(?:,\s*[abc]\s*)*", default="a,b,c")
+    add("update-channel", "Update", values=("release", "latest"), default="release")
+    add("advisory-check", "Update", values=_ON_OFF, default="on")
+    add("done-entries", "Archive", values=("delete", "keep"), default="delete")
+    add("archive-compact", "Archive", values=("off",), pattern=r"\d+\s*d\s+\d+", default="30d 300", effect=nxt)
+    add("tips", "Tips", values=("never", "occasionally", "regularly"), default="occasionally")
+    return {entry.key: entry for entry in entries}
+
+
+def config_value_ok(entry: ConfigKey, value: str) -> bool:
+    """True if `value` is one of the entry's allowed values or matches its pattern (case-insensitive);
+    always True for a free-text entry."""
+    if entry.values is None and entry.pattern is None:
+        return True
+    if entry.values is not None and value.lower() in (item.lower() for item in entry.values):
+        return True
+    return entry.pattern is not None and re.fullmatch(entry.pattern, value, re.IGNORECASE) is not None
+
+
+# ---------------------------------------------------------------------------
+# done-entries — what happens to a finished task, backlog item or inbox entry
+# ---------------------------------------------------------------------------
+
+DONE_ENTRIES_VALUES = ("delete", "keep")
+
+
+def done_entries_mode(root: Optional[Path] = None) -> str:
+    """The effective `done-entries` mode of the project at `root`: "delete" or "keep".
+
+    `delete` removes a finished entry once Git holds it unchanged, `keep` moves it to the archive for
+    good. A missing, empty or unknown value is the default: `delete` when the project has its own Git
+    repository (a `.git` entry at the root), else `keep`. An explicit `delete` without a repository
+    counts as `keep` as well: nothing would hold the deleted text."""
+    root = root or repo_root()
+    raw = read_config(root).get("done-entries", "").strip().strip("`").strip().lower()
+    wanted = raw if raw in DONE_ENTRIES_VALUES else "delete"
+    return "delete" if wanted == "delete" and (root / ".git").exists() else "keep"
 
 
 # ---------------------------------------------------------------------------
@@ -649,6 +871,10 @@ def normalize_language(value: str, allow_auto: bool = False) -> Optional[str]:
         return "auto" if allow_auto else None
     code = LANGUAGE_NAMES.get(word, word)
     return code if _LANGUAGE_CODE_RE.match(code) else None
+
+
+# Built here, below LANGUAGE_NAMES and _LANGUAGE_CODE_RE, which the language patterns are made from.
+CONFIG_SCHEMA: dict[str, ConfigKey] = _build_config_schema()
 
 
 def language_settings(config: dict[str, str]) -> tuple[str, str]:
@@ -1658,20 +1884,19 @@ def is_collection(text: str) -> bool:
 def collection_sections(text: str) -> list[tuple[str, int]]:
     """(canonical id, 1-based line of the anchor) for every entry section of a collection: a line
     `<a id="<id>"></a>` directly followed by a heading `## <id> — <title>` naming the same id. A pair
-    inside a fenced code block is an example and does not count, except that a section boundary always
-    resets the fence state, so a fence an earlier section left unclosed cannot hide the sections after
-    it; a section without an id (its anchor is not an id) is not listed."""
+    inside a fenced code block is an example and does not count (`entries.py` closes a fence an entry
+    left open before it writes the next section, so an unclosed fence never hides a later section); a
+    section without an id (its anchor is not an id) is not listed."""
     lines = text.removeprefix("﻿").split("\n")
     found: list[tuple[str, int]] = []
     fence: FenceState = None
     for index, line in enumerate(lines):
         line = line.rstrip("\r")
         anchor = _SECTION_ANCHOR_RE.match(line)
-        if anchor and _ID_PARTS_RE.match(anchor.group(1)) and index + 1 < len(lines):
+        if fence is None and anchor and _ID_PARTS_RE.match(anchor.group(1)) and index + 1 < len(lines):
             heading = lines[index + 1].rstrip("\r")
             if heading == f"## {anchor.group(1)}" or heading.startswith(f"## {anchor.group(1)} — "):
                 found.append((canonical_id(anchor.group(1)), index + 1))
-                fence = None
                 continue
         fence = fence_step(fence, line)
     return found
@@ -1714,6 +1939,24 @@ def overwrite_text(path: Path, text: str, newline: Optional[str] = None) -> None
             raise PermissionError(
                 exc.errno, f"{exc.strerror}: {path} — if the file is read-only or hidden, clear the "
                 f"attribute first with: attrib -R -H \"{path}\"") from exc
+        raise
+
+
+def write_text_atomic(path: Path, text: str) -> None:
+    """Write `text` to `path` as UTF-8 with `\\n` line endings in one step: into a temporary file in the
+    same folder, then replace_file() over the target, so a crash or a second writer leaves the old or
+    the new content, never a cut-off one. The temporary file is removed again if the write fails."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    try:
+        with open(temp, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write(text)
+        replace_file(temp, path)
+    except BaseException:
+        try:
+            temp.unlink()
+        except OSError:
+            pass
         raise
 
 

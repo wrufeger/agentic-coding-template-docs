@@ -18,7 +18,10 @@
 #          `echo`/`printf` that is piped into `xargs`, the string after `cmd /c`), every write
 #          target the shared write-target scanners find (`>`, `tee`, `mv`, `Set-Content`, ...) as a
 #          write. A command that runs in a directory outside the allowed places (the session itself
-#          started there) reads that directory. MCP tools are not looked at.
+#          started there) reads that directory. The command line of `wsl`/`wsl.exe` is read as the
+#          commands it runs inside WSL, where `/mnt/<x>/...` is the Windows drive <X>: (_scan_wsl,
+#          the same mapping the shared write-target scanners apply there, and only there: a file
+#          tool's `/mnt/d/x` is no drive on Windows). MCP tools are not looked at.
 #
 #          Two readings of a path word. The file tools expand nothing, so their path is taken
 #          literally (`$x`, `{a,b}` and `%X%` are plain characters) and `x/..` is cut out as text, as
@@ -99,7 +102,9 @@ import actlib
 from .brace_expand import expand_braces
 from .command_words import _command_word_lists_new, _strip_command_prefix, _stripped_word_lists
 from .common import _TOOL_PATH_FIELDS, _check_mode, _shell_command
-from .powershell_targets import _powershell_write_targets, _ps_raw_redirect_targets
+from .powershell_targets import (
+    _extract_ps_command_flag, _powershell_write_targets, _ps_raw_redirect_targets,
+)
 from .secret_read import (
     _GREP_FAMILY,
     _HOME_TOKEN_RE,
@@ -116,6 +121,8 @@ from .shell_targets import (
     _heredoc_may_feed_shell,
     _resolve_path,
     _to_native_path,
+    _wsl_command_line,
+    _wsl_native_word,
 )
 from .write_scope import _external_directories, _read_json_object, _system_temp_roots
 
@@ -141,6 +148,11 @@ _PS_ASSIGN_RE = re.compile(r"^\$\w+$")
 _DRIVE_RE = re.compile(r"^[A-Za-z]:[\\/]")
 _UNC_RE = re.compile(r"^(?:\\\\|//)[^\\/\s]+[\\/]+[^\\/\s]")
 _URL_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]+://")
+# Two or more forward slashes and nothing else (`//`, `///`). As a word of its own that is the file
+# system root, as on a POSIX system (`ls //`), and is read like `/`; as a fragment of text (a string
+# literal of inline code, a floor division, a separator in a pattern) it is never a place. Only
+# `//host/share` with a segment is a UNC path (`_UNC_RE`).
+_ONLY_SLASHES_RE = re.compile(r"^/{2,}$")
 _FILE_URL_RE = re.compile(r"^file:/{2,3}(?=[A-Za-z]:|/|[^/])", re.IGNORECASE)
 _DYNAMIC_RE = re.compile(r"[$`{]|%[A-Za-z_][A-Za-z0-9_]*%")
 # (`//ve` is how Git Bash spells the Windows switch `/ve`, so that it is not turned into a path.)
@@ -341,6 +353,8 @@ def _resolve_text(raw: str, base: Optional[str], bash: bool, mode: str = "shell"
     text = raw.strip().strip("'\"")
     if not text or "\0" in text:
         return None
+    if _ONLY_SLASHES_RE.match(text):
+        text = "/"  # a word of its own, not a fragment of text: the root, as `/` is
     if mode == "file":
         if text == "~" or text.startswith(("~/", "~\\")):
             home = _home()
@@ -404,7 +418,7 @@ def _looks_like_path(candidate: str, strict: bool = False) -> bool:
     text = candidate.strip().strip("'\"")
     if text == "~":
         return True
-    if len(text) < 2 or _URL_RE.match(text):
+    if len(text) < 2 or _URL_RE.match(text) or (strict and _ONLY_SLASHES_RE.match(text)):
         return False
     if _HOME_TOKEN_RE.match(text) or _DRIVE_RE.match(text) or _UNC_RE.match(text):
         return True
@@ -976,12 +990,49 @@ def _scan_word_lists(judge: _Judge, word_lists: list[list[str]], cwd: str) -> No
     _scan_from(judge, word_lists, [cwd], 0)
 
 
+def _scan_wsl(judge: _Judge, args: list[str], bases: list[Optional[str]], depth: int) -> bool:
+    """The command line of a `wsl`/`wsl.exe` call read as the commands it runs inside WSL: its words with
+    `/mnt/<x>/...` as drive <X>: (shell_targets._wsl_native_word, the mapping the write-target scanners
+    apply to the same line), split by the shell lexer where wsl hands the text to the distribution's
+    shell, taken as they stand under `--exec`. A `--cd` directory in Windows or `/mnt` form is a read and
+    the base of what follows; a Linux one (`~`, `/home/...`) leaves the base unknown. False when the call
+    runs no command line (`wsl --list`, `--export`, ...): the caller then reads the words as before."""
+    parsed = _wsl_command_line(args)
+    if parsed is None:
+        return False
+    rest, cd_dir, exec_mode = parsed
+    if cd_dir is not None:
+        moved = str(_wsl_native_word(cd_dir))
+        if _DRIVE_RE.match(moved) or _UNC_RE.match(moved):
+            judge.judge(moved, False, bases)
+            texts = [
+                text for base in bases[:_MAX_BASES]
+                for text in [_resolve_text(moved, base, judge.bash)]
+                if text and not text.startswith(_POSIX_PREFIX)
+            ]
+            bases = list(dict.fromkeys(texts))[:_MAX_BASES] if texts else [None]
+        else:
+            bases = [None]
+    lists: list[list[str]] = []
+    if exec_mode:
+        lists.append(_Words(str(_wsl_native_word(word)) for word in rest))
+    else:
+        for words in _shell_word_lists(" ".join(str(word) for word in rest)):
+            item = _Words(str(_wsl_native_word(word)) for word in words)
+            item.feeds_xargs = bool(getattr(words, "feeds_xargs", False))
+            lists.append(item)
+    _scan_from(judge, lists, bases, depth + 1)
+    return True
+
+
 def _scan_from(judge: _Judge, word_lists: list[list[str]], bases: list[Optional[str]], depth: int) -> None:
     for words in word_lists:
         split = _command_split(words)
         if split is None:
             continue
         name, args = split
+        if name == "wsl" and depth < 2 and _scan_wsl(judge, args, bases, depth):
+            continue  # the words of the wsl call itself are its options and the line read above
         feeds = bool(getattr(words, "feeds_xargs", False))
         for text, _strict in _read_candidates(name, args, feeds):
             judge.judge(text, False, bases)
@@ -1094,6 +1145,29 @@ def _shell_word_lists(command: str) -> list[list[str]]:
             return _coarse_word_lists(command)
 
 
+# Programs whose `-c` text is code of a language, not a command line.
+_CODE_INTERPRETERS = _INTERPRETERS - {"pwsh", "powershell"}
+
+
+def _ps_lists(command: str, depth: int = 0) -> list[list[str]]:
+    """`_ps_word_lists` with one change: in the `-c` text of a language interpreter (`python -c "print(7
+    // 2)"`) a word of only slashes is an operator or a comment of that language, not a path, so it is
+    left out. The text of a nested shell or PowerShell (`pwsh -c "ls //"`) is a command line and keeps
+    every word."""
+    lists: list[list[str]] = []
+    for words in _ps_word_lists(command, 2):  # 2: the nested text is read here, not there
+        lists.append(words)
+        inner = _extract_ps_command_flag(words[1:]) if depth < 2 else None
+        if not inner:
+            continue
+        nested = _ps_lists(inner, depth + 1)
+        if _command_name(words[0]) in _CODE_INTERPRETERS:
+            trimmed = ([word for word in item if not _ONLY_SLASHES_RE.match(word)] for item in nested)
+            nested = [item for item in trimmed if item]
+        lists.extend(nested)
+    return lists
+
+
 def _shell_findings(judge: _Judge, tool: str, command: str, cwd: str) -> None:
     powershell = tool == "PowerShell"
     # The text of a quoted heredoc is never run; cut out first, so that a line of the command that
@@ -1128,7 +1202,7 @@ def _shell_findings(judge: _Judge, tool: str, command: str, cwd: str) -> None:
     groups: list[list[list[str]]] = []
     if powershell:
         try:
-            groups.append(_ps_word_lists(command))
+            groups.append(_ps_lists(command))
         except Exception:  # noqa: BLE001
             pass
     try:

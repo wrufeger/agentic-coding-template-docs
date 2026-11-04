@@ -57,7 +57,16 @@
 #     a script file, `find -exec`, `xargs` fed from stdin, an alias or shell function. Only the worker
 #     write scope reads inline interpreter code on top of that, through _bash_inline_code_targets (a
 #     second walk of the same scan with a side channel, _INLINE_SINK; reading and limits in
-#     inline_code.py); what _bash_write_targets returns is not changed by it;
+#     inline_code.py), and the git-metadata guard reads the program text of inline Python through
+#     _bash_inline_code (_INLINE_CODE_SINK, with the span where a top-level program stands, _SPAN_TEXT);
+#     what _bash_write_targets returns is not changed by either;
+#   - the command line of `wsl`/`wsl.exe` runs inside WSL and is read as such (_wsl_targets): without
+#     `--exec` as the one text wsl hands to the distribution's shell (like `eval`), with `--exec` as the
+#     words as they stand; `/mnt/<x>/...` found there is drive <X>: on win32 (_wsl_native_word), and
+#     nowhere else - the call's own redirections run in the outer shell. Not read: a management
+#     command (`wsl --export`, `--import`), a `--cd` into `~` or a Linux path (the directory is then
+#     unknown), a heredoc the outer shell feeds to an interpreter inside WSL (its body is not the
+#     line's), and the Linux side of the file system (`/home`, `/tmp` there) as a place of its own;
 #   - a target containing a variable, a command substitution, a brace expansion or a leading `~` is
 #     never resolved (_is_dynamic_target): check 1c denies it, check 1 passes it unless its text
 #     names .act/;
@@ -93,8 +102,30 @@
 #     `$(...)` is still handled by the operator mechanism (`$` a word character, the parentheses
 #     operators) and a word that contains `$(` after dequoting is scanned again as text, so a `$(`
 #     inside single quotes outside double quotes is still recursed into as if bash ran it (a false
-#     block, never a miss). An `$((...))` is treated like a `$(...)` command substitution for
-#     scanning (over-scanning its arithmetic as if it were a command — the safe side). A line
+#     block, never a miss). The body of an `$((...))` is scanned as if it were a command (over-
+#     scanning its arithmetic — the safe side: a `>` in it counts as a redirection), but the
+#     expansion itself is no target and no command text (_rescan_word). A word of an `ssh [options]
+#     <host> <command>` call that holds `$(` is not read as a local command either, when the call has
+#     exactly a known, harmless form (_ssh_remote_start, an allow list: anything else is read as
+#     before) - the program is `ssh` or the one of a system directory, a word in front is only a
+#     reserved word or the bare name of a wrapper that runs its argument list itself (_SSH_ARGV_WRAPPERS,
+#     a duration after `timeout`; never `parallel`, `xargs` or a wrapper's option), every word up to the destination is plain text (no `$`, backtick, `{`, `*`, `?`, `[`,
+#     `~`), every option is one of `-4 -6 -a -C -n -q -T -t -v -x` (also combined) or `-p <port>`,
+#     `-l <name>`, `-i <file>` (so never `-o`, `-F`, `-E`, `-J`, `-W`, `-L`, `-R`, `-D`), the
+#     destination is `[user@]host` and not this machine (`localhost` and its variants, `127/8` and
+#     `0/8` in any spelling, the IPv6 loopback, `ip6-*`, this computer's own name: _is_local_ssh_host),
+#     the first word after it begins with a plain character other than `-` (ssh reads options after
+#     the destination too, and an expansion there can become one), and nothing in the command sets
+#     `PATH` or `BASH_ENV`, defines a function `ssh`, an alias, reads a file with `source` or `.`, uses
+#     `enable` or `command_not_found_handle` or changes bash's command hash (_SSH_SHADOWED_RE). Only the
+#     `$(...)` that are easy to cut out of such a word are scanned, one in single quotes included (it
+#     cannot be told from one in double quotes, which runs here); a `$(...)` that is not easy to cut
+#     out makes the whole word count as before - also one that ends later than its first `)` can (a
+#     `case` pattern, a comment, a here-document: any `#`, `<<`, line break or `case` inside it, or a
+#     `)` left over in the rest of the word that closes nothing). Such a word is read whole and
+#     nothing of it is taken out of the legacy half. The command text of an ssh call without a `$(`
+#     was never read. An alias in an ssh configuration that points at this machine cannot be seen.
+#     A line
 #     tokenized on its own that ends inside an unquoted span does not tokenize at all (bash ends the
 #     span in a later line, which only the whole-command fallback sees); in whole-command mode a span
 #     with no closing backtick runs to the end of the command and is scanned as a command. The word
@@ -132,6 +163,7 @@ from __future__ import annotations
 
 import bisect
 import functools
+import ipaddress
 import os
 import re
 import socket
@@ -169,6 +201,9 @@ __all__ = [
     "_pairs", "_git_targets", "_download_targets", "_simple_command_targets", "_scan_tokens",
     "_scan_command", "_bash_write_targets_new", "_bash_write_targets",
     "_HeredocOperand", "_InlineTarget", "_bash_inline_code_targets",
+    "_InlineCode", "_bash_inline_code",
+    "_WSL_VALUE_OPTIONS", "_WSL_FLAG_OPTIONS", "_WSL_MOUNT_RE", "_wsl_native_word", "_wsl_command_line",
+    "_wsl_targets",
 ]
 
 _SHELL_OPERATOR_CHARS = "();<>|&"
@@ -482,6 +517,18 @@ _WIN32_PREFIXED_UNC_RE = re.compile(r"^[\\/]{2}\?[\\/]UNC(?=[\\/])", re.IGNORECA
 _WIN32_ADMIN_SHARE_RE = re.compile(r"^[\\/]{2}(?P<host>[^\\/]+)[\\/](?P<drive>[A-Za-z])\$(?=[\\/]|$)")
 _LOCAL_HOST_NAMES = frozenset({"localhost", "127.0.0.1", "::1", "[::1]"})
 
+# `wsl`/`wsl.exe` runs its command line inside WSL, where the Windows drive <X>: is mounted at
+# `/mnt/<x>/`. The form is a drive only there: a file tool resolves `/mnt/d/x` on Windows below the
+# current drive (`D:\mnt\d\x`) and Git Bash below its own root, so the rewrite (_wsl_native_word) is
+# applied to nothing but the words of a wsl command line (_wsl_targets). wsl's own options: the ones
+# that take the next word as their value, the flags without one; any other `-...` word is a
+# management command (`--list`, `--shutdown`, `--export`, ...) that runs no command line.
+_WSL_VALUE_OPTIONS = frozenset({
+    "-d", "--distribution", "--distribution-id", "-u", "--user", "--cd", "--shell-type",
+})
+_WSL_FLAG_OPTIONS = frozenset({"-e", "--exec", "--system"})
+_WSL_MOUNT_RE = re.compile(r"^/mnt/([A-Za-z])(?=/|$)")
+
 # A "target" that is not a file in the project: the null device in its Unix and Windows spellings
 # and the standard streams (`ls src 2>/dev/null`, `cmd >NUL 2>&1`, `echo x >/dev/stderr`).
 _IGNORABLE_TARGETS = {"/dev/null", "/dev/stdout", "/dev/stderr", "/dev/tty", "nul", "nul:"}
@@ -507,9 +554,12 @@ _WRAPPER_ARG_RE = re.compile(r"^(?:-.*|\d+(?:\.\d+)?[smhd]?)$")
 # not start with "-" and is not a bare number/duration) nor an assignment, so the skip loop in
 # _simple_command_targets used to stop right there and read the option's value as if it were the
 # command name, hiding the real one (and its write targets) after it. `--flag=value` needs no entry
-# here — it is already one word, already matched by _WRAPPER_ARG_RE.
+# here — it is already one word, already matched by _WRAPPER_ARG_RE. A cluster of short options whose
+# last letter is one of these (`exec -la name`, `sudo -Hu name`) takes the next word too
+# (_wrapper_value_follows).
 _WRAPPER_VALUE_FLAGS = {
     "env": frozenset({"-u", "--unset", "-C", "--chdir", "-S", "--split-string"}),
+    "exec": frozenset({"-a"}),
     "timeout": frozenset({"-s", "--signal", "-k", "--kill-after"}),
     "sudo": frozenset({"-u", "--user", "-g", "--group", "-p", "--prompt", "-h", "--host",
                         "-r", "--role", "-t", "--type"}),
@@ -682,11 +732,17 @@ class _Word(str):
     own rules). A plain `str` has no `live` (`getattr(word, "live", None)`), and neither has a word
     that came out of a nested scan (`sh -c`, `eval`, `$(...)`, a backtick span — _scan_command drops
     it there): then nothing is known about its quoting and a caller treats a `$`, `{` or `,` in it
-    as not provably live."""
+    as not provably live.
+
+    `span` is where the word stood in the command text, (start, end) offsets of its raw text with
+    its quotes, set only by the line-wise tokenizer on the top-level text of an inline-code scan
+    (_bash_inline_code, `_SPAN_TEXT`); None everywhere else - in a nested scan the offsets would
+    point into another text."""
 
     subs: tuple[str, ...]
     bare: str
     live: Optional[str]
+    span: Optional[tuple[int, int]] = None
 
     def __new__(
         cls, text: str, subs: tuple[str, ...] = (), bare: Optional[str] = None, live: Optional[str] = None
@@ -707,18 +763,27 @@ class _HeredocOperand(_Word):
     """The delimiter word of a heredoc, carrying the text bash hands to the command as its standard input
     (`heredoc_text`): the body lines, with the leading tabs of `<<-` removed and, for an unquoted
     delimiter, the backslash escapes bash resolves in an expanded body (_HEREDOC_ESCAPE_RE).
-    Its own text is the delimiter as before. Only built while
-    _bash_inline_code_targets scans; no other caller ever sees one."""
+    Its own text is the delimiter as before. `expands` says whether the delimiter was unquoted;
+    `body_span` is where the raw body lines stand in the command text, (start of the first body
+    line, start of the end-word line), known only on the top-level text of an inline-code scan (see
+    _Word.span), else None. Only built while _bash_inline_code_targets scans; no other caller ever
+    sees one."""
 
     heredoc_text: str
+    expands: bool
+    body_span: Optional[tuple[int, int]]
 
-    def __new__(cls, word: str, body_lines: list[str], expands: bool) -> "_HeredocOperand":
+    def __new__(
+        cls, word: str, body_lines: list[str], expands: bool, body_span: Optional[tuple[int, int]] = None,
+    ) -> "_HeredocOperand":
         operand = super().__new__(
             cls, str(word), getattr(word, "subs", ()), getattr(word, "bare", None), getattr(word, "live", None)
         )
         lines = [line.lstrip("\t") for line in body_lines] if str(word).startswith("-") else list(body_lines)
         text = "\n".join(lines)
         operand.heredoc_text = _HEREDOC_ESCAPE_RE.sub(r"\1", text) if expands else text
+        operand.expands = expands
+        operand.body_span = body_span
         return operand
 
 
@@ -726,6 +791,43 @@ class _HeredocOperand(_Word):
 # channel while _scan_command walks a command; None outside that scan, so every other caller of the
 # scanner gets exactly the result it always got. A hook process scans one command at a time.
 _INLINE_SINK: Optional[list] = None
+# The program texts themselves, (language, code, directory, source, span), for a check that reads such
+# a program on its own (see _bash_inline_code); None outside that scan, same rule.
+_INLINE_CODE_SINK: Optional[list] = None
+# The top-level command text of a _bash_inline_code scan, after line continuations are joined: the one
+# text whose words get a `span` (_Word.span) and whose heredoc bodies get a `body_span`. _scan_command
+# compares the text it tokenizes against it, so a nested text (`sh -c`, `eval`, a `$(...)`, a heredoc
+# body a shell runs, a wsl line) never carries offsets into the wrong text. None outside such a scan.
+_SPAN_TEXT: Optional[str] = None
+# Greater than zero while the scanner reads the command line of a `wsl`/`wsl.exe` call (_wsl_targets):
+# every target and `cd` directory found there is a WSL path, so `/mnt/<x>/` is drive <X>: (_pairs,
+# _cd_bases, the inline-code paths). Zero everywhere else, where the same text is no drive.
+_WSL_DEPTH = 0
+
+
+def _wsl_native_word(word: str) -> str:
+    """A word that names the WSL mount of a Windows drive (`/mnt/d/x`, `/mnt/d`) rewritten to the drive
+    form every check compares against (`D:/x`, `D:/`), on win32 only; any other word, and every word on
+    another platform, comes back as it is. Called only while the scanner reads the command line of a
+    `wsl`/`wsl.exe` call (_WSL_DEPTH) and by outside_root for the words of such a line: outside WSL the
+    same text is no drive. A `_Word` keeps its spans and what the lexer knew about its quoting (`live`),
+    the drive letter and colon counting as quoted text; a plain `str` comes back as a plain `str`."""
+    if sys.platform != "win32":
+        return word
+    match = _WSL_MOUNT_RE.match(word)
+    if match is None:
+        return word
+    rest = word[match.end():] or "/"
+    text = f"{match.group(1).upper()}:{rest}"
+    if not isinstance(word, _Word):
+        return text
+    bare = word.bare
+    if bare.startswith(match.group(0)):
+        bare = f"{match.group(1).upper()}:{bare[match.end():] or '/'}"
+    live = word.live
+    if live is not None:
+        live = "." * (len(text) - len(live) + match.end()) + live[match.end():]
+    return _Word(text, word.subs, bare, live)
 
 
 class _TokenizeError(ValueError):
@@ -1026,12 +1128,13 @@ def _split_operator_run(run: str) -> list[str]:
     return ops
 
 
-def _shell_tokens(text: str, newline_is_operator: bool) -> list[_Token]:
+def _shell_tokens(text: str, newline_is_operator: bool, with_spans: bool = False) -> list[_Token]:
     """Tokenize `text` into (text, is_operator) pairs; a word's text is a `_Word`. Whitespace
     separates words, a run of operator characters (`_SHELL_OPERATOR_CHARS`, plus a newline when
     `newline_is_operator`) is split into operators (_split_operator_run), an unquoted `#` at the
     start of a word comments out the rest of the line (the newline itself stays), and `#` inside a
-    word is just a character. Raises ValueError (a _TokenizeError with the tokens before the failing
+    word is just a character. With `with_spans` every word carries its (start, end) offsets in
+    `text` (_Word.span). Raises ValueError (a _TokenizeError with the tokens before the failing
     word) on an unclosed quote or a trailing backslash, and — one line on its own, i.e. without
     `newline_is_operator` — on a backtick span left open at the end of the line."""
     operator_chars = _SHELL_OPERATOR_CHARS + ("\n" if newline_is_operator else "")
@@ -1054,10 +1157,13 @@ def _shell_tokens(text: str, newline_is_operator: bool) -> list[_Token]:
             newline = text.find("\n", index)
             index = len(text) if newline < 0 else newline
         else:
+            start = index
             try:
                 word, index = _read_word(text, index, operator_chars, blank, not newline_is_operator)
             except ValueError as error:
                 raise _TokenizeError(str(error), tokens) from error
+            if with_spans:
+                word.span = (start, index)
             tokens.append((word, False))
     return tokens
 
@@ -1121,6 +1227,24 @@ def _heredoc_operand_positions(tokens: list[_Token]) -> list[int]:
     ]
 
 
+_SHORT_OPTION_CLUSTER_RE = re.compile(r"-[A-Za-z]{2,}")
+
+
+def _wrapper_value_follows(arg: str, value_flags: frozenset) -> bool:
+    """True when the wrapper option `arg` takes the next word as its value: the option itself (`-u`,
+    `--unset`) or a cluster of short options whose last letter takes one (`exec -la name`, `sudo -Hu
+    name`, `xargs -tI {}`). A value letter earlier in a cluster takes the rest of the word instead
+    (`env -uVAR`, `nice -n5`), so the next word is then the command."""
+    if arg in value_flags:
+        return True
+    if _SHORT_OPTION_CLUSTER_RE.fullmatch(arg) is None:
+        return False
+    for position, letter in enumerate(arg[1:], start=1):
+        if "-" + letter in value_flags:
+            return position == len(arg) - 1
+    return False
+
+
 def _command_prefix_end(words: list[str]) -> int:
     """Index of the command name in a simple command's words: assignments, `if`/`{`-style prefixes,
     backtick-span words and wrappers (`env`, `sudo`, `time` ... with their options) skipped, as
@@ -1135,7 +1259,7 @@ def _command_prefix_end(words: list[str]) -> int:
             index += 1
             while index < len(words):
                 arg = words[index]
-                if arg in value_flags:
+                if _wrapper_value_follows(arg, value_flags):
                     index += 2 if index + 1 < len(words) else 1
                 elif _WRAPPER_ARG_RE.match(arg) or _ASSIGNMENT_RE.match(arg) or _is_span_word(arg):
                     index += 1
@@ -1330,17 +1454,22 @@ def _heredoc_terminator(line_positions: dict[str, list[int]], candidates: set[st
     return best
 
 
-def _line_mode_tokens(command: str) -> list[_Token]:
+def _line_mode_tokens(command: str, with_spans: bool = False) -> list[_Token]:
     """Tokenize line by line with heredoc bodies skipped (step 2 of the section comment). A body is
     skipped only up to a terminator line that exists (found via _heredoc_terminator);
     without one, nothing is skipped, so the rest is scanned as commands. The command substitutions
-    of an expanded body are kept (as commands of their own after the heredoc line). Raises
+    of an expanded body are kept (as commands of their own after the heredoc line). With
+    `with_spans` (the top-level text of an inline-code scan) every word carries its offsets in
+    `command` and every heredoc operand the offsets of its body (_Word.span,
+    _HeredocOperand.body_span), except on a line this reading rewrites before tokenizing. Raises
     ValueError if any line does not tokenize on its own — a _TokenizeError whose `partial` holds the
     tokens before the failing word."""
     lines = command.split("\n")
     line_positions: dict[str, list[int]] = {}
+    line_starts = [0]  # offset in `command` of each line, plus one past the end
     for position, raw_line in enumerate(lines):
         line_positions.setdefault(raw_line.strip(), []).append(position)
+        line_starts.append(line_starts[-1] + len(raw_line) + 1)
     tokens: list[_Token] = []
     index = 0
     while index < len(lines):
@@ -1349,10 +1478,16 @@ def _line_mode_tokens(command: str) -> list[_Token]:
             # Inline-code reading only: `<<- 'EOF'` (blanks after the `-`) names its delimiter after them,
             # as bash does; the other callers keep reading `-` as the delimiter and scan the body.
             line = _DASH_HEREDOC_BLANK_RE.sub("<<-", line)
+        line_spans = with_spans and line == lines[index]
         try:
-            line_tokens = _shell_tokens(line, newline_is_operator=False)
+            line_tokens = _shell_tokens(line, newline_is_operator=False, with_spans=line_spans)
         except _TokenizeError as error:
             raise _TokenizeError(str(error), tokens + error.partial) from error
+        if line_spans:
+            offset = line_starts[index]
+            for word, is_op in line_tokens:
+                if not is_op and word.span is not None:
+                    word.span = (word.span[0] + offset, word.span[1] + offset)
         line_first = len(tokens)
         tokens.extend(line_tokens)
         tokens.append(("\n", True))
@@ -1368,7 +1503,8 @@ def _line_mode_tokens(command: str) -> list[_Token]:
                 # Inline-code reading only (_bash_inline_code_targets): the delimiter word carries its
                 # body, so the command the heredoc feeds can read it. The word's text stays the same.
                 at = line_first + operand_positions[position]
-                tokens[at] = (_HeredocOperand(tokens[at][0], lines[index:end], expands), False)
+                body_span = (line_starts[index], line_starts[end]) if with_spans else None
+                tokens[at] = (_HeredocOperand(tokens[at][0], lines[index:end], expands, body_span), False)
             if position < len(feeds_shell) and feeds_shell[position]:
                 # The body is a script for a shell: scanned as a command text of its own (the same
                 # route a `sh -c` text takes), so the commands in it count, an expansion in an
@@ -1461,7 +1597,10 @@ def _joined_base(base: Optional[str], native: str) -> Optional[str]:
 
 def _cd_bases(bases: _Bases, directory: str) -> _Bases:
     """The possible directories after `cd <directory>` from each of `bases`. A rooted path without
-    a drive on Windows (`/tmp`, Git Bash's own mount points) has no knowable native location."""
+    a drive on Windows (`/tmp`, Git Bash's own mount points) has no knowable native location - except
+    inside a wsl command line, where `/mnt/<x>/` is drive <X>: (_WSL_DEPTH)."""
+    if _WSL_DEPTH:
+        directory = _wsl_native_word(directory)
     native = _to_native_path(directory)
     if Path(native).is_absolute():
         return frozenset({native})
@@ -1471,8 +1610,12 @@ def _cd_bases(bases: _Bases, directory: str) -> _Bases:
 
 
 def _pairs(raw_targets: list[str], bases: _Bases) -> list[_Target]:
+    """Every raw target paired with every possible base directory. Inside a wsl command line
+    (_WSL_DEPTH) a target `/mnt/<x>/...` is the drive it mounts (_wsl_native_word)."""
     if not raw_targets:
         return []  # nothing to pair: skip sorting a set that grows with a long `cd` chain
+    if _WSL_DEPTH:
+        raw_targets = [_wsl_native_word(raw) for raw in raw_targets]
     ordered = sorted(bases, key=lambda base: (base is None, base or ""))
     return [(raw, base) for raw in raw_targets for base in ordered]
 
@@ -1574,7 +1717,7 @@ def _simple_command_targets(
                     # module already cannot resolve (review, 2026-09-25).
                     bases_unknown = True
                     index += 1 if arg.startswith("--chdir=") else (2 if index + 1 < len(words) else 1)
-                elif arg in wrapper_value_flags:
+                elif _wrapper_value_follows(arg, wrapper_value_flags):
                     # `env -u VAR`, `timeout -s KILL`, `sudo -u name` — the value is its own
                     # word, matching neither _WRAPPER_ARG_RE nor an assignment, so it must be
                     # skipped explicitly too or it gets read as the wrapped command's own name.
@@ -1672,6 +1815,8 @@ def _simple_command_targets(
         raw_targets = _download_targets(name, args)
     elif name == "git":
         return _git_targets(args, bases, git_writes), None
+    elif name == "wsl":
+        return _wsl_targets(args, bases, git_writes, depth), None
     elif name in _SHELL_NAMES:
         for position, arg in enumerate(args):
             if arg.startswith("-") and not arg.startswith("--") and "c" in arg[1:]:
@@ -1680,7 +1825,75 @@ def _simple_command_targets(
                 break
     elif name == "eval":
         return _scan_command(" ".join(args), bases, git_writes, depth + 1), None
+    elif name == "cmd":
+        # `cmd /c <line>` (also `/k`, any case, after cmd's own switches such as `/d` or `/q`): cmd.exe
+        # parses the line anew by its own rules, so it is read like an `eval` of the words - as close
+        # as this reading gets (cmd quotes and escapes differently: a guard rail, not a boundary).
+        for position, arg in enumerate(args):
+            if arg.lower() in ("/c", "/k"):
+                return _scan_command(" ".join(args[position + 1:]), bases, git_writes, depth + 1), None
+            if not arg.startswith("/"):
+                break
     return _pairs(raw_targets, bases), None
+
+
+def _wsl_command_line(args: list[str]) -> Optional[tuple[list[str], Optional[str], bool]]:
+    """The arguments of a `wsl`/`wsl.exe` call split into (the command line WSL runs, the `--cd`
+    directory or None, whether `--exec`/`-e` hands the words to the program without a shell), or None
+    when the call runs no command line: a management command (`wsl --list`, `--shutdown`, `--export`,
+    any other `-...` word that is not one of wsl's run options, _WSL_VALUE_OPTIONS/_WSL_FLAG_OPTIONS)
+    or no word after the options. `--` ends the options, as wsl reads it."""
+    cd_dir: Optional[str] = None
+    exec_mode = False
+    index = 0
+    while index < len(args):
+        arg = str(args[index])
+        if arg == "--":
+            index += 1
+            break
+        if arg in _WSL_VALUE_OPTIONS:
+            if arg == "--cd" and index + 1 < len(args):
+                cd_dir = args[index + 1]
+            index += 2
+            continue
+        if arg in _WSL_FLAG_OPTIONS:
+            exec_mode = exec_mode or arg in ("-e", "--exec")
+            index += 1
+            continue
+        if arg.startswith("-"):
+            return None
+        break
+    rest = args[index:]
+    if not rest:
+        return None
+    return rest, cd_dir, exec_mode
+
+
+def _wsl_targets(args: list[str], bases: _Bases, git_writes: frozenset, depth: int) -> list[_Target]:
+    """Write targets of `wsl [options] [--] <command line>`. The line runs inside WSL: without `--exec`
+    wsl joins the words with blanks and hands the text to the distribution's shell, which parses it
+    anew - read like an `eval` of that text; with `--exec` the words are the program's arguments as they
+    stand. `--cd <dir>` sets the directory the line runs in (a Windows path or `/mnt/<x>/...`; anything
+    else, `~` or a Linux path, leaves it unknown). While the line is read (_WSL_DEPTH) every target and
+    `cd` directory `/mnt/<x>/...` is drive <X>: (_wsl_native_word) - the words of the wsl call itself,
+    its redirections and the rest of the command are read by the caller as before, outside WSL. The
+    mapping is a win32 matter; the line is read as a command on every platform."""
+    global _WSL_DEPTH
+    parsed = _wsl_command_line(args)
+    if parsed is None:
+        return []
+    rest, cd_dir, exec_mode = parsed
+    if cd_dir is not None:
+        native = _to_native_path(str(_wsl_native_word(cd_dir)))
+        bases = frozenset({native}) if Path(native).is_absolute() else frozenset({None})
+    _WSL_DEPTH += 1
+    try:
+        if exec_mode:
+            targets, _ = _simple_command_targets(list(rest), bases, git_writes, depth)
+            return targets
+        return _scan_command(" ".join(str(word) for word in rest), bases, git_writes, depth + 1)
+    finally:
+        _WSL_DEPTH -= 1
 
 
 # (path literal, the directory a relative one resolves against - None = unknown, interpreter language)
@@ -1728,15 +1941,21 @@ def _literal_output(words: list[str], stdin_text: Optional[str]) -> Optional[str
 
 
 def _collect_inline_code(
-    words: list[str], bases: _Bases, stdin_redirected: bool, stdin_text: Optional[str], pipe_input: Optional[str]
+    words: list[str], bases: _Bases, stdin_redirected: bool, stdin_text: Optional[str], pipe_input: Optional[str],
+    stdin_span: Optional[tuple[int, int]] = None,
 ) -> None:
     """If this simple command runs inline interpreter code (inline_code.py: `python -c`, `node -e`, or a
     program read from standard input), add the path literals of that code - when it holds a write call -
-    to the active _INLINE_SINK, once per directory the command may run in. The program on standard input
-    is a heredoc body or here-string of the command itself, else the literal output of the previous stage
-    of its pipeline. Best effort: an error here costs this command's result, never the scan."""
+    to the active _INLINE_SINK, once per directory the command may run in, and the program text itself
+    to the active _INLINE_CODE_SINK, with the span where it stands in the top-level text when that is
+    known (`stdin_span` for a quoted heredoc body; the span of the one word behind `-c`/`-e` when bash
+    leaves that word as written; else None). The program on standard input is a heredoc body or
+    here-string of the command itself, else the literal output of the previous stage of its pipeline.
+    Inside a wsl command line (_WSL_DEPTH) a path literal `/mnt/<x>/...` is drive <X>:, as the
+    interpreter sees it there. Best effort: an error here costs this command's result, never the scan."""
     sink = _INLINE_SINK
-    if sink is None:
+    code_sink = _INLINE_CODE_SINK
+    if sink is None and code_sink is None:
         return
     try:
         at = _command_prefix_end(words)
@@ -1745,20 +1964,38 @@ def _collect_inline_code(
         language = _inline_code.interpreter_language(_command_name(words[at]))
         if language is None:
             return
-        kind, code = _inline_code.code_source(language, [str(word) for word in words[at + 1:]])
+        kind, code, code_index = _inline_code.code_source_at(language, [str(word) for word in words[at + 1:]])
+        span: Optional[tuple[int, int]] = None
         if kind == _inline_code.SOURCE_STDIN:
             code = stdin_text if stdin_redirected else pipe_input
+            span = stdin_span if stdin_redirected else None
         elif kind != _inline_code.SOURCE_CODE:
             return
+        elif code_index is not None:
+            # The word that is the code: its span counts only when bash leaves the word as written -
+            # no live syntax (an unquoted part, a `$` inside double quotes), no backtick span, no
+            # `$(` at all (a `$(...)` is marked `.` in `live`, judged by its own rules, and the scan
+            # reads every word holding one as command text, _rescan_word) - so that taking the word
+            # out of the shell reading drops nothing bash itself would run.
+            word = words[at + 1 + code_index]
+            live = getattr(word, "live", None)
+            if live is not None and "L" not in live and not getattr(word, "subs", ()) and "$(" not in word:
+                span = getattr(word, "span", None)
         if code is None:
-            return
-        paths = _inline_code.write_paths(language, code)
-        if not paths:
             return
         if any(str(word) in ("-C", "--chdir") or str(word).startswith("--chdir=") for word in words[:at]):
             bases = frozenset({None})  # `env -C dir python ...`: the directory is not followed
+        ordered = sorted(bases, key=lambda candidate: (candidate is None, candidate or ""))
+        if code_sink is not None:
+            for base in ordered:
+                code_sink.append((language, code, base, kind, span))
+        if sink is None:
+            return
+        paths = _inline_code.write_paths(language, code)
         for path in paths:
-            for base in sorted(bases, key=lambda candidate: (candidate is None, candidate or "")):
+            if _WSL_DEPTH:
+                path = str(_wsl_native_word(path))
+            for base in ordered:
                 sink.append((path, base, language))
     except Exception as error:  # noqa: BLE001
         # Deliberately broad: whatever goes wrong while reading one command's inline code (newer,
@@ -1803,6 +2040,262 @@ def _joined_group_output(parts: list[Optional[str]]) -> Optional[str]:
     return "".join(part for part in parts if part is not None)
 
 
+def _arithmetic_parts(text: str) -> Optional[tuple[list[str], str]]:
+    """The bodies of the `$((...))` constructs in `text`, and `text` with each of them replaced by `0`
+    — or None when there is none, or one cannot be delimited (then the caller reads `text` whole, as
+    before). The tokenizer keeps such a construct in its word verbatim, so a re-scan of the word as
+    command text meets the same construct again; the bodies are what a re-scan has to read."""
+    bodies: list[str] = []
+    rest: list[str] = []
+    index = 0
+    while True:
+        at = text.find("$((", index)
+        if at < 0:
+            break
+        try:
+            end = _collect_dq_expansion(text, at + 1, [])
+        except ValueError:
+            return None
+        if end < at + 5 or text[end - 2:end] != "))":
+            return None
+        rest.append(text[index:at] + "0")
+        bodies.append(text[at + 3:end - 2])
+        index = end
+    if not bodies:
+        return None
+    rest.append(text[index:])
+    return bodies, "".join(rest)
+
+
+def _rescan_word(word: str, bases: _Bases, git_writes: frozenset, depth: int) -> list[_Target]:
+    """Read a word that holds `$(` as command text once more (a command substitution runs commands).
+    An arithmetic expansion `$((...))` in it is not a command: its body is read as command text instead
+    (a `$(...)` inside it still runs, `$(( a[$(cmd > f)] ))`; a `>` in it counts as a redirection, the
+    safe side), and what is left of the word only when that still holds `$(`. Without this the
+    expansion itself, `$((n+3))`, came back as a write target of its own."""
+    parts = _arithmetic_parts(word)
+    if parts is None:
+        return _scan_command(word, bases, git_writes, depth + 1)
+    bodies, rest = parts
+    found: list[_Target] = []
+    for body in bodies:
+        found.extend(_scan_command(body, bases, git_writes, depth + 1))
+    if "$(" in rest:
+        found.extend(_scan_command(rest, bases, git_writes, depth + 1))
+    return found
+
+
+# What a `$(...)` that is easy to delimit looks like: no quote, backslash, backtick, `$` or parenthesis
+# inside. Anything else is not cut apart (the caller then reads the whole word, the safe side).
+_SIMPLE_SUBSTITUTION_RE = re.compile(r"\$\(([^()'\"`\\$]*)\)")
+
+
+# Inside a `$(...)` these make bash end the substitution somewhere else than at the first `)`: a `case`
+# pattern ends in `)`, a comment may hold one, a here-document body runs over lines.
+_SUBSTITUTION_HAZARD_RE = re.compile(r"#|<<|[\r\n]|\bcase\b")
+
+
+def _simple_substitutions(word: str) -> Optional[list[str]]:
+    """The text inside every `$(...)` of `word`, or None when one of them is not easy to delimit — or when
+    the word is not what it seems once they are cut out: a `)` left over that closes nothing in the rest
+    of the word means a substitution ended later than its first `)` (`$(case a in a) cmd;; esac)`), and a
+    `#`, `<<`, line break or `case` inside one means the same may be true (`$(true #)`, a line, `cmd)`).
+    The caller then reads the whole word. Balanced parentheses in the rest (`python3 -c 'f("x")' $(date)`)
+    are ordinary text."""
+    inner: list[str] = []
+    outside: list[str] = []
+    index = 0
+    while True:
+        at = word.find("$(", index)
+        if at < 0:
+            outside.append(word[index:])
+            break
+        outside.append(word[index:at])
+        match = _SIMPLE_SUBSTITUTION_RE.match(word, at)
+        if match is None or _SUBSTITUTION_HAZARD_RE.search(match.group(1)):
+            return None
+        inner.append(match.group(1))
+        index = match.end()
+    depth = 0
+    for char in "".join(outside):
+        depth += (char == "(") - (char == ")")
+        if depth < 0:
+            return None
+    return inner
+
+
+# Set while _bash_write_targets / _bash_inline_code_targets walk a command a second time with the
+# command text of a remote `ssh` call left out (see _ssh_remote_start). _REMOTE_SINK, when a list, then
+# receives the targets that text used to produce (read whole as a local command, as before).
+_SSH_REMOTE_IS_REMOTE = False
+_REMOTE_SINK: Optional[list] = None
+_SSH_WORD_RE = re.compile(r"(?<![\w-])ssh(?:\.exe)?(?![\w-])", re.IGNORECASE)
+# A command in which the word `ssh` may not run the real program: a `PATH` set somewhere in it, a function
+# of that name defined in it, or bash's command hash changed. No ssh call in such a command is read as a
+# remote one (_ssh_may_run_remote).
+_SSH_SHADOWED_RE = re.compile(
+    r"(?<![\w])PATH\+?=|(?<![\w-])function\s+ssh(?![\w-])|(?<![\w-])ssh\s*\(\s*\)|(?<![\w-])hash(?![\w-])"
+    r"|(?<![\w-])(?:alias|source|enable|command_not_found_handle)(?![\w-])|(?<![\w])BASH_ENV(?![\w])"
+    r"|(?<![^\s;&|(){}])\.(?=\s)",
+    re.IGNORECASE,
+)
+# The wrappers that may stand in front of an ssh call whose text counts as remote: each runs its command
+# from its own argument list, not through a shell. Only their names, and a plain duration after `timeout`,
+# are accepted there - no option of theirs (`sudo -s`, `env -S` would hand the words to a shell).
+_SSH_ARGV_WRAPPERS = frozenset({"sudo", "env", "command", "exec", "nohup", "nice", "timeout", "stdbuf", "setsid"})
+_SSH_DURATION_RE = re.compile(r"\d+(?:\.\d+)?[smhd]?")
+# The allow list of _ssh_remote_start - what an ssh call must look like, word by word, for its command
+# text to count as remote. The program: `ssh` itself, or the one of a system directory. A word up to and
+# including the destination is plain when the shell expands nothing in it: no `$`, backtick, brace, glob
+# character or tilde. The options: flags that change nothing about where the text runs (`-4`, `-6`, `-a`,
+# `-C`, `-n`, `-q`, `-T`, `-t`, `-v`, `-x`, also combined, `-tt`, `-vvv`) and three that take a value
+# (`-p` a port of digits, `-l` a login name, `-i` an identity file - glued or as the next word). Any other
+# option (`-o`, `-F`, `-E`, `-J`, `-W`, `-L`, `-R`, `-D`, ...) can change the destination, run a program
+# here or write a file here and is left off the list on purpose. The destination: `[user@]host`, a name
+# or an address.
+_SSH_PROGRAM_RE = re.compile(
+    r"(?:/usr/bin/|/bin/|/usr/local/bin/|/opt/homebrew/bin/|[A-Za-z]:[\\/]Windows[\\/]System32[\\/]OpenSSH[\\/])?"
+    r"ssh(?:\.exe)?",
+    re.IGNORECASE,
+)
+_SSH_PLAIN_WORD_RE = re.compile(r"[^$`{*?\[~]+")
+_SSH_OPTION_RE = re.compile(r"-([46aCnqTtvx]*)(?:([pli])(.*))?")
+_SSH_PORT_RE = re.compile(r"[0-9]{1,5}")
+_SSH_DESTINATION_RE = re.compile(r"(?:[\w.-]+@)?(?:[A-Za-z0-9][\w.-]*|[0-9A-Fa-f.]*:[0-9A-Fa-f:.]*)")
+_NUMERIC_HOST_LABEL_RE = re.compile(r"(?:0x[0-9a-f]+|[0-9]+)", re.IGNORECASE)
+
+
+def _numeric_host_is_local(name: str) -> Optional[bool]:
+    """For a destination written as an IPv4 address in any of the forms a resolver accepts (`2130706433`,
+    `0x7f000001`, `127.1`, `0177.0.0.1`, `0`): whether it lies in `127/8` or `0/8`; True also when the
+    digits do not make an address. None when the name is not numeric."""
+    labels = name.split(".")
+    if not all(_NUMERIC_HOST_LABEL_RE.fullmatch(label) for label in labels) or len(labels) > 4:
+        return None
+    values: list[int] = []
+    for label in labels:
+        try:
+            if label.lower().startswith("0x"):
+                values.append(int(label, 16))
+            elif len(label) > 1 and label.startswith("0"):
+                values.append(int(label, 8))
+            else:
+                values.append(int(label))
+        except ValueError:
+            return True
+    last_bits = 8 * (5 - len(values))
+    if any(value > 255 for value in values[:-1]) or values[-1] >= 1 << last_bits:
+        return True
+    address = 0
+    for value in values[:-1]:
+        address = (address << 8) | value
+    address = (address << last_bits) | values[-1]
+    return (address >> 24) in (0, 127)
+
+
+def _ipv6_host_is_local(name: str) -> bool:
+    """True for an IPv6 destination that is the loopback or the unspecified address (also as an IPv4-mapped
+    one) and for text that is no address at all."""
+    try:
+        address = ipaddress.ip_address(name.split("%", 1)[0])
+    except ValueError:
+        return True
+    mapped = getattr(address, "ipv4_mapped", None)
+    return address.is_loopback or address.is_unspecified or (mapped is not None and (mapped.is_loopback or mapped.is_unspecified))
+
+
+def _is_local_ssh_host(host: str) -> bool:
+    """True for a destination that is this machine — or whose address cannot be told: `localhost` and its
+    variants (`localhost6`, `ip6-localhost`), any `127.x` and `0.x` address in whatever spelling
+    (`127.1`, `0`, a whole number), the IPv6 loopback and unspecified address, this computer's own name
+    (also as the first label of a longer name), and a destination the shell still expands. An alias in an
+    ssh configuration that points at this machine cannot be seen from here."""
+    text = host
+    if text.lower().startswith("ssh://"):
+        text = text[6:].split("/", 1)[0]
+    text = text.rsplit("@", 1)[-1]
+    if text.startswith("["):
+        text = text[1:].split("]", 1)[0]
+    elif text.count(":") == 1:
+        text = text.split(":", 1)[0]
+    name = text.lower().rstrip(".")
+    if not name or _DYNAMIC_TARGET_RE.search(name) or "(" in name or ")" in name:
+        return True
+    if ":" in name:
+        return _ipv6_host_is_local(name)
+    numeric = _numeric_host_is_local(name)
+    if numeric is not None:
+        return numeric
+    names = _local_host_names()
+    return (
+        name in names or name.split(".")[0] in names or name.startswith(("localhost", "ip6-"))
+        or name.endswith(".localhost")
+    )
+
+
+def _ssh_may_run_remote(command: str) -> bool:
+    """True when `command` names ssh and nothing in it can make that word run something else
+    (_SSH_SHADOWED_RE): only then is the command text of an ssh call left out of the local reading."""
+    return _SSH_WORD_RE.search(command) is not None and _SSH_SHADOWED_RE.search(command) is None
+
+
+def _ssh_remote_start(words: list[str]) -> Optional[int]:
+    """The index in `words` of the first word of the command an `ssh [options] <host> <command...>` call
+    hands to the other machine - or None when the call is not exactly of the known, harmless form (an
+    allow list: anything new or odd is read as before). None, then, for: a program word that is not `ssh`
+    or the ssh of a system directory (_SSH_PROGRAM_RE); a word in front of it that assigns a variable
+    (`PATH=`) or that is neither a reserved word (`if`, `{`, ...) nor a wrapper of _SSH_ARGV_WRAPPERS
+    (`parallel`, `xargs`, an option of a wrapper: the words may reach a shell); a word from the first up
+    to the destination that the shell still expands
+    (_SSH_PLAIN_WORD_RE; the reserved words `if`, `{`, ... in front are plain); an option not in
+    _SSH_OPTION_RE, or a port that is not digits; a destination that is not `[user@]host`
+    (_SSH_DESTINATION_RE) or is this machine (_is_local_ssh_host); no command; a first command word that
+    is empty or begins with `-` or with something the shell expands - ssh reads options after the
+    destination too (a `--` in front of it ends them, which changes nothing here), and an expansion
+    there can become one. Everything from the index on runs on the other machine."""
+    at = _command_prefix_end(words)
+    if at >= len(words) or _SSH_PROGRAM_RE.fullmatch(str(words[at])) is None:
+        return None
+    index = at + 1
+    while index < len(words):
+        arg = str(words[index])
+        if arg == "--":
+            index += 1
+            break
+        if not arg.startswith("-"):
+            break
+        option = _SSH_OPTION_RE.fullmatch(arg)
+        if option is None or len(arg) < 2:
+            return None
+        letter, value = option.group(2), option.group(3)
+        if letter is not None and not value:
+            index += 1
+            value = str(words[index]) if index < len(words) else ""
+        if letter == "p" and _SSH_PORT_RE.fullmatch(value) is None:
+            return None
+        index += 1
+    if index + 1 >= len(words):
+        return None
+    for position, word in enumerate(words[:index + 1]):
+        plain = str(word)
+        if position < at:
+            after_timeout = position > 0 and str(words[position - 1]) == "timeout"
+            if plain in _RESERVED_PREFIXES or plain in _SSH_ARGV_WRAPPERS:
+                continue
+            if after_timeout and _SSH_DURATION_RE.fullmatch(plain):
+                continue
+            return None
+        if _SSH_PLAIN_WORD_RE.fullmatch(plain) is None or _ASSIGNMENT_RE.match(plain):
+            return None
+    host = str(words[index])
+    if _SSH_DESTINATION_RE.fullmatch(host) is None or _is_local_ssh_host(host):
+        return None
+    first = str(words[index + 1])
+    if not first or first[0] == "-" or _SSH_PLAIN_WORD_RE.fullmatch(first[0]) is None:
+        return None
+    return index + 1
+
+
 def _scan_tokens(tokens: list[_Token], start_bases: _Bases, git_writes: frozenset, depth: int) -> list[_Target]:
     """Walk a token stream command by command (step 4 of the section comment). Directory tracking,
     as a set of possible directories (None = unknown):
@@ -1827,6 +2320,7 @@ def _scan_tokens(tokens: list[_Token], start_bases: _Bases, git_writes: frozense
     # (None for one that is not literal), and the output of the group that closed just before.
     stdin_redirected = False
     stdin_text: Optional[str] = None
+    stdin_span: Optional[tuple[int, int]] = None
     pipe_input: Optional[str] = None
     group_outputs: list[list[Optional[str]]] = []
     closed_group: Optional[str] = None
@@ -1854,6 +2348,13 @@ def _scan_tokens(tokens: list[_Token], start_bases: _Bases, git_writes: frozense
                     if redirect_input is not None:
                         stdin_redirected = True
                         stdin_text = redirect_input if isinstance(redirect_input, str) else None
+                        # Where the body stands in the top-level text, for a quoted heredoc only: bash
+                        # expands an unquoted body before the program sees it, so that text must stay
+                        # in the shell reading, where its substitutions count.
+                        stdin_span = (
+                            getattr(word, "body_span", None)
+                            if text == "<<" and not getattr(word, "expands", True) else None
+                        )
             index += 2 if has_word else 1
             continue
 
@@ -1861,9 +2362,27 @@ def _scan_tokens(tokens: list[_Token], start_bases: _Bases, git_writes: frozense
         produced: Optional[str] = None
         if words or redirect_targets or other_redirect_words:
             found.extend(_pairs(redirect_targets, bases))
-            for word in words + redirect_targets:
-                if "$(" in word:
-                    found.extend(_scan_command(word, bases, git_writes, depth + 1))
+            remote_start = _ssh_remote_start(words) if _SSH_REMOTE_IS_REMOTE else None
+            for position, word in enumerate(words + redirect_targets):
+                if "$(" not in word:
+                    continue
+                if remote_start is not None and remote_start <= position < len(words):
+                    # The command text of an ssh call runs on the other machine: only a `$(...)` the
+                    # local shell expands before the call (inside double quotes or unquoted) runs here,
+                    # so those are read, not the rest of the text as if it were a local command.
+                    inner = _simple_substitutions(word)
+                    if inner is not None:
+                        if _REMOTE_SINK is not None:
+                            _REMOTE_SINK.extend(_scan_command(word, bases, git_writes, depth + 1))
+                        for text in inner:
+                            found.extend(_scan_command(text, bases, git_writes, depth + 1))
+                        continue
+                    if _REMOTE_SINK is not None and _arithmetic_parts(word) is not None:
+                        # Not easy to cut apart, but _rescan_word reads only the body of an arithmetic
+                        # expansion, never the text around it: that text is the remote one. Any other
+                        # word is read whole below, and nothing of it is taken out of the legacy half.
+                        _REMOTE_SINK.extend(_scan_command(word, bases, git_writes, depth + 1))
+                found.extend(_rescan_word(word, bases, git_writes, depth))
             # Backtick spans the tokenizer found in these words (quote context already applied).
             for word in words + redirect_targets + other_redirect_words:
                 for span in getattr(word, "subs", ()):
@@ -1871,7 +2390,7 @@ def _scan_tokens(tokens: list[_Token], start_bases: _Bases, git_writes: frozense
             targets, cd_change = _simple_command_targets(words, bases, git_writes, depth)
             found.extend(targets)
             if _INLINE_SINK is not None:
-                _collect_inline_code(words, bases, stdin_redirected, stdin_text, pipe_input)
+                _collect_inline_code(words, bases, stdin_redirected, stdin_text, pipe_input, stdin_span)
                 produced = _literal_output(words, stdin_text)
             if cd_change is not None:
                 directory, prefixed = cd_change
@@ -1901,6 +2420,7 @@ def _scan_tokens(tokens: list[_Token], start_bases: _Bases, git_writes: frozense
         other_redirect_words = []
         stdin_redirected = False
         stdin_text = None
+        stdin_span = None
         if separator is None:
             return found
         if separator == "||":
@@ -1938,6 +2458,9 @@ def _scan_command(command: str, bases: _Bases, git_writes: frozenset, depth: int
     next to the raw-text search."""
     quote_model = _quote_model_applies(command)
     command = _join_line_continuations(command)
+    # Offsets are recorded only for the one text _bash_inline_code set as the top level (_SPAN_TEXT):
+    # a nested text (`sh -c`, `eval`, a `$(...)`, a heredoc body a shell runs) gets none.
+    with_spans = _SPAN_TEXT is not None and command == _SPAN_TEXT
     if depth > _MAX_SCAN_DEPTH:
         # Nested deeper than anything real: not read any further, and not passed either — the whole
         # remainder is one target that names no knowable path (a `$(` text), which check 1c denies and
@@ -1949,7 +2472,7 @@ def _scan_command(command: str, bases: _Bases, git_writes: frozenset, depth: int
     ansi_c_quoting = _may_use_ansi_c_quoting(command) if quote_model else "$'" in command
     if not ansi_c_quoting:
         try:
-            tokens = _line_mode_tokens(command)
+            tokens = _line_mode_tokens(command, with_spans)
         except ValueError as error:
             tokens = None
             prefixes.append(getattr(error, "partial", []))
@@ -2018,6 +2541,30 @@ def _pair_key(pair: _Target) -> tuple:
     return (str(pair[0]), pair[1], getattr(pair[0], "live", None))
 
 
+def _without_remote_targets(
+    command: str, base_cwd: str, git_writes: frozenset, current: list[_Target], legacy: list[_Target]
+) -> tuple[list[_Target], list[_Target]]:
+    """Both halves of _bash_write_targets without the targets that only the command text of a remote
+    `ssh` call produced (see _ssh_remote_start). The lexer is walked a second time with that text left
+    out, and the targets that text used to produce are collected (_REMOTE_SINK). The legacy half cannot
+    be told to skip it, so its pairs of such a text and directory are dropped — unless the second walk
+    found the same target elsewhere in the command (a local one), which then stays. `current` comes back
+    as the second walk's result."""
+    global _SSH_REMOTE_IS_REMOTE, _REMOTE_SINK
+    remote: list[_Target] = []
+    _SSH_REMOTE_IS_REMOTE, _REMOTE_SINK = True, remote
+    try:
+        local = _bash_write_targets_new(command, base_cwd, git_writes)
+    finally:
+        _SSH_REMOTE_IS_REMOTE, _REMOTE_SINK = False, None
+    if not remote:
+        return current, legacy
+    local_places = {(str(pair[0]), pair[1]) for pair in local}
+    remote_only = {(str(pair[0]), pair[1]) for pair in remote} - local_places
+    kept = [pair for pair in legacy if (str(pair[0]), pair[1]) not in remote_only]
+    return local, kept
+
+
 def _bash_write_targets(command: str, base_cwd: str, git_writes: frozenset) -> list[_Target]:
     """The paths a Bash command writes to, each paired with the directory a relative one resolves
     against (`base_cwd`, the Bash tool's own cwd, moved by any `cd` the scanner can follow) or None
@@ -2038,6 +2585,11 @@ def _bash_write_targets(command: str, base_cwd: str, git_writes: frozenset) -> l
         current = _bash_write_targets_new(command, base_cwd, git_writes)
     except Exception:  # noqa: BLE001 — the legacy half stands alone, see the docstring
         return legacy
+    if _ssh_may_run_remote(command):
+        try:
+            current, legacy = _without_remote_targets(command, base_cwd, git_writes, current, legacy)
+        except Exception:  # noqa: BLE001 — both halves stay as they are, the over-blocking side
+            pass
     # A target both scanners report appears once, as the lexer's word: only that one knows which of its
     # characters were quoted (`_Word.live`). The legacy half still adds everything the lexer missed,
     # as plain text with no such knowledge.
@@ -2069,12 +2621,14 @@ def _bash_inline_code_targets(command: str, base_cwd: str) -> list[_InlineTarget
     as every write target. A literal path is not a shell word: the caller must not map `/tmp` or
     expand braces or `~` in it. Best effort: a command that does not mention an interpreter, or whose
     scan fails, yields what was found so far (see inline_code.py for the reading and its limits)."""
-    global _INLINE_SINK
+    global _INLINE_SINK, _SSH_REMOTE_IS_REMOTE
     if not _inline_code.mentions_interpreter(command):
         return []
     found: list[_InlineTarget] = []
     previous = _INLINE_SINK
+    previous_remote = _SSH_REMOTE_IS_REMOTE
     _INLINE_SINK = found
+    _SSH_REMOTE_IS_REMOTE = _ssh_may_run_remote(command)
     try:
         _scan_command(command, frozenset({base_cwd}), frozenset(), depth=0)
     except (ValueError, RecursionError) as error:
@@ -2084,4 +2638,47 @@ def _bash_inline_code_targets(command: str, base_cwd: str) -> list[_InlineTarget
         _inline_code.report_skipped("command scan", error)
     finally:
         _INLINE_SINK = previous
+        _SSH_REMOTE_IS_REMOTE = previous_remote
     return list(dict.fromkeys(found))
+
+
+# (interpreter language, program text, the directory the call runs in - None = unknown, where the text
+# came from: inline_code.SOURCE_CODE for `-c`/`-e` code, SOURCE_STDIN for a heredoc body, here-string or
+# literal pipe, the (start, end) span of the program in the top-level text or None - see _bash_inline_code)
+_InlineCode = tuple[str, str, Optional[str], str, Optional[tuple[int, int]]]
+
+
+def _bash_inline_code(command: str, base_cwd: Optional[str]) -> tuple[list[_InlineCode], str]:
+    """Every program text that a Bash command hands to `python`/`node` as inline code - (language, code,
+    the directory the call runs in or None when unknown, the source of the text, the span), once per
+    directory the command may run in - and the text the spans index into: `command` with its line
+    continuations joined, as the scan reads it. For a check that reads such a program on its own (the
+    git-metadata guard reads Python this way). Found by the same walk as _bash_inline_code_targets,
+    through a second side channel of _collect_inline_code (_INLINE_CODE_SINK), so the call, its code and
+    its directory are the ones that reading sees: `-c` code, a heredoc body, a here-string, a literal
+    piped in. The span says where exactly the program stands, so a caller can take it out of the text
+    and nothing else: the one word behind `-c`/`-e` with its quotes, or the body lines of a quoted
+    heredoc (start of the first body line to start of the end-word line); only for a program on the
+    top level of the command, found by the line-wise tokenizer - None for one inside `sh -c`, `eval`,
+    a `$(...)`, a wsl line or a heredoc a shell runs, for a here-string or a pipe, for an unquoted
+    heredoc or a `-c` word bash still expands, and when the scan fell back to the whole-command
+    tokenizer. What _bash_write_targets returns is not changed by it. Best effort, like
+    _bash_inline_code_targets: a command without an interpreter, or one whose scan fails, yields what
+    was found so far."""
+    global _INLINE_SINK, _INLINE_CODE_SINK, _SSH_REMOTE_IS_REMOTE, _SPAN_TEXT
+    text = _join_line_continuations(command)
+    if not _inline_code.mentions_interpreter(command):
+        return [], text
+    found: list[_InlineCode] = []
+    previous = (_INLINE_SINK, _INLINE_CODE_SINK, _SSH_REMOTE_IS_REMOTE, _SPAN_TEXT)
+    # _INLINE_SINK set too: the walk tracks heredoc bodies, here-strings and pipes only then; its own
+    # findings are dropped.
+    _INLINE_SINK, _INLINE_CODE_SINK, _SPAN_TEXT = [], found, text
+    _SSH_REMOTE_IS_REMOTE = _ssh_may_run_remote(command)
+    try:
+        _scan_command(text, frozenset({base_cwd}), frozenset(), depth=0)
+    except (ValueError, RecursionError) as error:
+        _inline_code.report_skipped("command scan", error)
+    finally:
+        _INLINE_SINK, _INLINE_CODE_SINK, _SSH_REMOTE_IS_REMOTE, _SPAN_TEXT = previous
+    return list(dict.fromkeys(found)), text

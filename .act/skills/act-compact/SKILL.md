@@ -9,6 +9,12 @@ Keeps `docs/ai/work/archive/` and `docs/ai/work/ledger/` small: a thousand singl
 unreadable in the IDE and cut off on the web. Applies `R-code-commit`. Every step is a script; no worker
 takes part and no section is shortened.
 
+With `done-entries: delete` (`docs/ai/config.md` § Archive, the default in a Git project) finished entries are
+deleted instead of archived, so only the journal is folded: `entries.py compact` leaves the archive's own
+files alone and writes `archive/ledger-<YYYY-MM>.md` only; the monthly overviews and the Q, T, B and U
+collections below belong to `done-entries: keep`. What an older archive still holds is removed with
+`entries.py purge` (`act-commit` step 3), not by this skill.
+
 ## When
 
 Controlled by `archive-compact: <days>d <files>` in `docs/ai/config.md` § Archive (default `30d 300`;
@@ -20,8 +26,8 @@ so and stop.
 ## Steps
 
 1. **Plan.** `python .act/scripts/entries.py compact --plan` lists what would be merged and writes
-   nothing. Entries archived within the last 7 days, `archive/legacy/` and anything not committed stay
-   as they are; commit pending archive changes first, the full text must be in Git.
+   nothing. Entries archived within the last 7 days and `archive/legacy/` stay as they are. Anything
+   not committed stops the run: commit pending archive changes first, the full text must be in Git.
 2. **Merge.** `python .act/scripts/entries.py compact`. It writes
    `archive/<Q|T|B|U|other|ledger>-<YYYY-MM>.md`, one section per entry in full, names the commit that
    still holds the single files, and rewrites links. For every month with a Q, T, B or U section it

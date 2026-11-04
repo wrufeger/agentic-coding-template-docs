@@ -37,10 +37,10 @@
   },
   "template": {
     "version": "2.4.0",
-    "commit": "4b36b2b710caf5d011dadcea90d6836032c77695",
+    "commit": "b838fd3f17253dc3bd1f1b989626129ae8ba7aea",
     "source": "D:/dev/rufeger/agentic-coding-template",
     "ref": "main",
-    "manifest_sha256": "37f0bd4ec3dcf37b45dc7a0eeb7e06e3f49f1b652a9e4343f7fb61f3ba9dbbfd"
+    "manifest_sha256": "794fb4f89ed08f404286aba1b77dfeccbff494863b3212d74834d8dc36624e95"
   },
   "copies": {
     ".claude/skills/act/SKILL.md": {
@@ -53,7 +53,7 @@
     },
     ".claude/skills/act-audit-docs/SKILL.md": {
       "source": ".act/skills/act-audit-docs/SKILL.md",
-      "sha256": "5e7f16c3e77e86d83c2f6b59e35b0e8c8b261dd67f256b5adcfa1cd0d4815fdb"
+      "sha256": "713930807028c87d496e88af7cc42daedb25540942f17c07b6fdfaeec7f0ec8d"
     },
     ".claude/skills/act-bug/SKILL.md": {
       "source": ".act/skills/act-bug/SKILL.md",
@@ -61,7 +61,7 @@
     },
     ".claude/skills/act-commit/SKILL.md": {
       "source": ".act/skills/act-commit/SKILL.md",
-      "sha256": "4844518790703e28ae386afeff1dc43278167b3233bac1ceca7413c2d660d843"
+      "sha256": "480dc8dda6255f6722279a1c93458e5ac895b368b9dcff80fe9d1a464d70662c"
     },
     ".claude/skills/act-deps/SKILL.md": {
       "source": ".act/skills/act-deps/SKILL.md",
@@ -81,7 +81,7 @@
     },
     ".claude/skills/act-doctor/SKILL.md": {
       "source": ".act/skills/act-doctor/SKILL.md",
-      "sha256": "277435d02dea860c9e7e2af2573be55bb70ddb2b5564155f07f1fddab7e2723b"
+      "sha256": "66a8050f9e74f5b80f9a2db4ffb3e8c4060937f01a819d8c0075f53c0ed8557e"
     },
     ".claude/skills/act-export-settings/SKILL.md": {
       "source": ".act/skills/act-export-settings/SKILL.md",
@@ -89,7 +89,7 @@
     },
     ".claude/skills/act-feedback/SKILL.md": {
       "source": ".act/skills/act-feedback/SKILL.md",
-      "sha256": "57b8e6a17d66c9a706de18348b017bfecf8d8bbac06fa9f86d1232fcdeb5ea21"
+      "sha256": "abd91b33dab18b71a28b9cbaf5de106489a6e57d851ef3654364ed6841d42ea5"
     },
     ".claude/skills/act-idea/SKILL.md": {
       "source": ".act/skills/act-idea/SKILL.md",
@@ -97,7 +97,7 @@
     },
     ".claude/skills/act-integrations/SKILL.md": {
       "source": ".act/skills/act-integrations/SKILL.md",
-      "sha256": "2e94f6617003baf46a8d135cf649088bffc41b27e0c952d4f2298501318e2bd3"
+      "sha256": "3e882b331a75e862e7034e66405c7b3a02fc405b933bac7718055bf154413a0b"
     },
     ".claude/skills/act-issue/SKILL.md": {
       "source": ".act/skills/act-issue/SKILL.md",
@@ -149,7 +149,7 @@
     },
     ".claude/skills/act-seo/SKILL.md": {
       "source": ".act/skills/act-seo/SKILL.md",
-      "sha256": "8c5e1dde9c9e14fbbabed2b1cd668f93487dda04c8bb36b7a169ea2d6473ec40"
+      "sha256": "d2b06d059d2ab658318e82b2dc53baf0d9cf5328171caead32ded12c005053a3"
     },
     ".claude/skills/act-handover/SKILL.md": {
       "source": ".act/skills/act-handover/SKILL.md",
@@ -157,7 +157,7 @@
     },
     ".claude/skills/act-integrations/references/catalog.md": {
       "source": ".act/skills/act-integrations/references/catalog.md",
-      "sha256": "470c1bff2a2ecfe4c8e9799ca613e32fa1803bddace70331041cdda78008f0ba"
+      "sha256": "2344c45259821936b531aca3a88774603a5ccab8e8d393df1e550f93f07b5952"
     },
     ".claude/skills/act-integrations/references/failure-causes.md": {
       "source": ".act/skills/act-integrations/references/failure-causes.md",
@@ -181,11 +181,7 @@
     },
     ".claude/skills/act-audit-docs/references/workflow.md": {
       "source": ".act/skills/act-audit-docs/references/workflow.md",
-      "sha256": "63a4d0012cd1e764df4c9cd2211177506c6d2ca1ad64e4d2a98800ea2a0116d6"
-    },
-    ".claude/skills/act-audit-docs/workflow.js": {
-      "source": ".act/skills/act-audit-docs/workflow.js",
-      "sha256": "26020194d5e4c54c6d9af08a5210555d98cf1646b70116de121ac20e84403d68"
+      "sha256": "ef8555c4bf26aea69fd8cb2982227d451109e53b8fcc37d51af0d4e1219de477"
     },
     ".claude/skills/act-teach/references/lesson-template.md": {
       "source": ".act/skills/act-teach/references/lesson-template.md",
@@ -201,7 +197,7 @@
     },
     ".claude/skills/act-compact/SKILL.md": {
       "source": ".act/skills/act-compact/SKILL.md",
-      "sha256": "95506ffd12f4c41e37a3c0fea0447f7753ee6e8dfea52678b04b83862c37573c"
+      "sha256": "84a0e004618371e737af94e45b01ac571bd749f4d3504dfde16a1b8ba047fd7d"
     },
     ".claude/skills/act-version/SKILL.md": {
       "source": ".act/skills/act-version/SKILL.md",
@@ -210,6 +206,18 @@
     ".claude/skills/act-info/SKILL.md": {
       "source": ".act/skills/act-info/SKILL.md",
       "sha256": "bc0fa1d098a1e1e8e91d65643132ee463fcf86328e4dc571afc389c8f2415cbb"
+    },
+    ".claude/skills/act-audit-docs/workflow.js.txt": {
+      "source": ".act/skills/act-audit-docs/workflow.js.txt",
+      "sha256": "3c544eb4ff7922666a31d7560ba7863988521798c977e23c5ee479a8e8023309"
+    },
+    ".claude/skills/act-config/SKILL.md": {
+      "source": ".act/skills/act-config/SKILL.md",
+      "sha256": "0a9564484a5107345784c239c2afef4de8dff0cb6d735f0b656eb7ad8443473e"
+    },
+    ".claude/skills/act-seo/references/live-run.md": {
+      "source": ".act/skills/act-seo/references/live-run.md",
+      "sha256": "d8fb5ad011ada9256c3074c4f47d3c6bd0a6fa77cbe552d6603ae8aed445f136"
     }
   },
   "removed_by_user": [],
@@ -223,9 +231,74 @@
     "001-one-inbox",
     "002-todo-ids",
     "003-inbox-frontmatter",
-    "004-work-frontmatter"
+    "004-work-frontmatter",
+    "005-resources-file",
+    "006-docs-project-readme"
   ],
   "settings_applied": {
     "enableArtifact": false
+  },
+  "rules_offered": {
+    ".act/rules/shared/00-core.md": [
+      "R-work-evidence",
+      "R-work-override",
+      "R-work-language",
+      "R-work-second-check",
+      "R-work-bounded-output",
+      "R-work-throwaway",
+      "R-role-worker"
+    ],
+    ".act/rules/shared/10-safety.md": [
+      "R-safe-approval",
+      "R-safe-no-secret-cli",
+      "R-safe-no-secret-read",
+      "R-safe-outside-root",
+      "R-safe-no-secret-log",
+      "R-safe-no-personal-data",
+      "R-safe-no-shell-delete",
+      "R-safe-git-metadata",
+      "R-safe-dev-server",
+      "R-safe-block",
+      "R-safe-foreign-text"
+    ],
+    ".act/rules/shared/20-code.md": [
+      "R-code-language",
+      "R-code-encoding",
+      "R-code-tools",
+      "R-code-version",
+      "R-code-checks-intact",
+      "R-docs-order"
+    ],
+    ".act/rules/orchestrator/00-role.md": [
+      "R-role-main",
+      "R-role-escalate",
+      "R-role-outcome"
+    ],
+    ".act/rules/orchestrator/10-work.md": [
+      "R-work-record-now",
+      "R-work-session-start",
+      "R-work-idea-first",
+      "R-work-config",
+      "R-work-handover"
+    ],
+    ".act/rules/orchestrator/20-human.md": [
+      "R-human-inbox-first",
+      "R-human-ask",
+      "R-human-capture",
+      "R-human-chat",
+      "R-human-language",
+      "R-human-text",
+      "R-human-external"
+    ],
+    ".act/rules/orchestrator/30-cost.md": [
+      "R-cost-delegate",
+      "R-cost-wait",
+      "R-cost-amend",
+      "R-cost-script",
+      "R-code-commit",
+      "R-safe-no-secret-diff",
+      "R-safe-git-reset",
+      "R-safe-git-discard"
+    ]
   }
 }
