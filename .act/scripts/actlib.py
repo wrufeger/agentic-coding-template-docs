@@ -59,6 +59,21 @@ def replace_file(src: "str | os.PathLike[str]", dst: "str | os.PathLike[str]") -
     os.replace(src, dst)
 
 
+def read_text_retrying(path: "str | os.PathLike[str]", encoding: str = "utf-8") -> str:
+    """Path(path).read_text(encoding), with the same short retries as replace_file, on Windows only.
+    There a scanner or indexer can hold a just-renamed file open without read sharing, and the read
+    then fails with PermissionError for a moment. If the fifth attempt fails too, its PermissionError
+    is raised unchanged; every other error is raised at once. Elsewhere this is a plain read."""
+    if sys.platform != "win32":
+        return Path(path).read_text(encoding=encoding)
+    for pause in _REPLACE_RETRY_PAUSES:
+        try:
+            return Path(path).read_text(encoding=encoding)
+        except PermissionError:
+            time.sleep(pause)
+    return Path(path).read_text(encoding=encoding)
+
+
 # ---------------------------------------------------------------------------
 # Short-lived folders: <project>/.act-local/tmp/, else the system temp directory
 # ---------------------------------------------------------------------------
@@ -304,6 +319,36 @@ def write_rules_offered(root: Path, offered: dict) -> bool:
     if not path.is_file() or _read_json(path) is None:
         return False  # none, or one that cannot be read (conflict marks...): writing would drop its other keys
     _write_json_merged(path, {"rules_offered": offered})
+    return True
+
+
+def read_lock_at(root: Path) -> Optional[dict]:
+    """The lock at `root` as a dict, or None when the file is missing, not valid UTF-8 or not a
+    JSON object (a merge conflict left in it, a few corrupted bytes). Unlike read_lock() this never
+    falls back to an empty skeleton, so a caller can tell "no lock" from "a lock I must not write"."""
+    return _read_json(root / ".act-lock.json")
+
+
+def read_rules_cut(root: Path) -> list[str]:
+    """The lock's `rules_cut` record at `root`: the rule files (root-relative, e.g.
+    ".act/rules/orchestrator/30-cost.md") whose import line in docs/ai/rules.md the scope
+    (docs/ai/config.md § Scope) switched off itself, so it can switch them on again when the cut
+    ends — and leave alone a line the project took out on its own. Empty when there is none."""
+    data = _read_json(root / ".act-lock.json")
+    cut = data.get("rules_cut") if data else None
+    if not isinstance(cut, list):
+        return []
+    return sorted({item for item in cut if isinstance(item, str)})
+
+
+def write_rules_cut(root: Path, rels: list[str]) -> bool:
+    """Record `rels` as the lock's `rules_cut` (see read_rules_cut); an empty list removes the key's
+    content, not the key. Only an existing, readable lock is written. Returns whether the lock holds
+    the record."""
+    path = root / ".act-lock.json"
+    if not path.is_file() or _read_json(path) is None:
+        return False
+    _write_json_merged(path, {"rules_cut": sorted(set(rels))})
     return True
 
 
@@ -766,6 +811,9 @@ def _build_config_schema() -> dict[str, ConfigKey]:
     add("tools", "Project")
     add("mode", "Project", values=("solo", "team"), default="solo")
     add("run", "Project", default="(not set)", effect=nxt)
+    add("profile", "Scope", values=("minimal", "standard", "full"), default="full", effect=nxt)
+    add("exclude", "Scope", pattern=r"none|\(not set\)|[\w./-]+(?:\s*,\s*[\w./-]+)*",
+        default="none", effect=nxt)
     add("board", "Board", values=("docs", "shared", "local"), default="docs")
     add("board-others", "Board", values=_ON_OFF, default="")  # empty: on with mode team, else off
     add("inbox-decisions", "Inbox", values=("immediate", "at-start"), default="immediate", effect=nxt)
@@ -801,6 +849,7 @@ def _build_config_schema() -> dict[str, ConfigKey]:
     add("update-branch-hint", "Checks", values=_MODE3, default="warn")
     add("update-check", "Checks", values=_MODE3, default="block", effect=nxt)
     add("docs-order", "Checks", values=_MODE3, default="warn")
+    add("own-rules-budget", "Checks", values=("off",), pattern=r"\d+", default="6000")
     add("logging", "Logging", values=_ON_OFF, default="off")
     add("log-level", "Logging", values=("DEBUG", "INFO", "WARN", "ERROR"), default="INFO")
     add("feedback", "Feedback", values=("off", "confirm", "automatic", "manual", "local"), default="off")

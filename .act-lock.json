@@ -37,10 +37,10 @@
   },
   "template": {
     "version": "2.4.0",
-    "commit": "3bf11b5eb295b322c922c52f338efbc9ee0ab7b3",
+    "commit": "194ae6432c10e549282e0d006f999a8028417bbe",
     "source": "D:/dev/rufeger/agentic-coding-template",
     "ref": "main",
-    "manifest_sha256": "d4bc41868ccfb627234a9ba797e1fbfa976fbcc0eb48bb0db0f06a90459edf68"
+    "manifest_sha256": "26f3f3c87cd21f4728f3f8e94b5fc222d1d50985ac147872bafe1e60415253d0"
   },
   "copies": {
     ".claude/skills/act/SKILL.md": {
@@ -57,11 +57,11 @@
     },
     ".claude/skills/act-bug/SKILL.md": {
       "source": ".act/skills/act-bug/SKILL.md",
-      "sha256": "402d04d6da62770675077f0ec989066d1cc6d9822b757e307f13a57064fec4e0"
+      "sha256": "88fb4e19a082e71c30e2da3494e6794e51e563dc8da33f109e7f69c8b78df779"
     },
     ".claude/skills/act-commit/SKILL.md": {
       "source": ".act/skills/act-commit/SKILL.md",
-      "sha256": "480dc8dda6255f6722279a1c93458e5ac895b368b9dcff80fe9d1a464d70662c"
+      "sha256": "ecd02427765950bc0859465d6d1b9f5356415db436ed65fc2b86842187ff4a7d"
     },
     ".claude/skills/act-deps/SKILL.md": {
       "source": ".act/skills/act-deps/SKILL.md",
@@ -81,7 +81,7 @@
     },
     ".claude/skills/act-doctor/SKILL.md": {
       "source": ".act/skills/act-doctor/SKILL.md",
-      "sha256": "66a8050f9e74f5b80f9a2db4ffb3e8c4060937f01a819d8c0075f53c0ed8557e"
+      "sha256": "78a5514f0a2d274cb37ac5d52f0ddbb7ccf2dfd702b60e353b1ca9585be86968"
     },
     ".claude/skills/act-export-settings/SKILL.md": {
       "source": ".act/skills/act-export-settings/SKILL.md",
@@ -117,7 +117,7 @@
     },
     ".claude/skills/act-prepare/SKILL.md": {
       "source": ".act/skills/act-prepare/SKILL.md",
-      "sha256": "505dd23fe14f6edd037a759b588b41c3ee8a30e971eeafc767dad300ed0d0d55"
+      "sha256": "b2741e76d1caf704a5239ab98aee596e027a89722add7fa1b9357e564c610faf"
     },
     ".claude/skills/act-refactor/SKILL.md": {
       "source": ".act/skills/act-refactor/SKILL.md",
@@ -225,7 +225,11 @@
     "tools": [
       "claude-code"
     ],
-    "roles": {}
+    "roles": {},
+    "cut": {
+      "skills": [],
+      "roles": []
+    }
   },
   "migrations_applied": [
     "001-one-inbox",
