@@ -56,6 +56,6 @@ Every string that could leave the project runs through a privacy check first: cr
 
 - Every send writes a full copy of its payload to `.act-local/feedback/sent/` (gitignored, never leaves your checkout). Pending entries and bookkeeping live next to it in `.act-local/feedback/`.
 - Worker measurements (`usage.py --estimates`) stay in `.act-local/usage.json` and are never part of a payload.
-- The project's journal gets one line per send: date, kind, number of entries and schema version, never content or titles.
+- The project's journal gets one entry per day, `<date>-feedback-sent.md`, with one line per send: the time, the kind of send (batch or direct message) and, for a batch, the number of entries and each entry's kind and title. The text of an entry and of a direct message is never recorded.
 
 See also the [configuration reference](/agentic-coding-template-docs/reference/configuration/) for the three keys, and [Configuration](/agentic-coding-template-docs/concepts/configuration/) for how the file works.

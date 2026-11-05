@@ -26,11 +26,11 @@ create by hand there gets its tool copies at the next session start (default `se
 ## Switching rules on and off
 
 `docs/ai/rules.md` imports the rule files and lists every rule with a checkbox. A checked rule applies; an
-unchecked rule is off, even though its text is loaded. Drop an import line to switch off a whole area. Your own
+unchecked rule is off, even though its text is loaded. Drop an import line to switch off a whole area. A rule file excluded through `exclude` in `docs/ai/config.md` ([Scope](/agentic-coding-template-docs/reference/configuration/#scope)) keeps its line, but the session start turns the import into a bare path, so Claude Code no longer loads it. Your own
 text goes in the sections at the end of the file:
 
 - `## Overrides`: ``- replaces `R-id`: <your wording>``. The line replaces the whole text of that rule, checked or not.
-- `## Own rules`: ``- `R-your-id`: text`` or a bare bullet, in addition to the template's rules.
+- `## Own rules`: ``- `R-your-id`: text`` or a bare bullet, in addition to the template's rules. Keep them short: `act-doctor` warns when the own rules of `docs/ai/rules.md` and `docs/project/coding_rules.md` together pass the `own-rules-budget` check (default 6000 characters).
 
 `python .act/scripts/rules.py --list --area core` shows every rule with its state, overrides as `[~]` and own rules as `[+]` (without `--area core` it lists the coding sets);
 `--validate` reports text it could not read. Path-bound rules of Claude Code under `.claude/rules/**/*.md` show up in `--list` with their `paths:` patterns; `--validate` warns about a pattern that matches no project file and a file without `paths:`.

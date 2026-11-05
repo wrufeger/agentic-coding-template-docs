@@ -45,6 +45,40 @@ Default-Branch nie lokal ausgecheckt wird, vergibt niemand IDs, sodass auf Featu
 ohne ID bleiben. Die IDs sind
 `T<n>` (Aufgabe), `B<n>` (Backlog-Eintrag), `Q<n>` (Frage) und `U<n>` (Todo für dich); eine Meldung oder Notiz hat keine.
 
+## Scope
+<!-- source: d4d759c9e413c534 -->
+| Schlüssel | Wert |
+| :--- | :--- |
+| `profile` | full |
+| `exclude` | none |
+
+`profile`: `minimal` \| `standard` \| `full`. Wie viele der Skills und Rollen des Templates dieses Projekt
+lädt; jede Skill-Beschreibung und jede Regeldatei gehört zu jedem Sitzungsstart, weniger davon bedeutet also
+einen kleineren Start. `full` (Standard; ein fehlender Schlüssel gilt als `full`) behält alles. `standard` lässt die
+Web-, Design- und Teaching-Skills weg: `act-a11y`, `act-check-translations`, `act-design-assets`,
+`act-design-build`, `act-design-ideas`, `act-seo`, `act-slides`, `act-teach`. `minimal` behält nur den Kern,
+die Skills `act`, `act-adopt`, `act-bug`, `act-commit`, `act-compact`, `act-config`, `act-doctor`,
+`act-export-settings`, `act-feedback`, `act-handover`, `act-idea`, `act-info`, `act-load-settings`,
+`act-prepare`, `act-setup`, `act-update`, `act-version` und die Rollen `builder`, `debugger`, `doc-writer`,
+`explorer`, `quick-check`, `reviewer` (mit ihren `-high`-Varianten), und lässt jeden anderen Skill und jede andere
+Rolle des Templates weg. Ein Wert, der keiner der drei ist, gilt mit einer Warnung als `full`. Die eigenen Skills
+und Rollen des Projekts (unter `docs/ai/local/`) werden nie gekürzt.
+
+`exclude`: `none` oder eine kommagetrennte Liste dessen, was zusätzlich zum Profil wegfällt — der Name eines
+Template-Skills (`act-seo`), einer Template-Rolle (`test-writer`), einer Regeldatei (`orchestrator/30-cost.md`)
+oder eines Topics (`logging` oder `topics/logging.md`). Regeldateien fallen nur über ihren Namen weg, nie über das Profil. Eine Regeldatei
+bleibt unter `.act/`, aber ihre Zeile in `docs/ai/rules.md` verliert das `@`, und Claude Code lädt sie nicht mehr
+(die Sub-Agenten ebenso wenig); ein ausgeschlossenes Topic wird beim Sitzungsstart nicht mehr genannt. `shared/10-safety.md`
+lässt sich nicht ausschließen (eine Warnung, der Eintrag wird ignoriert), und ein unbekannter Name gibt nur eine Warnung. Die Prüfungen unter
+§ Checks bleiben in jedem Fall in Kraft: ihre Sperren hängen nicht vom Regeltext ab.
+
+Der Sitzungsstart wendet eine Änderung an: Er entfernt die Kopien der weggelassenen Skills und Rollen
+(`.claude/skills/`, `.agents/skills/`, `.claude/agents/`; eine von dir bearbeitete Kopie bleibt und wird gemeldet), stellt
+die Import-Zeilen um und sagt das in einer Zeile. Skills, Rollen und Regeln werden beim Start einer Sitzung geladen, eine Änderung
+wirkt also erst ab der **nächsten** Sitzung. `init` und `update` beachten den Scope und schreiben nie eine Kopie, die
+wegfällt. Zum Rückgängigmachen `profile` auf `full` und `exclude` auf `none` setzen: Der nächste Sitzungsstart schreibt die
+Kopien und Import-Zeilen zurück.
+
 ## Status line
 <!-- source: e012c1dd0a03740c -->
 Die Statuszeile von Claude Code (`statusLine` in `.claude/settings.json`) zeigt, was in `docs/ai/inbox/` auf dich
@@ -208,7 +242,7 @@ so gelangt ein globales Token nicht an einen fremden Host. Ohne Eintrag laufen L
 `http://` erreicht wird, wird genauso behandelt, bis seine Adresse `https://` ist.
 
 ## Checks
-<!-- source: b848ed863cb05ed9 -->
+<!-- source: 0edbfbac356a1bb3 -->
 Jede der folgenden Prüfungen läuft vor der Aktion, die sie nennt; `block` verweigert die Aktion, `warn` erlaubt sie
 mit einem Hinweis, `off` überspringt die Prüfung ganz. Eine Prüfung, die nur hinweist (markiert mit „never
 refuses“), behandelt `block` wie `warn`.
@@ -242,6 +276,7 @@ refuses“), behandelt `block` wie `warn`.
 | `update-branch-hint` | warn | Update oder Einstellungsimport auf einem anderen Branch als dem Default-Branch: ein Hinweis, dass die anderen es erst mit dem Merge bekommen — verweigert nie, `block` zählt als `warn`, `off` lässt den Hinweis weg |
 | `update-check` | block | beim Sitzungsstart: ein Hinweis, wenn `.act/` ohne `update.py` hereingeholt wurde, und — höchstens einmal am Tag geprüft — ein Hinweis, dass das Template weitergezogen ist, bei jedem Start wiederholt und auf dem Board und in der Statuszeile gezeigt, bis das Update eingespielt ist; verweigert nie, `off` überspringt beides |
 | `docs-order` | warn | nur `act-doctor`, verweigert nie: ein Ordner unter `docs/project/` mit fünf oder mehr Einträgen und ohne `README.md`, eine Datei, die seine `README.md` nicht nennt, eine Indexzeile ohne Datei, ein toter relativer Link, ein Konzept, dessen Fragen alle beantwortet sind; `block` zählt als `warn`, `off` überspringt es (`R-docs-order`) |
+| `own-rules-budget` | 6000 | nur `act-doctor`, verweigert nie: die Zeichen, die die Abschnitte „Own rules“ von `docs/ai/rules.md` und `docs/project/coding_rules.md` zusammen haben dürfen, bevor eine Warnung die Größe und bis zu fünf Zeilen nennt, die wie Verlauf klingen (ein Datum, eine Eintrags-ID, „früher … seit …“); `off` oder `0` überspringt es |
 
 ## Logging
 <!-- source: 9fb49fc66248da1d -->
@@ -255,7 +290,7 @@ Projektwurzelverzeichnis (nicht versioniert) — um live mitzuverfolgen, z. B. i
 `log-level`: `DEBUG` \| `INFO` \| `WARN` \| `ERROR`. Details: `.act/rules/topics/logging.md`.
 
 ## Feedback
-<!-- source: 614fd99230552d9e -->
+<!-- source: 79d146a9ec3d52f7 -->
 | Schlüssel | Wert |
 | :--- | :--- |
 | `feedback` | <feedback-mode> |
@@ -267,8 +302,8 @@ Freiwilliges Feedback an den Template-Autor über die Arbeitsweise, nie über da
 Template-Autor; Befunde werden stattdessen hier zu Backlog-Einträgen). `feedback-cadence` ist eine Obergrenze:
 `manual` \| `immediate` \| `hourly` \| `daily` \| `weekly` \| `adaptive`. `feedback-scope`: `a`
 Metriken, `b` Regel- und Strukturänderungen, `c` Tool-Nutzung (Zähler der seit dem letzten Senden genutzten Template-Skills/-Scripte; deine eigenen nur als ein `own`-Zähler). Die vollständige Kopie jeder gesendeten Nutzlast bleibt
-lokal (`.act-local/feedback/sent/`, per gitignore ausgeschlossen) — jedes Senden bekommt zudem eine Zeile im Journal
-(Datum, Art, Anzahl der Einträge, Schema-Version, nie Inhalt). Eine Nachricht, die du selbst schreibst
+lokal (`.act-local/feedback/sent/`, per gitignore ausgeschlossen) — das Journal bekommt zudem einen Eintrag pro Tag mit einer Zeile je Senden
+(Uhrzeit, Art, Anzahl der Einträge, Art und Titel jedes Eintrags, nie dessen Text). Eine Nachricht, die du selbst schreibst
 (`feedback: <text>`), geht immer raus, auch bei `off` (aber nie bei `local`), zusammen mit dem Template-Commit und der
 zufälligen Projekt-Kennung (eine Antwortadresse nur, wenn du eine nennst). Details: `.act/rules/topics/feedback.md`.
 

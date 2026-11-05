@@ -12,3 +12,4 @@ a `README.md` and parts. Numbers in file names only for a series with a reading 
 | File or folder | Contents | State |
 | :--- | :--- | :--- |
 | `coding_rules.md` | Which rule sets and groups are on for this stack | current |
+| `german-glossary.md` | Wording rules for the German pages under `src/content/docs/de/` | current |

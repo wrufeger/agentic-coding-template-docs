@@ -74,7 +74,7 @@ behind another remote helper gets no update note at session start, while `act-up
 4. **Consent.** Nothing is replaced before you agree. `--yes` skips the prompt once you already agreed.
 5. **Replace `.act/`** as a whole.
 6. **Refresh the copies** outside `.act/`: unchanged skill copies and role bridges are replaced, copies you edited
-   are kept and reported. Own skills and roles under `docs/ai/local/` get their
+   are kept and reported. Copies that `profile` or `exclude` ([Scope](/agentic-coding-template-docs/reference/configuration/#scope)) leave out are not written; an unedited copy already there is removed, an edited one is kept, and both are reported. Own skills and roles under `docs/ai/local/` get their
    copies here too. New coding sets and groups are entered in `docs/project/coding_rules.md` (a new set unchecked, a new
    group of a checked set checked; see [Own skills, roles and rules](/agentic-coding-template-docs/guides/own-skills-and-rules/)).
    If you edited `docs/ai/rules.md`, a rule that moved to another rule file takes its checkbox line along (mark and
@@ -178,7 +178,7 @@ usual fix is `--source <local template checkout>`.
 ## Your own changes
 
 `.act/` is replaced, so never edit it. Put a project version of a rule, skill, or role into
-`docs/ai/local/<same path>`; if you override the `act-audit-docs` script `workflow.js`, rename your file to `workflow.js.txt` (the template's script has that name now, and the update removes the old one). An update never overwrites that folder or your own content in `docs/ai/` and `docs/project/`. It refreshes only unedited generated files (such as an unedited `docs/ai/rules.md`), files findings in the inbox and runs migrations. See
+`docs/ai/local/<same path>`; if you override the `act-audit-docs` script `workflow.js`, rename your file to `workflow.js.txt` (the template's script has that name now, and the update removes the old one). An update never overwrites that folder or your own content in `docs/ai/` and `docs/project/`. It refreshes only unedited generated files (such as an unedited `docs/ai/rules.md`; an existing `docs/ai/inbox/README.md` is not replaced, the rule `R-human-ask` carries the form of a question), files findings in the inbox and runs migrations. See
 [Layers and overrides](/agentic-coding-template-docs/concepts/layers/).
 
 ## If `.act/` was replaced another way

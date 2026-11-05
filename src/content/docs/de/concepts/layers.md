@@ -3,7 +3,7 @@ title: Schichten und Overrides
 description: Wie Template-Schicht und Projekt-Schicht zusammenpassen und wie du eine Regel änderst, ohne sie beim Update zu verlieren.
 sidebar:
   order: 1
-sourceHash: 1433449f2784a1472a783e844a94e2dc23a3fc5387d7cc29c5f35a584167db58
+sourceHash: a9f32a3d134c85db61d80d749c090577a0abc08d5bbd17bd01f305132e8926ff
 ---
 
 ## Zwei Schichten
@@ -29,10 +29,10 @@ bekommt seine Werkzeugkopien beim nächsten Sitzungsstart (Standard `session-sta
 
 `docs/ai/rules.md` importiert die Regeldateien und listet jede Regel mit einem Kontrollkästchen. Eine
 angekreuzte Regel gilt; eine nicht angekreuzte ist aus, obwohl ihr Text geladen wird. Streiche eine Import-Zeile,
-um einen ganzen Bereich abzuschalten. Dein eigener Text kommt in die Abschnitte am Ende der Datei:
+um einen ganzen Bereich abzuschalten. Eine Regeldatei, die über `exclude` in `docs/ai/config.md` ausgeschlossen ist ([Scope](/agentic-coding-template-docs/de/reference/configuration/#scope)), behält ihre Zeile, aber der Sitzungsstart macht den Import zu einem bloßen Pfad, sodass Claude Code sie nicht mehr lädt. Dein eigener Text kommt in die Abschnitte am Ende der Datei:
 
 - `## Overrides`: ``- replaces `R-id`: <dein Wortlaut>``. Die Zeile ersetzt den ganzen Text dieser Regel, angekreuzt oder nicht.
-- `## Own rules`: ``- `R-your-id`: text`` oder ein bloßer Aufzählungspunkt, zusätzlich zu den Regeln des Templates.
+- `## Own rules`: ``- `R-your-id`: text`` oder ein bloßer Aufzählungspunkt, zusätzlich zu den Regeln des Templates. Halte sie kurz: `act-doctor` warnt, wenn die eigenen Regeln von `docs/ai/rules.md` und `docs/project/coding_rules.md` zusammen die Prüfung `own-rules-budget` überschreiten (Standard 6000 Zeichen).
 
 `python .act/scripts/rules.py --list --area core` zeigt jede Regel mit ihrem Zustand, Overrides als `[~]` und eigene Regeln als `[+]` (ohne `--area core` listet es die Coding-Sätze);
 `--validate` meldet Text, den es nicht lesen konnte. Pfadgebundene Regeln von Claude Code unter `.claude/rules/**/*.md` erscheinen in `--list` mit ihren `paths:`-Mustern; `--validate` warnt vor einem Muster, das auf keine Projektdatei passt, und vor einer Datei ohne `paths:`.

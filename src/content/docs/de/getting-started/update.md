@@ -3,7 +3,7 @@ title: Update
 description: Einen neueren Stand des Templates mit act-update in ein Projekt holen.
 sidebar:
   order: 3
-sourceHash: a7e09ef5932a3e2939391c6c0a6e91ffe9d3201b0137c5cd145d2f5482e40179
+sourceHash: c12e2c6aa8e71921278c88b95a8ffaae63bce7de1c66f73a1b0176e0c0b0fc1f
 ---
 
 `act-update` holt einen neueren Stand des Templates in dein Projekt: Du siehst den Diff, du stimmst zu, und
@@ -79,7 +79,7 @@ Update-Notiz, `act-update` selbst bleibt unverändert.
    zugestimmt hast.
 5. **`.act/` ersetzen**, als Ganzes.
 6. **Die Kopien auffrischen** außerhalb von `.act/`: unveränderte Skill-Kopien und Rollen-Brücken werden ersetzt,
-   von dir bearbeitete Kopien bleiben erhalten und werden gemeldet. Eigene Skills und Rollen unter `docs/ai/local/` bekommen ihre Kopien
+   von dir bearbeitete Kopien bleiben erhalten und werden gemeldet. Kopien, die `profile` oder `exclude` ([Scope](/agentic-coding-template-docs/de/reference/configuration/#scope)) auslassen, werden nicht geschrieben; eine schon vorhandene unbearbeitete Kopie wird entfernt, eine bearbeitete bleibt, beides wird gemeldet. Eigene Skills und Rollen unter `docs/ai/local/` bekommen ihre Kopien
    hier ebenfalls. Neue Coding-Sätze und -Gruppen trägt `act-update` in `docs/project/coding_rules.md` ein (ein neuer Satz nicht angekreuzt,
    eine neue Gruppe eines angekreuzten Satzes angekreuzt; siehe [Eigene Skills, Rollen und Regeln](/agentic-coding-template-docs/de/guides/own-skills-and-rules/)).
    Hast du `docs/ai/rules.md` bearbeitet, nimmt eine Regel, die in eine andere Regeldatei gewandert ist, ihre
@@ -188,7 +188,7 @@ ein lokaler Checkout mit ungepushten Commits), warnt `--plan`, und ein echter La
 `.act/` wird ersetzt, bearbeite es also nie. Lege eine Projektfassung einer Regel, eines Skills oder einer Rolle
 in `docs/ai/local/<gleicher Pfad>` ab; überschreibst du das Script `workflow.js` von `act-audit-docs`, benenne deine Datei in `workflow.js.txt` um (so heißt das Script des Templates jetzt, das Update entfernt das alte). Ein Update überschreibt diesen Ordner nie, ebenso wenig deine eigenen
 Inhalte in `docs/ai/` und `docs/project/`. Es frischt nur unbearbeitete erzeugte Dateien auf (etwa eine
-unbearbeitete `docs/ai/rules.md`), legt Befunde in der Inbox ab und führt Migrationen aus. Siehe
+unbearbeitete `docs/ai/rules.md`; eine vorhandene `docs/ai/inbox/README.md` wird nicht ersetzt, die Regel `R-human-ask` trägt die Form einer Frage), legt Befunde in der Inbox ab und führt Migrationen aus. Siehe
 [Schichten und Overrides](/agentic-coding-template-docs/de/concepts/layers/).
 
 ## Wenn `.act/` auf anderem Weg ersetzt wurde

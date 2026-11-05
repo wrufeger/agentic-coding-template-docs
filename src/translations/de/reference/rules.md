@@ -440,9 +440,9 @@ Inbox-Einträge, die der Mensch schon beantwortet hat, werden vor allem anderen 
 `triage: open` kommt direkt danach (`R-human-capture`).
 
 ## R-human-ask
-<!-- source: da9ac1e550cadf2d -->
+<!-- source: b8bced4bdb17216e -->
 Fragen bündeln; nie selbst entscheiden
-summary: Fragen gebündelt am Anfang, Annahmen benennen, keine stillen Entscheidungen, inbox-decisions
+summary: Fragen gebündelt am Anfang, Annahmen benennen, keine stillen Entscheidungen, inbox-decisions, die Form einer Frage
 
 Fragen werden zu Beginn eines Blocks gebündelt, nicht einzeln fallen gelassen, wie sie gerade aufkommen. Mitten
 in der Aufgabe wird nur gefragt, wenn das Weitermachen ohne Antwort bedeuten würde, schon geleistete Arbeit zu
@@ -458,6 +458,12 @@ Aufgabe entsteht, sowie jeder Schritt, den nur der Mensch tun kann und jetzt tun
 Inbox (Frage oder Todo, `R-human-chat`), und der verbuchte Eintrag nennt ihre ID. Bei `at-start` darf ein
 Backlog-Eintrag seine offenen Entscheidungen behalten (Einzelheiten in `docs/ai/config.md`); die offenen
 Entscheidungen einer Aufgabe liegen immer in der Inbox.
+
+Eine Frage in der Inbox hat die Frage selbst als Überschrift, mit einem Fragezeichen am Ende. Darunter steht ein
+Hinweis von höchstens drei Sätzen ohne Liste; Hintergrund und Gründe bleiben im Konzept oder Backlog-Eintrag, den er
+nennt. Dann 2–5 Optionen als Zeilen `- **a)** …`, nie als nummerierte Liste, je eine oder zwei Zeilen mit dem
+Aufwand, die Empfehlung an ihrer eigenen Option und eine Leerzeile davor, dazwischen und danach. Eine Frage ohne
+sinnvolle Optionen bleibt Freitext. Form: `docs/ai/inbox/README.md`.
 
 ## R-human-capture
 <!-- source: 368ded20e7df5da7 -->
@@ -551,17 +557,21 @@ Kostenregeln
 summary: wann delegieren, Delegations-Tiers und Caps, auf Worker warten, einen laufenden Auftrag ergänzen, wiederkehrende Prüfungen als Script, Commit-Schranke, die Secret-Prüfung des Diffs, Reset und Verwerfen
 
 ## R-cost-delegate
-<!-- source: 29e59d641a698036 -->
+<!-- source: 2d689ff302a7a2c3 -->
 Tier, Schätzung und Cap nennen
-summary: delegieren, wo sich eine Übergabe lohnt, Rollen des Templates vor den eigenen Agenten des Werkzeugs; Tier, Schätzung in Minuten und tkn fresh/cache, mechanisch geprüfter Cap, kleine Aufträge, lange Arbeit in parallele Teile geschnitten, überlappende Aufgaben zusammengelegt
+summary: delegieren, wo sich eine Übergabe lohnt (mehr als drei Dateien oder eine unbekannte Stelle, Testläufe, Material über ~20k Token), Rollen des Templates vor den eigenen Agenten des Werkzeugs; Tier, Schätzung in Minuten und tkn fresh/cache, mechanisch geprüfter Cap, kleine Aufträge, lange Arbeit in parallele Teile geschnitten, überlappende Aufgaben zusammengelegt
 
 Eine Übergabe kostet den frischen Start eines Workers und verliert Kontext; delegiert wird deshalb nur, wo sie
 sich lohnt: unabhängige Teile, die parallel laufen, eine Prüfung, die den Kontext der Umsetzung nicht teilen soll
 (das Review), Ausgabe von unbekannter oder großer Länge, die danach nicht mehr gebraucht wird, langes Lesen oder
-Läufe, die ein günstigeres Tier ebenso gut erledigt. Eine bekannte Datei oder Stelle, wenige Werkzeugaufrufe oder
-eine kleine Änderung erledigt man selbst; ihr Review folgt trotzdem `R-code-commit`. Die Rollen des Templates gehen
-vor den eigenen Agenten des Werkzeugs (in Claude Code `Explore`, `general-purpose`, `Plan`; sein
-`claude-code-guide` bleibt für Fragen zum Werkzeug selbst).
+Läufe, die ein günstigeres Tier ebenso gut erledigt. In der Praxis: Recherche über mehr als drei Dateien oder in
+Code, dessen Stelle noch nicht bekannt ist, geht an `explorer` (`light`), ebenso die Auswertung von Transkripten, Logs
+oder Feedback und Material über etwa 20k Token, das danach nicht mehr gebraucht wird; er gibt nur Befunde und Zahlen
+zurück. Ein Lauf der Testsuite, eine Probe oder ein Smoketest, die im Auftrag genannt sind, gehen an `quick-check`,
+der Exit-Code, Fehlschläge und Zahlen zurückgibt. Eine bekannte Datei oder Stelle, wenige Werkzeugaufrufe, eine
+kleine Änderung, einen Eintrag unter `docs/ai/`, einen Commit oder `git status` erledigt man selbst; ihr Review folgt
+trotzdem `R-code-commit`. Die Rollen des Templates gehen vor den eigenen Agenten des Werkzeugs (in Claude Code
+`Explore`, `general-purpose`, `Plan`; sein `claude-code-guide` bleibt für Fragen zum Werkzeug selbst).
 
 Jeder Auftrag an einen Worker nennt sein Tier ausdrücklich — `light` für Lesen/Zählen, `standard` für
 Umsetzung, `elevated` für Review/Sicherheitsbewertung, `expert` nur für eine Eskalation nach zwei gescheiterten
@@ -582,7 +592,7 @@ nennt deshalb `.act-local/tmp/<task-id>-<slug>/**` darin. Muster-Syntax und Gren
 Worker, die gleichzeitig laufen, bekommen getrennte Write Scopes, sonst laufen sie nacheinander
 (`worker-scope-overlap`, `docs/ai/config.md` § Checks).
 
-Arbeit, die voraussichtlich länger als etwa fünf Minuten läuft, wird zuerst auf unabhängige Teile geprüft. Lässt
+Arbeit, die voraussichtlich länger als etwa fünf Minuten läuft, wird zuerst auf unabhängige Teile geprüft — Test- und Probenläufe, Fallkataloge, Aufträge über getrennte Dateien, ein Review je geprüfter Stelle. Lässt
 sie sich teilen, laufen die Teile parallel mit getrennten Write Scopes, und die Ersparnis wird vorher und nachher
 gemessen. Nicht geteilt wird, wenn die Teile dieselbe Datei schreiben, aufeinander aufbauen (`Depends on:`) oder
 jeder Teil denselben großen Stoff erneut lesen müsste. Aufgaben, die dieselben Dateien berühren, werden zuerst auf

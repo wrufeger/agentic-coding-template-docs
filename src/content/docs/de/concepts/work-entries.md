@@ -3,7 +3,7 @@ title: Inbox, Aufgaben und Journal
 description: Was in docs/ai/ liegt - Inbox, Aufgaben, Backlog, Journal, Archiv, Ideen, das Board und die Statuszeile.
 sidebar:
   order: 3
-sourceHash: 95a403747302089f008a4a82dba874a0ac2184202de55351b34a6e7ec5c52f90
+sourceHash: d09e3401123503304900b9176b55daf08ce47e0786aa6f0d94511948e3f19339
 ---
 
 `docs/ai/` ist das gemeinsame Arbeitsgedächtnis von dir und dem Assistenten. Alles darin ist eine einfache Datei, eine Datei pro Eintrag, versioniert mit dem Projekt. Übersichten wie das Board werden aus diesen Dateien erzeugt und nie von Hand gepflegt.
@@ -35,7 +35,7 @@ Ein Eintrag ohne `kind` zählt als `todo`. Das Feld `for:` sagt, an wen ein Eint
 
 Eine Chat-Nachricht, die mit `todo:`, `note:` oder `idea:` beginnt (Groß-/Kleinschreibung egal), ist ein Quick Capture: Bei eingeschaltetem `quick-capture` (Standard) legt der Hook `UserPromptSubmit` sie ohne Modell-Durchlauf ab, sie kostet also keine Token und unterbricht keine laufende Aufgabe. `todo:` und `note:` werden Inbox-Einträge mit `triage: open`; `idea:` wird ein neuer Abschnitt in deiner Ideen-Datei (unten). Der Assistent bearbeitet jeden Eintrag mit `triage: open` direkt nach den beantworteten: Er entscheidet, für wen ein Todo ist, oder macht daraus einen Backlog-Eintrag, oder er antwortet unter einer Notiz. Wo der Hook nicht läuft, legt der Assistent die Nachricht selbst ab (Regel `R-human-capture`).
 
-Eine Frage ist eine Datei je Frage, mit Optionen als Zeilen `- **a)** …` (keine nummerierte Liste) und markierter Empfehlung. `entries.py new question` schließt sie mit einer leeren Zeile `**Antwort:**` (`**Answer:**` bei nicht deutschem `language-docs`); die Antwort steht darunter, und vor dem Verbuchen liest der Assistent die Datei erneut, damit sie nie unter einer zweiten Zeile landet. Auch eine Frage, die unter einer vorgegebenen `--id` (oder `--formerly`) angelegt wird, bekommt die Zeile; ein Text, der schon eine Antwortzeile am Zeilenanfang trägt, auf Englisch oder Deutsch, oder eine Frage mit `--status answered` bekommt keine zweite.
+Eine Frage ist eine Datei je Frage. Ihre Überschrift ist die Frage selbst und endet mit einem Fragezeichen. Darunter steht ein Hinweis von höchstens drei Sätzen ohne Liste; Hintergrund und Gründe bleiben im Backlog-Eintrag oder Konzept, das er nennt. Dann folgen 2-5 Optionen als Zeilen `- **a)** …` (keine nummerierte Liste), je ein bis zwei Zeilen mit dem Aufwand, die Empfehlung an ihrer eigenen Option, und je eine Leerzeile davor, dazwischen und danach. Eine Frage ohne sinnvolle Optionen bleibt Freitext. Ein Update ersetzt die Inbox-README eines bestehenden Projekts nicht; sie kann also noch die ältere Form zeigen. `entries.py new question` schließt sie mit einer leeren Zeile `**Antwort:**` (`**Answer:**` bei nicht deutschem `language-docs`); die Antwort steht darunter, und vor dem Verbuchen liest der Assistent die Datei erneut, damit sie nie unter einer zweiten Zeile landet. Auch eine Frage, die unter einer vorgegebenen `--id` (oder `--formerly`) angelegt wird, bekommt die Zeile; ein Text, der schon eine Antwortzeile am Zeilenanfang trägt, auf Englisch oder Deutsch, oder eine Frage mit `--status answered` bekommt keine zweite.
 
 Der Assistent legt Einträge mit `python .act/scripts/entries.py new <kind> <title>` an; die [Script-Referenz](/agentic-coding-template-docs/de/reference/scripts/) listet alle Optionen.
 

@@ -7,6 +7,10 @@ scripts/check-translations.mjs; see README "Editing the site". -->
 <!-- source: b7fbdbeddce8b89c -->
 Hält `.act-local/` klein. Wegwerfmaterial (Proben, Wegwerfprojekte, alte Backups, Reste früherer Versionen) sammelt sich dort ohne…
 
+## table:act_profile.py
+<!-- source: d03d0e51aa944a2a -->
+Der Scope des Templates innerhalb eines Projekts — docs/ai/config.md § Scope: `profile` (minimal \| standard \| full) und `exclude` (eine durch Kommas getrennte Liste…
+
 ## table:actlib.py
 <!-- source: 8911ee0e74f116a2 -->
 Gemeinsame Bibliothek für jedes Script unter .act/scripts/ und .act/hooks/ — die einzige Stelle, die weiß, wie Template und Projekt aufgelöst werden…

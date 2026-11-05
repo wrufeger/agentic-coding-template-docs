@@ -3,7 +3,7 @@ title: Feedback
 description: Freiwilliges Feedback an den Autor des Templates - die Modi, Takt und Scope, was nie gesendet wird und wo die lokale Kopie bleibt.
 sidebar:
   order: 1
-sourceHash: dbb41ca5efe146f1b88c02f39946e61a4b7026bb54a0b4989be2bc45fcc9c374
+sourceHash: 784ea2a8a233f9fc6f0aa92bd4b9822ba91896d9f5d510eca4f95f942ba04191
 ---
 
 Du kannst dem Autor des Templates als Feedback melden, was der Arbeitsweise gutgetan hat oder fehlte. Feedback ist freiwillig, betrifft **nur die Arbeitsweise, nie dein Projekt**, und alles, was den Rechner verlässt, wird auch lokal aufbewahrt.
@@ -57,6 +57,6 @@ Jede Zeichenkette, die das Projekt verlassen könnte, läuft zuerst durch eine D
 
 - Jedes Senden schreibt eine vollständige Kopie seiner Nutzlast nach `.act-local/feedback/sent/` (per gitignore ausgeschlossen, verlässt nie deinen Checkout). Wartende Einträge und Buchführung liegen daneben in `.act-local/feedback/`.
 - Messwerte der Worker (`usage.py --estimates`) bleiben in `.act-local/usage.json` und sind nie Teil einer Nutzlast.
-- Das Journal des Projekts bekommt pro Senden eine Zeile: Datum, Art, Anzahl der Einträge und Schema-Version, nie Inhalt oder Titel.
+- Das Journal des Projekts bekommt einen Eintrag pro Tag, `<date>-feedback-sent.md`, mit einer Zeile pro Senden: Uhrzeit, Art des Sendens (Sammelversand oder Direktnachricht) und bei einem Sammelversand die Anzahl der Einträge sowie Art und Titel jedes Eintrags. Der Text eines Eintrags und einer Direktnachricht wird nie festgehalten.
 
 Siehe auch die [Konfigurationsreferenz](/agentic-coding-template-docs/de/reference/configuration/) für die drei Schlüssel und [Konfiguration](/agentic-coding-template-docs/de/concepts/configuration/) dafür, wie die Datei funktioniert.

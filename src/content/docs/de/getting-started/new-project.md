@@ -3,7 +3,7 @@ title: Neues Projekt
 description: Ein neues Projekt aus dem Template einrichten, mit dem Assistenten oder von Hand.
 sidebar:
   order: 1
-sourceHash: 0db9bd29b920b07be58436336065ea7cb2bf477e9b8461b1519cd29006941380
+sourceHash: 64a4c99a21dc2d3442ded68d0451d21b342bb01c00d47821e837ee3c75b47c3c
 ---
 
 ## Das Template holen
@@ -75,7 +75,7 @@ Zehn feste Schritte, jeder ausgegeben als `[n/10]`:
 4. Schreibt deine Workspace-Identität (auch wenn `.act-local/identity.json` existiert, aber `identity` fehlt) und den lokalen Import-Ordner `.act-local/import/`.
 5. Dünnt die Brücken auf die gewählten Werkzeuge aus.
 6. Schreibt das Gerüst: `docs/ai/` (`config.md`, `rules.md`, `concept/`, Inbox, Arbeitsordner), `docs/project/coding_rules.md`, `docs/project/glossary.md`,
-   `docs/project/README.md` (der Index der Projektdoku, eine Zeile je Datei), `docs/ai/local/resources.md`, `docs/README.md`, die Brückendateien, Skill-Kopien und die Hook-Einträge in `.claude/settings.json` (mit `"enableArtifact": false`, außer bei `artifacts: on`, und `PYTHON_BASIC_REPL=1` unter `env`, damit unter Windows ein leeres Heredoc in einem Bash-Aufruf unter Python 3.13 und neuer nicht hängt).
+   `docs/project/README.md` (der Index der Projektdoku, eine Zeile je Datei), `docs/ai/local/resources.md`, `docs/README.md`, die Brückendateien, Skill-Kopien und die Hook-Einträge in `.claude/settings.json` (mit `"enableArtifact": false`, außer bei `artifacts: on`, und `PYTHON_BASIC_REPL=1` unter `env`, damit unter Windows ein leeres Heredoc in einem Bash-Aufruf unter Python 3.13 und neuer nicht hängt). Skill-Kopien und Rollen-Brücken, die `profile` oder `exclude` in `docs/ai/config.md` § [Scope](/agentic-coding-template-docs/de/reference/configuration/#scope) auslassen, werden nicht geschrieben.
 7. Hängt Blöcke des Templates an `.gitattributes` und `.gitignore` an und hält `.act-local/` aus den Indizes der IDEs heraus (`excludeFolder` in `.idea/*.iml`, `files.watcherExclude` in `.vscode/settings.json`, wo `.vscode/` existiert).
 8. Nur im Klon: legt die eigenen Dateien des Templates still: README, `CHANGELOG.md` und die Community-Dateien unter
    `.github/` (Beitragshinweise, Sicherheit, Verhaltenskodex, Barrierefreiheit, Vorlagen für Issues und Pull Requests),

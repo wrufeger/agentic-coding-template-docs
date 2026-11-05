@@ -1,0 +1,6 @@
+{
+  "ids": [
+    "U2"
+  ],
+  "comment": "Highest id handed out per kind. entries.py raises it before it deletes a finished entry and hands out the next id above it, so no id is used twice. Do not edit by hand."
+}
