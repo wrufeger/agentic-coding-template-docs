@@ -1,9 +1,9 @@
 ---
-title: Konfiguration
+title: So funktioniert die Konfiguration
 description: docs/ai/config.md steuert den Arbeitsablauf - seine Gruppen und was block, warn und off für Prüfungen bedeuten.
 sidebar:
   order: 4
-sourceHash: 1efc758fe6b2cf8c04d1a6a93a8e2c7bec655f2564563c53f81fac178a236452
+sourceHash: 4912037ebc023b1c875e29460b049e9a7425125bbbf351a7e34c5e482b618d2a
 ---
 
 `docs/ai/config.md` ist die Datei, die steuert, wie am Projekt gearbeitet wird. Sie besteht aus Markdown-Tabellen, ein Abschnitt pro Thema. `init` trägt die Werte ein, die es erfragt oder erkannt hat; du änderst sie jederzeit. Nichts braucht einen Neuaufbau: Der Hook beim Sitzungsstart liest die Datei und meldet, was sich seit dem letzten Abgleich geändert hat. Jeder Schlüssel mit seinen erlaubten Werten steht in der [Konfigurationsreferenz](/agentic-coding-template-docs/de/reference/configuration/); diese Seite erklärt, wofür die Gruppen da sind. `/act-config` zeigt und setzt diese Werte ohne Modellrunde, siehe [Die Datei ändern](#die-datei-ändern).
@@ -53,7 +53,7 @@ Eine Prüfung herunterzustufen ist deine Entscheidung. Prüfungen wie `secret-sc
 
 ### Ignore-Dateien und was die Prüfungen nicht sind
 
-Eine `.claudeignore` gibt es nicht: Claude Code übergeht eine solche Datei kommentarlos. Seine Werkzeuge Glob und Grep lassen schon aus, was `.gitignore` ausschließt, `node_modules` und Build-Ordner eingeschlossen; die Vorlage legt deshalb keine eigene Ignore-Datei an. `permissions.deny` mit `Read(...)`-Regeln erreicht die eigenen Datei-Werkzeuge von Claude Code, einen Shell-Befehl aber nur, wo seine Sandbox eingeschaltet ist. Ein gezielter, begrenzter Blick in die Quellen einer Bibliothek (`grep -n … | head`) bleibt erlaubt; oft findet sich so ein Fehler in einer Abhängigkeit ([`R-work-bounded-output`](/agentic-coding-template-docs/de/reference/rules/#r-work-bounded-output)). Geheimnis-Dateien sperrt `secret-read`, auch in Shell-Befehlen, in den Grenzen, die seine Regel nennt ([`R-safe-no-secret-read`](/agentic-coding-template-docs/de/reference/rules/#r-safe-no-secret-read)). Die Prüfungen sind Leitplanken gegen Versehen, keine Sandbox: Weder eine Ignore-Datei noch eine deny-Regel hält für sich allein einen Agenten, oder einen in seinen Prompt eingeschleusten Text, davon ab, eine Datei über die Shell zu lesen. Dafür braucht es eine Trennung außerhalb des Agenten, etwa einen Container oder die Sandbox des Werkzeugs.
+Eine `.claudeignore` gibt es nicht: Claude Code übergeht eine solche Datei kommentarlos. Seine Werkzeuge Glob und Grep lassen schon aus, was `.gitignore` ausschließt, `node_modules` und Build-Ordner eingeschlossen; die Vorlage legt deshalb keine eigene Ignore-Datei an. `permissions.deny` mit `Read(...)`-Regeln erreicht die eigenen Datei-Werkzeuge von Claude Code, einen Shell-Befehl aber nur, wo seine Sandbox eingeschaltet ist. Ein gezielter, begrenzter Blick in die Quellen einer Bibliothek (`grep -n … | head`) bleibt erlaubt; oft findet sich so ein Fehler in einer Abhängigkeit ([`R-work-bounded-output`](/agentic-coding-template-docs/de/reference/rules/#r-work-bounded-output)). Geheimnis-Dateien sperrt `secret-read`, auch in Shell-Befehlen, in den Grenzen, die seine Regel nennt ([`R-safe-no-secret-read`](/agentic-coding-template-docs/de/reference/rules/#r-safe-no-secret-read)). Die Prüfungen sind Leitplanken gegen Versehen, keine Sandbox: Weder eine Ignore-Datei noch eine deny-Regel hält für sich allein einen Agenten, oder einen in seinen Prompt eingeschleusten Text, davon ab, eine Datei über die Shell zu lesen. Dafür braucht es eine Trennung außerhalb des Agenten, etwa einen Container oder die Sandbox des Werkzeugs. Welche Schalter die Tools dafür bieten und wo sie enden, steht in der [Isolation-Anleitung](/agentic-coding-template-docs/de/guides/isolation/).
 
 ## Datei und Umgebung
 

@@ -1,5 +1,5 @@
 ---
-title: Configuration
+title: How configuration works
 description: docs/ai/config.md steers the workflow - its groups, and what block, warn and off mean for checks.
 sidebar:
   order: 4
@@ -52,7 +52,7 @@ Turning a check down is your decision. Checks such as `secret-scan` or `git-rese
 
 ### Ignore files and what the checks are not
 
-There is no `.claudeignore`: Claude Code skips such a file without a word. Its Glob and Grep tools already leave out what `.gitignore` excludes, `node_modules` and build folders included, so the template adds no ignore file of its own. `permissions.deny` with `Read(...)` rules reaches Claude Code's own file tools, but a shell command only where its sandbox is switched on. A targeted, bounded look into a library's source (`grep -n … | head`) stays allowed; it is often how a bug in a dependency is found ([`R-work-bounded-output`](/agentic-coding-template-docs/reference/rules/#r-work-bounded-output)). Secret files are refused by `secret-read`, in shell commands too, within the limits its rule names ([`R-safe-no-secret-read`](/agentic-coding-template-docs/reference/rules/#r-safe-no-secret-read)). The checks are guard rails against mistakes, not a sandbox: neither an ignore file nor a deny rule on its own keeps an agent, or text injected into its prompt, from reading a file through the shell. That takes isolation outside the agent, such as a container or the tool's own sandbox.
+There is no `.claudeignore`: Claude Code skips such a file without a word. Its Glob and Grep tools already leave out what `.gitignore` excludes, `node_modules` and build folders included, so the template adds no ignore file of its own. `permissions.deny` with `Read(...)` rules reaches Claude Code's own file tools, but a shell command only where its sandbox is switched on. A targeted, bounded look into a library's source (`grep -n … | head`) stays allowed; it is often how a bug in a dependency is found ([`R-work-bounded-output`](/agentic-coding-template-docs/reference/rules/#r-work-bounded-output)). Secret files are refused by `secret-read`, in shell commands too, within the limits its rule names ([`R-safe-no-secret-read`](/agentic-coding-template-docs/reference/rules/#r-safe-no-secret-read)). The checks are guard rails against mistakes, not a sandbox: neither an ignore file nor a deny rule on its own keeps an agent, or text injected into its prompt, from reading a file through the shell. That takes isolation outside the agent, such as a container or the tool's own sandbox. Which switches the tools offer for that, and where they stop, is in the [Isolation guide](/agentic-coding-template-docs/guides/isolation/).
 
 ## File and environment
 

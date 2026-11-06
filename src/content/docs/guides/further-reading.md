@@ -1,8 +1,8 @@
 ---
 title: Further reading
-description: Checked links on agentic coding - background, getting started, tools, standards, ways of working, news and the known limits - each with a short assessment, the language of the source and the date it was checked.
+description: "Checked links on agentic coding: background, getting started, tools, standards, news and limits, each with an assessment and check date."
 sidebar:
-  order: 5
+  order: 6
 ---
 
 Sources outside the template that help you work with coding agents: what the approach is, how to start, the tools and standards it builds on, where news appears, and where its limits lie. Each entry says in our own words what you find there, who it suits and where it falls short, followed by the language of the source and the date the link was last checked. The template has no ties to any of them.
