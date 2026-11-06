@@ -7,6 +7,7 @@ import starlightLinksValidator from 'starlight-links-validator';
 export default defineConfig({
 	site: 'https://wrufeger.github.io',
 	base: '/agentic-coding-template-docs',
+	trailingSlash: 'always',
 	integrations: [
 		starlight({
 			title: 'agentic-coding-template',
