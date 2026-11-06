@@ -1,0 +1,172 @@
+---
+title: From idea to commit
+description: One real run from the first sentence to the commit - idea, question in the inbox, answer, task, builder and reviewer, commit - with the board in between.
+sidebar:
+  order: 2
+---
+
+import Diagram from '../../../components/Diagram.astro';
+
+This page follows one small change through the template, step by step, the way it ran in a demo project: a
+survey app for a room full of people, where a voting round can have a time limit. Names, ids, dates and numbers
+are invented; the files, commands and rules are the real ones. Nothing here is needed to use the template. It
+only shows how the parts fit together.
+
+The sentence behind every step: **nothing is built before you decide, and nothing counts as done before it is proven.**
+
+<Diagram name="idea-path-a" caption="The path of an idea. Orange steps are yours, blue ones the assistant's (the orchestrator), green ones a worker's. The board and the journal record every step." />
+
+Which steps a change needs at all, and which it may skip, is in [Concept, test, review: what needs what](/agentic-coding-template-docs/guides/what-needs-what/).
+
+## 1. The idea
+
+You type one line into the chat, no setup, no ceremony:
+
+```text
+idea: Show the remaining time of a voting round on the phone and on the dashboard.
+```
+
+A message that begins with `idea:`, `todo:` or `note:` is filed by a hook without a model turn, so it costs no
+tokens and does not interrupt anything that is running. An `idea:` becomes a new section in your own ideas file,
+`docs/ai/concept/ideas-alex.md`, word for word. The next session start notices it and has it processed. Details:
+[Work entries](/agentic-coding-template-docs/concepts/work-entries/#ideas-file).
+
+## 2. The concept with options
+
+The assistant does not start coding. `R-work-idea-first` says an idea first gets a short concept with options and
+a decision, and only then gets built. So it runs the `act-idea` skill: an `explorer` checks what exists (rounds
+already have a time limit, nothing shows it), the concept goes into `docs/project/concepts/round-countdown.md`
+with options, a recommendation, how it could fail and the way back. Nothing is filed and nothing is built yet: the
+next step puts the decision to you.
+
+## 3. The question in the inbox
+
+The decision lands in the inbox as one file per question, `docs/ai/inbox/Q9-...md`:
+
+```markdown
+---
+id: Q9
+kind: question
+for: all
+status: open
+created: 2026-03-12T09:41:07
+---
+
+# How should the remaining time of a round be shown?
+
+The round's time limit already exists on the server; only the display is missing. The concept page with the reasons: `docs/project/concepts/round-countdown.md`.
+
+- **a)** A number counting down every second on phone and dashboard, from the server's clock - about 20 min.
+  **Recommendation:** nothing to explain, the same on every device.
+
+- **b)** A shrinking bar without numbers - about 25 min; harder to read at the back of a room.
+
+- **c)** Do nothing for now - nothing changes, rounds just end.
+
+**Answer:**
+```
+
+The board now lists it under "Waiting for you", and the status line shows `act · Q9`. That is the whole interface
+to you: everything that waits on a person is in the inbox, and questions come with a recommendation, an effort and
+a way out.
+
+```text
+## Waiting for you
+- Q9 — How should the remaining time of a round be shown?
+```
+
+## 4. Your answer
+
+You write below the `**Answer:**` label, in the file or by telling the chat, as short as you like:
+
+```markdown
+**Answer:** a, and it must keep counting after the phone was asleep.
+```
+
+The assistant reads the file again before booking, records the decision in the project's decisions
+(`docs/project/decisions.md`), marks the question `answered`, then `done`, and takes your extra condition along
+into the task. A question that is not answered stays open; a task that depends on it does not start on a guess.
+
+## 5. The task
+
+With the decision in hand, the assistant files it (`entries.py new ...`): your idea moves, word for word, into a
+backlog item, say `B21`, linked to the concept page, and a task, `T14`, for what starts now, with a goal, check
+criteria and a size as duration and tokens, never person-days. If the decision rests on an assumption worth checking
+later, an ADR in the project's decisions comes with it.
+
+```markdown
+# B21: remaining time of a round on phone and dashboard (Q9 a)
+
+**Goal:** both views show the seconds left of the current round, counted down from the server's clock.
+**Done when:** a test shows the displayed value follows the server time after a 30 s pause; the existing
+tests stay green.
+Size: ~20 min · ~300k tkn fresh · ~6M tkn cache (1 builder, 1 reviewer, 1 test run).
+```
+
+Whenever it works, it records its state in one line (`entries.py state T14 ...`) so a fresh session, or you after
+a coffee, can pick up from there. The board shows the task as running:
+
+```text
+## Open tasks
+- T14 B21: remaining time of a round on phone and dashboard (running) — State 2026-03-12 10:05: builder done, review next
+```
+
+## 6. builder and reviewer
+
+The assistant does not build the change itself. It hands a bounded assignment to a `builder`, a worker with
+its own model tier, a cap on tool calls, and a write scope (`R-cost-delegate`, [Roles](/agentic-coding-template-docs/concepts/roles/)):
+
+```text
+Task T14, entry B21: show the remaining time of a round on phone and dashboard.
+Tier: standard · Estimate: ~20 min · ~300k tkn fresh · ~6M tkn cache · Cap: 40
+Write scope: app/static/**, app/rounds.py, tests/test_rounds.py
+```
+
+A worker never commits and never writes to `docs/ai/`. It returns a result with evidence, at most 40 lines,
+every assumption marked:
+
+```text
+Changed: app/rounds.py:41-58 (remaining_seconds), app/static/round.js:12-34, tests/test_rounds.py:+3 tests
+Evidence: pytest -q -> 44 passed in 2.1 s (3 new)
+Assumption: the server clock is the reference, not the phone's.
+```
+
+`R-work-evidence` is the reason for that last block: "done" holds only with a test run, a log, a screenshot, a
+commit hash or an outside call. An unbacked result is "not verified", not "done". Then the `reviewer` (higher tier,
+adversarial) looks once per task at the diff, lists its findings and ends with a verdict: `ALLOW`, `CONDITIONAL` or `BLOCK`.
+Here it says `CONDITIONAL`: the countdown reads right in the tests, but only a person can check it on a real phone
+after the screen was locked. The assistant therefore files a todo `U4` for you, and names it in the commit.
+
+## 7. The commit
+
+Only the orchestrator commits (`R-code-commit`), and without being asked. The `act-commit` skill checks that the
+evidence is in, runs the project's lint and tests where it has them, archives the finished task and question,
+stages by pathspec (never `git add -A`) and writes the journal entry:
+
+```text
+T14: remaining time of a round on phone and dashboard (B21, Q9 a), U4 checks it on a real phone
+
+Evidence: pytest -q 44 passed. Review: CONDITIONAL (U4).
+```
+
+The board afterwards shows the step under "Recent activity", the task is gone from "Open tasks", and `U4` waits
+under "Waiting for you":
+
+```text
+## Recent activity
+- 2026-03-12 — T14: remaining time of a round on phone and dashboard (Q9 a), U4 open
+```
+
+The next session, with no memory of this one, reads the board, the journal and the open entries and goes on from
+there. That is the point of keeping state in files.
+
+## What to take from it
+
+- You said one sentence, answered one question and, at most, did one check on a phone. The rest was the
+  assistant's work, in steps you could read afterwards.
+- Every step left a file: backlog item, concept, question, task, journal entry, commit. Nothing lived only in
+  the chat.
+- Each step has a rule behind it, so you can switch it off or change it: [Layers and overrides](/agentic-coding-template-docs/concepts/layers/).
+
+Next: [what a change needs at all](/agentic-coding-template-docs/guides/what-needs-what/), or
+[start a new project](/agentic-coding-template-docs/getting-started/new-project/).

@@ -1,0 +1,52 @@
+---
+title: "DRAFT: graphics for the path of an idea"
+description: Four hand-drawn variants of the diagram side by side, to compare in the dev server and delete what is not chosen.
+draft: true
+---
+
+import Diagram from '../../../components/Diagram.astro';
+
+:::caution[Draft, not published]
+`draft: true` keeps this page out of the production build and the sidebar; `npm run dev` shows it at
+`/agentic-coding-template-docs/drafts/graphics/`. Switch the theme (top right) to check light and dark.
+:::
+
+All four draw the same eight steps from [From idea to commit](/agentic-coding-template-docs/start/walkthrough/)
+and use the same three colors (orange: you, blue: the assistant, green: a worker). They are hand-written SVG in
+`src/assets/diagrams/` and take their colors from the active Starlight theme.
+
+## a - two rows with a return arrow
+
+Boxes with a short caption, a number per step, the BLOCK loop from reviewer back to builder, a dotted band for the
+board. The most explicit variant and the one the walkthrough uses now; it has a German copy,
+`idea-path-a.de.svg`.
+
+<Diagram name="idea-path-a" />
+
+## b - vertical track
+
+A line with eight stations, a description for every step, a role tag at the right, a dotted bar for the board along
+the whole path. Reads like a timeline, works best on a narrow screen, longest of the four.
+
+<Diagram name="idea-path-b" />
+
+## c - swim lanes
+
+Three lanes (you, assistant, workers) and one numbered dot per step; the path zigzags between the lanes and shows
+at a glance who does what. Least text, no BLOCK loop.
+
+<Diagram name="idea-path-c" />
+
+## d - loop around the board
+
+The eight steps form a ring around "Board and journal". It stresses that every step leaves a file, but it hides
+the order a little: the start at the top is only visible from the numbers.
+
+<Diagram name="idea-path-d" />
+
+## After you chose
+
+- Delete the SVG files of the variants you do not want, and this page together with `de/drafts/graphics.mdx`.
+- To use another variant in the walkthrough, change `name="idea-path-a"` in `start/walkthrough.mdx`. The German
+  page needs its own copy of the drawing with German labels (`idea-path-<x>.de.svg`, copy `idea-path-a.de.svg`).
+- Then run `npm run check:translations`, since the English walkthrough changed.

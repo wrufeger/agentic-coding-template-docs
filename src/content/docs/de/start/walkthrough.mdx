@@ -1,0 +1,177 @@
+---
+title: Von der Idee zum Commit
+description: Ein echter Durchlauf vom ersten Satz bis zum Commit - Idee, Frage in der Inbox, Antwort, Aufgabe, builder und reviewer, Commit - mit dem Board dazwischen.
+sidebar:
+  order: 2
+sourceHash: 0c376d573412768f50faef57cefe2f8d6c7bc47a1a3e6b4b92186032ab316f73
+---
+
+import Diagram from '../../../../components/Diagram.astro';
+
+Diese Seite begleitet eine kleine Änderung Schritt für Schritt durch das Template, so wie sie in einem Demo-Projekt
+lief: eine Umfrage-App für einen Saal voller Leute, in der eine Abstimmungsrunde ein Zeitlimit haben kann. Namen,
+Kennungen, Daten und Zahlen sind erfunden; die Dateien, Befehle und Regeln sind die echten. Nichts davon brauchst du,
+um das Template zu benutzen. Es zeigt nur, wie die Teile zusammenpassen.
+
+Der Satz hinter jedem Schritt: **Nichts wird gebaut, bevor du entschieden hast, und nichts gilt als fertig, bevor es belegt ist.**
+
+<Diagram name="idea-path-a.de" caption="Der Weg einer Idee. Orange Schritte sind deine, blaue die des Assistenten (des Orchestrators), grüne die eines Workers. Board und Journal halten jeden Schritt fest." />
+
+Welche Schritte eine Änderung überhaupt braucht und welche sie auslassen darf, steht in
+[Konzept, Test, Review: was braucht was](/agentic-coding-template-docs/de/guides/what-needs-what/).
+
+## 1. Die Idee
+
+Du tippst eine Zeile in den Chat, ohne Einrichtung, ohne Zeremonie:
+
+```text
+idea: Zeige die Restzeit einer Abstimmungsrunde auf dem Handy und auf dem Dashboard an.
+```
+
+Eine Nachricht, die mit `idea:`, `todo:` oder `note:` beginnt, legt ein Hook ohne Modell-Durchlauf ab; sie kostet
+keine Tokens und unterbricht nichts, was gerade läuft. Aus `idea:` wird ein neuer Abschnitt in deiner eigenen
+Ideen-Datei `docs/ai/concept/ideas-alex.md`, wortgetreu. Der nächste Sitzungsstart bemerkt ihn und lässt ihn
+bearbeiten. Einzelheiten: [Inbox, Aufgaben und Journal](/agentic-coding-template-docs/de/concepts/work-entries/#ideen-datei).
+
+## 2. Das Konzept mit Optionen
+
+Der Assistent fängt nicht an zu programmieren. `R-work-idea-first` sagt: Eine Idee bekommt zuerst ein kurzes Konzept
+mit Optionen und eine Entscheidung, erst dann wird sie gebaut. Also läuft der Skill `act-idea`: Ein `explorer`
+prüft, was es schon gibt (Runden haben schon ein Zeitlimit, nur zeigt es nichts an), das Konzept landet in
+`docs/project/concepts/round-countdown.md` mit Optionen, Empfehlung, möglichen Fehlerbildern und dem Weg zurück.
+Abgelegt und gebaut ist noch nichts: Der nächste Schritt legt dir die Entscheidung vor.
+
+## 3. Die Frage in der Inbox
+
+Die Entscheidung kommt als eine Datei je Frage in die Inbox, `docs/ai/inbox/Q9-...md`:
+
+```markdown
+---
+id: Q9
+kind: question
+for: all
+status: open
+created: 2026-03-12T09:41:07
+---
+
+# Wie soll die Restzeit einer Runde angezeigt werden?
+
+Das Zeitlimit der Runde gibt es serverseitig schon; es fehlt nur die Anzeige. Konzeptseite mit den Gründen: `docs/project/concepts/round-countdown.md`.
+
+- **a)** Eine Zahl, die jede Sekunde herunterzählt, auf Handy und Dashboard, nach der Uhr des Servers - etwa 20 min.
+  **Empfehlung:** nichts zu erklären, auf jedem Gerät gleich.
+
+- **b)** Ein schrumpfender Balken ohne Zahlen - etwa 25 min; in der letzten Reihe schwerer zu lesen.
+
+- **c)** Vorerst nichts tun - nichts ändert sich, Runden enden einfach.
+
+**Antwort:**
+```
+
+Das Board führt sie jetzt unter „Waiting for you“, und die Statuszeile zeigt `act · Q9`. Das ist die ganze
+Schnittstelle zu dir: Alles, was auf einen Menschen wartet, liegt in der Inbox, und Fragen kommen mit Empfehlung,
+Aufwand und einem Ausweg.
+
+```text
+## Waiting for you
+- Q9 — Wie soll die Restzeit einer Runde angezeigt werden?
+```
+
+## 4. Deine Antwort
+
+Du schreibst unter das Label `**Antwort:**`, in der Datei oder per Chat, so kurz du willst:
+
+```markdown
+**Antwort:** a, und es muss weiterzählen, auch wenn das Handy geschlafen hat.
+```
+
+Der Assistent liest die Datei vor dem Verbuchen noch einmal, hält die Entscheidung in den Entscheidungen des Projekts
+fest (`docs/project/decisions.md`), setzt die Frage auf `answered`, dann auf `done` und nimmt deine Zusatzbedingung in
+die Aufgabe mit. Eine unbeantwortete Frage bleibt offen; eine Aufgabe, die von ihr abhängt, startet nicht auf Verdacht.
+
+## 5. Die Aufgabe
+
+Mit der Entscheidung legt der Assistent es ab (`entries.py new ...`): Deine Idee wandert wortgetreu in einen
+Backlog-Eintrag, sagen wir `B21`, verknüpft mit der Konzeptseite, und für das, was jetzt beginnt, entsteht eine
+Aufgabe, `T14`, mit Ziel, Prüfkriterien und einer Größe als Dauer und Tokens, nie Personentage. Beruht die Entscheidung
+auf einer Annahme, die man später prüfen sollte, kommt ein ADR in den Entscheidungen des Projekts dazu.
+
+```markdown
+# B21: Restzeit einer Runde auf Handy und Dashboard (Q9 a)
+
+**Ziel:** beide Ansichten zeigen die Restsekunden der laufenden Runde, heruntergezählt nach der Uhr des Servers.
+**Fertig, wenn:** ein Test zeigt, dass der angezeigte Wert nach 30 s Pause der Serverzeit folgt; die vorhandenen
+Tests bleiben grün.
+Größe: ~20 min · ~300k tkn fresh · ~6M tkn cache (1 builder, 1 reviewer, 1 Testlauf).
+```
+
+Wann immer er arbeitet, hält er seinen Stand in einer Zeile fest (`entries.py state T14 ...`), damit eine frische
+Sitzung, oder du nach einem Kaffee, dort weitermachen kann. Das Board zeigt die Aufgabe als laufend:
+
+```text
+## Open tasks
+- T14 B21: Restzeit einer Runde auf Handy und Dashboard (running) — State 2026-03-12 10:05: builder fertig, Review folgt
+```
+
+## 6. builder und reviewer
+
+Die Änderung baut der Assistent nicht selbst. Er gibt einem `builder` einen begrenzten Auftrag, einem Worker mit
+eigener Modellstufe, einer Obergrenze an Werkzeugaufrufen und einem Write Scope (`R-cost-delegate`,
+[Rollen und Worker](/agentic-coding-template-docs/de/concepts/roles/)):
+
+```text
+Task T14, entry B21: show the remaining time of a round on phone and dashboard.
+Tier: standard · Estimate: ~20 min · ~300k tkn fresh · ~6M tkn cache · Cap: 40
+Write scope: app/static/**, app/rounds.py, tests/test_rounds.py
+```
+
+Auftrag und Ergebnis stehen hier im englischen Original, so wie die Werkzeuge sie schreiben. Ein Worker committet nie
+und schreibt nie nach `docs/ai/`. Er liefert ein Ergebnis mit Beleg, höchstens 40 Zeilen,
+jede Annahme markiert:
+
+```text
+Changed: app/rounds.py:41-58 (remaining_seconds), app/static/round.js:12-34, tests/test_rounds.py:+3 tests
+Evidence: pytest -q -> 44 passed in 2.1 s (3 new)
+Assumption: the server clock is the reference, not the phone's.
+```
+
+`R-work-evidence` ist der Grund für den letzten Block: „Fertig“ gilt nur mit einem Testlauf, einem Log, einem
+Screenshot, einem Commit-Hash oder einem Aufruf nach außen. Ein Ergebnis ohne Beleg ist „nicht verifiziert“, nicht
+„fertig“. Dann sieht der `reviewer` (höhere Stufe, kritisch) einmal je Aufgabe den Diff an, nennt seine Befunde und schließt mit einem
+Urteil: `ALLOW`, `CONDITIONAL` oder `BLOCK`. Hier lautet es `CONDITIONAL`: Der Countdown stimmt in den Tests, aber nur
+ein Mensch kann ihn auf einem echten Handy nach gesperrtem Bildschirm prüfen. Der Assistent legt deshalb ein Todo `U4`
+für dich an und nennt es im Commit.
+
+## 7. Der Commit
+
+Nur der Orchestrator committet (`R-code-commit`), und ohne dass du es verlangst. Der Skill `act-commit` prüft, dass
+der Beleg vorliegt, lässt Lint und Tests des Projekts laufen, wo es sie hat, archiviert die fertige Aufgabe und die
+Frage, nimmt die Dateien per Pfadangabe auf (nie `git add -A`) und schreibt den Journal-Eintrag:
+
+```text
+T14: Restzeit einer Runde auf Handy und Dashboard (B21, Q9 a), U4 prüft sie auf einem echten Handy
+
+Beleg: pytest -q 44 passed. Review: CONDITIONAL (U4).
+```
+
+Das Board zeigt den Schritt danach unter „Recent activity“, die Aufgabe ist aus „Open tasks“ verschwunden, und `U4`
+wartet unter „Waiting for you“:
+
+```text
+## Recent activity
+- 2026-03-12 — T14: Restzeit einer Runde auf Handy und Dashboard (Q9 a), U4 offen
+```
+
+Die nächste Sitzung ohne Erinnerung an diese liest Board, Journal und offene Einträge und macht dort weiter. Dafür
+liegt der Stand in Dateien.
+
+## Was du mitnimmst
+
+- Du hast einen Satz gesagt, eine Frage beantwortet und höchstens eine Prüfung am Handy gemacht. Der Rest war Arbeit
+  des Assistenten, in Schritten, die du hinterher nachlesen kannst.
+- Jeder Schritt hat eine Datei hinterlassen: Backlog-Eintrag, Konzept, Frage, Aufgabe, Journal-Eintrag, Commit. Nichts
+  lebte nur im Chat.
+- Hinter jedem Schritt steht eine Regel, die du abschalten oder ändern kannst: [Schichten und Overrides](/agentic-coding-template-docs/de/concepts/layers/).
+
+Weiter: [Konzept, Test, Review: was braucht was](/agentic-coding-template-docs/de/guides/what-needs-what/) oder
+[Neues Projekt](/agentic-coding-template-docs/de/getting-started/new-project/).

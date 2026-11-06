@@ -2,8 +2,8 @@
 title: Weitere Quellen
 description: "Geprüfte Links zu Agentic Coding: Hintergrund, Einstieg, Werkzeuge, Standards, News und Grenzen, je mit Einschätzung und Prüfdatum."
 sidebar:
-  order: 6
-sourceHash: eae37fe7ee96335075bf15359927be4fa1d185a2a3b9815c6491befca053813a
+  order: 7
+sourceHash: 71ece6b73ff5aa401cea3090f199b2e78d6d0676d5ec7e95110c082372ce37b2
 ---
 
 Quellen außerhalb des Templates, die bei der Arbeit mit Coding-Agenten helfen: was der Ansatz ist, wie man einsteigt, auf welchen Werkzeugen und Standards er aufbaut, wo es Neues gibt und wo seine Grenzen liegen. Jeder Eintrag sagt in eigenen Worten, was du dort findest, für wen es passt und wo es schwach ist, danach die Sprache der Quelle und das Datum, an dem der Link zuletzt geprüft wurde. Das Template ist mit keiner dieser Quellen verbunden.

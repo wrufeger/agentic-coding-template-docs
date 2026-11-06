@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 355" role="img" aria-labelledby="ipa-t ipa-d">
+  <title id="ipa-t">Path of an idea</title>
+  <desc id="ipa-d">Eight steps from an idea to a commit: idea, concept with options, question in the inbox, your answer, task, builder, reviewer, commit. The board and journal record every step.</desc>
+  <style>
+    .ipa text { font-family: var(--sl-font, system-ui, sans-serif); fill: var(--sl-color-gray-2, #353841); }
+    .ipa .h { font-size: 16px; font-weight: 700; fill: var(--sl-color-white, #17181c); }
+    .ipa .s { font-size: 12px; }
+    .ipa .n { font-size: 11px; font-weight: 700; }
+    .ipa .ln { fill: none; stroke: var(--sl-color-gray-3, #545861); stroke-width: 2; }
+    .ipa .back { fill: none; stroke: var(--sl-color-red, #b3202a); stroke-width: 1.5; stroke-dasharray: 5 4; }
+    .ipa .tip { fill: var(--sl-color-gray-3, #545861); }
+    .ipa .tipr { fill: var(--sl-color-red, #b3202a); }
+    .ipa .you { fill: var(--sl-color-orange-low, #fbe5cc); stroke: var(--sl-color-orange, #c4600a); stroke-width: 2; }
+    .ipa .asst { fill: var(--sl-color-accent-low, #d9e1ff); stroke: var(--sl-color-accent, #4d4dd6); stroke-width: 2; }
+    .ipa .wrk { fill: var(--sl-color-green-low, #cdeed8); stroke: var(--sl-color-green, #1f7a42); stroke-width: 2; }
+    .ipa .band { fill: var(--sl-color-gray-6, #eceef2); stroke: var(--sl-color-gray-5, #c0c2c7); stroke-width: 1.5; stroke-dasharray: 2 4; }
+  </style>
+  <defs>
+    <marker id="ipa-ar" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto"><path class="tip" d="M0 0 L10 5 L0 10 z"/></marker>
+    <marker id="ipa-arr" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto"><path class="tipr" d="M0 0 L10 5 L0 10 z"/></marker>
+  </defs>
+  <g class="ipa">
+    <rect class="you" x="0" y="2" width="14" height="14" rx="3"/><text class="s" x="20" y="14">You</text>
+    <rect class="asst" x="90" y="2" width="14" height="14" rx="3"/><text class="s" x="110" y="14">Assistant</text>
+    <rect class="wrk" x="210" y="2" width="14" height="14" rx="3"/><text class="s" x="230" y="14">Worker</text>
+    <rect class="you" x="0" y="40" width="150" height="70" rx="10"/>
+    <text class="n" x="12" y="59">1</text>
+    <text class="h" x="75" y="79" text-anchor="middle">Idea</text>
+    <text class="s" x="75" y="97" text-anchor="middle">you say it</text>
+    <rect class="asst" x="190" y="40" width="150" height="70" rx="10"/>
+    <text class="n" x="202" y="59">2</text>
+    <text class="h" x="265" y="79" text-anchor="middle">Concept</text>
+    <text class="s" x="265" y="97" text-anchor="middle">options, advice</text>
+    <rect class="asst" x="380" y="40" width="150" height="70" rx="10"/>
+    <text class="n" x="392" y="59">3</text>
+    <text class="h" x="455" y="79" text-anchor="middle">Question</text>
+    <text class="s" x="455" y="97" text-anchor="middle">in the inbox</text>
+    <rect class="you" x="570" y="40" width="150" height="70" rx="10"/>
+    <text class="n" x="582" y="59">4</text>
+    <text class="h" x="645" y="79" text-anchor="middle">Answer</text>
+    <text class="s" x="645" y="97" text-anchor="middle">you decide</text>
+    <rect class="asst" x="0" y="180" width="150" height="70" rx="10"/>
+    <text class="n" x="12" y="199">5</text>
+    <text class="h" x="75" y="219" text-anchor="middle">Task</text>
+    <text class="s" x="75" y="237" text-anchor="middle">goal + check</text>
+    <rect class="wrk" x="190" y="180" width="150" height="70" rx="10"/>
+    <text class="n" x="202" y="199">6</text>
+    <text class="h" x="265" y="219" text-anchor="middle">builder</text>
+    <text class="s" x="265" y="237" text-anchor="middle">builds, tests</text>
+    <rect class="wrk" x="380" y="180" width="150" height="70" rx="10"/>
+    <text class="n" x="392" y="199">7</text>
+    <text class="h" x="455" y="219" text-anchor="middle">reviewer</text>
+    <text class="s" x="455" y="237" text-anchor="middle">ALLOW / BLOCK</text>
+    <rect class="asst" x="570" y="180" width="150" height="70" rx="10"/>
+    <text class="n" x="582" y="199">8</text>
+    <text class="h" x="645" y="219" text-anchor="middle">Commit</text>
+    <text class="s" x="645" y="237" text-anchor="middle">with evidence</text>
+    <path class="ln" d="M154 75 H184" marker-end="url(#ipa-ar)"/>
+    <path class="ln" d="M344 75 H374" marker-end="url(#ipa-ar)"/>
+    <path class="ln" d="M534 75 H564" marker-end="url(#ipa-ar)"/>
+    <path class="ln" d="M154 215 H184" marker-end="url(#ipa-ar)"/>
+    <path class="ln" d="M344 215 H374" marker-end="url(#ipa-ar)"/>
+    <path class="ln" d="M534 215 H564" marker-end="url(#ipa-ar)"/>
+    <path class="ln" d="M645 110 V145 H75 V176" marker-end="url(#ipa-ar)"/>
+    <path class="back" d="M455 250 V268 H265 V254" marker-end="url(#ipa-arr)"/>
+    <text class="s" x="360" y="287" text-anchor="middle">BLOCK: back to the builder</text>
+    <rect class="band" x="0" y="302" width="720" height="46" rx="10"/>
+    <text class="s" x="360" y="330" text-anchor="middle">Board and journal: every step is a file, a fresh session continues from here</text>
+  </g>
+</svg>
