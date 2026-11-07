@@ -3,7 +3,7 @@ title: Neues Projekt
 description: Ein neues Projekt aus dem Template einrichten, mit dem Assistenten oder von Hand.
 sidebar:
   order: 1
-sourceHash: 64a4c99a21dc2d3442ded68d0451d21b342bb01c00d47821e837ee3c75b47c3c
+sourceHash: b222c93ae8f28e3f00cfdf90837bc3b42b12c1b48481119f7f79b7fb5702917a
 ---
 
 ## Das Template holen
@@ -38,6 +38,15 @@ Jede Sprache funktioniert. Es gibt drei Wege:
    einem Branch `act-adopt` um, ohne es zu committen. Die Schritte stehen unter
    [Bestehendes Projekt](/agentic-coding-template-docs/de/getting-started/existing-project/).
 
+Läuft das Template in einem Projekt schon, startet `/act-adopt` dort das nächste Projekt oder übernimmt von dort aus ein
+anderes und kann dessen eigene Skills, Regeln, Ausnahmen, Overrides und Topics mitnehmen (`--carry`); siehe
+[Bestehendes Projekt](/agentic-coding-template-docs/de/getting-started/existing-project/#starten). Danach schlägt der
+Assistent `act-update` im neuen Projekt vor, denn es hat das `.act/` des Projekts bekommen, aus dem es kam.
+
+Vor dem Lauf fragt der Assistent einmal, ob eine Arbeitsmethode an sein soll (`test-first`, `spec-first`,
+`simple-changes`; Standard keine), und gibt die Antwort als `--methods` weiter. Die Zeile `methods` in `docs/ai/config.md`
+§ [Scope](/agentic-coding-template-docs/de/reference/configuration/#scope) ändert sie jederzeit.
+
 Der Assistent führt die Befehle selbst aus. Er hat kein Terminal, in dem er dir Fragen stellen könnte, also
 übernimmt `init.py` die Standardwerte und schreibt jeden offenen Punkt (Name, Owner, Stack, Werkzeuge) in die
 Inbox. Du gehst diese Notiz mit dem Assistenten durch, und die Antworten kommen in `docs/ai/config.md`. Ohne Antwort steht `feedback` auf `confirm`: Jede Nachricht an den
@@ -56,7 +65,7 @@ python .act/scripts/init.py --non-interactive         # no questions: defaults, 
 ```
 
 Nützliche Optionen: `--language-docs <code>` (Sprache von `docs/`, Standard `en`), `--language-chat <code|auto>`,
-`--update-channel <release|latest>` (was `act-update` verfolgt, siehe [Update](/agentic-coding-template-docs/de/getting-started/update/#update-channel); `init` fragt, wenn du es weglässt), `--no-commit`. Alle Optionen stehen in der [Scripts-Referenz](/agentic-coding-template-docs/de/reference/scripts/).
+`--update-channel <release|latest>` (was `act-update` verfolgt, siehe [Update](/agentic-coding-template-docs/de/getting-started/update/#update-channel); `init` fragt, wenn du es weglässt), `--methods <Namen|none>` (Arbeitsmethoden, die an sein sollen; `init` fragt, wenn du es weglässt), `--carry <Liste>` (mit `--target`, aus einem Projekt gestartet: was von dort mitkommt, Standard alles), `--no-commit`. Alle Optionen stehen in der [Scripts-Referenz](/agentic-coding-template-docs/de/reference/scripts/).
 
 Bei einem **bestehenden Projekt** überschreibt `init.py --target <dir>` nie eine Datei. Es ergänzt `.act/` und alles,
 was fehlt, hängt seine eigenen Blöcke an `.gitignore`/`.gitattributes` an, führt seine Hook-Einträge in
@@ -69,7 +78,7 @@ werden soll, ist eine Einzelfallentscheidung je Datei, und die braucht einen Ass
 
 Zehn feste Schritte, jeder ausgegeben als `[n/10]`:
 
-1. Sammelt die Einstellungen: Name, Owner, Sprachen, Stack, Befehle, Werkzeuge, Modus, Feedback, Update-Channel (`release` oder `latest`, geschrieben nach `docs/ai/config.md` § Update). Es weist darauf hin, wenn der Klon schon über dem neuesten Release liegt.
+1. Sammelt die Einstellungen: Name, Owner, Sprachen, Stack, Befehle, Werkzeuge, Modus, Feedback, Update-Channel (`release` oder `latest`, geschrieben nach `docs/ai/config.md` § Update), Arbeitsmethoden (`methods`, Standard `none`). Es weist darauf hin, wenn der Klon schon über dem neuesten Release liegt.
 2. Klärt Git: im Klon entfernt es `origin` und baut `main` neu auf; mit `--target` führt es bei Bedarf `git init` aus.
 3. Prüft deine Git-Identität.
 4. Schreibt deine Workspace-Identität (auch wenn `.act-local/identity.json` existiert, aber `identity` fehlt) und den lokalen Import-Ordner `.act-local/import/`.
@@ -77,9 +86,12 @@ Zehn feste Schritte, jeder ausgegeben als `[n/10]`:
 6. Schreibt das Gerüst: `docs/ai/` (`config.md`, `rules.md`, `concept/`, Inbox, Arbeitsordner), `docs/project/coding_rules.md`, `docs/project/glossary.md`,
    `docs/project/README.md` (der Index der Projektdoku, eine Zeile je Datei), `docs/ai/local/resources.md`, `docs/README.md`, die Brückendateien, Skill-Kopien und die Hook-Einträge in `.claude/settings.json` (mit `"enableArtifact": false`, außer bei `artifacts: on`, und `PYTHON_BASIC_REPL=1` unter `env`, damit unter Windows ein leeres Heredoc in einem Bash-Aufruf unter Python 3.13 und neuer nicht hängt). Skill-Kopien und Rollen-Brücken, die `profile` oder `exclude` in `docs/ai/config.md` § [Scope](/agentic-coding-template-docs/de/reference/configuration/#scope) auslassen, werden nicht geschrieben.
 7. Hängt Blöcke des Templates an `.gitattributes` und `.gitignore` an und hält `.act-local/` aus den Indizes der IDEs heraus (`excludeFolder` in `.idea/*.iml`, `files.watcherExclude` in `.vscode/settings.json`, wo `.vscode/` existiert).
-8. Nur im Klon: legt die eigenen Dateien des Templates still: README, `CHANGELOG.md` und die Community-Dateien unter
+8. Nur im Klon: legt die eigenen Dateien des Templates still: README (die neue folgt dem Layout `readme-format` aus
+   [Formats](/agentic-coding-template-docs/de/reference/configuration/#formats), standardmäßig `standard`), `CHANGELOG.md` und die Community-Dateien unter
    `.github/` (Beitragshinweise, Sicherheit, Verhaltenskodex, Barrierefreiheit, Vorlagen für Issues und Pull Requests),
-   und fragt, ob seine LICENSE bleibt.
+   und fragt, ob seine LICENSE bleibt. Im Klon wie mit `--target` legt es dann das eigene `CHANGELOG.md` des Projekts mit
+   einem leeren Abschnitt `## [Unreleased]` an, außer `changelog` in § Formats steht auf `release-notes-only` oder `off`
+   oder das Projekt führt schon ein Changelog unter anderem Namen; eine vorhandene Datei wird nie überschrieben.
 9. Schreibt `.act-lock.json` (die festgehaltene Quelle und Version des Templates) und `.act/MANIFEST.json`.
 10. Macht den ersten Commit.
 

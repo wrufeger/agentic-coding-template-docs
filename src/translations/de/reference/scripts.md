@@ -16,8 +16,12 @@ Der Scope des Templates innerhalb eines Projekts — docs/ai/config.md § Scope:
 Gemeinsame Bibliothek für jedes Script unter .act/scripts/ und .act/hooks/ — die einzige Stelle, die weiß, wie Template und Projekt aufgelöst werden…
 
 ## table:adopt.py
-<!-- source: 76f810bbadf5d455 -->
-Mechanischer Ausführer einer freigegebenen Übernahmetabelle (Skill `act-adopt`, Schritte 4 und 7). Läuft aus einem Template-Checkout gegen ein Projekt, das…
+<!-- source: de3341acc9508788 -->
+Mechanischer Ausführer einer freigegebenen Übernahmetabelle (Skill `act-adopt`, Schritte 4 und 7). Läuft aus einem Template-Checkout oder aus einem Projekt…
+
+## table:adopt_baseline.py
+<!-- source: 389721b83262d372 -->
+Basisprüfung eines bestehenden Projekts vor seinem ersten Commit mit diesem Template (Skill `act-adopt`). Ein übernommenes Projekt wurde nie…
 
 ## table:adopt_config.py
 <!-- source: 04acfad216fda8bc -->

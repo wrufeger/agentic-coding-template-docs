@@ -3,7 +3,7 @@ title: Von der Idee zum Commit
 description: Ein echter Durchlauf vom ersten Satz bis zum Commit - Idee, Frage in der Inbox, Antwort, Aufgabe, builder und reviewer, Commit - mit dem Board dazwischen.
 sidebar:
   order: 2
-sourceHash: 0c376d573412768f50faef57cefe2f8d6c7bc47a1a3e6b4b92186032ab316f73
+sourceHash: 439af126c54f068279f987a104bb951de06ae3143d190a22b5be2606a9a2d8e0
 ---
 
 import Diagram from '../../../../components/Diagram.astro';
@@ -58,8 +58,8 @@ created: 2026-03-12T09:41:07
 
 Das Zeitlimit der Runde gibt es serverseitig schon; es fehlt nur die Anzeige. Konzeptseite mit den Gründen: `docs/project/concepts/round-countdown.md`.
 
-- **a)** Eine Zahl, die jede Sekunde herunterzählt, auf Handy und Dashboard, nach der Uhr des Servers - etwa 20 min.
-  **Empfehlung:** nichts zu erklären, auf jedem Gerät gleich.
+- **a)** **Empfehlung:** Eine Zahl, die jede Sekunde herunterzählt, auf Handy und Dashboard, nach der Uhr des Servers -
+  etwa 20 min. Nichts zu erklären, auf jedem Gerät gleich.
 
 - **b)** Ein schrumpfender Balken ohne Zahlen - etwa 25 min; in der letzten Reihe schwerer zu lesen.
 
@@ -145,8 +145,13 @@ für dich an und nennt es im Commit.
 ## 7. Der Commit
 
 Nur der Orchestrator committet (`R-code-commit`), und ohne dass du es verlangst. Der Skill `act-commit` prüft, dass
-der Beleg vorliegt, lässt Lint und Tests des Projekts laufen, wo es sie hat, archiviert die fertige Aufgabe und die
-Frage, nimmt die Dateien per Pfadangabe auf (nie `git add -A`) und schreibt den Journal-Eintrag:
+der Beleg vorliegt, lässt Lint und Tests des Projekts laufen, wo es sie hat, schließt die fertige Aufgabe und die Frage
+(bei der Standardeinstellung `done-entries: delete` wandern sie ins Archiv, markiert mit `purge: after-commit`, das
+Purge nach dem Commit löscht sie, sobald Git sie hält, und ihre IDs bleiben reserviert), nimmt die Dateien per
+Pfadangabe auf (nie `git add -A`) und schreibt den Journal-Eintrag. Die Nachricht folgt dem Commit-Format des
+Projekts (`commit-format` unter [Formats](/agentic-coding-template-docs/de/reference/configuration/#formats); der
+Standard `auto` übernimmt den Stil des Repos), und mit der Standardeinstellung für das Changelog kommt eine Zeile
+unter `[Unreleased]` in `CHANGELOG.md` dazu, da dieser Commit eine sichtbare Wirkung hat:
 
 ```text
 T14: Restzeit einer Runde auf Handy und Dashboard (B21, Q9 a), U4 prüft sie auf einem echten Handy

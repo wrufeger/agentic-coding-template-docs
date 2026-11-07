@@ -182,7 +182,7 @@ Kein rekursives Löschen durch einen Shell-Befehl. Aufgeräumt wird mit den eige
 `shutil.rmtree`) oder Datei für Datei.
 
 ## R-safe-git-metadata
-<!-- source: 5350c7e0a6ea86e0 -->
+<!-- source: d345483236439bc8 -->
 Keine Schreibzugriffe auf Hooks, Repository-Konfiguration oder Claude-Einstellungen
 summary: kein Schreiben in .git/hooks oder .git/config, kein Git-Config-Schlüssel, der Code ausführt, keine folderOpen-Task; Worker auch nicht in .claude-Einstellungen, Rollen, Skills, .vscode/tasks.json, .devcontainer, .envrc, .mcp.json
 
@@ -194,7 +194,9 @@ außerdem nie Claude-Einstellungen (`.claude/settings*.json`), Agents, Skills od
 im Projekt noch in `~/.claude`; der Orchestrator ändert sie auf Wunsch des Menschen. Ebenso wenig schreibt er
 Dateien, die beim Öffnen des Ordners Code starten (Editor-Tasks, Dev Container, `.envrc`, MCP-Konfiguration), und
 niemand fügt eine Task hinzu, die bei `folderOpen` läuft; eine solche Datei schreibt der Mensch selbst.
-Mechanisch geprüft durch `git-metadata-guard` (`docs/ai/config.md` § Checks). Details (jeder erfasste Schlüssel,
+Mechanisch geprüft durch `git-metadata-guard` (`docs/ai/config.md` § Checks).
+Nach jedem Aufruf vergleicht `protected-watch` diese Dateien mit einem Schnappschuss, setzt zurück, was ein Worker geändert hat, und meldet,
+was der Orchestrator geändert hat. Details (jeder erfasste Schlüssel,
 Pfad und jede Form, Grenze): `topics/checks.md`.
 
 ## R-safe-dev-server
@@ -440,7 +442,7 @@ Inbox-Einträge, die der Mensch schon beantwortet hat, werden vor allem anderen 
 `triage: open` kommt direkt danach (`R-human-capture`).
 
 ## R-human-ask
-<!-- source: b8bced4bdb17216e -->
+<!-- source: 50597d7fa82c34bd -->
 Fragen bündeln; nie selbst entscheiden
 summary: Fragen gebündelt am Anfang, Annahmen benennen, keine stillen Entscheidungen, inbox-decisions, die Form einer Frage
 
@@ -462,8 +464,9 @@ Entscheidungen einer Aufgabe liegen immer in der Inbox.
 Eine Frage in der Inbox hat die Frage selbst als Überschrift, mit einem Fragezeichen am Ende. Darunter steht ein
 Hinweis von höchstens drei Sätzen ohne Liste; Hintergrund und Gründe bleiben im Konzept oder Backlog-Eintrag, den er
 nennt. Dann 2–5 Optionen als Zeilen `- **a)** …`, nie als nummerierte Liste, je eine oder zwei Zeilen mit dem
-Aufwand, die Empfehlung an ihrer eigenen Option und eine Leerzeile davor, dazwischen und danach. Eine Frage ohne
-sinnvolle Optionen bleibt Freitext. Form: `docs/ai/inbox/README.md`.
+Aufwand und eine Leerzeile davor, dazwischen und danach. Eine empfohlene Option steht immer zuerst, als a), ihr Text
+beginnt mit dem fetten Label `**Recommended:**` (in `language-docs`, z. B. `**Empfehlung:**`) und endet mit der
+Begründung in einem Satz. Eine Frage ohne sinnvolle Optionen bleibt Freitext. Form: `docs/ai/inbox/README.md`.
 
 ## R-human-capture
 <!-- source: 368ded20e7df5da7 -->

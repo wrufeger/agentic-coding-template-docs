@@ -10,14 +10,40 @@ A project that already has docs, a `CLAUDE.md`, or an older AI setup goes throug
 
 ## Start it
 
-`act-adopt` runs from a checkout of the template, against the project at `<dir>`. The checkout has no
-`.claude/skills/`, so you cannot call the skill by name there. Open the checkout in your assistant and say:
+`act-adopt` runs against the project at `<dir>` from one of two places:
 
-```text
-Take over my existing project in ~/dev/shop. It already has a CLAUDE.md and its own docs.
-```
+- **A checkout of the template.** The checkout has no `.claude/skills/`, so you cannot call the skill by name there.
+  Open the checkout in your assistant and say:
 
-Nothing changes before you approve a table once, and no script commits anything.
+  ```text
+  Take over my existing project in ~/dev/shop. It already has a CLAUDE.md and its own docs.
+  ```
+
+- **Another project that already runs the template.** The skill ships in every project, so `/act-adopt` works there
+  too. `<dir>` must lie outside the project you run it from (not the project itself, not a folder inside it, also not
+  through a symlink or junction); `init.py` and `adopt.py` refuse that and create nothing. The new project gets the
+  `.act/` of the project you run it from, so its first `act-update` brings the current template.
+
+Which case it is follows `<dir>`: a folder that does not exist or holds nothing but `.git` starts a **new project**
+(`init.py --target <dir>`), a folder with other content is an **adoption** (the steps below). The assistant says which
+before it runs anything. Nothing changes before you approve a table once, and no script commits anything.
+
+### Carrying over from the project you run it from
+
+From a project, the assistant lists what could come along and asks once per category, default yes. The answers become
+`--carry` of `init.py --target` (new project) or `adopt.py --apply` (adoption):
+
+| Category | Carries |
+| :--- | :--- |
+| `skills` | Your own skills (`docs/ai/local/skills/`). |
+| `rules` | Your `## Own rules`. |
+| `exceptions` | Rule groups and rule sets you switched off, with their reason. |
+| `overrides` | `replaces` lines and the other files under `docs/ai/local/`. |
+| `topics` | Own topic rules and overrides of template topics (`docs/ai/local/rules/topics/`). |
+
+All yes leaves `--carry` out, all no is `--carry none` (`--no-local` does the same); `--carry` without `--target` is
+refused. Only committed content travels, never `.env*`, symlinks or untracked files. What the new project cannot take
+(a rule group or set it does not list) goes to its inbox. From the template checkout there is nothing to carry.
 
 ## The steps
 
@@ -46,6 +72,23 @@ Nothing changes before you approve a table once, and no script commits anything.
 
 `adopt.py --abort` takes the adoption back, but only before `--finish` has run.
 
+### Baseline check before the first commit
+
+Between steps 7 and 8 the assistant runs `adopt_baseline.py --target <dir>` once. The existing code has never been
+through the template's commit checks, so without it the first commit would be held for patterns that were there long
+before, and a secret in the code would only show up then. The run is read-only and prints three things: the
+secret-file patterns missing from `.gitignore` (`.env` variants, private keys, keystores), the findings of the secret
+scan and of the dangerous-pattern scan over the existing tree (file, line and rule, never a value), and the backlog
+entries it would create. On your yes it runs again with `--write-gitignore --book`: that appends the patterns to
+`.gitignore` and books one backlog entry per file for a secret and one per rule for a dangerous pattern, nothing twice.
+The `.gitignore` goes into the template-layer commit, the entries into a commit of their own.
+
+A booked dangerous-pattern finding then passes the first commit without a hold (the key `file|rule` stays in force with
+no expiry, until removed from `.act-local/danger-scan-hints/baseline.json`). A secret keeps holding every attempt
+until the value is removed and rotated, the line carries `act:allow-secret`, or it is listed in
+`docs/ai/local/secret-accepted.md`. Booking does not silence it. See
+[`adopt_baseline.py`](/agentic-coding-template-docs/reference/scripts/#adopt_baselinepy).
+
 ## What moves, what stays
 
 | Action | Result |
@@ -67,4 +110,5 @@ With a `language-docs` other than English, `act-adopt` translates the scaffold i
 
 If you decline the rebuild, stop after the sight and run `python .act/scripts/init.py --target <dir>`. It never
 overwrites a file, adds `.act/` and whatever is missing, and leaves an existing `CLAUDE.md` as it is, which
-then still lacks the import of the rules.
+then still lacks the import of the rules. Run from a project, it takes over that project's own skills, rules,
+exceptions, overrides and topics unless `--carry` names fewer.

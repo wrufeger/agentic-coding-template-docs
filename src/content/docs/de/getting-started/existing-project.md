@@ -3,7 +3,7 @@ title: Bestehendes Projekt
 description: Ein Projekt mit eigener Doku oder eigenem KI-Setup mit act-adopt übernehmen.
 sidebar:
   order: 2
-sourceHash: 91b40a09e8d67dab6363fe5759eb7b23681cc491d8a89165444315934f94cfd7
+sourceHash: ab8f5594beb6df25e0d27ae26a4b3b7c8ca67f0b2874b35ce6aad5fc023bf338
 ---
 
 Ein Projekt, das schon Doku, eine `CLAUDE.md` oder ein älteres KI-Setup hat, läuft über `act-adopt`, nicht allein
@@ -12,15 +12,43 @@ braucht einen Assistenten.
 
 ## Starten
 
-`act-adopt` läuft in einem Checkout des Templates, gegen das Projekt in `<dir>`. Der Checkout hat kein
-`.claude/skills/`, also kannst du den Skill dort nicht per Namen aufrufen. Öffne den Checkout in deinem
-Assistenten und sag:
+`act-adopt` läuft gegen das Projekt in `<dir>`, und zwar von einer von zwei Stellen aus:
 
-```text
-Übernimm mein bestehendes Projekt in ~/dev/shop. Es hat schon eine CLAUDE.md und eigene Doku.
-```
+- **Ein Checkout des Templates.** Der Checkout hat kein `.claude/skills/`, also lässt sich der Skill dort nicht per
+  Namen aufrufen. Den Checkout im Assistenten öffnen und sagen:
 
-Nichts ändert sich, bevor du einmal eine Tabelle freigibst, und kein Script committet etwas.
+  ```text
+  Übernimm mein bestehendes Projekt in ~/dev/shop. Es hat schon eine CLAUDE.md und eigene Doku.
+  ```
+
+- **Ein anderes Projekt, das das Template schon nutzt.** Der Skill liegt in jedem Projekt, also geht dort auch
+  `/act-adopt`. `<dir>` muss außerhalb des Projekts liegen, aus dem er gestartet wird (nicht das Projekt selbst, kein
+  Ordner darin, auch nicht über einen Symlink oder eine Junction); `init.py` und `adopt.py` lehnen das ab und legen
+  nichts an. Das neue Projekt bekommt das `.act/` des startenden Projekts, sein erstes `act-update` bringt also das
+  aktuelle Template.
+
+Welcher Fall vorliegt, entscheidet `<dir>`: ein Ordner, den es nicht gibt oder der nur `.git` enthält, startet ein
+**neues Projekt** (`init.py --target <dir>`), ein Ordner mit anderem Inhalt ist eine **Übernahme** (die Schritte unten).
+Der Assistent sagt vorher, welcher Fall es ist. Nichts ändert sich, bevor du einmal eine Tabelle freigibst, und kein
+Script committet etwas.
+
+### Mitnehmen aus dem startenden Projekt
+
+Aus einem Projekt heraus listet der Assistent, was mitkommen könnte, und fragt einmal je Kategorie, Standard ja. Die
+Antworten werden zu `--carry` von `init.py --target` (neues Projekt) oder `adopt.py --apply` (Übernahme):
+
+| Kategorie | Nimmt mit |
+| :--- | :--- |
+| `skills` | Eigene Skills (`docs/ai/local/skills/`). |
+| `rules` | Die eigenen Regeln (`## Own rules`). |
+| `exceptions` | Abgeschaltete Regelgruppen und Regelsätze, mit ihrem Grund. |
+| `overrides` | `replaces`-Zeilen und die übrigen Dateien unter `docs/ai/local/`. |
+| `topics` | Eigene Topic-Regeln und Overrides von Template-Topics (`docs/ai/local/rules/topics/`). |
+
+Alles ja lässt `--carry` weg, alles nein ist `--carry none` (`--no-local` tut dasselbe); `--carry` ohne `--target`
+wird abgelehnt. Nur committeter Inhalt reist mit, nie `.env*`, Symlinks oder unversionierte Dateien. Was das neue
+Projekt nicht aufnehmen kann (eine Regelgruppe oder ein Regelsatz, den es nicht kennt), landet in seiner Inbox. Aus dem
+Template-Checkout gibt es nichts mitzunehmen.
 
 ## Die Schritte
 
@@ -51,6 +79,24 @@ Nichts ändert sich, bevor du einmal eine Tabelle freigibst, und kein Script com
 
 `adopt.py --abort` nimmt die Übernahme zurück, aber nur, bevor `--finish` gelaufen ist.
 
+### Baseline-Prüfung vor dem ersten Commit
+
+Zwischen Schritt 7 und 8 führt der Assistent einmal `adopt_baseline.py --target <dir>` aus. Der vorhandene Code ist nie
+durch die Commit-Prüfungen des Templates gelaufen; ohne diesen Lauf würde der erste Commit wegen Mustern angehalten, die
+schon lange da sind, und ein Geheimnis im Code fiele erst dann auf. Der Lauf liest nur und gibt drei Dinge aus: die
+Muster für Geheimnis-Dateien, die in `.gitignore` fehlen (`.env`-Varianten, private Schlüssel, Keystores), die Funde
+des Secret-Scans und des Scans auf gefährliche Muster über den vorhandenen Baum (Datei, Zeile und Regel, nie ein Wert)
+und die Backlog-Einträge, die er anlegen würde. Mit deinem Ja läuft er erneut mit `--write-gitignore --book`: das hängt
+die Muster an `.gitignore` an und bucht je Datei einen Backlog-Eintrag für ein Geheimnis und je Regel einen für ein
+gefährliches Muster, nichts doppelt. Die `.gitignore` kommt in den Commit der Template-Schicht, die Einträge in einen
+eigenen Commit.
+
+Ein gebuchter Fund eines gefährlichen Musters geht dann beim ersten Commit ohne Halt durch (der Schlüssel `Datei|Regel`
+gilt ohne Ablauf, bis er aus `.act-local/danger-scan-hints/baseline.json` entfernt wird). Ein Geheimnis hält bei
+jedem Versuch, bis der Wert entfernt und rotiert ist, die Zeile `act:allow-secret` trägt oder in
+`docs/ai/local/secret-accepted.md` steht. Das Buchen schaltet es nicht stumm. Siehe
+[`adopt_baseline.py`](/agentic-coding-template-docs/de/reference/scripts/#adopt_baselinepy).
+
 ## Was wandert, was bleibt
 
 | Aktion | Ergebnis |
@@ -74,4 +120,5 @@ auf `confirm` (jede Nachricht wird gezeigt und erst nach deinem Ja gesendet); `l
 
 Lehnst du den Umbau ab, brich nach der Sichtung ab und führe `python .act/scripts/init.py --target <dir>` aus. Es
 überschreibt nie eine Datei, ergänzt `.act/` und alles, was fehlt, und lässt eine bestehende `CLAUDE.md`
-unverändert, der dann noch der Import der Regeln fehlt.
+unverändert, der dann noch der Import der Regeln fehlt. Aus einem Projekt gestartet, übernimmt es dessen eigene
+Skills, Regeln, Ausnahmen, Overrides und Topics, sofern `--carry` nicht weniger nennt.

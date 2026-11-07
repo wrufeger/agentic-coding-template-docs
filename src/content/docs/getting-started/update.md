@@ -61,6 +61,10 @@ start as the advisory sets it.
 
 An advisory ends when `act-update` brings a version outside its range, when you say "warning acknowledged" (or run
 `python .act/scripts/advisory.py --ack A<n>`), or when the files it lists no longer hold the faulty snippet.
+A critical advisory whose inbox todo was done and deleted (`done-entries: delete`) is not filed again on another
+workstation: `advisory.py` also searches the git history, read only and time-bounded (the newest 2000 commits that
+touched the inbox or the archive, at most 3 candidate files, about 4 seconds), for a deleted todo with the same
+heading.
 `advisory-check: off` in `docs/ai/config.md` switches it off; `advisory.py --status` shows the state and `--refresh`
 checks at once. The check's `git ls-remote` allows only the `file`, `git`, `http`, `https` and `ssh` protocols: a source
 behind another remote helper gets no update note at session start, while `act-update` itself is unchanged.
@@ -77,8 +81,14 @@ behind another remote helper gets no update note at session start, while `act-up
    are kept and reported. Copies that `profile` or `exclude` ([Scope](/agentic-coding-template-docs/reference/configuration/#scope)) leave out are not written; an unedited copy already there is removed, an edited one is kept, and both are reported. Own skills and roles under `docs/ai/local/` get their
    copies here too. New coding sets and groups are entered in `docs/project/coding_rules.md` (a new set unchecked, a new
    group of a checked set checked; see [Own skills, roles and rules](/agentic-coding-template-docs/guides/own-skills-and-rules/)).
+   While `docs/project/coding_rules.md` has changes that are not committed, nothing is entered (the update commit
+   would take them along): `update.py` says so in this step and in the closing notes and names the command to run
+   after committing, `python .act/scripts/rules.py --add-new-coding`. `--plan` previews the sets and groups an update
+   would enter. A changed `methods` row in `docs/ai/config.md` is applied here too
+   (`python .act/scripts/rules.py --sync-methods` does the same on its own).
    If you edited `docs/ai/rules.md`, a rule that moved to another rule file takes its checkbox line along (mark and
-   reason unchanged, so a rule switched off stays off); if you do not import the new file, it is only reported. An
+   reason unchanged, so a rule switched off stays off); if you do not import the new file, it is only reported, and so is a rule that moved into a file your
+   project shadows with its own copy under `docs/ai/local/rules/` that lacks the rule (it does not load). An
    unedited `docs/ai/rules.md` is re-derived as before. In an edited one, a rule or rule file the template added is entered: a checkbox line per new rule, a new rule file as an import block at the end of its section. Your own text, unchecked boxes and imports you removed stay as they are, and `.act-lock.json` records what was offered (`rules_offered`), so a removed line does not come back, and its rule still counts as on (remove the cross to switch it off). What cannot be entered safely is named with `python .act/scripts/rules.py --add-missing`; the session start enters new rules the same way. Only `builder` and `reviewer` keep a `-high` variant: generated
    variants of the other template roles are removed, each named in the preview and summary.
    The template's roles (and their `-high` variants) get `omitClaudeMd: true`, so workers no longer load `CLAUDE.md`;
@@ -87,12 +97,12 @@ behind another remote helper gets no update note at session start, while `act-up
    tokens only).
 7. **Hooks and Git files.** Reconciles the hook entries in `.claude/settings.json` and the template blocks in
    `.gitattributes` and `.gitignore`, sets `PYTHON_BASIC_REPL=1` under `env` there (on Windows, an empty heredoc in a Bash call no longer hangs on Python 3.13 and later; a value you set yourself is kept, and the report names the env keys added), and sets `"enableArtifact": false` there unless `artifacts: on` is in
-   `docs/ai/config.md`. An existing project therefore starts without the `Artifact` tool after the update. It also adds the 12 `SubagentStart` entries that give workers their rules without the orchestrator rules (see step 6); an older set of six is replaced, your own hooks stay. `python .act/scripts/rules.py --worker` shows what a worker gets. It also keeps `.act-local/` out of IDE indexes: an `excludeFolder` in every JetBrains `.idea/*.iml`, and `files.watcherExclude` in `.vscode/settings.json` where `.vscode/` exists.
-8. **Migrations.** Runs any that are due. Each rewrites an affected file once and leaves it alone after. Two give an existing project a missing file once: `docs/ai/local/resources.md` (your reading list) and `docs/project/README.md` (the index of the project docs). A file that exists is never touched, and one you delete does not come back.
+   `docs/ai/config.md`. An existing project therefore starts without the `Artifact` tool after the update. It also adds the `Stop` entry of the check `model-switch` (with `SubagentStop` it reports when a worker or the session continued on another model) and the 12 `SubagentStart` entries that give workers their rules without the orchestrator rules (see step 6); an older set of six is replaced, your own hooks stay. `python .act/scripts/rules.py --worker` shows what a worker gets. It also keeps `.act-local/` out of IDE indexes: an `excludeFolder` in every JetBrains `.idea/*.iml`, and `files.watcherExclude` in `.vscode/settings.json` where `.vscode/` exists.
+8. **Migrations.** Runs any that are due. Each rewrites an affected file once and leaves it alone after. Three give an existing project a missing file once: `docs/ai/local/resources.md` (your reading list), `docs/project/README.md` (the index of the project docs) and, through `007-changelog-file`, `CHANGELOG.md` in the project root. A file that exists is never touched, and one you delete does not come back. `007-changelog-file` never overwrites or recreates a `CHANGELOG.md`; it creates none for a project that keeps its changelog under another name (`changelog.md`, `CHANGES.md`, `HISTORY.md`, `NEWS.md`) or has `changelog: release-notes-only` or `off` under § Formats.
 9. **Bridges and doctor.** First unedited generated bridges (`CLAUDE.md`, `AGENTS.md`, `docs/ai/rules.md`) are
    refreshed; with `session-start-refresh` at `warn` or `off` in `docs/ai/config.md` § Checks they are only
    reported ("would refresh … not written"). Then `doctor.py` checks for
-   drift; findings land in `docs/ai/inbox/`, never as a silent fix. A new tier proposal is filed there as a question of its own; the commit takes the report and the questions, and the summary names both.
+   drift; findings land in `docs/ai/inbox/`, never as a silent fix. Among them: an override under `docs/ai/local/` whose counterpart under `.act/` is gone (the template renamed or removed it, so the override has no effect), with the most similar name under `.act/`; rule overrides, roles and your own skills are left out, and so is an own script or coding set unless one name is the start of the other or differs only in its extension. A new tier proposal is filed there as a question of its own, and only once a role has 30 recorded outcomes at a tier and at least 60 % of the last 30 were reworked or escalated. The question is short and recommends option a), looking at the cases first; its numbers are in a separate inbox report, `report-<date>-<time>-tier-numbers-<role>-<tier>.md`. The commit takes the report and the questions, and the summary names both.
 10. **Lock and commit.** `.act-lock.json` is rewritten and a commit is made, unless you pass `--no-commit`.
 
 The summary also says how much the next session start will remove from `.act-local/` (the check `act-local-tidy`, see
@@ -111,11 +121,42 @@ on local changes in `.act/`.
 
 The session-start check `act-local-tidy` runs once a day in the background. It removes `tmp/` entries and unknown
 entries directly under `.act-local/` older than 7 days (unless the name starts with an open task's id or
-`act-local-keep` in `docs/ai/config.md` § Checks lists it), and all but the newest 5 backups of `update`. The first run
+`act-local-keep` in `docs/ai/config.md` § Checks lists it), all but the newest 5 backups of `update`, and compiled-module files (`.pyc`) under `.act-local/pyc/` that belong to another Python version than the running one and are older than 7 days (links are not followed, files of the running version are never touched). The first run
 only reports what it would remove; removal starts the day after a session start has shown that report. `act-local-tidy:
 warn` only reports, `off` skips it. `python .act/scripts/act_local_tidy.py` lists what would go.
 
 Then the assistant adds a journal line with the base-commit change and the number of findings.
+
+## Upgrading to 2.5.0
+
+From v2.4.0, run `act-update` as usual, then start a new session.
+
+- **Two migrations** run once: `005-resources-file` adds `docs/ai/local/resources.md` and `006-docs-project-readme`
+  adds `docs/project/README.md`; neither overwrites a file that is there or brings back one you deleted. An edited
+  `docs/ai/rules.md` gets the new rule `R-docs-order` as a checkbox line; your own text stays.
+- **Config rows are not added.** The update adds no rows to an existing `docs/ai/config.md`. The new keys
+  `done-entries`, `profile`, `exclude`, `docs-order` and `own-rules-budget` take their default until you add the row
+  under its section, copied from `.act/skeleton/config.md`; `/act-config` changes only rows that exist. `feedback:
+  local` is a new value of the existing `feedback` row (`/act-config feedback local`).
+- **Finished entries are deleted under Git** (`done-entries` defaults to `delete` there; see
+  [Finished entries](#finished-entries)). The archive you already have stays, and the first session start names its
+  file count; `python .act/scripts/entries.py purge --all --plan` lists it and `purge --all` deletes it, if you want
+  that. To keep the old behaviour, add `done-entries: keep` under § Archive.
+- Without `profile` and `exclude` every skill, role and rule file stays as before (`full`).
+- **`docs-order`:** `act-doctor` checks the order of `docs/project/` (§ Checks, default `warn`, never blocking). Right
+  after the update it names every file and folder the new `docs/project/README.md` has no line for, and every folder
+  of five or more entries without a `README.md` of its own. Add the lines (`.act/scripts/move_doc.py` and the step
+  "Structure" of `act-audit-docs` help), or add `docs-order: off`.
+- An existing `docs/ai/inbox/README.md` is not replaced; the rule `R-human-ask` carries the new form of a question
+  either way, and `.act/skeleton/inbox/README.md` has the new text if you want it.
+- **`own-rules-budget`:** `act-doctor` warns, never blocks, when the "Own rules" sections of `docs/ai/rules.md` and
+  `docs/project/coding_rules.md` together exceed 6000 characters; set the key in § Checks to raise the limit or
+  switch it off. It also checks every setting that has a fixed list or format and may report a value it passed over
+  before. A value that ends in a backslash right before the next `|` needs a space before the `|`.
+- **`workflow.js.txt`:** if the project overrides the `act-audit-docs` script at
+  `docs/ai/local/skills/act-audit-docs/workflow.js`, rename that file to `workflow.js.txt`.
+- Optional: clickable entry ids are set up once per machine with `python .act/scripts/id_links_install.py`, and again
+  after each `act-update`.
 
 ## Upgrading to 2.4.0
 
@@ -167,7 +208,7 @@ From v2.1.0, run `act-update` as usual; nothing else is needed. `--plan` first l
 
 ## Finished entries
 
-Under Git, `done-entries` in `docs/ai/config.md` § Archive defaults to `delete`: a finished backlog item or inbox entry that Git holds unchanged is deleted instead of archived (`keep` restores archiving, and is the value without Git). Its id stays taken through `docs/ai/work/reserved-ids.json`, and `act-commit` runs `entries.py purge`. A finished task goes to the archive with its `finished:` stamp and is removed by the next `purge` once a commit holds it. An archive already in the project stays: the first session start after the update names its file count once, and `python .act/scripts/entries.py purge --plan` shows what would go.
+Under Git, `done-entries` in `docs/ai/config.md` § Archive defaults to `delete`: a finished backlog item or inbox entry that Git holds unchanged is deleted instead of archived (`keep` restores archiving, and is the value without Git). Its id stays taken through `docs/ai/work/reserved-ids.json`, and `act-commit` runs `entries.py purge`. An entry that Git does not hold yet (never committed, or changed since) is moved to the archive instead and carries the header field `purge: after-commit`; `purge` deletes only files with that mark, and only once Git holds them unchanged. A finished task goes to the archive with its `finished:` stamp and the same mark and is removed by the next `purge` once a commit holds it. An archive already in the project stays: the first session start after the update names its file count once, `python .act/scripts/entries.py purge --all --plan` lists it, and `purge --all` deletes it (finished entries, pasted files, collections, monthly overviews; the journal collections and subfolders stay). That is the owner's command: the assistant runs it only on the owner's word.
 
 ## Downgrade guard
 

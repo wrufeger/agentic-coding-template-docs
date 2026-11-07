@@ -22,6 +22,11 @@ scripts. It works in a new project and in one that already exists.
   `act-bug`, `act-commit`, `act-release`. `/act <name>` shows a template skill's instructions in full, with or without its `act-` prefix
   (`/act version` shows `act-version`); `act-version`, `act-info` (which project a session works in and its state), `act-export-settings` and `act-load-settings` start only
   as typed slash commands. See the [skills reference](/agentic-coding-template-docs/reference/skills/).
+- **Text in your format.** The commit message, the changelog, the release notes and the README follow a format you
+  can pick or replace per project (`act-commit` and `act-release` read it, `act-export-settings --with-formats`
+  carries it to another project), and optional working methods such as test-first add rules for how the assistant
+  works. See [Formats](/agentic-coding-template-docs/reference/configuration/#formats) and
+  [Scope](/agentic-coding-template-docs/reference/configuration/#scope).
 
 ## Who it is for
 

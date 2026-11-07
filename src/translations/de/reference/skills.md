@@ -12,8 +12,8 @@ Verwenden, wenn gefragt wird, welche Skills oder Befehle es gibt, nach einer Ski
 Verwenden, wenn gebeten wird, Barrierefreiheit zu prüfen, ob etwas mit Tastatur oder Screenreader nutzbar ist, oder gegen WCAG, für eine Seite oder Komponente. Liefert eine nach Schwere geordnete Befundliste und behebt die freigegebenen Befunde. Nicht für den Abgleich eines Builds mit seinem Design - dafür act-design-build.
 
 ## act-adopt
-<!-- source: e3e27232fb486f54 -->
-Verwenden, wenn ein Projekt schon eigene Doku oder KI-Werkzeuge hat oder wenn gebeten wird, die Doku oder KI-Werkzeuge eines bestehenden Projekts zu übernehmen bzw. zu migrieren (altes Template, fremdes Template, selbstgebaute Struktur). Übernimmt sie in acht Schritten, statt eines einfachen init.py --target. Nicht für einen leeren Ordner - dafür act-setup.
+<!-- source: d98fafb4b6e3a2c3 -->
+Verwenden, um ein neues Projekt aus diesem heraus zu starten oder um die Doku oder KI-Werkzeuge eines anderen Projekts zu übernehmen (altes oder fremdes Template, eigene Struktur). Nicht, um den aktuellen Ordner einzurichten - dafür act-setup.
 
 ## act-audit-docs
 <!-- source: c740e4dfb6130ee0 -->

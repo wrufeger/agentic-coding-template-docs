@@ -3,7 +3,7 @@ title: Einführung
 description: Was das Template ist, für wen sie gedacht ist und wie sie in einem Bild funktioniert.
 sidebar:
   order: 1
-sourceHash: 91e21035c7f69f12ad86fb1c253cac88950456e1be2798925aae8414eb3774c3
+sourceHash: 444d1a9d0f6e59f6c0d86d701b5bce8d2175d2b4a1fd0c5311568fd6407351cd
 ---
 
 Das Agentic-Coding-Template, kurz *act*, ist ein Satz von Dateien, den du in ein Projekt legst, damit dein
@@ -23,6 +23,11 @@ Sub-Agenten, Hooks und Scripts. Es funktioniert in einem neuen und in einem bere
   zum Beispiel `act-bug`, `act-commit`, `act-release`. `/act <name>` zeigt die Anweisungen eines Skills der Vorlage vollständig an, mit oder ohne das Präfix `act-`
   (`/act version` zeigt `act-version`); `act-version`, `act-info` (in welchem Projekt eine Sitzung arbeitet, und dessen Stand), `act-export-settings` und `act-load-settings` starten nur
   als eingetippter Slash-Befehl. Siehe die [Skills-Referenz](/agentic-coding-template-docs/de/reference/skills/).
+- **Text in deinem Format.** Die Commit-Nachricht, das Changelog, die Release Notes und die README folgen einem Format,
+  das sich je Projekt wählen oder ersetzen lässt (`act-commit` und `act-release` lesen es,
+  `act-export-settings --with-formats` trägt es in ein anderes Projekt), und optionale Arbeitsmethoden wie Test-first
+  fügen Regeln dafür hinzu, wie der Assistent arbeitet. Siehe [Formats](/agentic-coding-template-docs/de/reference/configuration/#formats) und
+  [Scope](/agentic-coding-template-docs/de/reference/configuration/#scope).
 
 ## Für wen es gedacht ist
 

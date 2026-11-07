@@ -56,8 +56,8 @@ created: 2026-03-12T09:41:07
 
 The round's time limit already exists on the server; only the display is missing. The concept page with the reasons: `docs/project/concepts/round-countdown.md`.
 
-- **a)** A number counting down every second on phone and dashboard, from the server's clock - about 20 min.
-  **Recommendation:** nothing to explain, the same on every device.
+- **a)** **Recommended:** A number counting down every second on phone and dashboard, from the server's clock - about
+  20 min. Nothing to explain, the same on every device.
 
 - **b)** A shrinking bar without numbers - about 25 min; harder to read at the back of a room.
 
@@ -140,8 +140,12 @@ after the screen was locked. The assistant therefore files a todo `U4` for you, 
 ## 7. The commit
 
 Only the orchestrator commits (`R-code-commit`), and without being asked. The `act-commit` skill checks that the
-evidence is in, runs the project's lint and tests where it has them, archives the finished task and question,
-stages by pathspec (never `git add -A`) and writes the journal entry:
+evidence is in, runs the project's lint and tests where it has them, closes the finished task and question (under the
+default `done-entries: delete` they move into the archive marked `purge: after-commit`, the purge after the commit
+deletes them once Git holds them, and their ids stay reserved), stages by pathspec (never `git add -A`) and writes the journal entry. The message follows the project's
+commit format (`commit-format` in [Formats](/agentic-coding-template-docs/reference/configuration/#formats); the
+default `auto` keeps the repo's own style), and with the default changelog setting it also adds a line under
+`[Unreleased]` in `CHANGELOG.md`, since this commit has a visible effect:
 
 ```text
 T14: remaining time of a round on phone and dashboard (B21, Q9 a), U4 checks it on a real phone
