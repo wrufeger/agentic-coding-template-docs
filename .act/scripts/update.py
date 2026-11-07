@@ -73,6 +73,7 @@ import tiers
 
 CATEGORY_DIRS = (
     "rules", "coding", "skills", "agents", "scripts", "bridges", "hooks", "skeleton", "migrations", "ide",
+    "formats", "methods",
 )
 
 
@@ -813,19 +814,92 @@ def _rule_id_diff(old_path: Optional[Path], new_path: Optional[Path]) -> tuple[l
     return added, changed, removed
 
 
-def step_list_new_coding_entries(root: Path, plan: bool) -> tuple[str, list[Path]]:
+def _has_unsaved_changes(root: Path, rel: str) -> bool:
+    """True if git reports `rel` as modified, staged or untracked, i.e. the owner's work that no commit
+    holds yet. False without git or outside a repository: nothing can be told, so nothing is held back."""
+    try:
+        result = subprocess.run(["git", "status", "--porcelain", "--", rel], cwd=root, capture_output=True,
+                                text=True, encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+    return result.returncode == 0 and bool(result.stdout.strip())
+
+
+def step_list_new_coding_entries(
+    root: Path, plan: bool, act_dir: Optional[Path] = None, unsaved: Optional[bool] = None,
+    notes: Optional[list[str]] = None,
+) -> tuple[str, list[Path]]:
     """Enter what the replaced .act/coding/ added into docs/project/coding_rules.md: a new rule set
     as an unchecked line, a new group of a checked set as a checked line (rules.add_new_coding_entries).
+    Under plan, `act_dir` is the fetched .act/ whose coding sets are previewed. A file with unsaved
+    changes is left as it is (the update commit would take them along): the step says what it holds
+    back, with the command to run once the file is committed (also added to `notes`, if given).
+    `unsaved` is that state taken before this run wrote anything; None asks git now.
     Returns (summary, touched); nothing is written under plan."""
+    rel = rules.AREAS["coding"].project_file
     try:
-        messages = rules.add_new_coding_entries(root, write=not plan)
+        messages = rules.add_new_coding_entries(root, write=False, act_dir=act_dir)
+        if not messages:
+            return "docs/project/coding_rules.md lists everything", []
+        if unsaved is None:
+            unsaved = _has_unsaved_changes(root, rel)
+        if unsaved:
+            held = (f"{rel} has changes that are not committed, so nothing was entered ({'; '.join(messages)}); "
+                    f"commit them, then run {rules.ADD_NEW_CODING_COMMAND}")
+            if notes is not None and not plan:
+                notes.append(held)
+            return ("would hold back: " if plan else "held back: ") + held, []
+        if not plan:
+            rules.add_new_coding_entries(root, write=True)
     except (OSError, UnicodeDecodeError) as exc:
         return f"not checked ({exc.__class__.__name__}: {exc})", []
-    if not messages:
-        return "docs/project/coding_rules.md lists everything", []
     verb = "would list" if plan else "listed"
-    summary = f"{verb} in docs/project/coding_rules.md: {'; '.join(messages)}"
-    return summary, ([] if plan else [root / rules.AREAS["coding"].project_file])
+    summary = f"{verb} in {rel}: {'; '.join(messages)}"
+    return summary, ([] if plan else [root / rel])
+
+
+def step_sync_methods(root: Path, plan: bool, unsaved: Optional[bool] = None,
+                      notes: Optional[list[str]] = None, act_dir: Optional[Path] = None) -> tuple[str, list[Path]]:
+    """Bring the methods section of docs/project/coding_rules.md in line with the `methods` row of
+    docs/ai/config.md (rules.sync_method_imports): the replaced .act/methods/ may have added a group to a
+    method the project uses, or removed a file it names. A project that uses no method and has no such
+    section is not touched. A file with unsaved changes is left as it is (the update commit would take
+    them along); the step says so, with the command, and adds it to `notes` if given. Returns (summary,
+    touched); nothing is written under plan, and "" when there is nothing to say. Under plan, `act_dir`
+    is the fetched .act/ whose method files are previewed."""
+    rel = rules.AREAS["coding"].project_file
+    try:
+        preview = rules.sync_method_imports(root, write=False, act_dir=act_dir)
+        problems = rules.method_findings(root)
+        parts = (
+            ([f"methods entered: {', '.join(preview.added)}"] if preview.added else [])
+            + ([f"methods taken out: {', '.join(preview.removed)}"] if preview.removed else [])
+            + ([f"method groups updated: {', '.join(preview.updated)}"] if preview.updated else [])
+        )
+        if notes is not None and not plan:
+            notes.extend(f"{path}: {message}" for path, message in problems
+                         if not preview.changed or path != rel)
+        if not preview.changed:
+            return "", []
+        if unsaved is None:
+            unsaved = _has_unsaved_changes(root, rel)
+        if unsaved:
+            held = (f"{rel} has changes that are not committed, so the methods were not entered "
+                    f"({'; '.join(parts)}); commit them, then run {rules.SYNC_METHODS_COMMAND}")
+            if notes is not None and not plan:
+                notes.append(held)
+            return ("would hold back: " if plan else "held back: ") + held, []
+        if not plan:
+            rules.sync_method_imports(root, write=True)
+    except (OSError, UnicodeDecodeError) as exc:
+        return f"methods not checked ({exc.__class__.__name__}: {exc})", []
+    return f"{'would enter' if plan else 'entered'} in {rel}: {'; '.join(parts)}", ([] if plan else [root / rel])
+
+
+def _plan_methods_part(root: Path, act_dir: Optional[Path] = None) -> str:
+    """The "; methods: ..." part of a plan line for step 6, "" when the working methods change nothing."""
+    summary = step_sync_methods(root, True, act_dir=act_dir)[0]
+    return f"; methods: {summary}" if summary else ""
 
 
 def step_move_core_entries(root: Path, plan: bool) -> tuple[str, list[Path]]:
@@ -847,8 +921,7 @@ def step_move_core_entries(root: Path, plan: bool) -> tuple[str, list[Path]]:
         return "", []
     # a message that only reports (the rule does not load; a line kept under its old file has no
     # effect) changes nothing: say so, name no file
-    changes = [m for m in messages
-               if "the rule does not load" not in m and "the line under the old file has no effect" not in m]
+    changes = [m for m in messages if not any(marker in m for marker in rules.REPORT_ONLY_MARKERS)]
     if not changes:
         return f"{rel} needs a look: {'; '.join(messages)}", []
     verb = "would follow" if plan else "followed"
@@ -942,7 +1015,7 @@ def step_show_diff(root: Path, new_act_dir: Path) -> tuple[str, bool]:
         for state in ("added", "changed", "removed"):
             for rel in entries.get(state, []):
                 print(f"[act]     {state}: {rel}")
-                if category in ("rules", "coding") and rel.endswith(".md"):
+                if category in ("rules", "coding", "methods") and rel.endswith(".md"):
                     old_p = old_act_dir / rel if (old_act_dir / rel).is_file() else None
                     new_p = new_act_dir / rel if (new_act_dir / rel).is_file() else None
                     id_added, id_changed, id_removed = _rule_id_diff(old_p, new_p)
@@ -1266,8 +1339,8 @@ def step_refresh_copies(
         if own is None or local_skills not in own.parents:
             continue
         rel = own.relative_to(local_skills).as_posix()
-        if rel.split("/")[0] in cut_skills:
-            continue
+        if rel.split("/")[0] in cut_skills or actlib.is_bytecode_cache(Path(rel)):
+            continue  # a Python cache is gitignored, a copy of it would break `git add`
         for dest_root in active_dirs:
             dest = f"{dest_root}/{rel}"
             if dest not in new_specs:
@@ -2481,8 +2554,8 @@ def _refresh_generated_bridges(root: Path, plan: bool) -> tuple[str, list[Path]]
 
 def step_doctor(root: Path, plan: bool) -> tuple[str, list[Path], list[Path]]:
     """Returns (summary, inbox_paths, touched). doctor.py's own exit codes: 0 = no findings, 1 =
-    findings (not an error — it already wrote docs/ai/inbox/report-<YYYYMMDD-HHMM>-doctor.md and one
-    question per new tier proposal, each announced by a `doctor.py: wrote <path>` line), 2 = a real
+    findings (not an error — it already wrote docs/ai/inbox/report-<YYYYMMDD-HHMM>-doctor.md and, per new
+    tier proposal, a numbers report plus one question, each announced by a `doctor.py: wrote <path>` line), 2 = a real
     failure. `inbox_paths` holds every file doctor.py wrote, report and questions. `touched` carries
     the bridge files _refresh_generated_bridges rewrote, so the caller can add them to the commit
     alongside the inbox files."""
@@ -2512,8 +2585,11 @@ def step_doctor(root: Path, plan: bool) -> tuple[str, list[Path], list[Path]]:
     if result.returncode == 0 and not wrote:
         return f"{bridge_summary}; doctor.py --inbox ran, no findings", [], bridge_touched
 
-    reports = [rel for rel in wrote if Path(rel).name.startswith("report-")]
-    questions = [rel for rel in wrote if rel not in reports]
+    all_reports = [rel for rel in wrote if Path(rel).name.startswith("report-")]
+    # A tier proposal's numbers report belongs to its question; it is not a doctor report with findings.
+    numbers = [rel for rel in all_reports if "-tier-numbers-" in Path(rel).name]
+    reports = [rel for rel in all_reports if rel not in numbers]
+    questions = [rel for rel in wrote if rel not in all_reports]
     # doctor.py's closing count includes the tier proposals, which went into questions, not the report.
     count_match = re.match(r"(\d+) finding", lines[-1].strip()) if lines else None
     count = str(max(int(count_match.group(1)) - len(questions), 0)) if count_match else "some"
@@ -2522,12 +2598,31 @@ def step_doctor(root: Path, plan: bool) -> tuple[str, list[Path], list[Path]]:
         parts.append(f"{count} finding(s) -> {', '.join(reports) if reports else 'docs/ai/inbox/'}")
     if questions:
         parts.append(f"{len(questions)} question(s) -> {', '.join(questions)}")
+    if numbers:
+        parts.append(f"{len(numbers)} numbers report(s) for the question(s) -> {', '.join(numbers)}")
     return f"{bridge_summary}; " + "; ".join(parts), inbox_paths, bridge_touched
 
 
 # ---------------------------------------------------------------------------
 # Step 10 — .act-lock.json + commit
 # ---------------------------------------------------------------------------
+
+def _folder_source_fingerprint(root: Path, source: str, keep_commit: bool) -> str:
+    """Fingerprint of the MANIFEST.json of a source that is a plain folder without git, as it is
+    now -- what the session start compares the folder against later. The project's own manifest is
+    rebuilt after the copy and can differ from the source's, so it cannot serve for that. "" for a
+    git source, a folder without a manifest, or a catch-up run (nothing was fetched, so the lock
+    keeps what it has)."""
+    if keep_commit:
+        template = actlib.read_lock().get("template") or {}
+        return str(template.get("source_fingerprint") or "")
+    if not source:
+        return ""
+    folder = Path(root, source)
+    if not folder.is_dir() or (folder / ".git").exists():
+        return ""
+    return manifest.manifest_fingerprint(folder / ".act")
+
 
 def step_lock(
     root: Path, plan: bool, source: str, new_copies: dict[str, dict], fetched_commit: Optional[str],
@@ -2556,6 +2651,7 @@ def step_lock(
         "template": {
             "version": version, "commit": commit, "source": source, "ref": ref,
             "manifest_sha256": manifest_hash,
+            "source_fingerprint": _folder_source_fingerprint(root, source, keep_commit),
         },
         "copies": new_copies,
     })
@@ -2774,6 +2870,8 @@ def _finish_update(
     fetched_commit: Optional[str], rescue_active: bool, keep_commit: bool = False,
     ref: Optional[str] = None,
 ) -> int:
+    # before any step below writes: what the owner has not committed in the coding rules is theirs
+    coding_unsaved = _has_unsaved_changes(root, rules.AREAS["coding"].project_file)
     sync_summary, new_copies, sync_touched = sync_dependent_files(root, always_run=True, notes=notes)
     # Own skills/roles written by hand under docs/ai/local/ get their tool copies/bridge too; the
     # entries are merged into new_copies because step_lock() below writes that value as a whole.
@@ -2791,12 +2889,14 @@ def _finish_update(
     except Exception as exc:
         notes.append(f"own skill/role copies not checked ({exc.__class__.__name__}: {exc})")
     frontmatter_summary, frontmatter_touched = step_refresh_role_frontmatter(root, False, notes)
-    coding_summary, coding_touched = step_list_new_coding_entries(root, False)
+    coding_summary, coding_touched = step_list_new_coding_entries(root, False, unsaved=coding_unsaved, notes=notes)
+    methods_summary, methods_touched = step_sync_methods(root, False, unsaved=coding_unsaved, notes=notes)
     moved_summary, moved_touched = step_move_core_entries(root, False)
     entered_summary, entered_touched, entered_notes = step_add_missing_core_entries(root, False)
     notes.extend(entered_notes)
-    sync_touched = [*sync_touched, *coding_touched, *moved_touched, *entered_touched]
+    sync_touched = [*sync_touched, *coding_touched, *methods_touched, *moved_touched, *entered_touched]
     _print_step(6, f"{sync_summary}; role frontmatter: {frontmatter_summary}; coding rules: {coding_summary}"
+                   + (f"; methods: {methods_summary}" if methods_summary else "")
                    + (f"; rule moves: {moved_summary}" if moved_summary else "")
                    + (f"; rules entered: {entered_summary}" if entered_summary else ""))
 
@@ -2898,6 +2998,8 @@ def _run_catch_up(root: Path, plan: bool, interactive: bool, args, source: str, 
             "[act]   [6/10] " + step_refresh_copies(root, True)[0]
             + "; roles: " + step_new_role_bridges(root, True)[0]
             + "; role frontmatter: " + step_refresh_role_frontmatter(root, True)[0]
+            + "; coding rules: " + step_list_new_coding_entries(root, True)[0]
+            + _plan_methods_part(root)
         )
         print("[act]   [7/10] " + step_hooks_and_gitfiles(root, True)[0])
         print("[act]   [8/10] " + _plan_migrations_summary(act_dir))
@@ -3079,6 +3181,8 @@ def main(argv: list[str]) -> int:
                 "[act]   [6/10] " + step_refresh_copies(root, True)[0]
                 + "; roles: " + step_new_role_bridges(root, True)[0]
                 + "; role frontmatter: " + step_refresh_role_frontmatter(root, True)[0]
+                + "; coding rules: " + step_list_new_coding_entries(root, True, new_act_dir)[0]
+                + _plan_methods_part(root, new_act_dir)
             )
             print("[act]   [7/10] " + step_hooks_and_gitfiles(root, True)[0])
             print("[act]   [8/10] " + _plan_migrations_summary(new_act_dir))

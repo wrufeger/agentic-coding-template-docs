@@ -48,9 +48,9 @@
 #               format migration 001-one-inbox moved to docs/ai/inbox/ (kind: question); a project
 #               someone still writes to at the old location with an older checkout falls here.
 #           16. a role/tier whose recorded usage.py outcomes cross a threshold
-#               raise proposed at 8+ outcomes with 40%+ reworked/escalated — a finding (with
+#               raise proposed once 30 outcomes are recorded and 60%+ of the last 30 are reworked/escalated — a finding (with
 #               --inbox an inbox question of its own with options, filed once and not again until
-#               8 more outcomes are recorded), never a live change to docs/ai/config.md. A lower tier is never proposed: a run of
+#               30 more outcomes are recorded), never a live change to docs/ai/config.md. A lower tier is never proposed: a run of
 #               accepted outcomes says nothing about whether a cheaper tier would have done as well.
 #           17. a git remote whose address points at the template repository (its repository name is
 #               exactly `agentic-coding-template`, or equals the source in .act-lock.json) while the current
@@ -70,6 +70,10 @@
 #               no known tool reads (reported like every finding: it counts and sets exit 1, and
 #               may be a newer tool's field). In a project only its own skills/roles are checked; the
 #               template's checkout checks all.
+#          19b. a file under docs/ai/local/ whose counterpart under .act/ is gone (the template
+#               renamed or removed it, so the override has no effect), with the most similar name
+#               there; and an archive collection file (docs/ai/work/archive/<kind>-<YYYY-MM>.md) with
+#               a code block that is never closed.
 #          20. a `revisit: YYYY-MM-DD` line under a decision in docs/project/decisions.md or
 #               docs/project/decisions/*.md whose date has passed (today is not yet due), or that is not
 #               a valid date. Nothing for a decision without the line or with a future date.
@@ -90,6 +94,10 @@
 #               skips it), with the characters, the budget, about 0.386 tokens per character and up to
 #               five lines that read like history (a date, an entry identifier, "formerly ... since
 #               ..."). Counted like any finding, never a block.
+#          24. the working methods (`methods` in docs/ai/config.md, files in .act/methods/): an entry that
+#               is no method name, a name no file backs (misspelled or removed), and a methods section in
+#               docs/project/coding_rules.md that does not match the row — with the command that enters it
+#               (rules.py --sync-methods).
 #          Finding 6's `act:ref` scan skips fenced code blocks and inline code spans (D2) — those
 #          markers are illustration, not a live reference, and used to be reported as broken.
 #          The content-based half of the reconcile skill (contradictions, near-duplicate rules,
@@ -122,6 +130,7 @@
 from __future__ import annotations
 
 import argparse
+import difflib
 import hashlib
 import json
 import os
@@ -129,7 +138,7 @@ import re
 import subprocess
 import sys
 from collections import Counter, defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 from typing import Optional
@@ -186,6 +195,8 @@ KIND_LABELS: dict[str, str] = {
     "duplicate-id": "Duplicate entry ids (task/backlog/question/todo)",
     "entry-unreadable": "Entry files that cannot be read as UTF-8",
     "orphan-file": "Files in the inbox or concept folder that no Markdown file under docs/ links",
+    "override-orphan": "Override files under docs/ai/local/ whose template counterpart under .act/ is gone",
+    "archive-fence": "Archive collection files with a code block that is never closed",
     "hook": "Missing hook entries",
     "settings-script": "Hook/permission entries pointing at a missing script",
     "manifest": ".act/MANIFEST.json drift",
@@ -193,6 +204,7 @@ KIND_LABELS: dict[str, str] = {
     "unknown-tool": "Unknown tool id(s) in docs/ai/config.md (`tools`)",
     "config-key": "Outdated keys in docs/ai/config.md",
     "config-value": "Invalid values in docs/ai/config.md",
+    "methods": "Working methods (`methods` in docs/ai/config.md) that are unknown or not entered in the coding rules",
     "status-value": "Unknown `status:` values in entry headers",
     "legacy-questions-dir": "docs/ai/questions/ still in use (obsolete since migration 001-one-inbox)",
     "local-risky-frontmatter": "Hand-written own role/skill with elevated-permission frontmatter keys",
@@ -228,6 +240,8 @@ KIND_LABELS_DE: dict[str, str] = {
     "duplicate-id": "Doppelte Eintragskennungen (Aufgabe/Backlog/Frage)",
     "entry-unreadable": "Eintragsdateien, die sich nicht als UTF-8 lesen lassen",
     "orphan-file": "Dateien in Inbox oder Konzeptordner, auf die keine Markdown-Datei unter docs/ verweist",
+    "override-orphan": "Override-Dateien unter docs/ai/local/, deren Gegenstück der Vorlage unter .act/ fehlt",
+    "archive-fence": "Sammeldateien des Archivs mit einem Codeblock, der nie geschlossen wird",
     "hook": "Fehlende Hook-Einträge",
     "settings-script": "Hook-/Berechtigungseinträge, die auf ein fehlendes Script zeigen",
     "manifest": ".act/MANIFEST.json weicht ab",
@@ -235,6 +249,7 @@ KIND_LABELS_DE: dict[str, str] = {
     "unknown-tool": "Unbekannte Werkzeugkennung(en) in docs/ai/config.md (`tools`)",
     "config-key": "Veraltete Schlüssel in docs/ai/config.md",
     "config-value": "Ungültige Werte in docs/ai/config.md",
+    "methods": "Arbeitsmuster (`methods` in docs/ai/config.md), die unbekannt oder nicht in den Coding-Regeln eingetragen sind",
     "status-value": "Unbekannte `status:`-Werte in Eintragsköpfen",
     "legacy-questions-dir": "docs/ai/questions/ noch in Gebrauch (überholt seit Migration 001-one-inbox)",
     "local-risky-frontmatter": "Handgeschriebene eigene Rolle/Skill mit Frontmatter-Schlüsseln erhöhter Berechtigung",
@@ -308,6 +323,7 @@ class TemplateCorpus:
     ids: dict[str, tuple[Path, str]]        # id -> (source file, origin)
     retired: dict[str, list[Path]]          # id -> files whose header lists it as retired
     groups: dict[str, rules.TemplateGroup]  # id -> the group itself, for hashing its body
+    unreadable: list[tuple[Path, str]] = field(default_factory=list)  # (file, reason): present, but not readable UTF-8
 
 
 def _read_retired_ids(path: Path) -> list[str]:
@@ -333,7 +349,8 @@ def _template_files(root: Path, area_name: str) -> list[tuple[Path, str]]:
     default — the same precedence actlib.resolve() uses everywhere else."""
     act_dir = root / ".act"
     template_glob = sorted((act_dir / "rules").rglob("*.md")) if area_name == "core" \
-        else sorted((act_dir / "coding").glob("*.md"))
+        else sorted([*(act_dir / "coding").glob("*.md"),
+                     *(p for p in (act_dir / rules.METHODS_DIR).glob("*.md") if p.stem.lower() != "readme")])
     out: list[tuple[Path, str]] = []
     seen_rel: set[str] = set()
     for path in template_glob:
@@ -351,14 +368,19 @@ def _build_corpus(root: Path, area_name: str) -> TemplateCorpus:
     ids: dict[str, tuple[Path, str]] = {}
     retired: dict[str, list[Path]] = {}
     groups: dict[str, rules.TemplateGroup] = {}
+    unreadable: list[tuple[Path, str]] = []
     for path, origin in _template_files(root, area_name):
-        tset = rules.parse_template_set(path, origin)
+        try:
+            tset = rules.parse_template_set(path, origin)
+        except (OSError, UnicodeDecodeError) as exc:
+            unreadable.append((path, f"{exc.__class__.__name__}: {exc}"))
+            continue
         for gid, group in tset.groups.items():
             ids.setdefault(gid, (path, origin))
             groups.setdefault(gid, group)
         for rid in _read_retired_ids(path):
             retired.setdefault(rid, []).append(path)
-    return TemplateCorpus(ids=ids, retired=retired, groups=groups)
+    return TemplateCorpus(ids=ids, retired=retired, groups=groups, unreadable=unreadable)
 
 
 def _off_and_override_entries(project: rules.ProjectFile) -> list[tuple[str, int, str]]:
@@ -388,6 +410,12 @@ def check_dead_and_stale(
     findings: list[Finding] = []
     effective: list[EffectiveOverride] = []
     candidates: dict[str, str] = {}
+
+    for bad_path, reason in corpus.unreadable:
+        findings.append(Finding(
+            path=_rel(bad_path, root), line=None, kind="validate",
+            message=f"rule set file cannot be read as UTF-8 ({reason}); its rules are not checked",
+        ))
 
     for gid, line, kind in _off_and_override_entries(project):
         if gid in corpus.ids:
@@ -454,7 +482,15 @@ def check_disabled_use_missing(root: Path, project: rules.ProjectFile) -> list[F
     for pset in project.sets:
         if pset.enabled:
             continue  # the enabled case is already covered by rules.py --validate
-        if rules.resolve_template_set(pset) is None:
+        try:
+            found = rules.resolve_template_set(pset)
+        except (OSError, UnicodeDecodeError) as exc:
+            findings.append(Finding(
+                path=project_rel, line=pset.line, kind="use-missing",
+                message=f"switched-off use: target cannot be read: {pset.path} ({exc.__class__.__name__}: {exc})",
+            ))
+            continue
+        if found is None:
             findings.append(Finding(
                 path=project_rel, line=pset.line, kind="use-missing",
                 message=f"switched-off use: target not found: {pset.path}",
@@ -807,6 +843,107 @@ def check_orphan_files(root: Path) -> list[Finding]:
     return findings
 
 
+# Sub-folders of docs/ai/local/ that are not file-for-file overrides: rule overrides work on
+# sections of a rule file (found by their ids, checked by the dead-id check), and own roles live
+# under agents/.
+_OVERRIDE_SKIP_DIRS = ("rules", "agents")
+_OVERRIDE_SIMILAR_CUTOFF = 0.6
+
+
+def _strictly_similar(own: str, other: str) -> bool:
+    """True when one file name is a prefix of the other (`workflow.js` / `workflow.js.txt`) or both
+    have the same stem with another extension."""
+    if own == other:
+        return False
+    if own.startswith(other) or other.startswith(own):
+        return True
+    own_stem, other_stem = Path(own).stem, Path(other).stem
+    return bool(own_stem) and own_stem == other_stem
+
+
+def check_override_orphans(root: Path) -> list[Finding]:
+    """A file under docs/ai/local/ is the override of the file at the same path under .act/. When
+    the template renames or removes that file, the override silently stops working. Reported:
+    every such file whose counterpart is missing, with the most similar name under .act/. Left out:
+    the rules/ and agents/ sub-folders (see _OVERRIDE_SKIP_DIRS), README.md files, files directly
+    in docs/ai/local/, and a file of an own skill (its skill folder is not in the template at
+    all). Any other file with no counterpart (an own script or coding set, say) is reported only when
+    .act/ has a file of a strictly similar name - one name a prefix of the other, or the same stem
+    with another extension - since otherwise it is most likely the project's own. Inside a skill
+    folder a fuzzy name match is enough."""
+    local = root / "docs" / "ai" / "local"
+    act = root / ".act"
+    if not local.is_dir() or not act.is_dir():
+        return []
+    findings: list[Finding] = []
+    for path in sorted(local.rglob("*")):
+        if not path.is_file() or path.name.lower() == "readme.md" or "__pycache__" in path.parts:
+            continue
+        rel = path.relative_to(local)
+        if len(rel.parts) < 2 or rel.parts[0] in _OVERRIDE_SKIP_DIRS:
+            continue
+        if (act / rel).exists():
+            continue
+        in_skill = rel.parts[0] == "skills" and len(rel.parts) >= 3
+        if in_skill and not (act / "skills" / rel.parts[1]).is_dir():
+            continue  # an own skill
+        # candidates: the files next to where the counterpart would be (a skill: the whole skill)
+        scope = act / "skills" / rel.parts[1] if in_skill else act / rel.parent
+        names = {c.name: c.relative_to(act).as_posix() for c in sorted(scope.rglob("*"))
+                 if c.is_file() and "__pycache__" not in c.parts} if scope.is_dir() else {}
+        wanted = rel.as_posix()
+        # compare the file names only: the shared folder prefix would make every name look alike
+        if in_skill:
+            close = [names[name] for name in
+                     difflib.get_close_matches(path.name, list(names), n=1, cutoff=_OVERRIDE_SIMILAR_CUTOFF)]
+        else:
+            close = [names[name] for name in sorted(names) if _strictly_similar(path.name, name)][:1]
+        if not close and not in_skill:
+            continue
+        hint = (f"; the most similar name there is `.act/{close[0]}`" if close
+                else f"; `.act/skills/{rel.parts[1]}/` has no file of a similar name")
+        findings.append(Finding(
+            path=_rel(path, root), line=None, kind="override-orphan",
+            message=(f"note: this override has no counterpart `.act/{wanted}` any more, so it has no effect"
+                     f"{hint} - move the change there or delete the override"),
+        ))
+    return findings
+
+
+_ARCHIVE_COLLECTION_NAME = re.compile(r"^[A-Za-z]+-\d{4}-\d{2}\.md$")
+
+
+def check_archive_fences(root: Path) -> list[Finding]:
+    """A code block in an archive collection file (docs/ai/work/archive/<kind>-<YYYY-MM>.md) that
+    is opened and never closed swallows the rest of the file, so the anchors after it no longer
+    count. Reported with the line of the opening fence."""
+    archive = root / "docs" / "ai" / "work" / "archive"
+    if not archive.is_dir():
+        return []
+    findings: list[Finding] = []
+    for path in sorted(archive.iterdir()):
+        if not path.is_file() or not _ARCHIVE_COLLECTION_NAME.match(path.name):
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8-sig").splitlines()
+        except (OSError, UnicodeDecodeError):
+            continue  # reported by check_unreadable_entries()
+        state: actlib.FenceState = None
+        opened_at = 0
+        for number, line in enumerate(lines, start=1):
+            before = state
+            state = actlib.fence_step(state, line)
+            if before is None and state is not None:
+                opened_at = number
+        if state is not None:
+            findings.append(Finding(
+                path=_rel(path, root), line=opened_at, kind="archive-fence",
+                message=(f"code block opened here is never closed (expected `{actlib.fence_closer(state)}`): "
+                         "the anchors after it no longer count as found"),
+            ))
+    return findings
+
+
 # ---------------------------------------------------------------------------
 # 8. Missing hook entries (only when "claude-code" is a configured tool)
 # ---------------------------------------------------------------------------
@@ -1080,6 +1217,15 @@ def check_config_values(root: Path) -> list[Finding]:
                 message=f"`{key}` is {value!r} — use {allowed}",
             ))
     return findings
+
+
+def check_methods(root: Path) -> list[Finding]:
+    """The working methods (`methods` row of docs/ai/config.md, .act/methods/): an entry that is no
+    method name, a name without a file (dead or misspelled), and a methods section in
+    docs/project/coding_rules.md that does not match the row — each with the command that fixes it
+    (rules.method_findings). Nothing for a project that uses no method."""
+    return [Finding(path=path, line=None, kind="methods", message=message)
+            for path, message in rules.method_findings(root)]
 
 
 _UNRESOLVED_RE = re.compile(r"^(?P<path>.*?):(?P<line>\d+): (?P<message>.*)$")
@@ -1731,18 +1877,19 @@ def check_manifest_drift(root: Path) -> list[Finding]:
 # 16. Tier proposals from recorded worker outcomes
 # ---------------------------------------------------------------------------
 
-# Thresholds are this check's own proposal, not a fixed standard: at
-# least 8 outcomes for a role/tier with 40%+ reworked/escalated suggests raising the tier. It
+# Thresholds are this check's own proposal, not a fixed standard: over the last 30 outcomes of a
+# role/tier (the window; fewer outcomes, no proposal), 60% (18 of 30) or more reworked or
+# escalated suggests raising the tier; older outcomes drop out of the window. It
 # only ever writes a finding, or with --inbox an inbox question -- never docs/ai/config.md itself
 # (a tier is never silently switched). There is no proposal in the other direction: accepted
 # outcomes cannot show that a cheaper tier would have found the same, least of all for a
 # reviewing role, so lowering a tier stays the owner's own idea.
-_TIER_PROPOSAL_MIN_RAISE = 8
-_TIER_PROPOSAL_RAISE_RATIO = 0.4
+_TIER_PROPOSAL_WINDOW = 30
+_TIER_PROPOSAL_RAISE_RATIO = 0.6
 # A proposal that was already filed is not filed again until at least this many further outcomes
 # have been recorded for the same role/tier -- new material, not the same count after the owner
-# decided to leave the tier as it is.
-_TIER_PROPOSAL_RENEW_AFTER = _TIER_PROPOSAL_MIN_RAISE
+# decided to leave the tier as it is: a whole new window.
+_TIER_PROPOSAL_RENEW_AFTER = _TIER_PROPOSAL_WINDOW
 _TIER_MEMORY_FILE = Path(".act-local") / "tier-proposals.json"
 
 
@@ -1767,9 +1914,26 @@ def _tier_memory(root: Path) -> dict[str, tuple[int, str]]:
     return memory
 
 
+def _recent_window(store: dict, role: str, tier: str) -> list[str]:
+    """The last outcomes recorded for role/tier, oldest first, at most _TIER_PROPOSAL_WINDOW of
+    them. Empty when usage.json has no order for this role/tier (a file written before the order
+    was kept): there is then no window and no proposal until new outcomes fill it."""
+    recent = (store.get("roles", {}).get(role) or {}).get("recent")
+    items = recent.get(tier) if isinstance(recent, dict) else None
+    if not isinstance(items, list):
+        return []
+    return [item for item in items if item in ("accepted", "reworked", "escalated")][-_TIER_PROPOSAL_WINDOW:]
+
+
+def _window_counts(store: dict, role: str, tier: str) -> tuple[int, int, int]:
+    """(accepted, reworked, escalated) within the window of role/tier."""
+    window = _recent_window(store, role, tier)
+    return window.count("accepted"), window.count("reworked"), window.count("escalated")
+
+
 def _tier_proposals(root: Path) -> list[tuple[str, int, Finding]]:
-    """(role|tier key, outcomes counted, finding) for every role/tier over the threshold, filed
-    before or not."""
+    """(role|tier key, outcomes counted in total, finding) for every role/tier whose window of
+    the last _TIER_PROPOSAL_WINDOW outcomes is full and over the ratio, filed before or not."""
     try:
         import usage
     except ImportError:
@@ -1780,18 +1944,18 @@ def _tier_proposals(root: Path) -> list[tuple[str, int, Finding]]:
         outcomes = store["roles"][role].get("outcomes") or {}
         for tier in sorted(outcomes):
             counts = outcomes[tier] if isinstance(outcomes[tier], dict) else {}
-            accepted, reworked, escalated = (
-                counts.get(kind) if isinstance(counts.get(kind), int)
-                and not isinstance(counts.get(kind), bool) else 0
-                for kind in ("accepted", "reworked", "escalated"))
-            total = accepted + reworked + escalated
-            trouble = reworked + escalated
+            overall = sum(counts.get(kind) if isinstance(counts.get(kind), int)
+                          and not isinstance(counts.get(kind), bool) else 0
+                          for kind in ("accepted", "reworked", "escalated"))
+            window = _recent_window(store, role, tier)
+            trouble = window.count("reworked") + window.count("escalated")
             tier_label = tier or "(no tier)"
-            if total >= _TIER_PROPOSAL_MIN_RAISE and trouble / total >= _TIER_PROPOSAL_RAISE_RATIO:
-                found.append((f"{role}|{tier}", total, Finding(
+            if (len(window) >= _TIER_PROPOSAL_WINDOW
+                    and trouble / len(window) >= _TIER_PROPOSAL_RAISE_RATIO):
+                found.append((f"{role}|{tier}", max(overall, len(window)), Finding(
                     path=".act-local/usage.json", line=None, kind="tier-proposal",
-                    message=(f"role `{role}` at tier `{tier_label}`: {trouble}/{total} outcomes "
-                             "reworked or escalated -- consider a higher tier "
+                    message=(f"role `{role}` at tier `{tier_label}`: {trouble} of the last {len(window)} "
+                             "outcomes reworked or escalated -- consider a higher tier "
                              "(R-role-outcome)"),
                 )))
     return found
@@ -1843,24 +2007,39 @@ def _related_roles(role: str, store: dict) -> list[str]:
     return roles
 
 
-def tier_question_text(store: dict, role: str, tier: str, language: str) -> tuple[str, str]:
-    """(title, body) of the inbox question for the proposal to raise `role` at `tier`. Numbers come
-    from `store` (usage.json) and this check's threshold constants, never from fixed text."""
+def _tier_facts(store: dict, role: str, tier: str) -> dict:
+    """The numbers of one tier proposal, from `store` (usage.json) and this check's threshold
+    constants, never from fixed text."""
+    accepted, reworked, escalated = _window_counts(store, role, tier)
+    trouble = reworked + escalated
+    return {"trouble": trouble, "window_size": accepted + trouble,
+            "total": sum(_outcome_counts(store, role, tier)),
+            "percent": round(_TIER_PROPOSAL_RAISE_RATIO * 100), "nxt": _next_tier(tier)}
+
+
+def _config_role(role: str) -> str:
+    # A generated `<x>-high` variant has no row of its own in § Roles: it runs at its base role's
+    # tier, one reasoning step further (init.py), so only the base role's row raises it.
+    return role[:-len("-high")] if role.endswith("-high") else role
+
+
+def tier_report_text(store: dict, role: str, tier: str, language: str) -> tuple[str, str]:
+    """(title, body) of the inbox report that carries the numbers of the tier proposal for `role`
+    at `tier`: the finding, the table, what applying it means. The question names this report."""
     def loc(en: str, de: str) -> str:
         return actlib.localized(language, en, de)
 
-    accepted, reworked, escalated = _outcome_counts(store, role, tier)
-    trouble = reworked + escalated
-    total = accepted + trouble
-    percent = round(_TIER_PROPOSAL_RAISE_RATIO * 100)
+    facts = _tier_facts(store, role, tier)
+    trouble, window_size, total = facts["trouble"], facts["window_size"], facts["total"]
+    percent, nxt = facts["percent"], facts["nxt"]
     no_tier = loc("(no tier)", "(ohne Stufe)")
-    nxt = _next_tier(tier)
-    title = loc(f"{role}: {trouble} of {total} outcomes reworked or escalated - raise the tier?",
-                f"{role}: {trouble} von {total} Ergebnissen nachgearbeitet oder eskaliert - Stufe anheben?")
+    title = loc(f"Tier proposal numbers: {role}", f"Zahlen zum Stufenvorschlag: {role}")
     at_tier = loc(f"at tier `{tier}`", f"auf der Stufe `{tier}`") if tier else loc("with no tier", "ohne Stufe")
-    rows = [loc("| Role | Tier | accepted | reworked | escalated | reworked or escalated |",
-                "| Rolle | Stufe | angenommen | nachgearbeitet | eskaliert | nachgearbeitet oder eskaliert |"),
-            "| :--- | :--- | ---: | ---: | ---: | ---: |"]
+    rows = [loc("| Role | Tier | accepted | reworked | escalated | reworked or escalated, since the start "
+                f"| reworked or escalated, last {_TIER_PROPOSAL_WINDOW} |",
+                "| Rolle | Stufe | angenommen | nachgearbeitet | eskaliert | nachgearbeitet oder eskaliert, "
+                f"seit Beginn | nachgearbeitet oder eskaliert, letzte {_TIER_PROPOSAL_WINDOW} |"),
+            "| :--- | :--- | ---: | ---: | ---: | ---: | ---: |"]
     def ladder_order(tier_name: str) -> tuple[int, str]:
         rank = _TIER_LADDER.index(tier_name) if tier_name in _TIER_LADDER else len(_TIER_LADDER)
         return rank, tier_name
@@ -1869,11 +2048,11 @@ def tier_question_text(store: dict, role: str, tier: str, language: str) -> tupl
         for tier_name in sorted(store["roles"][name].get("outcomes") or {}, key=ladder_order):
             a, r, e = _outcome_counts(store, name, tier_name)
             tier_cell = f"`{tier_name}`" if tier_name else no_tier
-            rows.append(f"| `{name}` | {tier_cell} | {a} | {r} | {e} | {r + e}/{a + r + e} |")
+            wa, wr, we = _window_counts(store, name, tier_name)
+            rows.append(f"| `{name}` | {tier_cell} | {a} | {r} | {e} | {r + e}/{a + r + e} | "
+                        f"{wr + we}/{wa + wr + we} |")
     empty_cells = " |" * (_ROLES_TABLE_COLUMNS - 2)
-    # A generated `<x>-high` variant has no row of its own in § Roles: it runs at its base role's
-    # tier, one reasoning step further (init.py), so only the base role's row raises it.
-    config_role = role[:-len("-high")] if role.endswith("-high") else role
+    config_role = _config_role(role)
     next_numbers = ""
     if nxt:
         na, nr, ne = _outcome_counts(store, role, nxt)
@@ -1884,14 +2063,10 @@ def tier_question_text(store: dict, role: str, tier: str, language: str) -> tupl
         applied = loc(f"Applied, that is a row in `docs/ai/config.md` § Roles: `| {config_role} | {nxt} |{empty_cells}`.",
                       f"Umgesetzt wäre das diese Zeile in `docs/ai/config.md` § Rollen: "
                       f"`| {config_role} | {nxt} |{empty_cells}`.")
-        option_a = loc("Raise the tier: put the row above into `docs/ai/config.md` § Roles.",
-                       "Stufe anheben: die Zeile oben in `docs/ai/config.md` § Rollen eintragen.")
     else:
         applied = loc(f"Applied, that means setting a higher tier for `{config_role}` in `docs/ai/config.md` § Roles.",
                       f"Umgesetzt hieße das, eine höhere Stufe für `{config_role}` in `docs/ai/config.md` § Rollen "
                       "zu setzen.")
-        option_a = loc(f"Raise the tier: set a higher tier for `{config_role}` in `docs/ai/config.md` § Roles.",
-                       f"Stufe anheben: eine höhere Stufe für `{config_role}` in `docs/ai/config.md` § Rollen setzen.")
     if config_role != role:
         applied += " " + loc(
             f"`{role}` has no row of its own: it runs at the tier of `{config_role}`, so the row raises both.",
@@ -1903,39 +2078,84 @@ def tier_question_text(store: dict, role: str, tier: str, language: str) -> tupl
                 f"Auf `{nxt}` entfällt `{role}`, `{config_role}` übernimmt seine Arbeit.")
     applied += " " + loc(f"Every run of `{config_role}` gets more expensive.",
                          f"Jeder Lauf von `{config_role}` wird damit teurer.")
-    renew_at = total + _TIER_PROPOSAL_RENEW_AFTER
     lines = [
-        loc(f"**Finding (`R-role-outcome`):** Role `{role}` has {total} outcomes {at_tier}, {trouble} of them "
-            f"reworked or escalated. From {_TIER_PROPOSAL_MIN_RAISE} outcomes with at least {percent}% rework or "
-            "escalation the doctor proposes a higher tier. The numbers from `.act-local/usage.json`:",
-            f"**Befund (`R-role-outcome`):** Die Rolle `{role}` hat {at_tier} {total} Ergebnisse, davon {trouble} "
-            f"nachgearbeitet oder eskaliert. Ab {_TIER_PROPOSAL_MIN_RAISE} Ergebnissen mit mindestens {percent} % "
-            "Nacharbeit oder Eskalation schlägt der Doctor eine höhere Stufe vor. Die Zahlen aus `.act-local/usage.json`:"),
+        loc(f"**Finding (`R-role-outcome`):** Role `{role}` has {total} outcomes {at_tier}; of the last "
+            f"{window_size}, {trouble} were reworked or escalated. Once {_TIER_PROPOSAL_WINDOW} outcomes are "
+            f"recorded, the doctor proposes a higher tier when at least {percent}% of the last "
+            f"{_TIER_PROPOSAL_WINDOW} were reworked or escalated; older outcomes drop out. The numbers from "
+            "`.act-local/usage.json`:",
+            f"**Befund (`R-role-outcome`):** Die Rolle `{role}` hat {at_tier} {total} Ergebnisse; von den "
+            f"letzten {window_size} wurden {trouble} nachgearbeitet oder eskaliert. Sind {_TIER_PROPOSAL_WINDOW} "
+            f"Ergebnisse erfasst, schlägt der Doctor eine höhere Stufe vor, wenn mindestens {percent} % der "
+            f"letzten {_TIER_PROPOSAL_WINDOW} nachgearbeitet oder eskaliert wurden; ältere fallen heraus. "
+            "Die Zahlen aus `.act-local/usage.json`:"),
         "", *rows, "",
         loc("The numbers do not show what caused the rework: an unclear assignment or a model that is too weak.",
             "Die Zahlen zeigen nicht, woran die Nacharbeit lag: an einem unklaren Auftrag oder an einem zu schwachen Modell.")
         + next_numbers,
-        "", applied, "",
-        loc("**Options:**", "**Optionen:**"), "",
-        f"- **a)** {option_a}",
-        "- **b)** " + loc(f"Leave it. The proposal comes back after {_TIER_PROPOSAL_RENEW_AFTER} more outcomes, at "
-                          f"{renew_at}, if at least {percent}% of them are then reworked or escalated.",
+        "", applied,
+    ]
+    return title, "\n".join(lines) + "\n"
+
+
+def tier_question_text(store: dict, role: str, tier: str, language: str, report_name: str) -> tuple[str, str]:
+    """(title, body) of the inbox question for the proposal to raise `role` at `tier`. The hint is
+    two sentences and names the report `report_name`, which holds the numbers (tier_report_text).
+    The recommended option comes first, as a), opening with the bold label."""
+    def loc(en: str, de: str) -> str:
+        return actlib.localized(language, en, de)
+
+    facts = _tier_facts(store, role, tier)
+    trouble, window_size, percent, nxt = facts["trouble"], facts["window_size"], facts["percent"], facts["nxt"]
+    total = facts["total"]
+    empty_cells = " |" * (_ROLES_TABLE_COLUMNS - 2)
+    config_role = _config_role(role)
+    title = loc(f"{role}: {trouble} of the last {window_size} outcomes reworked or escalated - raise the tier?",
+                f"{role}: {trouble} der letzten {window_size} Ergebnisse nachgearbeitet oder eskaliert - "
+                "Stufe anheben?")
+    if nxt:
+        raise_tier = loc(f"Raise the tier: put the row `| {config_role} | {nxt} |{empty_cells}` into "
+                         "`docs/ai/config.md` § Roles.",
+                         f"Stufe anheben: die Zeile `| {config_role} | {nxt} |{empty_cells}` in "
+                         "`docs/ai/config.md` § Rollen eintragen.")
+    else:
+        raise_tier = loc(f"Raise the tier: set a higher tier for `{config_role}` in `docs/ai/config.md` § Roles.",
+                         f"Stufe anheben: eine höhere Stufe für `{config_role}` in `docs/ai/config.md` § Rollen "
+                         "setzen.")
+    renew_at = total + _TIER_PROPOSAL_RENEW_AFTER
+    hint = loc(f"`{role}` had {trouble} of its last {window_size} outcomes reworked or escalated "
+               f"(`R-role-outcome`; a proposal starts at {percent}% of the last {_TIER_PROPOSAL_WINDOW}). "
+               f"The numbers, the table and what a higher tier costs are in the report `{report_name}` in this inbox.",
+               f"`{role}` hatte {trouble} der letzten {window_size} Ergebnisse nachgearbeitet oder eskaliert "
+               f"(`R-role-outcome`; ein Vorschlag beginnt bei {percent} % der letzten {_TIER_PROPOSAL_WINDOW}). "
+               f"Die Zahlen, die Tabelle und was eine höhere Stufe kostet, stehen im Bericht `{report_name}` "
+               "in diesem Eingang.")
+    lines = [
+        hint, "",
+        "- **a)** " + loc("**Recommended:** Look at the cases first: check the journal and transcripts of the reworked "
+                          "and escalated runs for the cause, then decide. Effort: about 15 minutes of reading. The "
+                          "numbers alone do not show whether a higher tier helps.",
+                          "**Empfehlung:** Erst die Fälle ansehen: Journal und Transkripte der nachgearbeiteten und "
+                          "eskalierten Läufe auf die Ursache prüfen, dann entscheiden. Aufwand: etwa 15 Minuten "
+                          "Lesen. Die Zahlen allein zeigen nicht, ob eine höhere Stufe hilft."),
+        "",
+        f"- **b)** {raise_tier} " + loc("Effort: one table row, a minute.", "Aufwand: eine Tabellenzeile, eine Minute."),
+        "",
+        "- **c)** " + loc(f"Leave it. The proposal comes back after {_TIER_PROPOSAL_RENEW_AFTER} more outcomes, at "
+                          f"{renew_at}, if at least {percent}% of the then last {_TIER_PROPOSAL_WINDOW} are reworked "
+                          "or escalated. Effort: none.",
                           f"So lassen. Der Vorschlag kommt nach {_TIER_PROPOSAL_RENEW_AFTER} weiteren Ergebnissen wieder, "
-                          f"also bei {renew_at}, wenn dann noch mindestens {percent} % nachgearbeitet oder eskaliert "
-                          "sind."),
-        "- **c)** " + loc("Look at the cases first: check the journal and transcripts of the reworked and escalated runs "
-                          "for the cause, then decide. **Recommended:** the numbers alone do not show whether a higher "
-                          "tier helps.",
-                          "Erst die Fälle ansehen: Journal und Transkripte der nachgearbeiteten und eskalierten Läufe "
-                          "auf die Ursache prüfen, dann entscheiden. **Empfehlung:** Die Zahlen allein zeigen nicht, "
-                          "ob eine höhere Stufe hilft."),
+                          f"also bei {renew_at}, wenn dann noch mindestens {percent} % der letzten "
+                          f"{_TIER_PROPOSAL_WINDOW} nachgearbeitet oder eskaliert sind. Aufwand: keiner."),
+        "",
     ]
     return title, "\n".join(lines) + "\n"
 
 
 def file_tier_questions(root: Path) -> list[Path]:
     """Write one inbox question (kind: question, answer line last) for every proposal not filed
-    yet, note the outcome count of each one actually written, and return the files. A proposal
+    yet, each preceded by an inbox report (kind: report) with its numbers that the question names,
+    note the outcome count of each one actually written, and return the files (report, then question). A proposal
     whose question is written never comes back until _TIER_PROPOSAL_RENEW_AFTER more outcomes are
     recorded, however many reports are written or archived meanwhile. Each question is noted right
     after it is written. Best effort: a question that cannot be written is skipped with a warning
@@ -1953,13 +2173,21 @@ def file_tier_questions(root: Path) -> list[Path]:
     written: list[Path] = []
     for key, total, _ in new:
         role, _, tier = key.partition("|")
-        title, body = tier_question_text(store, role, tier, language)
+        report_title, report_body = tier_report_text(store, role, tier, language)
+        report_path: Optional[Path] = None
         try:
+            # The report first: the question names it, and without it the numbers would be lost.
+            report_path, _ = entries.create_entry(
+                root, "report", report_title, recipient="all", body=report_body,
+                slug=f"tier-numbers-{role}-{tier or 'none'}")
+            title, body = tier_question_text(store, role, tier, language, report_path.name)
             path, _ = entries.create_entry(root, "question", title, body=body, answer_block=True)
         except (OSError, ValueError) as exc:
+            if report_path is not None:  # no orphan report, and no second one with the next run
+                report_path.unlink(missing_ok=True)
             print(f"doctor.py: tier proposal {key!r} not filed as a question: {exc}", file=sys.stderr)
             continue
-        written.append(path)
+        written += [report_path, path]
         if not remember_tier_proposals(root, {key: total}):
             print(f"doctor.py: could not write {_TIER_MEMORY_FILE.as_posix()} -- the question for {key!r} "
                   "will be filed again with the next run", file=sys.stderr)
@@ -2418,11 +2646,14 @@ def run(root: Path, accept_ids: set[str], accept_all: bool) -> tuple[list[Findin
     findings += check_local_role_frontmatter(root)
     findings += check_unreadable_entries(root)
     findings += check_orphan_files(root)
+    findings += check_override_orphans(root)
+    findings += check_archive_fences(root)
     findings += check_hooks(root)
     findings += check_settings_scripts(root)
     findings += check_unknown_tools(root)
     findings += check_legacy_config_keys(root)
     findings += check_config_values(root)
+    findings += check_methods(root)
     findings += check_imports(root)
     findings += check_worker_rules(root)
     findings += check_status_values(root)
@@ -2510,7 +2741,8 @@ def main(argv: list[str]) -> int:
 
     if args.inbox:
         # A tier proposal is a decision, so it goes into a question of its own, not into the
-        # report; the report carries the other findings and is skipped when there are none.
+        # doctor report; its numbers go into a report of their own that the question names. The
+        # doctor report carries the other findings and is skipped when there are none.
         for question in file_tier_questions(root):
             print(f"doctor.py: wrote {_rel(question, root)}")
         written = write_inbox(root, [f for f in findings if f.kind != "tier-proposal"])

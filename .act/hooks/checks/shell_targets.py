@@ -727,7 +727,8 @@ class _Word(str):
 
     `live` is a string as long as the word, one character per character of its text: "L" where the
     character is syntax the shell still acts on (written unquoted and unescaped; a `$` and the name
-    after it inside double quotes), "." where quoting or an escape made it a plain character (and
+    after it inside double quotes), "'" where it stood inside single quotes (nothing in it is expanded,
+    a `$((` there is plain text), "." where another quoting or an escape made it a plain character (and
     for the text of a backtick span or of a `$(...)`/`${...}` construct, which are judged by their
     own rules). A plain `str` has no `live` (`getattr(word, "live", None)`), and neither has a word
     that came out of a nested scan (`sh -c`, `eval`, `$(...)`, a backtick span — _scan_command drops
@@ -1009,7 +1010,7 @@ def _read_word(
                 raise ValueError("No closing quotation")
             parts.append(text[index + 1:end])
             bare.append(text[index + 1:end])
-            live.append("." * (end - index - 1))
+            live.append("'" * (end - index - 1))
             index = end + 1
         elif char == '"':
             index += 1
@@ -1227,7 +1228,7 @@ def _heredoc_operand_positions(tokens: list[_Token]) -> list[int]:
     ]
 
 
-_SHORT_OPTION_CLUSTER_RE = re.compile(r"-[A-Za-z]{2,}")
+_SHORT_OPTION_CLUSTER_RE = re.compile(r"-[A-Za-z0-9]{2,}")  # digits too: `xargs -0I {}`
 
 
 def _wrapper_value_follows(arg: str, value_flags: frozenset) -> bool:
@@ -1313,6 +1314,97 @@ def _reads_script_from_stdin(words: list[str]) -> bool:
             return False
         index += 1
     return True
+
+
+# PowerShell host options that take the next word as their value.
+_PS_HOST_VALUE_OPTIONS = ("-executionpolicy", "-inputformat", "-outputformat", "-windowstyle", "-workingdirectory",
+                          "-configurationname", "-version", "-settingsfile", "-custompipename", "-encodedarguments")
+
+
+def _ps_option_is(name: str, full: str, shortest: int = 2) -> bool:
+    """True if `name` (lower-case, with its dash) is `full` or an abbreviation of it of at least `shortest`
+    characters, the way PowerShell accepts one (`-c`, `-co` ... `-command`)."""
+    return len(name) >= shortest and full.startswith(name)
+
+
+def _ps_reads_stdin(args: list[str]) -> bool:
+    """True if a `powershell` or `pwsh` call with these arguments reads its script from standard input: only
+    options, or `-Command -`, `-c -`, `-File -`, a lone `-`. A call that names a command text, a script file
+    or an encoded command of its own, or has a word that is no option, reads something else. Callers read a
+    text piped into such a call as a script, so a doubtful call (an option this does not know is taken as a
+    flag without a value) errs toward reading it."""
+    index = 0
+    while index < len(args):
+        word = str(args[index])
+        low = word.lower()
+        if low == "-":
+            return True
+        if not low.startswith(("-", "/")) or len(low) < 2:
+            return False  # a word that is no option: the command text or a script file
+        name, _, glued = low.partition(":")
+        value = glued if glued else (str(args[index + 1]) if index + 1 < len(args) else "")
+        if _ps_option_is(name, "-command") or _ps_option_is(name, "-file") or _ps_option_is(name, "-encodedcommand"):
+            return value == "-"
+        if any(_ps_option_is(name, option, 3) for option in _PS_HOST_VALUE_OPTIONS) or name in ("-ep", "-wd", "-if", "-of"):
+            index += 1 if glued else 2
+            continue
+        index += 1
+    return True
+
+
+# What the escapes of an ANSI-C `$'...'` word stand for (bash's own table), and the numeric forms.
+_ANSI_C_SIMPLE = {"a": "\a", "b": "\b", "e": "\x1b", "E": "\x1b", "f": "\f", "n": "\n", "r": "\r", "t": "\t",
+                  "v": "\v", "\\": "\\", "'": "'", '"': '"', "?": "?"}
+_ANSI_C_ESCAPE_RE = re.compile(
+    r"\\(?:([0-7]{1,3})|x([0-9A-Fa-f]{1,2})|u([0-9A-Fa-f]{1,4})|U([0-9A-Fa-f]{1,8})|c(.)|(.))", re.DOTALL)
+
+
+def _ansi_c_decode(raw: str) -> str:
+    """The text bash makes of the inside of `$'...'` (escapes resolved; an unknown escape stays as typed)."""
+    def one(match: "re.Match[str]") -> str:
+        octal, hexa, short, long_, control, simple = match.groups()
+        try:
+            if octal is not None:
+                return chr(int(octal, 8) & 0xFF)
+            if hexa is not None:
+                return chr(int(hexa, 16))
+            if short is not None:
+                return chr(int(short, 16))
+            if long_ is not None:
+                return chr(int(long_, 16))
+        except (ValueError, OverflowError):
+            return match.group(0)
+        if control is not None:
+            return chr(ord(control) & 0x1F)
+        return _ANSI_C_SIMPLE.get(simple, match.group(0))
+
+    return _ANSI_C_ESCAPE_RE.sub(one, raw)
+
+
+def _ansi_c_unquote(word: str) -> str:
+    """`word` with each ANSI-C run in it read as bash reads it: the lexer does not know `$'...'` and hands
+    it back as a live `$` followed by single-quoted text (`live`: "L" then "'" characters), so `eval
+    $'git config x'` came out as the command `$git`. Here the `$` is dropped and the escapes of the quoted run
+    (the characters marked "'" after it) are resolved. A word without `live` (a plain `str`), and a word
+    with no such `$`, come back as they are. A run of several single-quoted pieces that stand together
+    (`$'a''b'`) is read as one run, which only matters for an escape in the second piece."""
+    live = getattr(word, "live", None)
+    if live is None or len(live) != len(word) or "$" not in word:
+        return str(word)
+    pieces: list[str] = []
+    index = 0
+    size = len(word)
+    while index < size:
+        if word[index] == "$" and live[index] == "L" and index + 1 < size and live[index + 1] == "'":
+            end = index + 1
+            while end < size and live[end] == "'":
+                end += 1
+            pieces.append(_ansi_c_decode(word[index + 1:end]))
+            index = end
+        else:
+            pieces.append(word[index])
+            index += 1
+    return "".join(pieces)
 
 
 def _group_reads_script_from_stdin(tokens: list[_Token], first: int, stop: int) -> bool:
@@ -1534,7 +1626,57 @@ def _raw_redirect_targets(command: str) -> list[str]:
         word = match.group(1).strip("'\"")
         if not _FD_DUP_WORD_RE.match(word):
             targets.append(word)
+        # The expression above ends at the first blank, so a word that holds a quoted or escaped blank
+        # (`> "a b/c"`) was reported by its beginning only: the whole word is reported as well.
+        whole = _raw_target_word(command, match.start(1))
+        if whole and whole != word and not _FD_DUP_WORD_RE.match(whole):
+            targets.append(whole)
     return targets
+
+
+_RAW_WORD_LIMIT = 1024  # characters of one word read by _raw_target_word; bounds the work of a long text with many `>`
+
+
+def _raw_target_word(text: str, start: int) -> str:
+    """The shell word that begins at `text[start]` with its quoting taken off, as far as the text can be told
+    without a tokenizer: backslash pairs, `'...'`, `"..."` (a backslash escapes the next character there) and
+    ANSI-C `$'...'` (a backslash escapes the next character, escapes resolved) are read as runs; the word
+    ends at an unquoted blank or one of `;&|()<>`. A quote that never closes runs to the end of the text.
+    At most _RAW_WORD_LIMIT characters are read."""
+    size = min(len(text), start + _RAW_WORD_LIMIT)
+    pieces: list[str] = []
+    index = start
+    while index < size:
+        char = text[index]
+        if char.isspace() or char in ";&|()<>":
+            break
+        if char == "\\":
+            pieces.append(text[index + 1:index + 2])
+            index += 2
+        elif char == "'":
+            end = text.find("'", index + 1, size)
+            end = size if end < 0 else end
+            pieces.append(text[index + 1:end])
+            index = end + 1
+        elif char == '"':
+            index += 1
+            while index < size and text[index] != '"':
+                if text[index] == "\\" and index + 1 < size and text[index + 1] in '$`"\\\n':
+                    index += 1
+                pieces.append(text[index])
+                index += 1
+            index += 1
+        elif char == "$" and text.startswith("$'", index):
+            index += 2
+            begin = index
+            while index < size and text[index] != "'":
+                index += 2 if text[index] == "\\" else 1
+            pieces.append(_ansi_c_decode(text[begin:index]))
+            index += 1
+        else:
+            pieces.append(char)
+            index += 1
+    return "".join(pieces)
 
 
 def _command_name(word: str) -> str:
@@ -1773,9 +1915,22 @@ def _simple_command_targets(
         elif name == "install" and any(arg in ("-d", "--directory") for arg in args):
             raw_targets = operands
         elif len(operands) >= 2:
-            raw_targets = [operands[-1]]
+            # An rsync destination `host:path` or `rsync://host/...` is on the other machine, not a local file.
+            # Only when every option is one that acts on the remote side alone (_rsync_options_stay_remote):
+            # `-e`/`--rsh` runs a local program, `--log-file`, `--write-batch` ... write local files - and only
+            # on a command line that is nothing but this rsync call with plain words (_RSYNC_ENV_NAMED is False:
+            # `RSYNC_RSH=... rsync` runs a local program too).
+            if (
+                name == "rsync" and _RSYNC_ENV_NAMED is False and _is_remote_rsync_operand(str(operands[-1]))
+                and _rsync_options_stay_remote([str(arg) for arg in args])
+            ):
+                _RSYNC_REMOTE_TEXTS.add(str(operands[-1]))
+            else:
+                raw_targets = [operands[-1]]
         elif len(operands) == 1 and name == "ln":
             raw_targets = [operands[0].replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]]
+    elif name == "ssh":
+        raw_targets = _ssh_local_effects(words)[0]  # the file `-E` writes the log to is local
     elif name == "sed":
         if any(arg == "--in-place" or arg.startswith("--in-place=") or _SED_INPLACE_FLAG_RE.match(arg) for arg in args):
             operands, values = _operands(args, _VALUE_FLAGS["sed"])
@@ -1821,10 +1976,10 @@ def _simple_command_targets(
         for position, arg in enumerate(args):
             if arg.startswith("-") and not arg.startswith("--") and "c" in arg[1:]:
                 if position + 1 < len(args):
-                    return _scan_command(args[position + 1], bases, git_writes, depth + 1), None
+                    return _scan_command(_ansi_c_unquote(args[position + 1]), bases, git_writes, depth + 1), None
                 break
     elif name == "eval":
-        return _scan_command(" ".join(args), bases, git_writes, depth + 1), None
+        return _scan_command(" ".join(_ansi_c_unquote(arg) for arg in args), bases, git_writes, depth + 1), None
     elif name == "cmd":
         # `cmd /c <line>` (also `/k`, any case, after cmd's own switches such as `/d` or `/q`): cmd.exe
         # parses the line anew by its own rules, so it is read like an `eval` of the words - as close
@@ -1925,7 +2080,7 @@ def _literal_output(words: list[str], stdin_text: Optional[str]) -> Optional[str
     if at >= len(words):
         return None
     name = _command_name(words[at])
-    args = [str(word) for word in words[at + 1:]]
+    args = [_ansi_c_unquote(word) for word in words[at + 1:]]
     if name == "cat":
         return stdin_text if not [arg for arg in args if arg != "-" and not arg.startswith("-")] else None
     if name == "echo":
@@ -1952,7 +2107,8 @@ def _collect_inline_code(
     leaves that word as written; else None). The program on standard input is a heredoc body or
     here-string of the command itself, else the literal output of the previous stage of its pipeline.
     Inside a wsl command line (_WSL_DEPTH) a path literal `/mnt/<x>/...` is drive <X>:, as the
-    interpreter sees it there. Best effort: an error here costs this command's result, never the scan."""
+    interpreter sees it there. A text the reader does not understand costs this command's result, never the scan; a program
+    error of the reader raises inline_code.ReaderFailure."""
     sink = _INLINE_SINK
     code_sink = _INLINE_CODE_SINK
     if sink is None and code_sink is None:
@@ -1997,11 +2153,18 @@ def _collect_inline_code(
                 path = str(_wsl_native_word(path))
             for base in ordered:
                 sink.append((path, base, language))
-    except Exception as error:  # noqa: BLE001
-        # Deliberately broad: whatever goes wrong while reading one command's inline code (newer,
-        # best-effort code on top of the scan) must neither refuse the call nor end the walk over the
-        # commands that follow - only this command's inline part is lost. Said on standard error.
+    except (ValueError, SyntaxError, RecursionError, MemoryError) as error:
+        # What the reader itself raises on a text it does not understand (unknown syntax, an incomplete
+        # quote, a program too large or too deep): only this command's inline part is lost, the walk over
+        # the commands that follow goes on. Said on standard error.
         _inline_code.report_skipped("one command", error)
+    except Exception as error:  # noqa: BLE001
+        # Any other error is a bug of the reader, not an unreadable text: letting the command through
+        # unread would open the door the check keeps shut (a write call whose paths were never judged).
+        # It travels up to the callers, which refuse the call and name it.
+        raise _inline_code.ReaderFailure(
+            f"the reader of inline interpreter code failed with {type(error).__name__}: {error}"
+        ) from error
 
 
 def _track_group_output(
@@ -2067,6 +2230,24 @@ def _arithmetic_parts(text: str) -> Optional[tuple[list[str], str]]:
     return bodies, "".join(rest)
 
 
+def _substitutions_are_quoted_text(word: str) -> bool:
+    """True when every `$(` in `word` is a `$((` written inside single quotes (`git log -S'$(('`): bash
+    expands nothing there, and an arithmetic opener holds no command of its own, so there is nothing to
+    read as command text. Allow-list: known only for a word the lexer made (`live` marks "'" for a
+    single-quoted character); a plain `str`, a word of a nested scan, and a word with any other `$(` -
+    outside single quotes (`'$(('"$(cmd)"`, `"$(("`, bare) or a single-quoted command substitution
+    (`'$(cmd)'`, which an `eval` or `sh -c` runs) - answer False and are read as before."""
+    live = getattr(word, "live", None)
+    if live is None or len(live) != len(word):
+        return False
+    start = word.find("$(")
+    while start >= 0:
+        if word[start + 2:start + 3] != "(" or live[start:start + 3] != "'''":
+            return False
+        start = word.find("$(", start + 1)
+    return True
+
+
 def _rescan_word(word: str, bases: _Bases, git_writes: frozenset, depth: int) -> list[_Target]:
     """Read a word that holds `$(` as command text once more (a command substitution runs commands).
     An arithmetic expansion `$((...))` in it is not a command: its body is read as command text instead
@@ -2129,6 +2310,80 @@ def _simple_substitutions(word: str) -> Optional[list[str]]:
 # receives the targets that text used to produce (read whole as a local command, as before).
 _SSH_REMOTE_IS_REMOTE = False
 _REMOTE_SINK: Optional[list] = None
+# The destination operands of rsync calls that name another machine (`host:path`), collected while a command
+# is scanned: _bash_write_targets drops what the legacy half made of them, unless the same text is a local
+# target elsewhere in the command.
+_RSYNC_REMOTE_TEXTS: set[str] = set()
+# Whether a remote rsync destination may NOT be dropped for the command line being scanned. rsync reads its
+# own environment variables (`RSYNC_RSH`, `RSYNC_CONNECT_PROG`, ...) and runs a local program from them, and
+# a line can set one in more spellings than any text search finds (the shell removes quotes and escapes
+# before `export`, `env` or `declare` see the name). So the destination is dropped only for a line that is
+# nothing but one rsync call with plain words (_is_plain_rsync_line): no prefix assignment, no other command,
+# no operator, no expansion. What _bash_write_targets (and the PowerShell scanner above it, for a `bash -c`
+# text) sets is False for such a line and True for every other one. None outside such a scan: nothing is
+# dropped then.
+_RSYNC_ENV_NAMED: Optional[bool] = None
+# A path holding the text `rsync_` keeps the old verdict even in a plain line (an over-block of a name such
+# as `rsync_notes.md`, which costs nothing).
+_RSYNC_ENV_RE = re.compile(r"rsync_", re.IGNORECASE)
+# Characters that are syntax when the shell acts on them unquoted: a word holding one of them, not provably
+# quoted or escaped (`_Word.live` is not "L" there), is no plain word.
+_NOT_PLAIN_CHARS = frozenset("$`*?[]{}~!")
+
+
+def _is_plain_rsync_line(command: str) -> bool:
+    """True when the whole command line is one rsync call and nothing else: the first word is `rsync` itself
+    (no prefix assignment, no `env`/`export`/`declare`, no path), there is no operator at all (no `;`, `&&`,
+    pipe, redirection, `&`, group, line break), and every word is plain - no command substitution, no
+    backtick span, a `$` or backtick only inside single quotes (escaped or double-quoted ones still count as
+    syntax), none of `*?[]{}~!` as live syntax (quoted or escaped ones are text).
+    Allow-list over the whole line: anything else is False and keeps the verdict that held before remote
+    destinations were dropped. The same cut as the print-only line of command_words."""
+    command = command.strip()
+    if not command:
+        return False
+    tokens = None
+    for attempt in (lambda: _line_mode_tokens(command), lambda: _shell_tokens(command, True)):
+        try:
+            tokens = attempt()
+            break
+        except ValueError:
+            continue
+    if tokens and tokens[-1] == ("\n", True):
+        tokens = tokens[:-1]  # the line-wise tokenizer ends its last line with a line break of its own
+    if not tokens:
+        return False
+    for index, (text, is_op) in enumerate(tokens):
+        if is_op:
+            return False
+        if index == 0 and str(text) != "rsync":
+            return False
+        if getattr(text, "subs", ()):
+            return False
+        live = getattr(text, "live", None)
+        known = live is not None and len(live) == len(text)
+        for position, char in enumerate(text):
+            if char not in _NOT_PLAIN_CHARS:
+                continue
+            if not known or live[position] == "L":
+                return False
+            # "." also marks a `$(...)`, `${...}` or positional `$` inside double quotes, which the shell
+            # still expands: a `$` or backtick counts as text only inside single quotes.
+            if char in "$`" and live[position] != "'":
+                return False
+    return True
+
+
+def _names_rsync_variable(command: str) -> bool:
+    """True when a remote destination of an rsync call in `command` must be read as a local path, as before the
+    remote-destination rule: the line is not nothing but one rsync call with plain words (_is_plain_rsync_line),
+    or it holds the text `rsync_` (_RSYNC_ENV_RE). Either way it may set `RSYNC_RSH`, `RSYNC_CONNECT_PROG` or
+    another variable rsync reads, in a spelling no text search can rule out. Any failure on the way also gives
+    True: the destination then stays a local path, the over-blocking side."""
+    try:
+        return _RSYNC_ENV_RE.search(command) is not None or not _is_plain_rsync_line(command)
+    except Exception:  # noqa: BLE001 — never a dropped destination on a bug, see the docstring
+        return True
 _SSH_WORD_RE = re.compile(r"(?<![\w-])ssh(?:\.exe)?(?![\w-])", re.IGNORECASE)
 # A command in which the word `ssh` may not run the real program: a `PATH` set somewhere in it, a function
 # of that name defined in it, or bash's command hash changed. No ssh call in such a command is read as a
@@ -2296,6 +2551,122 @@ def _ssh_remote_start(words: list[str]) -> Optional[int]:
     return index + 1
 
 
+_RSYNC_REMOTE_RE = re.compile(r"(?:rsync://|(?:[\w.-]+@)?[A-Za-z0-9][\w.-]+::?(?!$))")
+_SSH_VALUE_OPTION_LETTERS = frozenset("BbcDEeFIiJLlmOopQRSWw")
+
+
+# rsync options that change what is sent or how, and never make rsync run a program or write a file on this
+# machine: short flag clusters of these letters, these long flags, and these long options with a value.
+_RSYNC_SHORT_CLUSTER_RE = re.compile(r"^-[avzrltpgoDHSPhnuiqxcLkKRbmWAXsyOJUNCE0468]+$")
+_RSYNC_PLAIN_LONG_FLAGS = frozenset({
+    "--archive", "--verbose", "--compress", "--recursive", "--links", "--times", "--perms", "--owner", "--group",
+    "--progress", "--partial", "--delete", "--delete-after", "--delete-before", "--delete-during",
+    "--delete-excluded", "--dry-run", "--human-readable", "--stats", "--itemize-changes", "--quiet", "--update",
+    "--checksum", "--size-only", "--ignore-existing", "--inplace", "--whole-file", "--no-whole-file", "--relative",
+    "--prune-empty-dirs", "--copy-links", "--hard-links", "--sparse", "--existing", "--ignore-times", "--numeric-ids",
+    "--protect-args", "--cvs-exclude", "--executability", "--xattrs", "--acls", "--one-file-system",
+})
+_RSYNC_VALUE_LONG_OPTIONS = frozenset({
+    "--exclude", "--include", "--filter", "--bwlimit", "--timeout", "--port", "--chmod", "--max-size", "--min-size",
+    "--compress-level", "--info", "--debug",
+})
+# A remote shell given by `-e`/`--rsh` that is only ssh, optionally with a port.
+_RSYNC_PLAIN_SSH_RE = re.compile(r"^ssh(?:\.exe)?(?: -p \d+)?$")
+
+
+def _rsync_options_stay_remote(args: list[str]) -> bool:
+    """True when every option among `args` (an rsync call's words after the program) acts on the remote side
+    alone, so that a destination `host:path` writes no file here: plain flag clusters and long flags from the
+    allow-lists above, pattern options (`--exclude`, `--include`, `--filter`, `-f`), and a remote shell that
+    is only `ssh` (optionally `-p <port>`). Any other option - `-e`/`--rsh` with another program,
+    `--rsync-path`, `--log-file`, `--write-batch`, `--only-write-batch`, `--backup-dir`, `--partial-dir`,
+    `--temp-dir`, `--link-dest`, an unknown one - is False: the destination is then read as a local target."""
+    index = 0
+    while index < len(args):
+        word = args[index]
+        index += 1
+        if word == "--":
+            return True
+        if not word.startswith("-") or word == "-":
+            continue  # an operand
+        if not word.startswith("--"):
+            if word == "-f":
+                index += 1  # the filter rule
+                continue
+            if _RSYNC_SHORT_CLUSTER_RE.match(word):
+                continue
+            if word.endswith("e") and (len(word) == 2 or _RSYNC_SHORT_CLUSTER_RE.match(word[:-1])):
+                # `-e <shell>` alone or last in a cluster (`-avze ssh`): the next word is the remote shell
+                if index < len(args) and _RSYNC_PLAIN_SSH_RE.match(args[index]):
+                    index += 1
+                    continue
+            return False
+        name, has_value, value = word.partition("=")
+        if name == "--rsh":
+            if not has_value:
+                value = args[index] if index < len(args) else ""
+                index += 1
+            if _RSYNC_PLAIN_SSH_RE.match(value):
+                continue
+            return False
+        if name in _RSYNC_PLAIN_LONG_FLAGS and not has_value:
+            continue
+        if name in _RSYNC_VALUE_LONG_OPTIONS:
+            if not has_value and name in ("--exclude", "--include", "--filter"):
+                index += 1  # the pattern is the next word
+            continue
+        return False
+    return True
+
+
+def _is_remote_rsync_operand(operand: str) -> bool:
+    """True for an rsync operand `[user@]host:path`, `host::module` or `rsync://host/...` whose host is another
+    machine. A drive letter (`C:/x`, a host name of one character), a path (a `/` before the colon), a
+    variable, glob or tilde, and this machine (`localhost:/x`, _is_local_ssh_host) are not: those are read as a
+    local path, as before."""
+    if _DYNAMIC_TARGET_RE.search(operand) or operand.startswith(("/", ".", "~")):
+        return False
+    match = _RSYNC_REMOTE_RE.match(operand)
+    if match is None:
+        return False
+    host = operand[8:].split("/", 1)[0] if operand.startswith("rsync://") else operand[:match.end()].rstrip(":")
+    return not _is_local_ssh_host(host)
+
+
+def _ssh_local_effects(words: list[str]) -> tuple[list[str], Optional[str]]:
+    """What an `ssh [options] <destination> <command...>` call does on THIS machine: (the files its `-E` option
+    writes the log to, the command text when the destination is this machine - that text runs here, so it is read
+    as a local command line - else None). The options that take a value are skipped, glued or as the next word;
+    a program word that is not ssh gives nothing."""
+    at = _command_prefix_end(words)
+    if at >= len(words) or _SSH_PROGRAM_RE.fullmatch(str(words[at])) is None:
+        return [], None
+    logs: list[str] = []
+    index = at + 1
+    while index < len(words):
+        arg = str(words[index])
+        if arg == "--":
+            index += 1
+            break
+        if not arg.startswith("-") or len(arg) == 1:
+            break
+        cluster = arg[1:]
+        for position, letter in enumerate(cluster):
+            if letter in _SSH_VALUE_OPTION_LETTERS:
+                value = cluster[position + 1:]
+                if not value:
+                    index += 1
+                    value = str(words[index]) if index < len(words) else ""
+                if letter == "E" and value:
+                    logs.append(value)
+                break
+        index += 1
+    rest = [str(word) for word in words[index + 1:]]
+    if index < len(words) and rest and _is_local_ssh_host(str(words[index])):
+        return logs, " ".join(rest)
+    return logs, None
+
+
 def _scan_tokens(tokens: list[_Token], start_bases: _Bases, git_writes: frozenset, depth: int) -> list[_Target]:
     """Walk a token stream command by command (step 4 of the section comment). Directory tracking,
     as a set of possible directories (None = unknown):
@@ -2366,7 +2737,10 @@ def _scan_tokens(tokens: list[_Token], start_bases: _Bases, git_writes: frozense
             for position, word in enumerate(words + redirect_targets):
                 if "$(" not in word:
                     continue
-                if remote_start is not None and remote_start <= position < len(words):
+                in_remote_text = remote_start is not None and remote_start <= position < len(words)
+                if not in_remote_text and _substitutions_are_quoted_text(word):
+                    continue  # (the text of a remote ssh call is handled below, whatever its quoting)
+                if in_remote_text:
                     # The command text of an ssh call runs on the other machine: only a `$(...)` the
                     # local shell expands before the call (inside double quotes or unquoted) runs here,
                     # so those are read, not the rest of the text as if it were a local command.
@@ -2383,6 +2757,10 @@ def _scan_tokens(tokens: list[_Token], start_bases: _Bases, git_writes: frozense
                         # word is read whole below, and nothing of it is taken out of the legacy half.
                         _REMOTE_SINK.extend(_scan_command(word, bases, git_writes, depth + 1))
                 found.extend(_rescan_word(word, bases, git_writes, depth))
+            local_text = _ssh_local_effects(words)[1]
+            if local_text is not None:
+                # `ssh localhost 'echo x > f'`: the text runs on this machine.
+                found.extend(_scan_command(local_text, bases, git_writes, depth + 1))
             # Backtick spans the tokenizer found in these words (quote context already applied).
             for word in words + redirect_targets + other_redirect_words:
                 for span in getattr(word, "subs", ()):
@@ -2391,7 +2769,10 @@ def _scan_tokens(tokens: list[_Token], start_bases: _Bases, git_writes: frozense
             found.extend(targets)
             if _INLINE_SINK is not None:
                 _collect_inline_code(words, bases, stdin_redirected, stdin_text, pipe_input, stdin_span)
-                produced = _literal_output(words, stdin_text)
+            produced = _literal_output(words, stdin_text if stdin_redirected else pipe_input)
+            if pipe_input is not None and not stdin_redirected and _reads_script_from_stdin(words):
+                # `echo 'cmd' | bash`: the text the previous stage prints is the shell's script.
+                found.extend(_scan_command(pipe_input, bases, git_writes, depth + 1))
             if cd_change is not None:
                 directory, prefixed = cd_change
                 near_pipe = prev_sep in _PIPE_OPS or separator in _PIPE_OPS or separator == "&"
@@ -2407,8 +2788,7 @@ def _scan_tokens(tokens: list[_Token], start_bases: _Bases, git_writes: frozense
                     else:
                         after_list = after_list | new_bases
                     bases = new_bases
-        if _INLINE_SINK is not None:
-            produced, closed_group = _track_group_output(group_outputs, words, separator, produced, closed_group)
+        produced, closed_group = _track_group_output(group_outputs, words, separator, produced, closed_group)
         # A pipe hands the stage's literal output on; a `(` right behind a pipe (`cat <<EOF | (python -)`)
         # passes what it got to the first command inside.
         if separator in _PIPE_OPS:
@@ -2579,8 +2959,27 @@ def _bash_write_targets(command: str, base_cwd: str, git_writes: frozenset) -> l
     scanner reported is still reported, however the lexer reads the same text. An exception in the
     lexer's half — ValueError, RecursionError, a bug — is swallowed and the legacy half alone
     returned; one in the legacy half propagates, exactly as it did before the lexer existed (the
-    legacy function itself falls back to the raw-text search on its own failures)."""
+    legacy function itself falls back to the raw-text search on its own failures).
+
+    An rsync destination on another machine is dropped from both halves only while the command line
+    (and the PowerShell line above it, when this is a `bash -c` text of one) is nothing but one rsync call
+    with plain words (_RSYNC_ENV_NAMED, see there)."""
+    global _RSYNC_ENV_NAMED
+    previous_named = _RSYNC_ENV_NAMED
+    # True from an outer scan stays True; otherwise this command line decides for itself and what it nests.
+    _RSYNC_ENV_NAMED = bool(previous_named) or _names_rsync_variable(command)
+    try:
+        return _bash_write_targets_union(command, base_cwd, git_writes)
+    finally:
+        _RSYNC_ENV_NAMED = previous_named
+
+
+def _bash_write_targets_union(command: str, base_cwd: str, git_writes: frozenset) -> list[_Target]:
+    """The body of _bash_write_targets: the union of the legacy scanner's and the word lexer's targets, with
+    the texts of a remote `ssh` command and of an rsync destination on another machine taken out, as that
+    docstring says. Separate only so that _bash_write_targets can hold _RSYNC_ENV_NAMED around all of it."""
     legacy = _legacy_targets._bash_write_targets(command, base_cwd, git_writes)
+    _RSYNC_REMOTE_TEXTS.clear()
     try:
         current = _bash_write_targets_new(command, base_cwd, git_writes)
     except Exception:  # noqa: BLE001 — the legacy half stands alone, see the docstring
@@ -2590,6 +2989,12 @@ def _bash_write_targets(command: str, base_cwd: str, git_writes: frozenset) -> l
             current, legacy = _without_remote_targets(command, base_cwd, git_writes, current, legacy)
         except Exception:  # noqa: BLE001 — both halves stay as they are, the over-blocking side
             pass
+    if _RSYNC_REMOTE_TEXTS:
+        # An rsync destination on another machine is no local file: the legacy half cannot be told, so what it
+        # made of that text is dropped - unless the lexer's half reports the same text as a local target too.
+        local_texts = {str(pair[0]) for pair in current}
+        remote_only = _RSYNC_REMOTE_TEXTS - local_texts
+        legacy = [pair for pair in legacy if str(pair[0]) not in remote_only]
     # A target both scanners report appears once, as the lexer's word: only that one knows which of its
     # characters were quoted (`_Word.live`). The legacy half still adds everything the lexer missed,
     # as plain text with no such knowledge.

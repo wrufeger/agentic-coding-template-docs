@@ -27,6 +27,7 @@ import json
 import os
 import re
 import shutil
+import signal
 import stat
 import subprocess
 import sys
@@ -171,6 +172,46 @@ def scratch_dir(purpose: str, root: "Optional[Path]" = None) -> Iterator[Path]:
         yield Path(path)
     finally:
         remove_tree(path)
+
+
+# ---------------------------------------------------------------------------
+# Child processes with a time limit
+# ---------------------------------------------------------------------------
+
+def end_process_tree(proc: "subprocess.Popen[str]") -> None:
+    """Stop `proc` and everything it started, then let go of its pipes -- for a caller whose
+    `communicate(timeout=...)` ran out. Killing only the direct child is not enough: on Windows a
+    tool behind a batch wrapper (`npm.cmd`, `pnpm.cmd`, `composer.bat`, `claude.cmd`) runs in a
+    grandchild that keeps the output pipes open, so waiting for the output hangs until that
+    grandchild ends on its own, far past the limit (`subprocess.run(timeout=...)` does exactly that
+    wait). By PID only, never by name: `taskkill /T /F` on Windows, the process group elsewhere, so
+    the caller starts `proc` with `start_new_session=(os.name != "nt")`. Best effort, never raises."""
+    try:
+        if sys.platform == "win32":
+            subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"], capture_output=True,
+                           stdin=subprocess.DEVNULL, timeout=10, check=False)
+        else:
+            os.killpg(proc.pid, signal.SIGKILL)
+    except (OSError, subprocess.SubprocessError):
+        pass
+    try:
+        proc.kill()
+    except OSError:
+        pass
+    try:
+        proc.communicate(timeout=5)
+    except subprocess.TimeoutExpired:
+        # A survivor the tree kill could not reach (its wrapper had already exited) still holds the
+        # pipes. On Windows the reader threads are blocked in read(), and close() would wait for the
+        # same lock until the survivor ends: leave them, they are daemon threads. Elsewhere no thread
+        # reads, so closing frees the pipes at once.
+        if sys.platform != "win32":
+            for stream in (proc.stdout, proc.stderr):
+                if stream is not None:
+                    try:
+                        stream.close()
+                    except OSError:
+                        pass
 
 
 # ---------------------------------------------------------------------------
@@ -685,6 +726,86 @@ def write_last_applied(data: dict) -> dict:
 # docs/ai/config.md — project configuration as a Markdown key/value table
 # ---------------------------------------------------------------------------
 
+def decode_mixed(raw: bytes) -> tuple[str, int, int]:
+    """Decode `raw` as UTF-8, but a byte that is not valid UTF-8 as Windows-1252 on its own (a
+    byte cp1252 leaves undefined becomes U+FFFD) -- so a mostly-UTF-8 file with a few foreign bytes
+    keeps its correct characters instead of turning all of them into mojibake. Returns the text,
+    the number of non-ASCII characters that decoded as valid UTF-8, and the number of bytes that
+    needed the Windows-1252 fallback."""
+    out: list[str] = []
+    utf8_chars = 0
+    fallback_bytes = 0
+    position = 0
+    while position < len(raw):
+        try:
+            tail = raw[position:].decode("utf-8")
+            out.append(tail)
+            utf8_chars += sum(1 for char in tail if ord(char) > 127)
+            break
+        except UnicodeDecodeError as exc:
+            head = raw[position:position + exc.start].decode("utf-8")
+            out.append(head)
+            utf8_chars += sum(1 for char in head if ord(char) > 127)
+            bad = raw[position + exc.start:position + exc.start + 1]
+            out.append(bad.decode("cp1252", errors="replace"))
+            fallback_bytes += 1
+            position += exc.start + 1
+    return "".join(out), utf8_chars, fallback_bytes
+
+
+def _decode_config(raw: bytes) -> tuple[str, str]:
+    """(text, kind) of a config.md's bytes. kind is "" for valid UTF-8, "utf-16" for a file with a
+    UTF-16 byte order mark, "mixed" for UTF-8 with a few stray bytes (read as Windows-1252 one by
+    one), else "cp1252" (what an editor on Windows saves as "ANSI"). Keys and nearly all values are
+    plain ASCII, so the table still reads correctly in every case."""
+    try:
+        return raw.decode("utf-8-sig"), ""
+    except UnicodeDecodeError:
+        pass
+    if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
+        try:
+            return raw.decode("utf-16"), "utf-16"
+        except UnicodeDecodeError:
+            pass
+    text, utf8_chars, fallback_bytes = decode_mixed(raw)
+    if utf8_chars and fallback_bytes:
+        return text, "mixed"
+    return raw.decode("cp1252", errors="replace"), "cp1252"
+
+
+def _read_config_text(path: Path) -> str:
+    """The text of a config.md: UTF-8, else UTF-16 (byte order mark), UTF-8 with stray bytes, or
+    Windows-1252 (_decode_config). The caller that wants to tell the person says so via
+    config_encoding_problem()."""
+    return _decode_config(path.read_bytes())[0]
+
+
+def config_encoding_problem(root: Optional[Path] = None) -> str:
+    """A one-line note naming docs/ai/config.md and its encoding when the file is not valid UTF-8,
+    else "". Reading it still works (read_config() decodes it anyway); the note asks for the file
+    to be saved as UTF-8, as its own commit (`R-code-encoding`)."""
+    path = (root or repo_root()) / "docs" / "ai" / "config.md"
+    try:
+        raw = path.read_bytes()
+    except OSError:
+        return ""
+    kind = _decode_config(raw)[1]
+    if not kind:
+        return ""
+    if kind == "utf-16":
+        return ("docs/ai/config.md is UTF-16 (byte order mark) -- read as UTF-16 for now; "
+                "re-save it as UTF-8, as its own commit")
+    try:
+        raw.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        where = f"byte 0x{exc.object[exc.start]:02x} at offset {exc.start}"
+    if kind == "mixed":
+        return (f"docs/ai/config.md is UTF-8 with stray bytes that are not ({where}) -- those read as "
+                "Windows-1252 for now; re-save it as UTF-8, as its own commit")
+    return (f"docs/ai/config.md is not valid UTF-8 ({where}; probably Windows-1252) -- read as "
+            "Windows-1252 for now; re-save it as UTF-8, as its own commit")
+
+
 def read_config(root: Optional[Path] = None) -> dict[str, str]:
     """
     Read docs/ai/config.md as a simple key/value table: the first two cells of any Markdown table
@@ -704,7 +825,7 @@ def read_config(root: Optional[Path] = None) -> dict[str, str]:
     if not path.is_file():
         return config
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()
+        lines = _read_config_text(path).splitlines()
     except OSError:
         return config
 
@@ -814,6 +935,8 @@ def _build_config_schema() -> dict[str, ConfigKey]:
     add("profile", "Scope", values=("minimal", "standard", "full"), default="full", effect=nxt)
     add("exclude", "Scope", pattern=r"none|\(not set\)|[\w./-]+(?:\s*,\s*[\w./-]+)*",
         default="none", effect=nxt)
+    add("methods", "Scope", pattern=r"none|\(not set\)|`?[\w-]+`?(?:\s*,\s*`?[\w-]+`?)*", default="none",
+        effect=nxt)
     add("board", "Board", values=("docs", "shared", "local"), default="docs")
     add("board-others", "Board", values=_ON_OFF, default="")  # empty: on with mode team, else off
     add("inbox-decisions", "Inbox", values=("immediate", "at-start"), default="immediate", effect=nxt)
@@ -832,6 +955,11 @@ def _build_config_schema() -> dict[str, ConfigKey]:
     add("target-branch", "Git hosting", default="auto")
     add("forge", "Git hosting", values=("auto", "github", "gitlab"), pattern=r"\(not set\)", default="auto")
     add("forge-host", "Git hosting", default="auto")
+    add("commit-format", "Formats", values=("auto", "conventional", "plain"), default="auto")
+    add("changelog", "Formats", values=("file", "release-notes-only", "off"), default="file")
+    add("changelog-format", "Formats", values=("keep-a-changelog", "at-release"), default="keep-a-changelog")
+    add("release-notes-format", "Formats", values=("standard", "changelog-copy"), default="standard")
+    add("readme-format", "Formats", values=("standard", "with-toc", "minimal"), default="standard")
     for check in ("template-write-guard", "session-start-refresh", "orchestrator-rules",
                   "worker-nesting-guard", "worker-write-scope", "worker-scope-overlap",
                   "commit-pathspec", "git-reset-hard", "git-discard", "git-metadata-guard",
@@ -846,6 +974,8 @@ def _build_config_schema() -> dict[str, ConfigKey]:
     for check in ("worker-docs-ai", "worker-git-write", "ide-mcp", "worker-cap", "status-poll",
                   "encoding-hint"):
         add(check, "Checks", values=_MODE3, default="block")
+    add("protected-watch", "Checks", values=_MODE3, default="block")
+    add("model-switch", "Checks", values=_MODE3, default="warn")  # never refuses: block counts as warn
     add("update-branch-hint", "Checks", values=_MODE3, default="warn")
     add("update-check", "Checks", values=_MODE3, default="block", effect=nxt)
     add("docs-order", "Checks", values=_MODE3, default="warn")
@@ -1000,6 +1130,13 @@ def remembered_chat_language() -> Optional[str]:
     .act-local/identity.json, never versioned) — used only while `language-chat` is `auto`."""
     value = (read_identity() or {}).get("chat_language")
     return value if isinstance(value, str) and value.strip() else None
+
+
+def is_bytecode_cache(rel: Path) -> bool:
+    """True for a Python bytecode cache inside a unit folder: anything under a `__pycache__`
+    folder, or a `*.pyc`/`*.pyo` file. Such a file is gitignored, so a copy of it would make
+    `git add` refuse the path; the skill and role copies leave it out."""
+    return "__pycache__" in rel.parts or rel.suffix in (".pyc", ".pyo")
 
 
 def is_english(language: str) -> bool:
@@ -1160,6 +1297,59 @@ def translate_note_parts(
             more = len(refs) - SECTION_REF_LIST_CAP
             lines.append(localized(language, f"- +{more} more", f"- +{more} weitere"))
     return title, "\n".join(lines) + "\n"
+
+
+def _extend_translate_entry(entry: Path, files: list[str]) -> list[str]:
+    """Add the files not yet named to the file list of an existing scaffold-translation entry
+    (the first run of "- `path`" lines); returns the files added. The entry is read and written as
+    UTF-8 with its line endings kept; an entry without such a list gets the lines appended."""
+    raw = entry.read_bytes().decode("utf-8")
+    newline = "\r\n" if "\r\n" in raw else "\n"
+    lines = raw.split(newline)
+    missing = [rel for rel in files if f"`{rel}`" not in raw]
+    if not missing:
+        return []
+    first = next((i for i, line in enumerate(lines) if line.startswith("- `")), None)
+    if first is None:
+        at = len(lines) - 1 if lines and lines[-1] == "" else len(lines)
+        lines[at:at] = ["", *(f"- `{rel}`" for rel in missing)]
+    else:
+        end = first
+        while end < len(lines) and lines[end].startswith("- `"):
+            end += 1
+        lines[end:end] = [f"- `{rel}`" for rel in missing]
+    entry.write_bytes(newline.join(lines).encode("utf-8"))
+    return missing
+
+
+def note_scaffold_for_translation(root: Path, rel_paths: list[str]) -> Optional[Path]:
+    """For a migration that creates scaffold: with `language-docs` other than English, enter the
+    new files (project-relative, posix) into the inbox entry `*-translate-scaffold.md` -- extend
+    the open one, else create it in the form init.py uses (entries.write_translate_note). Only a
+    file whose first line is still the `act:default` mark counts. Returns the entry written or
+    extended, or None when nothing was needed (English docs, no marked file, already named).
+    The migration reports the returned path as touched so the update commit includes it."""
+    language = language_settings(read_config(root))[1]
+    if is_english(language):
+        return None
+    marked = set(scaffold_default_files(root))
+    files = [rel for rel in rel_paths if rel in marked]
+    if not files:
+        return None
+    import entries  # deferred: entries imports this module
+    inbox = root / INBOX_DIR
+    for entry in sorted(inbox.glob(f"*{TRANSLATE_NOTE_SUFFIX}")) if inbox.is_dir() else []:
+        try:
+            text = entry.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        # only an entry still open is extended; an answered or finished one was acted on already
+        if not re.search(r"^status:\s*open\b", text, re.MULTILINE):
+            continue
+        with entries._EntriesLock(root):  # the same lock entries.py takes for a write
+            return entry if _extend_translate_entry(entry, files) else None
+    title, body = translate_note_parts(language, files, root)
+    return entries.create_todo(root, title, body, slug="translate-scaffold")[0]
 
 
 # `dependency-check: once` (docs/ai/config.md § Dependencies; the default is `regularly`) means "runs during

@@ -452,10 +452,11 @@ def _archive_leftover_note(root: Path) -> Optional[str]:
     if not files:
         return None
     return (f"[act] note: done-entries is `delete`, and docs/ai/work/archive/ still holds {len(files)} file(s) of finished "
-            "entries from before (the journal files, ledger-*.md and YYYY-MM-DD-*.md, not counted). They stay until you decide: "
-            "`python .act/scripts/entries.py purge --plan` lists what would go, `python .act/scripts/entries.py purge` "
+            "entries from before (the journal files, ledger-*.md and YYYY-MM-DD-*.md, not counted). They stay until the owner "
+            "decides; tell the owner, and never run `--all` on your own: "
+            "`python .act/scripts/entries.py purge --all --plan` lists what would go, `python .act/scripts/entries.py purge --all` "
             "deletes what Git holds unchanged (the ids stay reserved); `done-entries: keep` in docs/ai/config.md "
-            "keeps the archive instead. Said once.")
+            "keeps the archive instead. Plain `purge` only removes what is archived from now on. Said once.")
 
 
 def _refresh_board(root: Path) -> None:
@@ -886,7 +887,9 @@ def _folder_source_result(root: Path) -> Optional[dict]:
     folder cannot be judged (not a folder, git after all, no manifest, nothing applied yet)."""
     template = actlib.read_lock().get("template") or {}
     source = str(template.get("source") or "")
-    applied = str(template.get("manifest_sha256") or "")
+    # the source's own fingerprint recorded at update time; a lock from before that falls back to
+    # the project manifest's hash, which matches only while the source's manifest is current
+    applied = str(template.get("source_fingerprint") or template.get("manifest_sha256") or "")
     if not source or not applied:
         return None
     folder = Path(root, source)
@@ -1091,8 +1094,9 @@ def _spawn_update_check_worker(root: Path) -> None:
 
 
 def _advisory_notes(root: Path, config: dict[str, str], state: dict) -> list[str]:
-    """The template author's warnings that apply to this project (advisory.py), from files only -- no
-    git, no network; the background worker keeps the cache current. Puts the visible lines (critical
+    """The template author's warnings that apply to this project (advisory.py), from files -- no
+    network; git only for the read-only history search before a critical advisory's todo is filed (a few
+    seconds at most); the background worker keeps the cache current. Puts the visible lines (critical
     first) in `state["advisory"]` for the human line and returns the notes for the model. A critical one
     also gets its inbox todo, once, unless `session-start-refresh` is off. `advisory-check: off` shows
     nothing. Never raises."""
@@ -2254,6 +2258,8 @@ def _human_line(state: dict) -> Optional[str]:
         parts.append(f"update {state['update']} available")
     if state.get("tidy"):
         parts.append(str(state["tidy"]))
+    if state.get("encoding"):
+        parts.append(str(state["encoding"]))
     return "act · " + " · ".join(parts) if parts else None
 
 
@@ -2357,6 +2363,14 @@ def _collect_session(payload: dict, state: dict, rules_text: dict) -> bool:
         identity_note = None
     if identity_note:
         print(identity_note)
+
+    try:
+        encoding_note = actlib.config_encoding_problem(root)
+    except Exception:  # informational only, must never block the session
+        encoding_note = ""
+    if encoding_note:
+        print(f"[act] note: {encoding_note}")
+        state["encoding"] = "docs/ai/config.md is not UTF-8, see note"
 
     try:
         topics = _active_topics(root, config)
@@ -2624,6 +2638,18 @@ def _collect_session(payload: dict, state: dict, rules_text: dict) -> bool:
                 print(coding_note)
             else:
                 warn_notes.append(coding_note)
+        try:
+            method_sync = rules.sync_method_imports(root, write=(mode == "block"))
+            if method_sync.changed:
+                verb = "brought in line" if mode == "block" else "would be brought in line (warn mode)"
+                method_note = (f"[act] note: docs/project/coding_rules.md: method sets {verb} with the "
+                               "methods row of docs/ai/config.md")
+                if mode == "block":
+                    print(method_note)
+                else:
+                    warn_notes.append(method_note)
+        except Exception as exc:  # noqa: BLE001 - the methods sync is a best-effort step, never a reason to end the session
+            print(f"[act] note: methods not applied ({exc.__class__.__name__})")
         try:
             scope_lines, scope_pending = _scope_notes(root, mode == "block", scope_copies_moved)
             for scope_line in scope_lines:

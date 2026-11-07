@@ -229,6 +229,7 @@ _FORMAT_TEXT = {
     "feedback-scope": "a comma list of `a`, `b`, `c` such as `a,b,c`",
     "archive-compact": "`<days>d <files>` such as `30d 300`",
     "forge": "`(not set)`",
+    "methods": "`none`, or a comma list of method names such as `test-first, spec-first` (list: `.act/methods/README.md`)",
     "exclude": "`none`, or a comma list of template skill, role, rule file and topic names such as "
                "`act-seo, orchestrator/30-cost.md`",
 }
@@ -292,7 +293,7 @@ def _canonical(entry: Optional[actlib.ConfigKey], value: str) -> Optional[str]:
 
 
 # Checks that only ever note ("never refuses" in the scaffold's Checks table): `block` counts as `warn`.
-_NOTE_ONLY_CHECKS = ("update-branch-hint", "update-check", "docs-order")
+_NOTE_ONLY_CHECKS = ("update-branch-hint", "update-check", "docs-order", "model-switch")
 
 
 def _check_effect(key: str, value: str, guards: str) -> str:

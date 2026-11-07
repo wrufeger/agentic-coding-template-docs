@@ -24,6 +24,9 @@
 # Usage:
 #   python .act/scripts/init.py                      # set up the current checkout in place
 #   python .act/scripts/init.py --target <path>       # create/dock in another directory instead
+#                                                      # (never the project itself or a folder inside it)
+#   python .act/scripts/init.py --target <path> --carry skills,rules,exceptions,overrides,topics
+#                                                      # what to take over from the source project (default all; none)
 #   python .act/scripts/init.py --plan                # show the ten steps, change nothing
 #   python .act/scripts/init.py --non-interactive      # never prompt; take defaults, log to inbox
 #   python .act/scripts/init.py --language-docs de     # docs language without asking (default en);
@@ -75,6 +78,7 @@ class ProjectConfig(TypedDict):
     mode: str
     feedback_mode: str
     update_channel: str
+    methods: str
 
 
 class BridgeSpec(TypedDict):
@@ -265,6 +269,9 @@ def _checkout_template_ref(checkout_root: Path) -> tuple[str, str]:
                 return recorded.strip(), commit.strip() if isinstance(commit, str) else ""
         except (OSError, ValueError):
             pass  # unreadable lock: fall back to the checkout itself below
+    if not (checkout_root / ".git").exists():
+        # a plain folder without git of its own: a repository further up is not its origin or HEAD
+        return str(checkout_root.resolve()), ""
     origin = _get_remote_url(checkout_root, "origin")
     head = _git(["rev-parse", "HEAD"], cwd=checkout_root, check=False).stdout.strip()
     return (origin if origin else str(checkout_root.resolve())), head
@@ -378,6 +385,126 @@ def _ask_update_channel(root: Path, interactive: bool, notes: list[str], given: 
     return _UPDATE_CHANNEL_DEFAULT
 
 
+METHODS_DEFAULT = "none"
+_TEMPLATE_METHODS_DIR = Path(__file__).resolve().parent.parent / rules.METHODS_DIR
+
+
+def _template_methods() -> dict[str, str]:
+    """name -> summary line of every working method this template ships (.act/methods/<name>.md)."""
+    found: dict[str, str] = {}
+    if _TEMPLATE_METHODS_DIR.is_dir():
+        for path in sorted(_TEMPLATE_METHODS_DIR.glob("*.md")):
+            if path.stem.lower() == "readme":
+                continue
+            try:
+                found[path.stem] = rules.parse_template_set(path, "template").summary or ""
+            except (OSError, UnicodeDecodeError):
+                continue
+    return found
+
+
+def parse_methods_answer(raw: str, available: Optional[dict[str, str]] = None) -> Optional[str]:
+    """The `methods` row value for an answer or option value: `none` for an empty answer, `none`, `no`
+    or `n`; otherwise the names, lower-cased, each once, as "a, b". None if a name is no method of this
+    template (`available`, default: the shipped ones)."""
+    known = _template_methods() if available is None else available
+    word = raw.strip().strip("`").strip().lower()
+    if word in ("", "none", "no", "n", "(not set)"):
+        return METHODS_DEFAULT
+    names: list[str] = []
+    for part in re.split(r"[,\s]+", word):
+        if not part or part == "none":
+            continue
+        if part not in known:
+            return None
+        if part not in names:
+            names.append(part)
+    return ", ".join(names) or METHODS_DEFAULT
+
+
+def _ask_methods(root: Path, interactive: bool, notes: list[str], given: Optional[str]) -> str:
+    """Which working methods (.act/methods/) are switched on: an option value wins; a project that
+    already has `docs/ai/config.md` keeps its own row (docking onto it asks nothing); otherwise the owner
+    is asked once at a terminal, and `--non-interactive`/`--plan`/`act-setup` take `none`. After three
+    answers that are no method names the default is used and noted."""
+    if given is not None:
+        return given
+    if (root / "docs" / "ai" / "config.md").is_file():
+        return actlib.read_config(root).get("methods", "").strip().strip("`").strip() or METHODS_DEFAULT
+    if not interactive:
+        return METHODS_DEFAULT
+    available = _template_methods()
+    if not available:
+        return METHODS_DEFAULT
+    print()
+    print("Switch on working methods? They add rules for how the assistant works; none is on by default.")
+    for name, summary in available.items():
+        print(f"- {name}: {summary}")
+    print("- Names separated by commas, or none. Change it any time: `methods` in docs/ai/config.md § Scope.")
+    for _attempt in range(_FEEDBACK_MAX_ATTEMPTS):
+        answer = parse_methods_answer(_ask("Methods", METHODS_DEFAULT, True), available)
+        if answer is not None:
+            return answer
+        print(f"Please answer with names from: {', '.join(available)} - or none.")
+    notes.append(
+        f"Methods question left unanswered after {_FEEDBACK_MAX_ATTEMPTS} tries - no method is on. "
+        "Switch one on with `methods` in docs/ai/config.md § Scope."
+    )
+    return METHODS_DEFAULT
+
+
+_METHODS_ROW_RE = re.compile(r"^\|\s*`methods`\s*\|")
+_SCOPE_ROW_RE = re.compile(r"^\|\s*`(?:exclude|profile)`\s*\|")
+
+
+def set_methods_row(config_path: Path, value: str) -> bool:
+    """Make the `methods` row of docs/ai/config.md say `value`: replace the value of a row that is
+    there, else (only for a value other than `none`, which is what a missing row means) add the row
+    below the `exclude` (else `profile`) row of § Scope. True if the file changed. Line endings stay."""
+    raw = config_path.read_bytes().decode("utf-8")
+    eol = "\r\n" if raw.count("\r\n") > raw.count("\n") / 2 else "\n"
+    lines = raw.replace("\r\n", "\n").split("\n")
+    row = f"| `methods` | {value} |"
+    for index, line in enumerate(lines):
+        if _METHODS_ROW_RE.match(line):
+            if line.strip() == row:
+                return False
+            lines[index] = row
+            break
+    else:
+        if value == METHODS_DEFAULT:
+            return False
+        anchors = [i for i, line in enumerate(lines) if _SCOPE_ROW_RE.match(line)]
+        if not anchors:
+            return False
+        lines.insert(max(anchors) + 1, row)
+    config_path.write_bytes(eol.join(lines).encode("utf-8"))
+    return True
+
+
+def step_methods(root: Path, plan: bool, methods: str, explicit: bool) -> str:
+    """Enter the chosen working methods: the `methods` row of docs/ai/config.md (written when the
+    answer is not `none`, or when an option named it), then the methods section of
+    docs/project/coding_rules.md (rules.sync_method_imports), so the orchestrator and the workers load
+    them. A project that docked on with its own row is only synced. Returns one line for the report,
+    "" when there is nothing to say."""
+    config_path = root / "docs" / "ai" / "config.md"
+    if plan:
+        return f"would switch on methods: {methods}" if methods != METHODS_DEFAULT else ""
+    if not config_path.is_file():
+        return ""
+    if explicit or methods != METHODS_DEFAULT:
+        set_methods_row(config_path, methods)
+    result = rules.sync_method_imports(root)
+    if result.problem:
+        return f"methods not entered: {result.problem}"
+    unknown = f"; no file for {', '.join(result.unknown)}" if result.unknown else ""
+    unknown += f"; cannot read {', '.join(result.unreadable)}" if result.unreadable else ""
+    if result.added or result.removed or result.updated:
+        return f"methods in docs/project/coding_rules.md: {', '.join(result.added + result.updated) or 'none'}" + unknown
+    return (f"methods {methods}: already entered" if methods != METHODS_DEFAULT else "") + unknown
+
+
 def _clone_release_note(clone: Path) -> Optional[str]:
     """Inbox note when the template clone this run starts from is ahead of its newest release tag
     (`vX.Y.Z`, no prerelease): with the `release` channel act-update offers nothing until a newer release.
@@ -414,7 +541,7 @@ def _language(key: str, given: Optional[str], prompt_text: str, default: str, in
 
 def step_config(root: Path, interactive: bool, notes: list[str],
                 languages: Optional[dict[str, Optional[str]]] = None,
-                update_channel: Optional[str] = None) -> ProjectConfig:
+                update_channel: Optional[str] = None, methods: Optional[str] = None) -> ProjectConfig:
     default_owner = "unknown"
     git_name = _git(["config", "user.name"], cwd=root, check=False).stdout.strip()
     if git_name and not _is_placeholder_name(git_name):
@@ -459,6 +586,7 @@ def step_config(root: Path, interactive: bool, notes: list[str],
     mode = _suggest_mode(root, notes)
     feedback_mode = _ask_feedback_mode(root, interactive, notes)
     channel = _ask_update_channel(root, interactive, notes, update_channel)
+    chosen_methods = _ask_methods(root, interactive, notes, methods)
 
     return {
         "name": name,
@@ -473,6 +601,7 @@ def step_config(root: Path, interactive: bool, notes: list[str],
         "mode": mode,
         "feedback_mode": feedback_mode,
         "update_channel": channel,
+        "methods": chosen_methods,
     }
 
 
@@ -1345,7 +1474,7 @@ def _skill_target_active(tool_gate: Optional[Union[str, tuple[str, ...]]], tools
     return any(actlib.normalize_tool(t) in normalized_tools for t in tool_gate)
 
 
-_SKILLS_NOT_COPIED = {"act-adopt"}  # runs only from the template checkout itself (it needs the template's own checkout)
+_SKILLS_NOT_COPIED: frozenset[str] = frozenset()  # skills the template ships but no project gets (none now: act-adopt runs from any project)
 
 
 def copy_targets(root: Path, tools: list[str], apply_cut: bool = True) -> dict[str, Path]:
@@ -1355,9 +1484,8 @@ def copy_targets(root: Path, tools: list[str], apply_cut: bool = True) -> dict[s
     gets one destination per SKILL_TARGET_DIRS entry whose tool gate passes, so a skill lands in
     every configured tool's own skills folder plus the tool-neutral .agents/ mirror.
 
-    `_SKILLS_NOT_COPIED` is the one exception: act-adopt only makes sense pointed at the template
-    checkout it adopts *into* a project, so a copy landing inside that same project would never
-    run correctly -- it stays template-only, never materialized as a project skill.
+    `_SKILLS_NOT_COPIED` names skills that stay template-only, never materialized as a project
+    skill (none at present: act-adopt is copied like every other, it also runs from a project).
 
     A skill the project's scope cuts (docs/ai/config.md § Scope: `profile`, `exclude`; act_profile.py)
     is left out the same way, so init, update and the session start never write its copy; with
@@ -1385,8 +1513,8 @@ def copy_targets(root: Path, tools: list[str], apply_cut: bool = True) -> dict[s
         if skill_dir.name in _SKILLS_NOT_COPIED or skill_dir.name in cut_skills:
             continue
         for src in sorted(skill_dir.rglob("*")):
-            if not src.is_file():
-                continue
+            if not src.is_file() or actlib.is_bytecode_cache(src.relative_to(skill_dir)):
+                continue  # a Python cache is gitignored, a copy of it would break `git add`
             rel = src.relative_to(skills_dir).as_posix()  # "<name>/<file>"
             resolved = actlib.resolve(f"skills/{rel}")
             source_path = resolved[0] if resolved is not None else src
@@ -1682,6 +1810,8 @@ def _config_tokens(cfg: ProjectConfig) -> dict[str, str]:
         # .act/skeleton/config.md § Update's `update-channel` row. .get: a caller that builds the
         # dict itself (adopt) may predate the key.
         "<update-channel>": cfg.get("update_channel", _UPDATE_CHANNEL_DEFAULT),
+        # .act/skeleton/config.md § Scope's `methods` row (rules.sync_method_imports reads it back).
+        "<methods>": cfg.get("methods", METHODS_DEFAULT),
     }
 
 
@@ -1794,6 +1924,96 @@ def _merge_settings_hooks(
 # inbox, never silently dropped. `--no-local` opts out.
 # ---------------------------------------------------------------------------
 
+CARRY_CATEGORIES = ("skills", "rules", "exceptions", "overrides", "topics")
+# What each category takes along from the source project:
+#   skills      own skills: docs/ai/local/skills/<name>/ where .act/skills/<name> does not exist
+#   rules       the "## Own rules" section of docs/ai/rules.md and docs/project/coding_rules.md
+#   exceptions  rule groups switched off (checkbox unchecked) in those two files, with their reason
+#   overrides   the "## Overrides" `replaces` lines of those two files, and every other file under
+#               docs/ai/local/ (rule, role, script and checklist overrides or own ones, and an override of
+#               a template skill) except own skills and rules/topics/
+#   topics      docs/ai/local/rules/topics/ (own topic rules and overrides of template topics)
+# The names follow `settings_export.py` where they fit (skills, topics); its agents/scripts/checklists
+# fall under "overrides" here, its rules/coding areas split into "rules" and "exceptions".
+
+
+def parse_carry(value: Optional[str], no_local: bool = False) -> frozenset[str]:
+    """The categories a `--target` run takes over from the source project: `--carry` as a comma list
+    (`all` = every category, `none` = nothing; default all), `--no-local` is the same as `none`.
+    ValueError names the unknown category."""
+    if no_local:
+        return frozenset()
+    if value is None:
+        return frozenset(CARRY_CATEGORIES)
+    names = [part.strip().lower() for part in value.split(",") if part.strip()]
+    if not names:
+        raise ValueError("--carry needs at least one category (or all, or none)")
+    chosen: set[str] = set()
+    for name in names:
+        if name == "all":
+            chosen.update(CARRY_CATEGORIES)
+        elif name == "none":
+            pass
+        elif name in CARRY_CATEGORIES:
+            chosen.add(name)
+        else:
+            raise ValueError(f"--carry: unknown category {name!r}; known: {', '.join(CARRY_CATEGORIES)}, all, none")
+    return frozenset(chosen)
+
+
+def _as_carry(carry: "frozenset[str] | bool") -> frozenset[str]:
+    """A plain True/False (the former `take_local` flag) means every category / none."""
+    if isinstance(carry, bool):
+        return frozenset(CARRY_CATEGORIES) if carry else frozenset()
+    return carry
+
+
+def _local_file_category(source_root: Path, rel_to_local: Path) -> str:
+    """The carry category of one file under the source's docs/ai/local/ (see CARRY_CATEGORIES)."""
+    parts = rel_to_local.parts
+    if parts and parts[0] == "skills":
+        if len(parts) > 2 and (source_root / ".act" / "skills" / parts[1]).is_dir():
+            return "overrides"  # an override of a template skill, not an own skill
+        return "skills"
+    if len(parts) > 2 and parts[0] == "rules" and parts[1] == "topics":
+        return "topics"
+    return "overrides"
+
+
+def own_root_refusal(target: Path, own_root: Path) -> Optional[str]:
+    """Why `target` may not be set up or adopted: it is `own_root` (the project or checkout this
+    script runs from) or a folder inside it. Real paths are compared, so a symlink or junction that
+    leads there counts, and on Windows (and any case-insensitive file system) case does not matter.
+    None when the target lies elsewhere."""
+    real_target = os.path.normcase(os.path.realpath(target))
+    real_root = os.path.normcase(os.path.realpath(own_root))
+    inside = False
+    try:
+        inside = os.path.commonpath([real_target, real_root]) == real_root
+    except ValueError:
+        pass  # different drives
+    if not inside:
+        # a case-insensitive file system that normcase does not know (macOS): the nearest existing folder decides
+        probe = Path(real_target)
+        while not probe.exists() and probe != probe.parent:
+            probe = probe.parent
+        while True:
+            try:
+                if os.path.samefile(probe, real_root):
+                    inside = True
+                    break
+            except OSError:
+                break
+            if probe == probe.parent:
+                break
+            probe = probe.parent
+    if not inside:
+        return None
+    where = "the project root" if real_target == real_root else "inside the project"
+    return (f"target {target} (real path {os.path.realpath(target)}) is {where} {own_root} -- a project cannot "
+            f"be set up or adopted into itself; choose a folder outside {own_root}")
+
+
 def _configured_project_root(path: Path) -> bool:
     """Whether `path` is itself an already set-up project (not a plain template clone) -- same
     signal `_ask_feedback_mode` already uses for "has this project made its own choice yet"."""
@@ -1812,8 +2032,25 @@ def _insert_after_mark(text: str, mark_name: str, new_lines: list[str]) -> tuple
     return text[:insert_at] + "\n\n" + "\n".join(new_lines) + text[insert_at:], True
 
 
+_SET_OFF_WITH_REASON = re.compile(r"^-\s*\[ \]\s*use:\s*(?P<path>\S+)\s+(?:—|–|--)\s*(?P<reason>\S.*?)\s*$")
+
+
+def _sets_switched_off_with_reason(text: str) -> dict[str, str]:
+    """Normalized set path -> reason, for every `- [ ] use: <path> — <reason>` line of a project file's
+    text. Read from the raw lines on purpose: `rules.py` does not record a reason on a set line. A set
+    switched off without a reason is a stack default (every set the stack does not need starts
+    unchecked) and is never carried -- the same rule as for a group."""
+    found: dict[str, str] = {}
+    for line in text.splitlines():
+        match = _SET_OFF_WITH_REASON.match(line)
+        if match:
+            found[rules.normalize_set_path(match.group("path"))] = match.group("reason")
+    return found
+
+
 def _carry_over_area(root: Path, source_root: Path, area: "rules.Area", plan: bool,
-                      dest_was_preexisting: bool, notes: list[str]) -> Optional[str]:
+                      dest_was_preexisting: bool, notes: list[str],
+                      carry: frozenset[str] = frozenset(CARRY_CATEGORIES)) -> Optional[str]:
     """One area (docs/ai/rules.md or docs/project/coding_rules.md): copy the source project's
     switched-off groups (with their reason) and its '## Overrides'/'## Own rules' sections into
     the target's freshly materialized file of the same area -- only for a group id the target file
@@ -1822,7 +2059,11 @@ def _carry_over_area(root: Path, source_root: Path, area: "rules.Area", plan: bo
     overrides/own rules of its own, and never touches one at all if it pre-dates this run
     (`dest_was_preexisting`): docking `--target` onto an already set-up project whose file
     just has no '## Overrides'/'## Own rules' section yet still means a person made those checkbox
-    choices on purpose -- only a file this run itself materialized from the skeleton is fair game."""
+    choices on purpose -- only a file this run itself materialized from the skeleton is fair game.
+    `carry` limits it to the categories asked for: exceptions (switched-off groups), overrides
+    (`replaces` lines), rules (`## Own rules`)."""
+    if not carry & {"exceptions", "overrides", "rules"}:
+        return None
     source_path = source_root / area.project_file
     dest_path = root / area.project_file
     if not source_path.is_file() or not dest_path.is_file():
@@ -1849,8 +2090,12 @@ def _carry_over_area(root: Path, source_root: Path, area: "rules.Area", plan: bo
         head_copy = tmp_dir / source_path.name
         head_copy.write_bytes(head_bytes)
         source_project = rules.parse_project_file(head_copy, area)
-    has_deviation = source_project.overrides or source_project.own_rules or any(
-        not group.enabled for pset in source_project.sets for group in pset.groups.values()
+    source_sets_off = _sets_switched_off_with_reason(head_bytes.decode("utf-8", errors="replace"))         if "exceptions" in carry and area.name == "coding" else {}
+    has_deviation = (
+        bool(source_sets_off) or
+        ("overrides" in carry and source_project.overrides) or ("rules" in carry and source_project.own_rules)
+        or ("exceptions" in carry and any(
+            not group.enabled for pset in source_project.sets for group in pset.groups.values()))
     )
     if not has_deviation:
         return None
@@ -1870,7 +2115,7 @@ def _carry_over_area(root: Path, source_root: Path, area: "rules.Area", plan: bo
     for pset in target_project.sets:
         for gid, group in pset.groups.items():
             source_group = source_group_state.get(gid)
-            if source_group is None or source_group.enabled:
+            if "exceptions" not in carry or source_group is None or source_group.enabled:
                 continue
             idx = group.line - 1
             lines[idx] = re.sub(r"\[[xX]\]", "[ ]", lines[idx], count=1)
@@ -1878,12 +2123,34 @@ def _carry_over_area(root: Path, source_root: Path, area: "rules.Area", plan: bo
                 lines[idx] = lines[idx].rstrip() + f" — {source_group.reason}"
             toggled.append(gid)
 
-    missing = sorted(gid for gid in source_group_state if gid not in target_group_ids)
+    sets_toggled: list[str] = []
+    sets_missing: list[str] = []
+    target_sets = {pset.path: pset for pset in target_project.sets}
+    for set_path, reason in sorted(source_sets_off.items()):
+        tset = target_sets.get(set_path)
+        if tset is None:
+            sets_missing.append(set_path)
+            continue
+        if not tset.enabled:
+            continue  # off in the target already
+        idx = tset.line - 1
+        lines[idx] = rules.coding_set_line(re.sub(r"\[[xX]\]", "[ ]", lines[idx], count=1))  # bare path, no import
+        with_reason = lines[idx].rstrip() + f" — {reason}"
+        # the reason goes on the line only where rules.py reads such a line; else it goes to the note
+        if re.match(r"^-\s*\[ \]\s*(.*)$", with_reason) and rules.RE_USE.match(
+                re.match(r"^-\s*\[ \]\s*(.*)$", with_reason).group(1)):
+            lines[idx] = with_reason
+        else:
+            notes.append(f"Rule set {set_path} is switched off in the source project ({reason}); switched off "
+                         f"here too, the reason has no place on a set line: {_relative_label(dest_path, root)}.")
+        sets_toggled.append(set_path)
 
-    override_lines = [f"- replaces `{o.id}`: {o.text}" for o in source_project.overrides]
+    missing = sorted(gid for gid in source_group_state if gid not in target_group_ids) if "exceptions" in carry else []
+
+    override_lines = [f"- replaces `{o.id}`: {o.text}" for o in source_project.overrides] if "overrides" in carry else []
     own_rule_lines = [
         (f"- `{r.id}`: {r.text}" if r.id else f"- {r.text}") for r in source_project.own_rules
-    ]
+    ] if "rules" in carry else []
 
     text = "\n".join(lines) + "\n"
     inserted: list[str] = []
@@ -1899,6 +2166,14 @@ def _carry_over_area(root: Path, source_root: Path, area: "rules.Area", plan: bo
     parts: list[str] = []
     if toggled:
         parts.append(f"{len(toggled)} group(s) switched off ({', '.join(sorted(toggled))})")
+    if sets_toggled:
+        parts.append(f"{len(sets_toggled)} rule set(s) switched off ({', '.join(sets_toggled)})")
+    if sets_missing:
+        notes.append(
+            f"Source project switched off rule set(s) {', '.join(sets_missing)} (with a reason); they could not be "
+            f"carried over into {_relative_label(dest_path, root)} -- the target does not list them."
+        )
+        parts.append(f"{len(sets_missing)} set(s) skipped, see inbox")
     if inserted:
         parts.append(", ".join(inserted))
     if missing:
@@ -1994,6 +2269,7 @@ def _git_head_blob_bytes(repo_root: Path, rel: str) -> Optional[bytes]:
 
 def _carry_over_local_dir(
     root: Path, source_root: Path, plan: bool, notes: list[str],
+    carry: frozenset[str] = frozenset(CARRY_CATEGORIES),
 ) -> tuple[Optional[str], list[Path]]:
     """Copy of the source project's docs/ai/local/ (its own rule/skill/agent/script/checklist
     overrides) into the target. Git-tracked files only: an
@@ -2021,6 +2297,10 @@ def _carry_over_local_dir(
             "nothing was copied from it; review it by hand."
         )
         return "docs/ai/local: source not tracked by git, skipped", []
+    def wanted(path_in_repo: str) -> bool:
+        return _local_file_category(source_root, Path(path_in_repo).relative_to("docs/ai/local")) in carry
+
+    tracked = [p for p in tracked if wanted(p)]  # only the categories asked for (CARRY_CATEGORIES)
     tracked_set = set(tracked)
     # Named separately from `skipped_unsafe` below -- these were never even a candidate (git
     # itself never offered them), so "not copied" is expected, but still worth naming: the source
@@ -2030,6 +2310,7 @@ def _carry_over_local_dir(
         for p in source_dir.rglob("*")
         if (p.is_file() or p.is_symlink()) and "__pycache__" not in p.parts
         and p.relative_to(source_root).as_posix() not in tracked_set
+        and wanted(p.relative_to(source_root).as_posix())
     )
     committed = _git_head_blobs(source_root, "docs/ai/local")
     differing = _git_differs_from_head(source_root, "docs/ai/local") if committed is not None else set()
@@ -2115,7 +2396,7 @@ def _carry_over_local_dir(
 
 
 def step_source_project(
-    root: Path, plan: bool, source_checkout: Path, take_local: bool,
+    root: Path, plan: bool, source_checkout: Path, carry: frozenset[str],
     dest_was_preexisting: dict[str, bool], notes: list[str],
 ) -> tuple[Optional[str], list[Path]]:
     """Weg C entry point, called only in `--target` mode (see main()). `source_checkout` is the
@@ -2125,18 +2406,19 @@ def step_source_project(
     -- passed straight through to `_carry_over_area`. Returns the summary plus the list
     of `docs/ai/local/` dest paths this run actually copied (for the caller's commit
     pathspec, never the whole directory)."""
-    if not take_local:
-        return "source project: --no-local -- skipped", []
+    carry = _as_carry(carry)
+    if not carry:
+        return "source project: --no-local / --carry none -- skipped", []
     if not _configured_project_root(source_checkout):
         return None, []
     summaries: list[str] = []
     for area in (rules.AREAS["core"], rules.AREAS["coding"]):
         summary = _carry_over_area(
-            root, source_checkout, area, plan, dest_was_preexisting.get(area.project_file, False), notes,
+            root, source_checkout, area, plan, dest_was_preexisting.get(area.project_file, False), notes, carry,
         )
         if summary:
             summaries.append(summary)
-    local_summary, copied = _carry_over_local_dir(root, source_checkout, plan, notes)
+    local_summary, copied = _carry_over_local_dir(root, source_checkout, plan, notes, carry)
     if local_summary:
         summaries.append(local_summary)
     if not summaries:
@@ -2307,7 +2589,7 @@ def _resolution_area_files(root: Path, result) -> list[Path]:
 
 def step_source_and_profile(
     root: Path, plan: bool, interactive: bool, source_checkout: Path,
-    take_local: bool, take_profile: bool, auto_apply: bool, dest_was_preexisting: dict[str, bool],
+    carry: frozenset[str], take_profile: bool, auto_apply: bool, dest_was_preexisting: dict[str, bool],
     notes: list[str],
 ) -> tuple[str, list[Path]]:
     """Combined Weg C (source project) + owner profile entry point.
@@ -2317,9 +2599,10 @@ def step_source_and_profile(
     non-interactive, no `--profile`: unchanged split behavior -- Weg C stays applied by default
     (concept 08's own default, `--no-local` opts out of it), the profile stays for the inbox
     instead (`--no-profile` opts out of even that note)."""
+    carry = _as_carry(carry)
     if not interactive and not auto_apply:
         source_summary, source_paths = step_source_project(
-            root, plan, source_checkout, take_local, dest_was_preexisting, notes,
+            root, plan, source_checkout, carry, dest_was_preexisting, notes,
         )
         profile_summary, profile_paths = step_owner_profile(
             root, plan, False, take_profile, False, notes,
@@ -2333,17 +2616,17 @@ def step_source_and_profile(
     import settings_load
 
     combined_lines: list[str] = []
-    has_source = take_local and _configured_project_root(source_checkout)
+    has_source = bool(carry) and _configured_project_root(source_checkout)
     if has_source:
         preview_notes: list[str] = []  # discarded -- a real note only makes sense once actually applied
         for area in (rules.AREAS["core"], rules.AREAS["coding"]):
             summary = _carry_over_area(
                 root, source_checkout, area, True,
-                dest_was_preexisting.get(area.project_file, False), preview_notes,
+                dest_was_preexisting.get(area.project_file, False), preview_notes, carry,
             )
             if summary:
                 combined_lines.append(f"[source project] {summary}")
-        local_summary, _copied = _carry_over_local_dir(root, source_checkout, True, preview_notes)
+        local_summary, _copied = _carry_over_local_dir(root, source_checkout, True, preview_notes, carry)
         if local_summary:
             combined_lines.append(f"[source project] {local_summary}")
 
@@ -2372,8 +2655,8 @@ def step_source_and_profile(
 
     if not combined_lines:
         source_summary = None
-        if not take_local:
-            source_summary = "source project: --no-local -- skipped"
+        if not carry:
+            source_summary = "source project: --no-local / --carry none -- skipped"
         elif has_source:
             source_summary = "source project: nothing to take over"
         profile_summary = None
@@ -2397,7 +2680,7 @@ def step_source_and_profile(
     summaries: list[str] = []
     if has_source:
         source_summary, source_paths = step_source_project(
-            root, False, source_checkout, True, dest_was_preexisting, notes,
+            root, False, source_checkout, carry, dest_was_preexisting, notes,
         )
         if source_summary:
             summaries.append(source_summary)
@@ -2805,6 +3088,111 @@ def _community_files(root: Path) -> list[str]:
     return found
 
 
+# ---------------------------------------------------------------------------
+# Formats (.act/formats/, docs/ai/config.md § Formats): README shape and CHANGELOG.md starter
+# ---------------------------------------------------------------------------
+
+README_FORMATS = ("standard", "with-toc", "minimal")
+CHANGELOG_MODES = ("file", "release-notes-only", "off")
+PROJECT_FORMATS_DIR = Path("docs") / "project" / "formats"
+# What `init` writes when the changelog format (project file or template file) has no usable starter block.
+FALLBACK_CHANGELOG_STARTER = (
+    "# Changelog\n\n"
+    "All notable changes to this project are documented in this file.\n"
+    "The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).\n\n"
+    "## [Unreleased]\n"
+)
+_README_SECTIONS = (
+    "Describe what this project does.\n\n"
+    "## Getting started\n\nRequirements, install and how to run it.\n\n"
+    "## Development\n\nHow to run the tests and the linter, and how to contribute.\n\n"
+    "## Documentation\n\nThe project documentation lives under `docs/`.\n\n"
+    "## License\n\nState the license here.\n"
+)
+_README_PLACEHOLDER = "Describe what this project does, how to run it, and how to develop it here.\n"
+
+
+def _format_switch(root: Path, key: str, allowed: tuple[str, ...], default: str) -> str:
+    """The value of a docs/ai/config.md § Formats row; a missing row, an empty value, `auto`, `(not set)`
+    and an unknown name all mean `default`."""
+    value = actlib.read_config(root).get(key, "").strip().strip("`").lower()
+    return value if value in allowed else default
+
+
+def _readme_with_format(text: str, readme_format: str) -> str:
+    """The skeleton README shaped by the preset: `minimal` keeps it as the bridge has it, `standard` replaces
+    the closing placeholder sentence by the standard sections, `with-toc` adds a Contents list before them."""
+    if readme_format == "minimal" or _README_PLACEHOLDER not in text:
+        return text
+    shaped = text.replace(_README_PLACEHOLDER, _README_SECTIONS)
+    if readme_format == "with-toc":
+        headings = re.findall(r"^## (.+)$", _README_SECTIONS, flags=re.MULTILINE)
+        contents = "## Contents\n\n" + "\n".join(
+            f"- [{h}](#{re.sub(r'[^a-z0-9 -]', '', h.lower()).replace(' ', '-')})" for h in headings) + "\n\n"
+        shaped = shaped.replace("Describe what this project does.\n", contents + "Describe what this project does.\n", 1)
+    return shaped
+
+
+def _starter_block(path: Path) -> str:
+    """The first fenced block below the heading `## Starter file` of a changelog format file, or ""."""
+    try:
+        text = path.read_text(encoding="utf-8").replace("\r\n", "\n")
+    except (OSError, UnicodeDecodeError):
+        return ""
+    match = re.search(r"^## Starter file[^\n]*\n.*?^```[^\n]*\n(.*?)^```[ \t]*$", text, flags=re.MULTILINE | re.DOTALL)
+    return match.group(1) if match else ""
+
+
+def changelog_starter(root: Path) -> str:
+    """Text of a new CHANGELOG.md: the starter block of the project's format file, else of the template's,
+    else the built-in one."""
+    for candidate in (root / PROJECT_FORMATS_DIR / "changelog.md", root / ".act" / "formats" / "changelog.md"):
+        block = _starter_block(candidate)
+        if block.strip():
+            return block
+    return FALLBACK_CHANGELOG_STARTER
+
+
+_CHANGELOG_LIKE_RE = re.compile(r"(?:changelog|changes|history|news)(?![A-Za-z])", re.IGNORECASE)
+
+
+def changelog_like_files(root: Path, ignore: str = "") -> list[str]:
+    """Names in the project root that already serve as a changelog, in any letter case: `changelog`,
+    `changes`, `history` or `news`, alone or followed by an extension, a dash, a digit and so on (a
+    name such as `newsletter.md` or `history.py` is none). Files and links only; `ignore` is a name
+    to leave out (the template's own CHANGELOG.md that a plan knows step 8 removes)."""
+    try:
+        listing = sorted(root.iterdir(), key=lambda p: p.name)
+    except OSError:
+        return []
+    return [p.name for p in listing
+            if p.name != ignore and _CHANGELOG_LIKE_RE.match(p.name) and (p.is_symlink() or p.is_file())]
+
+
+def step_project_changelog(root: Path, plan: bool, template_one_goes: bool = False) -> tuple[Optional[Path], str]:
+    """Creates CHANGELOG.md in the project root when the switch `changelog` is `file` (the default) and
+    the project has no changelog -- in place and with --target alike. A file that is there stays as it
+    is, the template's own one included when step 8 left it standing (edited after the marker was
+    written); so does a project with a changelog under another name or letter case (`changelog.md`,
+    `CHANGES.md`, `HISTORY.md`, `NEWS` ...): a second file would only split the history.
+    `template_one_goes`: under --plan, step 8 announced the removal of the template's own CHANGELOG.md.
+    Returns (path written or None, message)."""
+    mode = _format_switch(root, "changelog", CHANGELOG_MODES, "file")
+    target = root / "CHANGELOG.md"
+    if mode != "file":
+        return None, f"CHANGELOG.md not created (changelog: {mode})"
+    goes = plan and template_one_goes
+    if target.exists() and not goes:
+        return None, "CHANGELOG.md already present, left unchanged"
+    found = changelog_like_files(root, ignore="CHANGELOG.md" if goes else "")
+    if found:
+        return None, f"CHANGELOG.md not created: the project already has {found[0]} as its changelog"
+    if plan:
+        return None, "CHANGELOG.md would be created (## [Unreleased])"
+    _write_new_file(target, changelog_starter(root))
+    return target, "CHANGELOG.md created (## [Unreleased])"
+
+
 def _step_own_docs(
     root: Path, plan: bool, cfg: ProjectConfig, template_commit: str, notes: list[str]
 ) -> list[str]:
@@ -2838,8 +3226,14 @@ def _step_own_docs(
             text = text.replace(token, value)
         if cfg["owner"] == "unknown":
             text = text.replace("Maintained by unknown.\n\n", "")
-        _write_new_file(root / "README.md", text)
-        return "README.md replaced with a project skeleton"
+        if (root / PROJECT_FORMATS_DIR / "project-readme.md").is_file():
+            readme_format = "minimal"  # the project's own format file decides; act-audit-docs checks against it
+            used = "project format file"
+        else:
+            readme_format = _format_switch(root, "readme-format", README_FORMATS, "standard")
+            used = f"format {readme_format}"
+        _write_new_file(root / "README.md", _readme_with_format(text, readme_format))
+        return f"README.md replaced with a project skeleton ({used})"
 
     def remove_changelog(plan: bool) -> str:
         if plan:
@@ -2925,6 +3319,18 @@ def step_own_files(
 # Step 9 — .act-lock.json + .act-local/cache.json
 # ---------------------------------------------------------------------------
 
+def _folder_source_fingerprint(source: str) -> str:
+    """Fingerprint of the MANIFEST.json of a template source that is a plain folder without git,
+    as it is now -- the value update.py records too and the session start compares the folder
+    against. "" for a git source, a URL or a folder without a manifest."""
+    if not source:
+        return ""
+    folder = Path(source)
+    if not folder.is_dir() or (folder / ".git").exists():
+        return ""
+    return manifest.manifest_fingerprint(folder / ".act")
+
+
 def step_lock_and_cache(
     root: Path, plan: bool, template_origin: str, template_commit: str,
     generated: dict[str, Path], copies: dict[str, dict],
@@ -2979,7 +3385,8 @@ def step_lock_and_cache(
         # bridges (agent_bridge_targets()) are not tracked here: they are never replaced once
         # written, so there is nothing to compare against later.
         lock_update = {
-            "template": {"version": version, "commit": commit, "source": template_origin, "manifest_sha256": manifest_hash},
+            "template": {"version": version, "commit": commit, "source": template_origin, "manifest_sha256": manifest_hash,
+                         "source_fingerprint": _folder_source_fingerprint(template_origin)},
             "copies": copies,
             # present from the start, so a later "nothing changed" never has to add it
             "removed_by_user": list(actlib.read_lock().get("removed_by_user", [])),
@@ -3243,9 +3650,8 @@ _ADOPT_HINT_MARKERS = ("docs", "AGENTS.md", "CLAUDE.md", ".claude", "AI-CONFIG.m
 
 
 def _existing_project_hint(root: Path, source_act: Path) -> str | None:
-    """`source_act` is the template checkout this run is executing from (.act/) -- act-adopt is
-    never copied into a project (_SKILLS_NOT_COPIED), so the hint points at the skill file there,
-    not at a path that may not exist under `root`."""
+    """`source_act` is the .act/ this run is executing from (the template checkout or a project):
+    the hint points at the act-adopt skill file there, not at a path that may not exist under `root`."""
     # adopt.py --apply writes its own state file at this fixed path *before* it shells out to
     # init.py --target (its ADOPT_DIR + "state.json") -- if it is already there, this run came from
     # act-adopt itself, and telling act-adopt to see act-adopt would be circular noise (review
@@ -3361,7 +3767,13 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--no-commit", action="store_true", help="do everything except the final commit")
     parser.add_argument("--no-local", action="store_true",
                         help="--target only: don't carry over the source checkout's own rule/coding-rule "
-                             "deviations and docs/ai/local/ (Weg C, on by default)")
+                             "deviations and docs/ai/local/ (same as --carry none)")
+    parser.add_argument("--carry", metavar="LIST",
+                        help="--target only: what to carry over from the source project, comma-separated "
+                             "(default all): skills (own skills), rules (## Own rules), exceptions (rule "
+                             "groups switched off, with reason), overrides (`replaces` lines and the other "
+                             "docs/ai/local/ files: rule, role, script, checklist overrides), topics "
+                             "(docs/ai/local/rules/topics/); none = nothing")
     parser.add_argument("--no-profile", action="store_true",
                         help="don't offer the owner profile at %%APPDATA%%\\act\\settings.md / "
                              "~/.config/act/settings.md (on by default)")
@@ -3378,9 +3790,26 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--update-channel", choices=UPDATE_CHANNELS, metavar="{release,latest}",
                         help="what act-update follows: release = newest stable release tag (default), "
                              "latest = tip of the template's default branch; instead of asking")
+    parser.add_argument("--methods", metavar="LIST",
+                        help="working methods to switch on (names from .act/methods/, comma-separated, or none) "
+                             "instead of asking; default none")
     args = parser.parse_args(argv)
+    methods_given: Optional[str] = None
+    if args.methods is not None:
+        methods_given = parse_methods_answer(args.methods)
+        if methods_given is None:
+            parser.error(f"--methods {args.methods!r}: not a method of this template; "
+                         f"known: {', '.join(_template_methods()) or 'none'}, or none")
     if args.profile and args.no_profile:
         parser.error("--profile and --no-profile contradict each other")
+    if args.no_local and args.carry is not None:
+        parser.error("--no-local and --carry contradict each other (--no-local is --carry none)")
+    if args.carry is not None and args.target is None:
+        parser.error("--carry only goes with --target (it takes over from the project this runs from)")
+    try:
+        carry = parse_carry(args.carry, args.no_local)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     plan = args.plan
     source_act = Path(__file__).resolve().parent.parent  # .act/
@@ -3388,6 +3817,10 @@ def main(argv: list[str]) -> int:
 
     if is_target:
         root = Path(args.target).resolve()
+        refusal = own_root_refusal(Path(args.target), source_act.parent)
+        if refusal:
+            print(f"init.py: {refusal}", file=sys.stderr)
+            sys.exit(1)
         print(f"[act] target mode: {root}")
         if not root.exists():
             print("  creating target directory" + (" (plan)" if plan else ""))
@@ -3484,7 +3917,7 @@ def main(argv: list[str]) -> int:
 
     cfg = step_config(root, interactive, notes,
                       {"language-docs": args.language_docs, "language-chat": args.language_chat},
-                      args.update_channel)
+                      args.update_channel, methods_given)
     if not (root / "docs" / "ai" / "config.md").is_file() and cfg["update_channel"] == "release":
         release_note = _clone_release_note(source_act.parent)
         if release_note:
@@ -3556,8 +3989,9 @@ def main(argv: list[str]) -> int:
     )
     # Fingerprint of every generated bridge exactly as written -- taken now, before this step's
     # carry-over below (Weg C / owner profile) may edit docs/ai/rules.md or coding_rules.md; step 9
-    # records these instead of re-hashing the edited files (see step_lock_and_cache). Nothing else
-    # between here and step 9 touches a generated file: step 7 writes .gitignore/.gitattributes,
+    # records these instead of re-hashing the edited files (see step_lock_and_cache). Besides that
+    # carry-over only the working-methods step (`step_methods`, after step 8) edits a generated file --
+    # the methods section of docs/project/coding_rules.md; step 7 writes .gitignore/.gitattributes,
     # step 8 README.md/CHANGELOG.md/LICENSE only.
     generated_hashes = {rel: actlib.generated_hash(path) for rel, path in generated.items() if path.is_file()}
     translate_path, translate_message = step_translate_note(root, plan, cfg)
@@ -3572,7 +4006,7 @@ def main(argv: list[str]) -> int:
     imported_paths: list[Path] = []
     if is_target:
         combined_summary, combined_paths = step_source_and_profile(
-            root, plan, interactive, source_act.parent, not args.no_local, not args.no_profile,
+            root, plan, interactive, source_act.parent, carry, not args.no_profile,
             args.profile, dest_was_preexisting, notes,
         )
         if combined_summary:
@@ -3598,9 +4032,16 @@ def main(argv: list[str]) -> int:
     # step 8).
     own_root_files: list[Path] = []
     if is_target:
-        _print_step(8, "skipped in --target mode (docking onto an existing project, nothing of the template's own to decide)")
+        changelog_path, changelog_message = step_project_changelog(root, plan)
+        _print_step(8, "skipped in --target mode (docking onto an existing project, nothing of the template's own to decide); "
+                    + changelog_message)
+        if changelog_path is not None:
+            own_root_files.append(changelog_path)
     else:
         own_files_message = step_own_files(root, plan, interactive, cfg, verify_commit, notes)
+        changelog_path, changelog_message = step_project_changelog(
+            root, plan, template_one_goes="CHANGELOG.md would be removed" in own_files_message)
+        own_files_message += "; " + changelog_message
         _print_step(8, own_files_message)
         # Under --plan nothing is removed yet: a file step 8 only *would* remove is no commit path,
         # or step 10's preview would list a file step 8 just announced as gone.
@@ -3612,6 +4053,8 @@ def main(argv: list[str]) -> int:
                         *(root / rel for rel in _community_files(root)))
             if p.is_file() and p.relative_to(root).as_posix() not in planned_removals
         ]
+        if plan and changelog_message.startswith("CHANGELOG.md would be created"):
+            own_root_files.append(root / "CHANGELOG.md")  # the template's one goes, the project's new one replaces it
         # An untracked file under .github/ with no template marker is the project's own: init never owned
         # it, so it is not committed here -- but it would otherwise sit there untracked without a word.
         # A file the clone already tracks (detached-HEAD route) is in history anyway, so it is not named.
@@ -3630,6 +4073,13 @@ def main(argv: list[str]) -> int:
                 + ", ".join(unmarked) + ". Add them yourself (`git add`) if they belong to the project."
             )
 
+    try:
+        methods_line = step_methods(root, plan, cfg.get("methods", METHODS_DEFAULT), methods_given is not None)
+        if methods_line:
+            print(f"[act]   {methods_line}")
+    except (OSError, UnicodeDecodeError) as exc:
+        notes.append(f"Working methods were not entered ({exc.__class__.__name__}: {exc}); "
+                     f"run {rules.SYNC_METHODS_COMMAND} after fixing docs/ai/config.md.")
     _print_step(9, step_lock_and_cache(root, plan, template_origin, template_commit, generated, copies, generated_hashes,
                                         lock_existed_before=lock_existed_before,
                                         rules_md_existed_before=rules_md_existed_before,

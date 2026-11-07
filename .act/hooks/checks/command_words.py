@@ -97,6 +97,7 @@ from .command_words_legacy import _coarse_word_lists
 from .shell_targets import (
     _join_line_continuations,
     _MAX_SCAN_DEPTH,
+    _PIPE_OPS,
     _SEPARATOR_OPS,
     _SHELL_NAMES,
     _ASSIGNMENT_RE,
@@ -104,9 +105,13 @@ from .shell_targets import (
     _WRAPPER_ARG_RE,
     _WRAPPER_COMMANDS,
     _WRAPPER_VALUE_FLAGS,
+    _ansi_c_unquote,
     _command_name,
     _is_span_word,
     _line_mode_tokens,
+    _literal_output,
+    _ps_reads_stdin,
+    _reads_script_from_stdin,
     _shell_tokens,
 )
 
@@ -175,11 +180,138 @@ def _nested_word_lists(text: str, depth: int) -> list[tuple[list[str], Optional[
     return _command_word_lists_new(text, depth + 1)
 
 
-def _command_word_lists_new(command: str, depth: int = 0) -> list[tuple[list[str], Optional[str]]]:
+# A command whose arguments are only printed. Its single-quoted `$(...)` is then text, not a command to read -
+# but only on a command line that prints and does nothing else (see _print_only_line): as soon as anything on
+# the line could read the printed text (a pipe, a redirection, a group, a process substitution, a nested
+# command, `$_`, any other command), the text is judged as before.
+_TEXT_ONLY_COMMANDS = frozenset({"echo", "printf"})
+# What may join the printing commands of such a line: a list separator or a line break. Any other operator (a
+# pipe, a redirection, `&`, a parenthesis, `;;`) makes the line one that is judged as before.
+_PRINT_ONLY_SEPARATORS = frozenset({";", "&&", "||", "\n"})
+
+
+def _is_quoted_text_substitution(word: str) -> bool:
+    """True when every `$(` in `word` stood inside single quotes or an ANSI-C `$'...'` (the lexer marks such a
+    character "'" in `live`): nothing there is expanded. A plain `str` word, or one without `live`, is not."""
+    live = getattr(word, "live", None)
+    if live is None or len(live) != len(word):
+        return False
+    start = word.find("$(")
+    while start >= 0:
+        if live[start:start + 2] != "''":
+            return False
+        start = word.find("$(", start + 1)
+    return True
+
+
+def _is_print_only_word(word: str) -> bool:
+    """True when the shell acts on nothing in `word` but plain characters: every `$` and backtick in it stood
+    inside single quotes (the lexer's live mark "'"), or is the `$` that opens an ANSI-C `$'...'` (a live `$`
+    right before single-quoted text), and no backtick span. A word without live marks (a plain `str`)
+    qualifies only when it holds neither character. Allow-list: `'$(cmd)'` and `$'$(cmd)'` qualify; `"$(cmd)"`,
+    `$_`, `${x}`, `\\$(cmd)` and `` `cmd` `` do not."""
+    if getattr(word, "subs", ()):
+        return False
+    live = getattr(word, "live", None)
+    if live is None or len(live) != len(word):
+        return "$" not in word and "`" not in word
+    for index, char in enumerate(word):
+        if char not in "$`" or live[index] == "'":
+            continue
+        if char == "$" and live[index] == "L" and index + 1 < len(word) and live[index + 1] == "'":
+            continue  # the `$` of `$'...'`
+        return False
+    return True
+
+
+def _print_only_line(tokens: list, pairs: list) -> bool:
+    """True when the whole command line prints and does nothing else, so that a single-quoted `$(` among its
+    words is text nothing can read: every simple command of the line is a bare `echo` or `printf` (the word
+    itself leads it - not `./echo`, no prefix, no keyword -, `printf` without `-v`), the commands are joined
+    by nothing but `;`, `&&`, `||` or a line break (_PRINT_ONLY_SEPARATORS), and every word is plain
+    (_is_print_only_word). Allow-list over the whole line: a pipe, a redirection, `&`, a group, a process
+    substitution, a compound command (`for`, `if`, `{ ...; }`), `exec`, `trap`, an alias, function or variable
+    definition, a nested shell, `$_`, `printf -v` and every other command on the line make it one that is
+    judged as before."""
+    if not pairs:
+        return False
+    for text, is_op in tokens:
+        if is_op:
+            if text not in _PRINT_ONLY_SEPARATORS:
+                return False
+        elif not _is_print_only_word(text):
+            return False
+    for words, _sep, _redirected, _plain in pairs:
+        name = str(words[0]) if words else ""
+        if name not in _TEXT_ONLY_COMMANDS:
+            return False
+        if name == "printf" and any(str(word).startswith("-v") for word in words[1:]):
+            return False
+    return True
+
+
+def _piped_text(words: list[str]) -> Optional[str]:
+    """The text a pipeline stage prints when that is literally known: `echo`/`printf` (shell_targets.
+    _literal_output), `Write-Output`/`Write-Host` with literal arguments, or a lone string word (PowerShell
+    sends a bare string down the pipe; quoting is gone from the word, so a lone word that is really a command
+    name counts as text too, which only means it is read once more as a command). A PowerShell here-string
+    word (`@'`, a line break, the body, a line break, `'@`) is unwrapped."""
+    stripped = _strip_command_prefix(words)
+    if not stripped:
+        return None
+    if len(stripped) == 1:
+        word = str(stripped[0])
+        for opener, closer in (("@\n", "\n@"), ("@\r\n", "\r\n@"), ("@'", "'@"), ('@"', '"@')):
+            if word.startswith(opener) and word.endswith(closer) and len(word) >= len(opener) + len(closer):
+                inner = word[len(opener):len(word) - len(closer)]
+                return inner[inner.find("\n") + 1:] if opener in ("@'", '@"') and "\n" in inner else inner
+        return _ansi_c_unquote(stripped[0])
+    if _command_name(stripped[0]) in ("write-output", "write-host"):
+        return " ".join(_ansi_c_unquote(word) for word in stripped[1:])
+    return _literal_output(words, None)
+
+
+def _is_bare_cat(words: list[str]) -> bool:
+    """True for a `cat` stage with no file operand (only options, or `-`): it passes its input on."""
+    stripped = _strip_command_prefix(words)
+    return bool(stripped) and _command_name(stripped[0]) == "cat" and all(
+        str(arg) == "-" or str(arg).startswith("-") for arg in stripped[1:]
+    )
+
+
+def _piped_script_texts(previous: list[str], words: list[str]) -> list[str]:
+    """The text the stage before this one prints, when this stage runs it as a script: a POSIX shell that
+    reads its script from standard input (`echo 'cmd' | bash`), `powershell`/`pwsh` that does (`| powershell
+    -`, `-Command -`), or `Invoke-Expression`/`iex` without an argument. Empty otherwise. The text is read as
+    a command line of its own, like the text behind `eval`."""
+    stripped = _strip_command_prefix(words)
+    if not stripped:
+        return []
+    name = _command_name(stripped[0])
+    if name in _SHELL_NAMES:
+        reads = _reads_script_from_stdin(words)
+    elif name in ("powershell", "pwsh"):
+        reads = _ps_reads_stdin([str(arg) for arg in stripped[1:]])
+    elif name in _IEX_NAMES:
+        reads = len(stripped) == 1
+    else:
+        return []
+    if not reads:
+        return []
+    text = _piped_text(previous)
+    return [text] if text else []
+
+
+def _command_word_lists_new(
+    command: str, depth: int = 0, quoted_text: Optional[list[tuple[str, int]]] = None,
+) -> list[tuple[list[str], Optional[str]]]:
     """The word lexer's half of _command_word_lists: every simple command in `command`, as (argv,
     preceding-separator) pairs — see this module's docstring for the contract and known limits. Recurses into `sh|bash|zsh|dash|ksh -c ...`,
     `pwsh|powershell -Command ...`, `cmd /c ...`, `eval ...`, `$(...)`, `` `...` `` and
-    `find ... -exec ... ;|+`."""
+    `find ... -exec ... ;|+`. The text behind a single-quoted `$(` of an `echo` or `printf` on a top-level
+    command line that prints and does nothing else (_print_only_line) is not read as commands; with
+    `quoted_text` given, each such (text, depth) is appended to it, so that _command_word_lists can drop the
+    entries the previous scanner made of it."""
     command = _join_line_continuations(command)
     tokens = None
     for attempt in (lambda: _line_mode_tokens(command), lambda: _shell_tokens(command, True)):
@@ -226,6 +358,11 @@ def _command_word_lists_new(command: str, depth: int = 0) -> list[tuple[list[str
         words, plain, redirected, plain_word_last = [], [], False, False
         pending_sep = None if text == "\n" else text
 
+    # Only the top-level command line, and only when the whole of it prints and does nothing else, keeps a
+    # single-quoted `$(` as text (_print_only_line); judged once for the line, since every command on such a
+    # line is a printing one.
+    print_only = quoted_text is not None and depth == 0 and _print_only_line(tokens, pairs)
+
     result: list[tuple[list[str], Optional[str]]] = []
     for pair_index, (words, sep, redirected, plain) in enumerate(pairs):
         next_pair = pairs[pair_index + 1] if pair_index + 1 < len(pairs) else None
@@ -238,9 +375,18 @@ def _command_word_lists_new(command: str, depth: int = 0) -> list[tuple[list[str
         nested: list[str] = []  # the texts of the commands this command runs, in the order found
         for word in words:
             if "$(" in word:
+                if print_only and _is_quoted_text_substitution(word):
+                    quoted_text.append((word[word.index("$(") + 2:], depth))
+                    continue
                 nested.append(word[word.index("$(") + 2:])
         for word in words:
             nested.extend(getattr(word, "subs", ()))
+        if sep in _PIPE_OPS and pair_index > 0:
+            source = pair_index - 1
+            # a `cat` without a file hands its input on unchanged: `echo 'cmd' | cat | bash`
+            while source > 0 and pairs[source][1] in _PIPE_OPS and _is_bare_cat(pairs[source][0]):
+                source -= 1
+            nested.extend(_piped_script_texts(pairs[source][0], words))
         found_exec: list[list[str]] = []
         for variant in variants:
             stripped = _strip_command_prefix(variant)
@@ -260,7 +406,7 @@ def _command_word_lists_new(command: str, depth: int = 0) -> list[tuple[list[str
                 if command_words:
                     nested.append(" ".join(command_words))
             if name == "eval":
-                nested.append(" ".join(args))
+                nested.append(" ".join(_ansi_c_unquote(arg) for arg in args))
             elif name in _IEX_NAMES:
                 # PowerShell's eval: the argument text is a command line; an optional leading
                 # -Command (or a prefix of it) names the parameter and is not part of it.
@@ -278,7 +424,10 @@ def _command_word_lists_new(command: str, depth: int = 0) -> list[tuple[list[str
                         and name in _SHELL_NAMES
                     )
                     if is_c_flag:
-                        nested.append(" ".join(args[i + 1:]) if name in _PS_NAMES else args[i + 1])
+                        nested.append(
+                            " ".join(_ansi_c_unquote(rest) for rest in args[i + 1:]) if name in _PS_NAMES
+                            else _ansi_c_unquote(args[i + 1])
+                        )
                         break
             elif name == "find":
                 i = 0
@@ -328,10 +477,22 @@ def _command_word_lists(command: str, depth: int = 0) -> list[tuple[list[str], O
     — ValueError, RecursionError, a bug — is swallowed and the legacy half returned alone; one in
     the legacy half propagates, exactly as it did before the lexer existed."""
     legacy = _legacy_words._command_word_lists(command, depth)
+    quoted_text: list[tuple[str, int]] = []
     try:
-        current = _command_word_lists_new(command, depth)
+        current = _command_word_lists_new(command, depth, quoted_text)
     except Exception:  # noqa: BLE001 — the legacy half stands alone, see the docstring
         return legacy
+    if quoted_text:
+        # The one place the union drops a legacy entry: what the previous scanner read out of a single-quoted
+        # `$(` of a printing command (`echo $'$(git config ...)'`), which the lexer knows to be text. Only an
+        # entry the lexer's own reading does not have as well.
+        kept = {(_word_key(words), sep) for words, sep in current}
+        dropped = {
+            (_word_key(words), sep)
+            for text, text_depth in quoted_text
+            for words, sep in _legacy_words._nested_word_lists(text, text_depth)
+        } - kept
+        legacy = [entry for entry in legacy if (_word_key(entry[0]), entry[1]) not in dropped]
     merged = list(legacy)
     seen = {(_word_key(words), sep) for words, sep in legacy}
     for words, sep in current:

@@ -36,11 +36,12 @@
     ]
   },
   "template": {
-    "version": "2.4.0",
-    "commit": "5ad318e348d2e2ad7584e6c7f21b7440a21e2cea",
+    "version": "2.5.0",
+    "commit": "082e8b52053d58aa3b8c1a88cf7ab0d83ad024d0",
     "source": "D:/dev/rufeger/agentic-coding-template",
     "ref": "main",
-    "manifest_sha256": "117245b25cffad3d1920f6854bcfb17ca5491eb4e13c0a9a4e881ddea636bd1c"
+    "manifest_sha256": "296297764ad974d771344a41ab6018551045af6d49b1dd52271586277ce5f472",
+    "source_fingerprint": ""
   },
   "copies": {
     ".claude/skills/act/SKILL.md": {
@@ -53,7 +54,7 @@
     },
     ".claude/skills/act-audit-docs/SKILL.md": {
       "source": ".act/skills/act-audit-docs/SKILL.md",
-      "sha256": "713930807028c87d496e88af7cc42daedb25540942f17c07b6fdfaeec7f0ec8d"
+      "sha256": "8b679b5e3b58afac158307e6136d60149fa14935c090f19fc54583ca27dfb1a4"
     },
     ".claude/skills/act-bug/SKILL.md": {
       "source": ".act/skills/act-bug/SKILL.md",
@@ -61,7 +62,7 @@
     },
     ".claude/skills/act-commit/SKILL.md": {
       "source": ".act/skills/act-commit/SKILL.md",
-      "sha256": "ecd02427765950bc0859465d6d1b9f5356415db436ed65fc2b86842187ff4a7d"
+      "sha256": "b4483b2b721abc6642ab7e97eabaf6ac98cab7abc33c468037e1ee075a5a82e3"
     },
     ".claude/skills/act-deps/SKILL.md": {
       "source": ".act/skills/act-deps/SKILL.md",
@@ -81,11 +82,11 @@
     },
     ".claude/skills/act-doctor/SKILL.md": {
       "source": ".act/skills/act-doctor/SKILL.md",
-      "sha256": "78a5514f0a2d274cb37ac5d52f0ddbb7ccf2dfd702b60e353b1ca9585be86968"
+      "sha256": "1d61bab84f3daf3c0a31b48b65c0ce7c3204f2cd1bc5676269dcb1464ca37b8a"
     },
     ".claude/skills/act-export-settings/SKILL.md": {
       "source": ".act/skills/act-export-settings/SKILL.md",
-      "sha256": "a51c04ad649525324ef69d21af0575792efef429fc1db9567a5858979d366962"
+      "sha256": "a1e80144139bce74ece91eaefaef4beb949ba6237aa0eded4217330966b0d4c4"
     },
     ".claude/skills/act-feedback/SKILL.md": {
       "source": ".act/skills/act-feedback/SKILL.md",
@@ -93,7 +94,7 @@
     },
     ".claude/skills/act-idea/SKILL.md": {
       "source": ".act/skills/act-idea/SKILL.md",
-      "sha256": "5dae4d89bd39865b6739d5b0e069e98b46cab721e762dd11183a6231ee90dfa8"
+      "sha256": "125b0b3abdfdc3dca5eaa7f23fc1b4eeff22f7bba317ccfce48fd91d388ce08e"
     },
     ".claude/skills/act-integrations/SKILL.md": {
       "source": ".act/skills/act-integrations/SKILL.md",
@@ -105,7 +106,7 @@
     },
     ".claude/skills/act-load-settings/SKILL.md": {
       "source": ".act/skills/act-load-settings/SKILL.md",
-      "sha256": "4ca9b5c29ab37bda7f9530047a95461692fa12cd58c3bcb4ca8167f9bb94e8f2"
+      "sha256": "febf31b48fda52a945d4ee0abce4acaebf46dda54711349282650c7e4387586e"
     },
     ".claude/skills/act-perf/SKILL.md": {
       "source": ".act/skills/act-perf/SKILL.md",
@@ -113,11 +114,11 @@
     },
     ".claude/skills/act-pr/SKILL.md": {
       "source": ".act/skills/act-pr/SKILL.md",
-      "sha256": "db520998ad6c35724cdf13c5f3d7003ce7137a6fd98352283fb6e998b0af5b02"
+      "sha256": "69cb4bd220449a0def9fb975fdf2d2cf6c3913b26ce08b5895336842d6ec36d6"
     },
     ".claude/skills/act-prepare/SKILL.md": {
       "source": ".act/skills/act-prepare/SKILL.md",
-      "sha256": "b2741e76d1caf704a5239ab98aee596e027a89722add7fa1b9357e564c610faf"
+      "sha256": "b5c5cdf960f25898eff463a35f4232de6208c50f954d9e46fdfe085e71d7fe6f"
     },
     ".claude/skills/act-refactor/SKILL.md": {
       "source": ".act/skills/act-refactor/SKILL.md",
@@ -125,11 +126,11 @@
     },
     ".claude/skills/act-release/SKILL.md": {
       "source": ".act/skills/act-release/SKILL.md",
-      "sha256": "44d8773bb97ef84bc1168b8895a05bc9fe00765a933e3af0055dd4697c29c934"
+      "sha256": "c091caaeddada7f456ddc3f91f308d10195f0dae00645c4b8e3effc17b008534"
     },
     ".claude/skills/act-setup/SKILL.md": {
       "source": ".act/skills/act-setup/SKILL.md",
-      "sha256": "c92c0d8084abfd0611df021e3dfdd74a9aa7b93e4bd470949598596f1c96546c"
+      "sha256": "95e4032274b2852e9cb62e21353b1a672e210c5b62cf4e59151f16972e036da0"
     },
     ".claude/skills/act-slides/SKILL.md": {
       "source": ".act/skills/act-slides/SKILL.md",
@@ -197,7 +198,7 @@
     },
     ".claude/skills/act-compact/SKILL.md": {
       "source": ".act/skills/act-compact/SKILL.md",
-      "sha256": "84a0e004618371e737af94e45b01ac571bd749f4d3504dfde16a1b8ba047fd7d"
+      "sha256": "ca22b4d867a190942e901131e0d53c4b72742fd80d5e0988d933d55bd30025e9"
     },
     ".claude/skills/act-version/SKILL.md": {
       "source": ".act/skills/act-version/SKILL.md",
@@ -218,6 +219,46 @@
     ".claude/skills/act-seo/references/live-run.md": {
       "source": ".act/skills/act-seo/references/live-run.md",
       "sha256": "d8fb5ad011ada9256c3074c4f47d3c6bd0a6fa77cbe552d6603ae8aed445f136"
+    },
+    ".claude/skills/act-adopt/references/abort-details.md": {
+      "source": ".act/skills/act-adopt/references/abort-details.md",
+      "sha256": "d14574af48d8aae07df5e21969cff455bf246d55b1d74ef7b1000db5900ae537"
+    },
+    ".claude/skills/act-adopt/references/apply-details.md": {
+      "source": ".act/skills/act-adopt/references/apply-details.md",
+      "sha256": "98a8a73b36a22b6817c1d3b9394ad9eb311e0a63858e98f74187b75e12dfc2c1"
+    },
+    ".claude/skills/act-adopt/references/config-adoption.md": {
+      "source": ".act/skills/act-adopt/references/config-adoption.md",
+      "sha256": "8dfdf2957270412ed82944430378a0586509448f84f480e21d4ba93697f141ef"
+    },
+    ".claude/skills/act-adopt/references/content-entries.md": {
+      "source": ".act/skills/act-adopt/references/content-entries.md",
+      "sha256": "9af0bea20613b4e42f18becbfee4c8c9c294bd4cba8a6c92f18a56f9955681c0"
+    },
+    ".claude/skills/act-adopt/references/content-files.md": {
+      "source": ".act/skills/act-adopt/references/content-files.md",
+      "sha256": "832fb9892637502de1cd100996551e3d2aea6ed7cf6fa91f5ef78473f3e2197d"
+    },
+    ".claude/skills/act-adopt/references/finish-details.md": {
+      "source": ".act/skills/act-adopt/references/finish-details.md",
+      "sha256": "30f77ac749eea3e5be8d997b7b61c085c42b27e726537fdbc7c827e2fd20eb66"
+    },
+    ".claude/skills/act-adopt/references/harvest.md": {
+      "source": ".act/skills/act-adopt/references/harvest.md",
+      "sha256": "a19077d2bd54f9792cab65b57f503b96d164f685f2822704e32d4774f320c435"
+    },
+    ".claude/skills/act-adopt/references/sighting.md": {
+      "source": ".act/skills/act-adopt/references/sighting.md",
+      "sha256": "822d1e605a3bfb26ee7102da7c3266b0504070e2143d81f3773146d2bc3b1bfc"
+    },
+    ".claude/skills/act-adopt/references/table-rules.md": {
+      "source": ".act/skills/act-adopt/references/table-rules.md",
+      "sha256": "c77145aea72ffa7c189ac52cdfe7250738670be1c7630d25e4974acc82d4235b"
+    },
+    ".claude/skills/act-adopt/SKILL.md": {
+      "source": ".act/skills/act-adopt/SKILL.md",
+      "sha256": "bd857b28b061f531f6bf90b9764aac1662bc50e15356f895b04bb4569a23b69e"
     }
   },
   "removed_by_user": [],
@@ -237,7 +278,8 @@
     "003-inbox-frontmatter",
     "004-work-frontmatter",
     "005-resources-file",
-    "006-docs-project-readme"
+    "006-docs-project-readme",
+    "007-changelog-file"
   ],
   "settings_applied": {
     "enableArtifact": false

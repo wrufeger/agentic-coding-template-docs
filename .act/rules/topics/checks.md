@@ -33,7 +33,27 @@ so a SQL string built with `+`, `.` or `%` that continues on the next line is no
 secret-scan joins only an environment lookup and its literal fallback split at an operator. A `%` that
 opens a short literal of its own (`strftime('%Y', d)`) is a date format, not the operator. The PHP
 patterns (`sql-php-concat`, `sql-php-interpolation`) run only on `.php`, `.phtml`, `.inc` and `.module`
-files.
+files. `sql-format` and `sql-php-concat` skip a line that is a single raise/print/log call (Python) or
+echo/error_log/throw/logger call (PHP) holding only string literals and simple operands, as long as no
+literal opens with a SQL keyword; anything else on the line is checked as before. `sql-php-interpolation`
+also covers `${name}`, and the PHP patterns cover `.php3/.php4/.php5/.php7/.php8/.pht`. Names that git quotes
+in the diff header are read unquoted. A rename or copy to a `.env` name counts as a new `.env` file. A `$'`
+in the commit command that is only text no longer forces the over-inclusive fallback; a live ANSI-C quote
+does.
+
+Adopted project: `adopt_baseline.py --book` (skill `act-adopt`, step 7b) books the dangerous patterns found in the
+existing code as backlog entries and lists their keys `file|rule-id` in `.act-local/danger-scan-hints/baseline.json`.
+A danger-scan finding with exactly such a key passes without the first hold. The list is an allow-list of exact keys
+(no prefix, glob, other case, `./` prefix or path normalisation) for the whole project; the check reads it and never
+writes it or copies it into the per-reader hints. A missing, malformed, oversized or linked (symlink or junction, also
+one of its folders) list, or one holding anything but strings, counts as empty. Booked rules are taken out of a file's
+pattern list before a line is matched, so they never count toward the limit of five findings and cannot hide an
+unbooked rule on the same line. Only an open entry directly in `docs/ai/work/backlog/` that carries the line
+`baseline: <key>` counts as booked. Limit: the key has no line number and no expiry, so after the first commit a new
+hit of a booked rule in a booked file passes too, until the owner removes the key from the list or deletes the file
+(the booked entry says so). A new rule in a booked file, the booked rule in another file and every other new pattern
+hold as before. Secrets are not covered: secret-scan keeps holding until the value is removed, the line carries
+`act:allow-secret` or is listed in `docs/ai/local/secret-accepted.md`.
 
 ## `R-safe-outside-root` — Stay inside the project
 
@@ -56,8 +76,14 @@ Checks); the owner may set it to `warn` or `off` there, or for one run with `ACT
 the environment. Limits: the shell check is best effort, a program that opens files itself (`python
 script.py`, `docker run -v`) is invisible to it, and MCP tools that take a path are not checked. A word
 of only slashes (`//`) is never a path where it is text (inline code behind `-c`/`-e`, a text option, a
-heredoc); on its own (`ls //`, `cp x //`) it is the file system root and stays refused; reads of a
-single `/` are not judged.
+heredoc); on its own (`ls //`, `cp x //`) it is the file system root and stays refused. A single `/` is
+read the same way when it is a shell word of its own (`ls /`, `find / -name x`, `du -sh /`), in Bash and in
+PowerShell; it is not a place where it is text (inline code behind `-c`/`-e`, a text option), the value of
+an option (`--grep=/`), the delimiter of `cut -d`, `paste -d`, `sort -t`, `join -t`, `awk -F` or `column -s`
+(`cut -d / -f1 file`), or the operator between two operands (`expr 6 / 2`, `$((6 / 2))`, PowerShell
+`$size / 1MB`). Limit: the operator is told by its neighbours alone - a lone `/` with any argument before it
+and a number, variable or parenthesis after it counts as one wherever it stands, so `ls -la / 2`, `ls -d / 1`
+and `du -sh / $X` pass.
 
 ## `R-safe-git-reset` — Check before `git reset --hard`
 
@@ -85,7 +111,7 @@ smaller calls.
 
 ## `R-safe-git-metadata` — No writing of hooks, repository config or Claude settings
 
-Checks: git-metadata-guard.
+Checks: git-metadata-guard, protected-watch.
 
 Nobody writes `.git/hooks/**` or `.git/config` (also `config.worktree`, submodule and
 linked-worktree git directories), and copies nothing into them — neither with a file tool nor a
@@ -125,6 +151,31 @@ program inside `sh -c`, `eval` or a wsl line, and PowerShell. Not read: a callee
 without an import the reading knows, writing calls outside the families it knows (`io.FileIO`,
 `urllib.request.urlretrieve`, `extractall` of a zip or tar archive), other interpreters.
 
+A single-quoted or ANSI-C quoted `$(...)` among the words of `echo` or `printf` is printed text, not a command
+substitution, and is not read as one - but only on a command line that prints and does nothing else.
+Allow-list over the whole line: every command of the line is a bare `echo` or `printf` (the word itself, not
+`./echo`, no prefix, no keyword before it; `printf` without `-v`), the commands are joined by nothing but `;`,
+`&&`, `||` or a line break, and every word is plain - a `$` or backtick only inside single quotes or as the
+`$'` of ANSI-C quoting. Anything else on the line - a pipe, a redirection (also `>&2`), `&`, a group,
+subshell or process substitution, a compound command (`for`, `if`, `{ ...; }`), `exec`, `trap`, an alias,
+function or variable definition, `eval`, a nested shell, `$_`, `printf -v`, any other command, in PowerShell
+also `Set-Alias`, `New-Alias` and `iex` - makes the whole line one that is judged as before (`echo '$(cmd)' |
+sh`, `echo '$(cmd)'; sh -c "$_"`, `for i in 1; do echo '$(cmd)'; done | sh`, `echo '$(cmd)' > x.sh`,
+`echo '$(cmd)' && git status`). A double-quoted or unquoted `$(...)` is always judged.
+
+Text that a pipeline hands to a shell as its script is read as a command line of its own, like the text behind
+`eval`: `echo 'cmd' | bash`, `printf '%s\n' 'cmd' | sh -s`, a bare `cat` in between (`echo 'cmd' | cat | bash`),
+and in PowerShell a string or here-string, `Write-Output`/`Write-Host` with literal arguments, piped into
+`powershell`/`pwsh` that reads standard input (`-`, `-Command -`, `-File -`, only options) or into
+`Invoke-Expression`/`iex` without an argument. A `$'...'` word behind `eval`, `bash -c`, `sh -c` or
+`powershell -c` has its escapes resolved first (the plain lexer does not know ANSI-C quoting and read
+`eval $'git config x'` as the command `$git`). Where a command line cannot be tokenized (a live ANSI-C quote the
+lexer misreads) and the raw-text fallback decides, the word after a redirection operator is reported whole -
+quotes taken off, a quoted or escaped blank kept, at most 1,024 characters - as well as its beginning up to the
+first blank (`> "src/a b/../../x"` is `src/a b/../../x` and `src/a`). Limit: a `$'...'` word with a backslash
+inside a double-quoted `bash -c "eval ..."` text is not read: the lexer keeps the backslash of the outer quotes,
+so the inner ANSI-C text is not decoded.
+
 Two boundaries hold for every shell check that reads write targets from the command text (write-guard,
 worker-write-scope, git-metadata-guard, outside-root), since the checks read the text and run nothing:
 **runtime code** — code that becomes a script only when the command runs (`bash <<< '…'`, `source
@@ -142,6 +193,116 @@ through a link already below the destination, a Windows short name (`~1`). The b
 heredoc is not scanned as commands only when the whole command is one text reader that stores it
 (`cat`, `tee [-a] <file>`, `git commit -F -`, `git tag -F -`) with nothing before or after it.
 
+### The watcher after every call: `protected-watch`
+
+`git-metadata-guard` reads the text of a call before it runs, so a script file, inline code or a program that
+writes a protected file itself stays invisible to it. `protected-watch` looks at the files afterwards, whatever
+wrote them. After every tool call (PostToolUse and PostToolUseFailure, orchestrator and workers) it compares
+these files with a snapshot kept under `.act-local/protected-watch/` (taken at session start, after the session
+handler has refreshed the bridges): `.git/hooks/**` and `.git/config` / `.git/config.worktree` of the repository,
+of a `.git` file's git directory and its `commondir`, and of submodule and linked-worktree git directories, plus the
+pointer files themselves - the `.git` file at the project root (`gitdir: ...`) and a git directory's `commondir`;
+`.claude/settings*.json`, `.claude/agents/**`, `.claude/skills/**`, `.claude/commands/**` of the project;
+`.mcp.json`, `.envrc`, `.devcontainer.json`, `.devcontainer/**` and `.vscode/tasks.json` at the project root.
+`.git/config` is compared only on the keys that start code (the list above, the one `git-metadata-guard` uses):
+git rewrites the file for `push -u` or `remote add`, and that is no change; without a usable `git` the whole
+file is compared. For a key whose danger depends on the value (`alias.*`, `remote.*.url` and `pushurl`,
+`protocol.*.allow`) every value is kept, harmless or not, so a harmless value that is changed to a dangerous one
+is put back as well.
+
+The watcher never follows a link. A watched folder or file that is a symbolic link, a Windows junction or another
+reparse point (the `modules/` and `worktrees/` folders of a git directory and the
+entries below them included) is listed as one entry of its own and never entered or read. Before it removes or restores a file it
+checks that no folder between the project root (or the git directory) and the file is such a link and that the real
+path of the folder is the expected one; a path that goes through a link is reported as "not restored (path goes
+through a link)" and left alone, and a link a worker put in place of a watched folder or file is removed (the link
+itself, never what it points at). The same check guards every write below `.act-local/protected-watch/`; if
+`.act-local` or that folder is a link, the watcher stops with one line on stderr.
+
+Everything the watcher may delete, create, replace or write lies below places fixed when the snapshot was taken: the
+project root, the git directories found then (each with the real path it had, both kept in the snapshot) and
+`.act-local/protected-watch/`. Nothing read from the working tree at restore time can add a place. The `.git` file at
+the root and a git directory's `commondir` are watched as files like any other, so a pointer a worker rewrites is a
+change that is put back (a worker) or reported (the orchestrator) - but the scan keeps listing the git directories
+of the snapshot, never the new target, and a file below a git directory the snapshot did not have is reported and never
+removed. A restore also stops when the recorded git directory is now a link, no longer a directory, or no longer
+resolves to the real path it had. The temp file of a restore is created exclusively and never follows a link, so a
+hard link or symlink standing at its name is not written through.
+
+Whether a git directory may be restored at all is decided from real paths. A snapshot taken at session start, or in
+an orchestrator's call that found none, is trusted, so the git directories it finds (also one outside the project
+root, such as a linked worktree's directory below the main repository's `.git`) are restorable. A snapshot taken
+during a worker's call (the snapshot was missing or deleted) is not: there a git directory is restorable only when it
+lies below the project root in fact - written below it, no link on the way from the root down to it, and its real
+path below the root's real path. A `.git` file that names a path inside the root which reaches outside through a
+linked folder therefore makes nothing outside a place the watcher may delete or write; the directory is watched and
+its changes are reported "not restored" until a session start takes a trusted snapshot.
+
+It is cheap: one directory listing of the project root and the watched folders, one stat per file, and a file is
+read and hashed (sha256) only when its size or modification time differs from the snapshot. A call that changed
+nothing costs a few milliseconds on top of the interpreter start (about 3 ms for 76 files, measured).
+
+What happens when a file really changed (its hash differs; for `.git/config` a code-starting key):
+
+- **A worker's call** (the payload carries `agent_id`), key `block`: the file is put back at once from the
+  snapshot taken before the call, not blindly from git — a versioned file can carry the orchestrator's wanted,
+  uncommitted edit, and `.git/hooks` and `.git/config` are never versioned. A file that appeared is removed, a
+  file that vanished is restored. For `.git/config` only the changed keys are reset with `git config --file`; the
+  rest of the file stays as git left it. The changed version is kept as a file under
+  `.act-local/protected-watch/kept/` (30 days). The worker gets the report as `additionalContext`, the human a
+  `systemMessage` that starts with the warning sign, and the orchestrator a note with its next tool call.
+- **The orchestrator's call**, or key `warn`: reported only, to the model and to the human, with the commands that
+  put the previous version back (the previous version is kept under `kept/` so the command stays valid; the
+  assistant's own writes to hooks and git config are refused, so the human runs them). The new state becomes the
+  reference, so the next call is quiet. The commands name the file (`git config --file <path> ...`, also for
+  `config.worktree` and a submodule's config), end git's options with `--` before the key and value (a value that
+  begins with `-` is a value, not an option), and are written so that no shell expands anything in a key, a value
+  or a path: an argument with a character other than letters, digits, space, comma and `_./:@+=-` is given as a
+  Python string literal with `\xNN` escapes, in one `python -c` call, and an argument that begins with `@`
+  (splatting in PowerShell) or `-`, or that holds a comma (PowerShell reads a bare `a,b` as an array), is put in
+  double quotes.
+- **A restore that fails** (a read-only file, a path through a link, no copy of the old version): the snapshot entry
+  stays the reference, so the next call reports the change again, and a temp file the write left behind is removed.
+
+Switch: `protected-watch` in `docs/ai/config.md` § Checks — `block` (default; restores a worker's change), `warn`
+(reports every change, restores nothing), `off` (no snapshot, no comparison); `ACT_PROTECTED_WATCH` in the
+environment overrides the value for one run.
+
+Limits:
+
+- It reports after the call and prevents nothing; a hook runs at the next git command, which can be the next call
+  of another worker.
+- A change made between two calls by someone else — the human in an editor, Claude Code writing
+  `.claude/settings.local.json` when a permission is granted, another session in the same project (it shares the
+  snapshot) — is attributed to the next call. A worker call that ends just after the orchestrator changed a
+  protected file is attributed to the worker and the change is put back: the kept copy and the command in the
+  message undo that. The same holds for a permission the human grants in a prompt during a worker's call.
+- Stat first: a write that leaves size and modification time as they were is not seen (a file modified within two
+  seconds before the snapshot is hashed once more at the next call, so a write in the same clock tick is not
+  missed). A file over 2 MB is hashed but has no copy and cannot be restored. At most 4000 files are listed.
+  `*.sample` files in a hooks folder are left out; git never runs them.
+- A worker that deletes the snapshot itself makes the next call take a new one; its write scope normally keeps it
+  out of `.act-local/`. Two sessions in one project share the snapshot.
+- A `.git` file above the project root (the project lies inside a linked worktree or a separate git directory whose
+  pointer is outside the root) is outside the root and not watched: the git directories it named at snapshot time
+  stay watched, but a rewrite of that pointer is not seen.
+- A git directory that is first seen in a snapshot taken during a worker's call (the snapshot was missing or deleted)
+  and does not lie below the project root in fact - by its real path, with no link between the root and it - is
+  watched and its changes are reported, but not restored, because that snapshot cannot be trusted as a reference for
+  it; the next session start takes a trusted one. A pointer that names a path inside the root which reaches outside
+  through a linked folder is such a case.
+- Who is blamed: a worker's change that is first seen in the orchestrator's own call — calls that run in
+  parallel, a background command that ends late, a worker call that finds the lock taken and returns — is reported
+  as the orchestrator's, is not put back, and becomes the reference. The report names the call it was seen in, not
+  who wrote.
+- A watched folder that was a link when the snapshot was taken (a shared `.claude/skills` linked in on purpose) is
+  watched as that link only, not what lies behind it. A link is checked at the moment of the write, not held: one
+  planted between the check and the write by a process running at that very instant is not caught.
+- Not watched: `~/.claude` (other projects share it and Claude Code writes there itself; it stays with the static
+  check), `*.code-workspace` files.
+- Nothing runs where hooks do not run (other tools stay with the static check). An error in the watcher is one line
+  on stderr and never blocks a call.
+
 ## `R-work-throwaway` — Throwaway material under `.act-local/tmp/`
 
 Checks: act-local-tidy.
@@ -158,6 +319,30 @@ to the folder above it, `.act-local/tmp` (git never climbs into a ceiling folder
 repository still finds itself), or call git only on a repository of its own. A deny entry on Windows can
 lock out the owner too (`(RX)` also denies `READ_CONTROL` and `SYNCHRONIZE`): deny only the one right
 the probe needs, such as `(RD)`, and run `icacls <path> /reset` in the `finally`.
+
+A throwaway project below `.act-local/tmp/` carries a `.act/` of its own, which is no part of the project's
+template tree: the template's `.act/` write-guard lets a write into it pass, also where the text of the target
+cannot be resolved (a variable in front of it, `$ROOT/.act-local/tmp/job/proj/.act/x`). Allow-list: the
+project root is known and does not itself lie below `.act-local/tmp/`, the text holds `.act-local/tmp/` as
+whole segments with no `.act` segment before them, the part before them is empty or made of plain segments
+with at most one variable, written `$NAME`, `${NAME}` or `$env:NAME` and standing alone as the very first
+segment, and every segment behind them is plain too. A plain segment holds no `..`, variable (`$NAME`, cmd's `%NAME%`), command
+substitution, backtick, glob, brace, `~`, parenthesis, quote or white space. `$ROOT/.act/x`,
+`.act-local/tmp/$job/.act/x`, `$ROOT/.act-local/tmp/../../.act/x`, `$ROOT/.act-local-tmp/job/.act/x`,
+`$A$B/.act-local/tmp/job/.act/x`, a substitution that begins before the marker and ends behind it
+(`$(cd $ROOT/.act-local/tmp/job; cd ...)/x`) and a segment with a space or a quote stay refused. For a
+project that itself lies below `.act-local/tmp/` (a throwaway project run as a project; the root is compared
+without regard to case, `.ACT-LOCAL/TMP/` counts) every text naming
+`.act/` stays refused, since its own `.act/` can then be spelled through `.act-local/tmp/` behind a variable
+or an administrative share (`${U}//localhost/D$/.../.act-local/tmp/job/.act/x`). Limit: a leading variable is
+trusted to stand for a place outside `.act/`; one that holds `.act` itself (`D=.act; echo x >
+$D/.act-local/tmp/a/.act/b`, `$PWD` from inside `.act/`) reaches only new files below
+`.act/.act-local/tmp/`, no file of the template. `.act` is recognised in any spelling of case in the text of a target that cannot be placed
+(`$D/.ACT/x`, `.Act`): Windows and macOS do not tell the spellings apart, so the file is the same. The marker
+`.act-local/tmp/` in that text only counts as typed in lower case, so `$ROOT/.ACT-LOCAL/TMP/job/.act/x` stays
+refused. A target that can be placed is resolved: on Windows the comparison already ignored case, on macOS it now
+does too (a lower-cased comparison, not run on a Mac in the build), on Linux a differently spelled name is a
+different file.
 
 Checked mechanically by `act-local-tidy` (`docs/ai/config.md` § Checks), once a day at session start in a
 detached process; the next start reports the result in one line. It removes: `.act-local/tmp/` entries
@@ -225,7 +410,11 @@ outside the project root is refused, unless it lies in a directory listed in
 
 `worker-write-scope` (`docs/ai/config.md` § Checks) checks it; for a Bash command this is
 best-effort (it catches redirection and the common write commands, not a full shell parse): writes
-made from inside a script file stay invisible to it.
+made from inside a script file stay invisible to it. There is no cap on the number of write targets in one
+command: a target inside the scope costs about 1.4 ms, so the hook's 10 s time limit is reached at roughly
+7000 literal targets in one command (about 200 KB of command text), above which the remaining PreToolUse
+checks of that call do not run - no realistic command comes close, and a target outside the scope stops the
+check at the first hit.
 
 The command text of an `ssh [options] <host> <command>` call counts as remote - only the `$(...)` the
 local shell expands (easy to cut out: no `#`, `<<`, line break or `case` inside, no stray `)` around) are
@@ -240,7 +429,39 @@ first command word that begins with a plain character other than `-`. Every othe
 expansion up to the host or at the start of the command, a `PATH=`, `BASH_ENV`, an alias, a function
 `ssh`, `source` or `.`, `enable`, `command_not_found_handle` or the word `hash` in the same command - is
 read as a local command, as before. An alias in an ssh configuration that points here cannot be seen;
-local redirections behind the call are always checked.
+local redirections behind the call are always checked. The file an `ssh -E <file>` call writes its log to
+is a write target. The command text of a call whose destination is this machine, or one the shell still
+expands (`ssh localhost 'echo x > f'`), runs here and is read as a local command line; the text for another
+machine stays unread. An `rsync` destination on another machine (`host:path`, `host::module`,
+`rsync://host/...`) is no local file, as long as every option acts on the remote side alone: plain flags and
+flag clusters (`-avz`, `--archive`, `--delete`), pattern options (`--exclude`, `--include`, `--filter`, `-f`),
+the value options `--bwlimit`, `--timeout`, `--port`, `--chmod`, `--max-size`, `--min-size`,
+`--compress-level`, `--info` and `--debug`, and a remote shell that is only `ssh` (`-e ssh`, `-e 'ssh -p
+2222'`, `--rsh=ssh`) - and only when the whole command line is nothing but that one rsync call with plain
+words: the first word is `rsync` itself, no other command and no operator (`;`, `&&`, pipe, redirection, `&`,
+group, line break) anywhere, no `$` or backtick outside single quotes (in double quotes the shell still
+expands them), and no unquoted glob, brace or `~` in any word. rsync reads its own environment variables (`RSYNC_RSH`, `RSYNC_CONNECT_PROG`) and runs a local
+program from them, and a line can set one in more spellings than a text search finds - the shell removes
+quotes and escapes before `export`, `env` or `declare` see the name (`export RSYNC"_"RSH=...`) - so a line
+with a prefix assignment, `export`, `env`, a nested `sh -c` or a PowerShell part (`$env:RSYNC_RSH = ...; bash
+-c 'rsync ...'`) keeps the destination a local path; so does a line that holds the text `rsync_` (a plain
+name such as `docs/rsync_notes/` counts too). `rsync -a docs/ h2:x && echo done` is such a line as well. Any other
+option - another `-e`/`--rsh` program, `--rsync-path`, `--log-file`, `--write-batch`, `--only-write-batch`,
+`--backup-dir`, `--partial-dir`, `--temp-dir`, `--link-dest`, an option not on that list - makes the
+destination count as a local path again. A drive letter, a path with a `/` before the colon, a variable, a
+glob, a tilde and this machine (`localhost:path`) are read as local paths in any case. In PowerShell native
+programs such as `ssh` and `rsync` are not read for write targets at all.
+
+In PowerShell, `$name = <program> args` with `py`, `python`, `python3` or `git` and plain arguments (no
+sub-expression, script block, escape, `;` or comma-separated array) is read as the program call alone by the
+statement handlers: its redirections, and the `git mv`/`git rm` targets. For `write-guard` and
+`git-metadata-guard`, every word right of the `=` stays a possible target as before, except two kinds of
+word: the script of `py|python|python3 [-3|-u|-B ...] <script>` (never with `-m`, `-c` or an option that takes
+a value), and the path and revision words of `git log|diff|show|status|blame|ls-files|rev-parse|grep` without
+`-o` or `--output*`. So `$out = py .act/scripts/board.py` and `$log = git log -- .act/scripts` pass, while
+`$x = python -m zipfile -e a.zip .act/`, `$x = git clone <url> .act/y`, `$x = git archive -o .act/x.zip HEAD`
+and `$x = py x.py, '.act/x'` are judged as before. Any other right side (a cmdlet such as `Join-Path`, a
+string, an expression, the call operator) is read as before.
 
 Inline interpreter code is read too, for a worker with a restricted scope (`none` or patterns; a worker
 without a `Write scope:` line and the orchestrator are not affected). A Bash or PowerShell call that runs
@@ -332,7 +553,11 @@ Limits of that reading (what stays unseen; it catches the common form, not every
 
 When the reading meets text it cannot read, the call is not refused for it and
 `[act] inline interpreter code not read (...)` goes to standard error; the rest of the check runs as
-before.
+before. An error of the reader's own program (a bug of the check, not a text it fails to understand) is
+different: `worker-write-scope` and `git-metadata-guard` then name the error and, in block mode, refuse the
+call (in warn mode they only warn), since inline code that was never judged must not pass as code without a
+write call; `.act/scripts/doctor.py` or the owner decides how to go on. Text the reader cannot parse, or a program too large or too deep for it,
+stays on the lenient path above.
 
 `worker-scope-overlap` (`docs/ai/config.md` § Checks) refuses a start whose scope overlaps that of a
 worker still running: `none` overlaps nothing, a missing `Write scope:` line counts as everything,
@@ -340,14 +565,18 @@ and two patterns overlap when some path can match both, compared as the matching
 crosses `/`, `?` is one character, `[` is literal, `dir/**` also names `dir`): `src/lib/alpha/**` and
 `src/lib/beta*` do not overlap, `src/lib/**` and `src/lib/beta*` do.
 
-A finished worker or a failed start frees its scope; a crashed worker does so after three hours, or
-when its file under `.act-local/worker-scopes/` is deleted.
+A finished worker, a worker the orchestrator stops with `TaskStop`, and a failed start free their scope at
+once; a worker that crashed without any stop does so after three hours. The refusal names `TaskStop` as the
+way out. The entry under `.act-local/worker-scopes/` stays after a stop, marked as ended, so that a worker
+continued with a message (`SendMessage`) is bound to its own scope again: its restart clears the mark, and
+it counts as running once more. A call that cannot be bound to an entry (no `meta.json` of the agent, no
+entry under its `toolUseId`) is refused as before while a restricted scope is registered for a running
+worker.
 
-Limit: a worker continued with a message (`SendMessage`) is invisible to the check once it has
-ended, so the orchestrator keeps the scopes apart itself.
+Limit: the restart of a continued worker is not checked against the scopes of the workers started
+meanwhile, so the orchestrator keeps those apart itself.
 
-Whoever stops a worker and assigns it anew (`R-cost-amend`) first deletes its file there, if it
-still stands.
+Whoever stops a worker and assigns it anew (`R-cost-amend`) needs nothing more than the stop (`TaskStop`).
 
 The orchestrator starts it only after that worker has ended — only a rule, since a hook can refuse a
 start but not wait.
