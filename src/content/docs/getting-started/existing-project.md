@@ -7,6 +7,11 @@ sidebar:
 
 A project that already has docs, a `CLAUDE.md`, or an older AI setup goes through `act-adopt`, not through
 `init.py --target <dir>` alone. What happens to each old file is a judgment per file, and that takes an assistant.
+A project on a template version older than v2.2.0 is adopted the same way: `act-update` no longer updates it, it stops
+and names `act-adopt`.
+
+Every writing script of the flow has `--plan` (checks and shows, changes nothing) and `--help` (the actions per class,
+what each mode does, what it refuses); the assistant follows that output rather than a fixed list.
 
 ## Start it
 
@@ -68,9 +73,13 @@ refused. Only committed content travels, never `.env*`, symlinks or untracked fi
    own rules, or proposals. An existing guideline file is sorted by where each part belongs and proposed part by part, never taken whole into "Own rules"; own rules stay one-liners. Text is cut from the old files, never retyped. A proposal in `docs/ai/proposals/` gets a frontmatter header (`author`, `date`, `target`); older proposals in the plain form are still read.
 7. **Finish.** `adopt.py --finish` bridges adopted files, removes what was meant to go, runs `doctor.py`, and writes
    an adoption report into the inbox.
-8. **Commit.** By pathspec on the branch `act-adopt`, in groups. You review and merge the branch.
+8. **Commit.** By pathspec on the branch `act-adopt`, in six groups: the legacy moves, the template layer, one commit
+   per adopted target, what `--finish` did, the references and docs index, and the baseline findings. Before the first
+   commit every changed path falls under exactly one group. You review and merge the branch.
 
-`adopt.py --abort` takes the adoption back, but only before `--finish` has run.
+`adopt.py --abort` takes the adoption back, but only before `--finish` has run; `--abort --plan` shows what it would do or
+why it refuses, and `--abort --force` first saves changed files to `.act-local/adopt/aborted/`. A commit on `act-adopt`
+other than `init.py`'s makes it refuse even then: take those commits off first.
 
 ### Baseline check before the first commit
 

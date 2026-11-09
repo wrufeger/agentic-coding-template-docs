@@ -3,7 +3,7 @@ title: Update
 description: Einen neueren Stand des Templates mit act-update in ein Projekt holen.
 sidebar:
   order: 3
-sourceHash: 654ebe0ec449f70b33316d638b54c57039d45b0bd2144733a62e90e039ddada1
+sourceHash: add56e49e9f3f99aac431dc624a77429348f422a7607ff18fad87f09ee14c2f7
 ---
 
 `act-update` holt einen neueren Stand des Templates in dein Projekt: Du siehst den Diff, du stimmst zu, und
@@ -17,6 +17,10 @@ Committe oder beende offene Arbeit zuerst (`git status` sollte sauber sein). Das
 eingetragene Quelle hat Vorrang: ein Git-Remote namens `template` wird nur genommen, wenn die Lock-Datei keine Quelle
 nennt, und das Script sagt, welche es genommen hat. Schlägt der Abruf fehl, nennt die Meldung die Quelle, woher sie
 stammt, und den Ausweg (`--source`, `--ref`).
+Ein Projekt auf einer Template-Version älter als v2.2.0 wird nicht mehr aktualisiert: `update.py` bricht ab, bevor es
+etwas ändert, und nennt [`act-adopt`](/agentic-coding-template-docs/de/getting-started/existing-project/) (aus einem
+aktuellen Template-Checkout oder Projekt gestartet, mit diesem Ordner als `<dir>`), das die Doku und eigenen Regeln des
+Projekts übernimmt.
 
 ```bash
 python .act/scripts/update.py --plan      # show the diff and describe the later steps, write nothing but the update note
@@ -45,13 +49,17 @@ python .act/scripts/update.py             # the real run, asks for consent
 - Bestehende Projekte behalten ihre `config.md`; ohne den Schlüssel bekommen sie einen einmaligen Hinweis von
   `act-update`. `act-doctor` meldet einen Wert außer `release` oder `latest`.
 
-Wo du stehst, siehst du mit `/act-version` oder `python .act/scripts/update.py --versions`. Es listet die installierte
-Version und den Channel, die Releases der Quelle (`--all` für alle statt der fünf neuesten), die Spitze des
-Default-Branches und was `act-update` nehmen würde. Es nutzt nur `git ls-remote` und klont nichts. Geschrieben wird
+Wo du stehst, siehst du mit `/act-version`: Ein Hook beantwortet es, bevor das Modell es sieht, in drei Zeilen
+(die installierte Version und wann sie kam, der neueste Stand der Quelle im Channel mit Datum, und ob ein Update
+bereitsteht). `/act-version --all` gibt die lange Liste, die auch `python .act/scripts/update.py --versions` ausgibt
+(`--versions --short` ist die Dreizeilenform): die installierte Version und den Channel, die Releases der Quelle
+(`--all` für alle statt der fünf neuesten), die Spitze des Default-Branches und was `act-update` nehmen würde. Die lange
+Liste nutzt nur `git ls-remote`; die Dreizeilenform holt unter Umständen zusätzlich das einzelne Commit-Objekt, um sein
+Datum zu lesen (ohne Bäume, nichts ausgecheckt); keine von beiden klont. Geschrieben wird
 nur die lokale Update-Notiz unter `.act-local/` (Statuszeile, Board), beurteilt für den eigenen Channel und die eigene
 Quelle des Projekts. Auch `--plan` und ein Update-Lauf frischen diese Notiz auf (oder löschen sie, wenn das Projekt auf
 dem neuesten Stand ist); `--channel`, `--source` und `--ref` richten einen einzelnen Lauf woandershin und lassen sie
-unberührt. `act-update` beantwortet die Frage nach der installierten oder neuesten Version mit `update.py --versions`.
+unberührt. `act-update` beantwortet die Frage nach der installierten oder neuesten Version mit `update.py --versions --short`.
 
 ## Advisories
 
@@ -64,7 +72,7 @@ ein `warning` nur beim Sitzungsstart, einmal oder bei jedem Start, wie das Advis
 
 Ein Advisory endet, wenn `act-update` eine Version außerhalb seines Bereichs bringt, wenn du „Warnung quittiert“
 sagst (oder `python .act/scripts/advisory.py --ack A<n>` ausführst) oder wenn die genannten Dateien den fehlerhaften
-Ausschnitt nicht mehr enthalten. Ein kritisches Advisory, dessen Inbox-Todo erledigt und gelöscht wurde (`done-entries: delete`), wird auf einem anderen Arbeitsplatz nicht erneut angelegt: `advisory.py` durchsucht auch die Git-Historie, nur lesend und zeitbegrenzt (die neuesten 2000 Commits, die Inbox oder Archiv berührten, höchstens 3 Kandidatendateien, etwa 4 Sekunden), nach einem gelöschten Todo mit derselben Überschrift. `advisory-check: off` in `docs/ai/config.md` schaltet es aus; `advisory.py --status`
+Ausschnitt nicht mehr enthalten. Ein kritisches Advisory, dessen Inbox-Todo erledigt und gelöscht wurde (eine ältere Template-Version löschte erledigte Einträge), wird auf einem anderen Arbeitsplatz nicht erneut angelegt: `advisory.py` durchsucht auch die Git-Historie, nur lesend und zeitbegrenzt (die neuesten 2000 Commits, die Inbox oder Archiv berührten, höchstens 3 Kandidatendateien, etwa 4 Sekunden), nach einem gelöschten Todo mit derselben Überschrift. `advisory-check: off` in `docs/ai/config.md` schaltet es aus; `advisory.py --status`
 zeigt den Stand, `--refresh` prüft sofort. Das `git ls-remote` der Prüfung erlaubt nur die Protokolle `file`, `git`,
 `http`, `https` und `ssh`: Eine Quelle hinter einem anderen Remote-Helper bekommt beim Sitzungsstart keine
 Update-Notiz, `act-update` selbst bleibt unverändert.
@@ -100,7 +108,7 @@ Update-Notiz, `act-update` selbst bleibt unverändert.
 7. **Hooks und Git-Dateien.** Gleicht die Hook-Einträge in `.claude/settings.json` und die Blöcke des Templates in
    `.gitattributes` und `.gitignore` ab, setzt dort `PYTHON_BASIC_REPL=1` unter `env` (unter Windows hängt ein leeres Heredoc in einem Bash-Aufruf unter Python 3.13 und neuer nicht mehr; ein selbst gesetzter Wert bleibt, der Bericht nennt die ergänzten env-Schlüssel) und `"enableArtifact": false`, außer `docs/ai/config.md` hat
    `artifacts: on`. Ein bestehendes Projekt startet nach dem Update deshalb ohne das Werkzeug `Artifact`. Außerdem ergänzt dieser Schritt den `Stop`-Eintrag der Prüfung `model-switch` (sie meldet zusammen mit `SubagentStop`, wenn ein Worker oder die Sitzung auf einem anderen Modell weiterlief) und die 12 `SubagentStart`-Einträge, die Workern ihre Regeln ohne die Orchestrator-Regeln geben (siehe Schritt 6); ein älterer Satz von sechs wird ersetzt, eigene Hooks bleiben. `python .act/scripts/rules.py --worker` zeigt, was ein Worker bekommt. Außerdem hält er `.act-local/` aus den Indizes der IDEs heraus: ein `excludeFolder` in jeder JetBrains-`.idea/*.iml` und `files.watcherExclude` in `.vscode/settings.json`, wo `.vscode/` existiert.
-8. **Migrationen.** Führt alle fälligen aus. Jede schreibt eine betroffene Datei einmal um und lässt sie danach in Ruhe. Drei legen einem bestehenden Projekt einmal eine fehlende Datei an: `docs/ai/local/resources.md` (die Leseliste), `docs/project/README.md` (der Index der Projektdoku) und über `007-changelog-file` die `CHANGELOG.md` im Projektstamm. Eine vorhandene Datei bleibt unberührt, eine gelöschte kommt nicht zurück. `007-changelog-file` überschreibt oder legt eine `CHANGELOG.md` nie neu an; keine bekommt ein Projekt, das seinen Changelog unter anderem Namen führt (`changelog.md`, `CHANGES.md`, `HISTORY.md`, `NEWS.md`) oder unter § Formats `changelog: release-notes-only` oder `off` hat.
+8. **Migrationen.** Führt alle fälligen aus. Jede schreibt eine betroffene Datei einmal um und lässt sie danach in Ruhe. Drei legen einem bestehenden Projekt einmal eine fehlende Datei an: `docs/ai/local/resources.md` (die Leseliste), `docs/project/README.md` (der Index der Projektdoku) und über `007-changelog-file` die `CHANGELOG.md` im Projektstamm. Eine vorhandene Datei bleibt unberührt, eine gelöschte kommt nicht zurück. `007-changelog-file` überschreibt oder legt eine `CHANGELOG.md` nie neu an; keine bekommt ein Projekt, das seinen Changelog unter anderem Namen führt (`changelog.md`, `CHANGES.md`, `HISTORY.md`, `NEWS.md`) oder unter § Formats `changelog: release-notes-only` oder `off` hat. `008-done-entries-keep` entfernt die abgeschaffte Zeile `done-entries` samt Erklärung aus `docs/ai/config.md` (siehe [Erledigte Einträge](#erledigte-einträge)); der Plan nennt, was es herausschneiden würde.
 9. **Brücken und Doctor.** Zuerst werden unbearbeitete erzeugte Brücken (`CLAUDE.md`, `AGENTS.md`,
    `docs/ai/rules.md`) aufgefrischt; steht `session-start-refresh` in `docs/ai/config.md` § Checks auf `warn` oder
    `off`, werden sie nur gemeldet („would refresh … not written“). Danach prüft `doctor.py` auf Abweichungen; Befunde landen in `docs/ai/inbox/`, nie als stille Korrektur. Darunter: ein Override unter `docs/ai/local/`, dessen Gegenstück unter `.act/` fehlt (das Template hat es umbenannt oder entfernt, der Override wirkt also nicht), mit dem ähnlichsten Namen unter `.act/`; Regel-Overrides, Rollen und eigene Skills bleiben außen vor, ebenso ein eigenes Script oder ein eigener Coding-Satz, es sei denn, ein Name ist der Anfang des anderen oder unterscheidet sich nur in der Endung. Ein neuer Tier-Vorschlag wird dort als eigene Frage angelegt, und erst, wenn eine Rolle auf einem Tier 30 erfasste Ergebnisse hat und mindestens 60 % der letzten 30 nachgearbeitet oder eskaliert wurden. Die Frage ist kurz und empfiehlt Option a), zuerst die Fälle anzusehen; ihre Zahlen stehen in einem eigenen Inbox-Bericht, `report-<Datum>-<Uhrzeit>-tier-numbers-<Rolle>-<Tier>.md`. Der Commit nimmt den Bericht und die Fragen mit, und die Zusammenfassung nennt beide.
@@ -129,6 +137,33 @@ Sitzungsstart, der diese Meldung gezeigt hat. `act-local-tidy: warn` meldet nur,
 `python .act/scripts/act_local_tidy.py` listet, was gehen würde.
 
 Danach ergänzt der Assistent eine Journalzeile mit der Änderung des Basis-Commits und der Zahl der Befunde.
+
+## Upgrade über 2.5.0 hinaus (noch nicht veröffentlicht)
+
+Für Projekte mit `update-channel: latest`; nach v2.5.0 gibt es noch kein Release. `act-update` wie gewohnt ausführen,
+danach eine neue Sitzung starten.
+
+- **Älter als v2.2.0:** Ein solches Projekt wird nicht mehr aktualisiert; `update.py` bricht ab und nennt `act-adopt`
+  (siehe [Bevor du anfängst](#bevor-du-anfängst)).
+- **Migration `008-done-entries-keep`** läuft einmal: Sie entfernt die Zeile `done-entries` und ihren Erklärungsabsatz
+  aus `docs/ai/config.md`. Ein Projekt, das `delete` hatte (der Standard unter Git), archiviert erledigte Einträge von
+  nun an; siehe [Erledigte Einträge](#erledigte-einträge).
+- **Aufträge, die Tests ausführen,** brauchen eine Zeile `Tests:` neben `Write scope:`; Worker führen Tests nur damit
+  aus (siehe [Rollen](/agentic-coding-template-docs/de/concepts/roles/)).
+- **`outside-root-allow`:** Ein absoluter Eintrag außerhalb von Projekt und Home-Ordner ist jetzt nur lesend, Schreiben
+  dort wird verweigert. Ein `file:`-Eintrag wird ignoriert; stattdessen den Pfad schreiben.
+- **Lock-Dateien:** Ein Commit, der eine Lock-Datei berührt, wird gehalten, solange der Scan-Cache-Ordner ein Link oder
+  eine Junction ist; die Meldung nennt ihn. Ihn zu einem echten Ordner machen oder `security-check: off` setzen.
+- **Neue Coding-Regelsätze** werden übersprungen, solange `docs/project/coding_rules.md` nicht committete Änderungen
+  hat (Schritt 6). Committen, dann `python .act/scripts/rules.py --add-new-coding` ausführen.
+- **Befunde von `act-doctor` und `rules.py`:** Dateien unter `docs/ai/local/`, deren Template-Datei weg ist, und Regeldateien,
+  die eine eigene Kopie unter `docs/ai/local/rules/` überschattet. Genanntes beheben.
+- **`CHANGELOG.md`:** `act-doctor` warnt, blockiert nie, vor `[Unreleased]`-Einträgen über 250 Zeichen. Sie kürzen oder
+  `changelog-length: off` in `docs/ai/config.md`
+  § [Checks](/agentic-coding-template-docs/de/reference/configuration/#checks) setzen.
+- Optional: Um die Standardbehandlung des Changelogs zu ändern, die Zeile `changelog` unter § Formats ergänzen
+  ([Formats](/agentic-coding-template-docs/de/reference/configuration/#formats)); `config.py` kann eine fehlende Zeile
+  nicht setzen, `.act/skeleton/config.md` zeigt ihre Form.
 
 ## Upgrade auf 2.5.0
 
@@ -216,7 +251,9 @@ Von v2.1.0 aus führst du `act-update` wie gewohnt aus; mehr ist nicht nötig. `
 
 ## Erledigte Einträge
 
-Unter Git steht `done-entries` in `docs/ai/config.md` § Archiv standardmäßig auf `delete`: Ein erledigter Backlog-Punkt oder Inbox-Eintrag, den Git unverändert hält, wird gelöscht statt archiviert (`keep` stellt das Archivieren wieder her und gilt ohne Git). Seine Id bleibt über `docs/ai/work/reserved-ids.json` vergeben, und `act-commit` führt `entries.py purge` aus. Einen Eintrag, den Git noch nicht hält (nie committet oder seither geändert), verschiebt `delete` stattdessen ins Archiv; er trägt das Kopffeld `purge: after-commit`, und `purge` löscht nur Dateien mit dieser Marke, erst wenn Git sie unverändert hält. Eine erledigte Aufgabe kommt mit ihrem Stempel `finished:` und derselben Marke ins Archiv und wird beim nächsten `purge` entfernt, sobald ein Commit sie hält. Ein vorhandenes Archiv bleibt: Der erste Sitzungsstart nach dem Update nennt einmal die Zahl seiner Dateien, `python .act/scripts/entries.py purge --all --plan` listet es, und `purge --all` löscht es (erledigte Einträge, eingefügte Dateien, Sammeldateien, Monatsübersichten; die Journal-Sammlungen und Unterordner bleiben). Das ist der Befehl des Owners: Der Assistent führt ihn nur auf dessen Wort aus.
+Der Config-Schlüssel `done-entries` ist abgeschafft. Eine erledigte Aufgabe, ein erledigter Backlog-Punkt oder Inbox-Eintrag wird immer von `entries.py archive` nach `docs/ai/work/archive/` verschoben, wie es `done-entries: keep` tat; nichts wird dort gelöscht, und dasselbe gilt für eine Konzeptdatei, die entschieden oder gebaut ist (`entries.py archive <path>`). Nichts verlässt `docs/`, bevor es in seiner Monatsdatei steht: `act-compact` faltet die Einzeldateien später in `Q-`, `T-`, `B-`, `U-<YYYY-MM>.md` (Konzepte in `other-<YYYY-MM>.md`) mit einer Übersicht `<YYYY-MM>.md`, und Git hält weiter den vollen Text (siehe [Archiv](/agentic-coding-template-docs/de/reference/configuration/#archive)).
+
+Ein Projekt, das `delete` hatte (der Standard unter Git), archiviert von nun an; Migration `008-done-entries-keep` entfernt die Zeile `done-entries`, und eine zurückgebliebene Zeile wird ignoriert. Was eine ältere Version gelöscht hat, bleibt in der Git-Historie und wird nicht wiederhergestellt. `entries.py purge` gibt nur noch einen Hinweis aus (`purge is retired`) und endet mit 0, damit ein alter Aufruf nicht scheitert; die Optionen `--plan` und `--all` werden ignoriert, und ein übrig gebliebenes `purge: after-commit` in einer archivierten Datei bleibt, wie es ist.
 
 ## Schutz vor Downgrade
 

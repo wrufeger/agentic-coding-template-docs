@@ -3,7 +3,7 @@ title: Neues Projekt
 description: Ein neues Projekt aus dem Template einrichten, mit dem Assistenten oder von Hand.
 sidebar:
   order: 1
-sourceHash: b222c93ae8f28e3f00cfdf90837bc3b42b12c1b48481119f7f79b7fb5702917a
+sourceHash: 50758a4b82b30739bd331aaa927f54b4d86354eab008efbe69a78aebaed1f092
 ---
 
 ## Das Template holen
@@ -31,7 +31,7 @@ Jede Sprache funktioniert. Es gibt drei Wege:
    Template-Repository zeigt, und das Projekt startet auf einem frischen `main` ohne die Historie des Templates.
    Spätere Updates des Templates kommen nur über
    [`act-update`](/agentic-coding-template-docs/de/getting-started/update/).
-2. **Woanders.** Ein leerer oder fehlender Ordner wird direkt mit `--target` eingerichtet.
+2. **Woanders.** Ein leerer oder fehlender Ordner wird direkt mit `--target` eingerichtet. Der Ordner muss außerhalb des Projekts liegen, von dem aus gestartet wird (nicht das Projekt selbst, nicht ein Ordner darin, auch nicht über Symlink oder Junction); `init.py` verweigert das und legt nichts an.
 3. **Ein bestehendes Projekt.** Ein Ordner, der schon ein Projekt enthält — eigene Doku, eine `CLAUDE.md`, ein
    älteres KI-Setup —, wird mit `act-adopt` übernommen. Der Assistent sichtet jede Quelle für Doku und KI-Werkzeuge,
    schlägt je Quelle eine Aktion vor, wartet, bis du die Tabelle einmal freigibst, und zieht das Material dann auf
@@ -78,7 +78,7 @@ werden soll, ist eine Einzelfallentscheidung je Datei, und die braucht einen Ass
 
 Zehn feste Schritte, jeder ausgegeben als `[n/10]`:
 
-1. Sammelt die Einstellungen: Name, Owner, Sprachen, Stack, Befehle, Werkzeuge, Modus, Feedback, Update-Channel (`release` oder `latest`, geschrieben nach `docs/ai/config.md` § Update), Arbeitsmethoden (`methods`, Standard `none`). Es weist darauf hin, wenn der Klon schon über dem neuesten Release liegt.
+1. Sammelt die Einstellungen: Name, Owner, Sprachen, Stack, Befehle, Werkzeuge, Modus, Feedback, Update-Channel (`release` oder `latest`, geschrieben nach `docs/ai/config.md` § Update), Arbeitsmethoden (`methods`, Standard `none`) und das Scope-Profil (`profile` in § [Scope](/agentic-coding-template-docs/de/reference/configuration/#scope): `full` für ein Web-Projekt, sonst `standard`, aus dem Stack bestimmt; `--scope` setzt es). Es weist darauf hin, wenn der Klon schon über dem neuesten Release liegt.
 2. Klärt Git: im Klon entfernt es `origin` und baut `main` neu auf; mit `--target` führt es bei Bedarf `git init` aus.
 3. Prüft deine Git-Identität.
 4. Schreibt deine Workspace-Identität (auch wenn `.act-local/identity.json` existiert, aber `identity` fehlt) und den lokalen Import-Ordner `.act-local/import/`.
@@ -93,7 +93,7 @@ Zehn feste Schritte, jeder ausgegeben als `[n/10]`:
    einem leeren Abschnitt `## [Unreleased]` an, außer `changelog` in § Formats steht auf `release-notes-only` oder `off`
    oder das Projekt führt schon ein Changelog unter anderem Namen; eine vorhandene Datei wird nie überschrieben.
 9. Schreibt `.act-lock.json` (die festgehaltene Quelle und Version des Templates) und `.act/MANIFEST.json`.
-10. Macht den ersten Commit.
+10. Macht den ersten Commit. Er nimmt nur die Pfade mit, die dieser Lauf geschrieben hat; anderes, das im Ziel schon gestaged ist, bleibt gestaged und wird in der Ausgabe genannt.
 
 `init.py` überschreibt nie eine Datei, die das Projekt schon hat. Eine Frage ohne Eingabe nimmt ihren angezeigten Standardwert. Eine `language-docs` außer Englisch lässt das
 Gerüst auf Englisch. `act-setup` übersetzt es im selben Lauf; nach einem einfachen `init.py` bittet eine Inbox-Notiz den

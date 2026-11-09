@@ -3,12 +3,17 @@ title: Bestehendes Projekt
 description: Ein Projekt mit eigener Doku oder eigenem KI-Setup mit act-adopt übernehmen.
 sidebar:
   order: 2
-sourceHash: ab8f5594beb6df25e0d27ae26a4b3b7c8ca67f0b2874b35ce6aad5fc023bf338
+sourceHash: e847096c942ce12e6a1cf7e29b1520313723acffecdc34c899115d549dc37e2a
 ---
 
 Ein Projekt, das schon Doku, eine `CLAUDE.md` oder ein älteres KI-Setup hat, läuft über `act-adopt`, nicht allein
 über `init.py --target <dir>`. Was mit jeder alten Datei geschieht, ist eine Einzelfallentscheidung, und die
 braucht einen Assistenten.
+Ein Projekt auf einer Template-Version älter als v2.2.0 wird genauso übernommen: `act-update` aktualisiert es nicht mehr,
+es bricht ab und nennt `act-adopt`.
+
+Jedes schreibende Script des Ablaufs hat `--plan` (prüft und zeigt, ändert nichts) und `--help` (die Aktionen je Klasse,
+was jeder Modus tut, was es verweigert); der Assistent folgt dieser Ausgabe statt einer festen Liste.
 
 ## Starten
 
@@ -75,9 +80,13 @@ Template-Checkout gibt es nichts mitzunehmen.
    getippt. Ein Vorschlag in `docs/ai/proposals/` bekommt einen Frontmatter-Kopf (`author`, `date`, `target`); ältere Vorschläge in der schlichten Form werden weiter gelesen.
 7. **Abschluss.** `adopt.py --finish` brückt übernommene Dateien, entfernt, was weg sollte, führt `doctor.py`
    aus und schreibt einen Übernahmebericht in die Inbox.
-8. **Commit.** Per Pathspec auf dem Branch `act-adopt`, in Gruppen. Du prüfst den Branch und führst ihn zusammen.
+8. **Commit.** Per Pathspec auf dem Branch `act-adopt`, in sechs Gruppen: die Legacy-Verschiebungen, die Template-Schicht,
+   ein Commit je übernommenem Ziel, was `--finish` getan hat, die Verweise und der Doku-Index sowie die Baseline-Funde.
+   Vor dem ersten Commit fällt jeder geänderte Pfad unter genau eine Gruppe. Du prüfst den Branch und führst ihn zusammen.
 
-`adopt.py --abort` nimmt die Übernahme zurück, aber nur, bevor `--finish` gelaufen ist.
+`adopt.py --abort` nimmt die Übernahme zurück, aber nur, bevor `--finish` gelaufen ist; `--abort --plan` zeigt, was es
+täte oder warum es verweigert, und `--abort --force` sichert geänderte Dateien zuerst nach `.act-local/adopt/aborted/`.
+Ein anderer Commit auf `act-adopt` als der von `init.py` lässt es auch dann verweigern: diese Commits zuerst von `act-adopt` entfernen.
 
 ### Baseline-Prüfung vor dem ersten Commit
 

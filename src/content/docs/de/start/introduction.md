@@ -3,7 +3,7 @@ title: Einführung
 description: Was das Template ist, für wen sie gedacht ist und wie sie in einem Bild funktioniert.
 sidebar:
   order: 1
-sourceHash: 444d1a9d0f6e59f6c0d86d701b5bce8d2175d2b4a1fd0c5311568fd6407351cd
+sourceHash: c620e9e0be02c84ae2358081413ca219b1e0034c731afb2f03ecdebb6b0e5a48
 ---
 
 Das Agentic-Coding-Template, kurz *act*, ist ein Satz von Dateien, den du in ein Projekt legst, damit dein
@@ -22,7 +22,8 @@ Sub-Agenten, Hooks und Scripts. Es funktioniert in einem neuen und in einem bere
 - **Wiederkehrende Arbeit als Skills.** Ein Skill ist eine schlichte `SKILL.md`, der jeder Assistent folgen kann,
   zum Beispiel `act-bug`, `act-commit`, `act-release`. `/act <name>` zeigt die Anweisungen eines Skills der Vorlage vollständig an, mit oder ohne das Präfix `act-`
   (`/act version` zeigt `act-version`); `act-version`, `act-info` (in welchem Projekt eine Sitzung arbeitet, und dessen Stand), `act-export-settings` und `act-load-settings` starten nur
-  als eingetippter Slash-Befehl. Siehe die [Skills-Referenz](/agentic-coding-template-docs/de/reference/skills/).
+  als eingetippter Slash-Befehl. Ein Hook beantwortet `/act-info` und `/act-version` selbst, ohne Modellrunde;
+  `/act-version` gibt drei Zeilen aus, `--all` die vollständige Liste der Releases. Siehe die [Skills-Referenz](/agentic-coding-template-docs/de/reference/skills/).
 - **Text in deinem Format.** Die Commit-Nachricht, das Changelog, die Release Notes und die README folgen einem Format,
   das sich je Projekt wählen oder ersetzen lässt (`act-commit` und `act-release` lesen es,
   `act-export-settings --with-formats` trägt es in ein anderes Projekt), und optionale Arbeitsmethoden wie Test-first
@@ -38,8 +39,8 @@ teuer.
 ## Was es nicht ist
 
 - **Kein Framework und keine Bibliothek.** Nichts davon landet in deinem Build oder zur Laufzeit.
-- **Nicht kostenlos.** Die Regeln werden zu Beginn jeder Sitzung geladen, mit einem Coding-Regelsatz etwa 8.000
-  bis 9.000 Tokens, und für jeden Sub-Agenten noch einmal ungefähr so viel. Der Assistent leistet auch mehr pro
+- **Nicht kostenlos.** Die Regeln werden zu Beginn jeder Sitzung geladen, mit einem Coding-Regelsatz etwa 7.000
+  bis 8.000 Tokens, und für jeden Sub-Agenten etwa halb so viel, weil er die Orchestrator-Regeln auslässt. Der Assistent leistet auch mehr pro
   Aufgabe: Tests als Beleg, ein Review, einen Journaleintrag. Für ein einmaliges Script oder einen
   Wegwerf-Prototyp kostet das mehr, als es bringt.
 - **Keine Garantie in jedem Werkzeug.** Mechanische Durchsetzung über Hooks gibt es nur in Claude Code (siehe unten).

@@ -114,12 +114,13 @@ a coffee, can pick up from there. The board shows the task as running:
 ## 6. builder and reviewer
 
 The assistant does not build the change itself. It hands a bounded assignment to a `builder`, a worker with
-its own model tier, a cap on tool calls, and a write scope (`R-cost-delegate`, [Roles](/agentic-coding-template-docs/concepts/roles/)):
+its own model tier, a cap on tool calls, a write scope and, because it runs tests, the tree they run in (`R-cost-delegate`, [Roles](/agentic-coding-template-docs/concepts/roles/)):
 
 ```text
 Task T14, entry B21: show the remaining time of a round on phone and dashboard.
 Tier: standard · Estimate: ~20 min · ~300k tkn fresh · ~6M tkn cache · Cap: 40
 Write scope: app/static/**, app/rounds.py, tests/test_rounds.py
+Tests: tests/test_rounds.py
 ```
 
 A worker never commits and never writes to `docs/ai/`. It returns a result with evidence, at most 40 lines,
@@ -127,22 +128,22 @@ every assumption marked:
 
 ```text
 Changed: app/rounds.py:41-58 (remaining_seconds), app/static/round.js:12-34, tests/test_rounds.py:+3 tests
-Evidence: pytest -q -> 44 passed in 2.1 s (3 new)
+Evidence: pytest -q tests/test_rounds.py -> 9 passed in 0.4 s (3 new)
 Assumption: the server clock is the reference, not the phone's.
 ```
 
 `R-work-evidence` is the reason for that last block: "done" holds only with a test run, a log, a screenshot, a
 commit hash or an outside call. An unbacked result is "not verified", not "done". Then the `reviewer` (higher tier,
-adversarial) looks once per task at the diff, lists its findings and ends with a verdict: `ALLOW`, `CONDITIONAL` or `BLOCK`.
+adversarial) looks once per task at the diff, lists its findings by severity and ends with a verdict: `ALLOW`, `CONDITIONAL` or `BLOCK`. It blocks only for an error on a path ordinary work reaches, a missing part of the assignment or a security hole; a case built only to break the change goes to the backlog with its input.
 Here it says `CONDITIONAL`: the countdown reads right in the tests, but only a person can check it on a real phone
 after the screen was locked. The assistant therefore files a todo `U4` for you, and names it in the commit.
 
 ## 7. The commit
 
 Only the orchestrator commits (`R-code-commit`), and without being asked. The `act-commit` skill checks that the
-evidence is in, runs the project's lint and tests where it has them, closes the finished task and question (under the
-default `done-entries: delete` they move into the archive marked `purge: after-commit`, the purge after the commit
-deletes them once Git holds them, and their ids stay reserved), stages by pathspec (never `git add -A`) and writes the journal entry. The message follows the project's
+evidence is in, runs the project's lint and the full test suite once on the accepted state (builder and reviewer ran only
+the tests their `Tests:` line named), closes the finished task and question (they move into the archive under
+`docs/ai/work/archive/`, nothing leaves `docs/` before it stands in its monthly file, and their ids stay reserved), stages by pathspec (never `git add -A`) and writes the journal entry. The message follows the project's
 commit format (`commit-format` in [Formats](/agentic-coding-template-docs/reference/configuration/#formats); the
 default `auto` keeps the repo's own style), and with the default changelog setting it also adds a line under
 `[Unreleased]` in `CHANGELOG.md`, since this commit has a visible effect:

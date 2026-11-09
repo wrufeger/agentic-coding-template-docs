@@ -21,7 +21,8 @@ scripts. It works in a new project and in one that already exists.
 - **Recurring work as skills.** A skill is a plain `SKILL.md` that any assistant can follow, for example
   `act-bug`, `act-commit`, `act-release`. `/act <name>` shows a template skill's instructions in full, with or without its `act-` prefix
   (`/act version` shows `act-version`); `act-version`, `act-info` (which project a session works in and its state), `act-export-settings` and `act-load-settings` start only
-  as typed slash commands. See the [skills reference](/agentic-coding-template-docs/reference/skills/).
+  as typed slash commands. A hook answers `/act-info` and `/act-version` itself, without a model turn;
+  `/act-version` prints three lines, `--all` the full list of releases. See the [skills reference](/agentic-coding-template-docs/reference/skills/).
 - **Text in your format.** The commit message, the changelog, the release notes and the README follow a format you
   can pick or replace per project (`act-commit` and `act-release` read it, `act-export-settings --with-formats`
   carries it to another project), and optional working methods such as test-first add rules for how the assistant
@@ -36,8 +37,8 @@ people, existing code gets changed, or a mistake such as a leaked secret would b
 ## What it is not
 
 - **Not a framework or a library.** Nothing from it ends up in your build or at runtime.
-- **Not free of cost.** The rules load at the start of every session, roughly 8,000 to 9,000 tokens with one
-  coding rule set, and about as much again for each sub-agent. The assistant also does more per task: tests as
+- **Not free of cost.** The rules load at the start of every session, roughly 7,000 to 8,000 tokens with one
+  coding rule set, and about half as much for each sub-agent, which skips the orchestrator rules. The assistant also does more per task: tests as
   evidence, a review, a journal entry. For a one-off script or a throwaway prototype that costs more than it saves.
 - **Not a guarantee in every tool.** Mechanical enforcement through hooks exists only in Claude Code (see below).
 

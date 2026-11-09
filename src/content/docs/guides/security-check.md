@@ -32,6 +32,7 @@ A file that cannot carry a comment (JSON, for example a script entry whose name 
 A live lookup of known vulnerabilities in your dependencies. It uses `osv-scanner` if installed, otherwise `npm audit`, `pnpm audit`, `composer audit` or `pip-audit` for the matching ecosystem. Lock files and requirement files it reads include `package-lock.json`, `pnpm-lock.yaml` (pnpm 9 or newer), `composer.lock`, `requirements.txt`, `go.mod` and `Cargo.lock`.
 
 - **On commit**: for exactly the lock files that commit touches. The scan runs in the background; if it has not finished, the commit is denied once with "dependency scan running", and the retry reads the result, which is cached for the day.
+- **A linked scan cache holds the commit**: while `.act-local` or its scan cache folder is a link or junction, no scan result can be recorded through it, so a commit that touches a lock file is held instead of let through unchecked. The message names the link; make it a real folder, or set `security-check: off`.
 - **After `git merge`, `git pull` or `git cherry-pick`**: the lock files the command brought in are checked right after it. Nothing is held up; a finding lands in the inbox as one report, once per lock-file state and day.
 - **At session start**: once a day over every lock file in the project, except those in folders git ignores and in nested checkouts. The note is grouped per lock file and states the age of the scan; a result is dropped once a scanned lock file has changed or disappeared.
 - **What holds a commit**: an unaccepted finding of severity high or critical, naming package, version, advisory id, severity and fixed version. A lower or unknown severity only notes. `pip-audit` reports no severity, so its findings only note.
@@ -40,7 +41,7 @@ A live lookup of known vulnerabilities in your dependencies. It uses `osv-scanne
 
 ## The deep check (`full`)
 
-`python .act/scripts/security_deep.py [--since <ref> | --all]` runs Semgrep with open rule sets over the files changed since the latest tag (or the whole tree with `--all`). It runs only on request and before a release (`act-release`), never on every commit, and with a level other than `full` it prints one line and does nothing unless you pass `--force`. The release skill adds a security pass by the `reviewer` role.
+`python .act/scripts/security_deep.py [--since <ref> | --all]` runs Semgrep with open rule sets over the files changed since the latest tag (or the whole tree with `--all`). It runs only on request and before a release (`act-release`), never on every commit, and with a level other than `full` it prints one line and does nothing unless you pass `--force`. The release skill adds a security pass by the `reviewer` role. Its verdict follows severity: `BLOCK` only for an error on a path ordinary work reaches, a missing part of the assignment, a security hole a model can produce without intent, or a weakened check whose reason the author does not name; a constructed edge case is filed as a backlog case instead.
 
 ## Which level to choose
 

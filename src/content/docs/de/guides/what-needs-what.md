@@ -3,7 +3,7 @@ title: "Konzept, Test, Review: was braucht was"
 description: Eine Entscheidungstabelle - braucht eine Änderung zuerst ein Konzept, einen Test oder anderen Beleg, ein Review - mit der Regel hinter jeder Antwort.
 sidebar:
   order: 6
-sourceHash: a884a8f048b66a01a196620b6d9e62ee5e501fe08bba766f9dcaf68c533d9928
+sourceHash: c4aefdadd2430e7237e4dcce7a537a5032dee3d54bfaf006ec0ae4bdb429ae6c
 ---
 
 Nicht jede Änderung geht den ganzen [Von der Idee zum Commit](/agentic-coding-template-docs/de/start/walkthrough/). Das Template
@@ -32,7 +32,11 @@ So liest du sie:
 - „Ja“ ist der Normalfall, „darf entfallen“ ist eine Entscheidung, die der Assistent ankündigt und nie stillschweigend
   trifft.
 - Ein Review-Urteil `CONDITIONAL` stoppt den Commit nicht. Die Bedingung wird im selben Schritt als Todo oder Frage in
-  die Inbox gelegt und in der Commit-Nachricht genannt. `BLOCK` stoppt ihn (`R-code-commit`).
+  die Inbox gelegt und in der Commit-Nachricht genannt. `BLOCK` stoppt ihn (`R-code-commit`). Der `reviewer`
+  blockiert nach Schweregrad: bei einem Fehler auf einem Pfad, den gewöhnliche Arbeit erreicht, einem fehlenden Teil
+  des Auftrags, einer Sicherheitslücke, die ein Modell ohne Absicht erzeugen kann, oder einer abgeschwächten Prüfung,
+  deren Grund der Autor nicht nennt, nicht bei einem konstruierten Randfall; der wird als Backlog-Fall abgelegt. Die volle Test-Suite läuft einmal auf dem abgenommenen Stand, vor dem
+  Commit.
 - Die Tabelle folgt den Vorgaben des Templates. Jede Regel lässt sich im Projekt abschalten oder ersetzen
   (`R-work-override`, [Schichten und Overrides](/agentic-coding-template-docs/de/concepts/layers/)); die Regeltexte
   stehen in der [Regeln](/agentic-coding-template-docs/de/reference/rules/).

@@ -29,7 +29,11 @@ How to read it:
 
 - "Yes" is the default, "may be skipped" is a decision the assistant announces, never one it takes silently.
 - A review verdict of `CONDITIONAL` does not stop the commit. The condition is filed in the same step as a todo
-  or question in the inbox and named in the commit message. `BLOCK` stops it (`R-code-commit`).
+  or question in the inbox and named in the commit message. `BLOCK` stops it (`R-code-commit`). The `reviewer`
+  blocks by severity: for an error on a path ordinary work reaches, a missing part of the assignment, a security
+  hole a model can produce without intent or a weakened check whose reason the author does not name, not for a
+  constructed edge case, which is filed as a backlog case.
+  The full test suite runs once on the accepted state, before the commit.
 - The table follows the template's defaults. Every rule can be switched off or replaced in the project
   (`R-work-override`, [Layers and overrides](/agentic-coding-template-docs/concepts/layers/)); the rule texts are
   in the [rules reference](/agentic-coding-template-docs/reference/rules/).

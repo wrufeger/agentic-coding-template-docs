@@ -3,7 +3,7 @@ title: Von der Idee zum Commit
 description: Ein echter Durchlauf vom ersten Satz bis zum Commit - Idee, Frage in der Inbox, Antwort, Aufgabe, builder und reviewer, Commit - mit dem Board dazwischen.
 sidebar:
   order: 2
-sourceHash: 439af126c54f068279f987a104bb951de06ae3143d190a22b5be2606a9a2d8e0
+sourceHash: 5088031ebb99fe5749c802673daead687a1e2b28b6ccb037241a6480e476c094
 ---
 
 import Diagram from '../../../../components/Diagram.astro';
@@ -116,13 +116,14 @@ Sitzung, oder du nach einem Kaffee, dort weitermachen kann. Das Board zeigt die 
 ## 6. builder und reviewer
 
 Die Änderung baut der Assistent nicht selbst. Er gibt einem `builder` einen begrenzten Auftrag, einem Worker mit
-eigener Modellstufe, einer Obergrenze an Werkzeugaufrufen und einem Write Scope (`R-cost-delegate`,
+eigener Modellstufe, einer Obergrenze an Werkzeugaufrufen, einem Write Scope und, weil er Tests ausführt, dem Verzeichnis, in dem sie laufen (`R-cost-delegate`,
 [Rollen und Worker](/agentic-coding-template-docs/de/concepts/roles/)):
 
 ```text
 Task T14, entry B21: show the remaining time of a round on phone and dashboard.
 Tier: standard · Estimate: ~20 min · ~300k tkn fresh · ~6M tkn cache · Cap: 40
 Write scope: app/static/**, app/rounds.py, tests/test_rounds.py
+Tests: tests/test_rounds.py
 ```
 
 Auftrag und Ergebnis stehen hier im englischen Original, so wie die Werkzeuge sie schreiben. Ein Worker committet nie
@@ -131,23 +132,23 @@ jede Annahme markiert:
 
 ```text
 Changed: app/rounds.py:41-58 (remaining_seconds), app/static/round.js:12-34, tests/test_rounds.py:+3 tests
-Evidence: pytest -q -> 44 passed in 2.1 s (3 new)
+Evidence: pytest -q tests/test_rounds.py -> 9 passed in 0.4 s (3 new)
 Assumption: the server clock is the reference, not the phone's.
 ```
 
 `R-work-evidence` ist der Grund für den letzten Block: „Fertig“ gilt nur mit einem Testlauf, einem Log, einem
 Screenshot, einem Commit-Hash oder einem Aufruf nach außen. Ein Ergebnis ohne Beleg ist „nicht verifiziert“, nicht
-„fertig“. Dann sieht der `reviewer` (höhere Stufe, kritisch) einmal je Aufgabe den Diff an, nennt seine Befunde und schließt mit einem
-Urteil: `ALLOW`, `CONDITIONAL` oder `BLOCK`. Hier lautet es `CONDITIONAL`: Der Countdown stimmt in den Tests, aber nur
+„fertig“. Dann sieht der `reviewer` (höhere Stufe, kritisch) einmal je Aufgabe den Diff an, nennt seine Befunde nach Schwere und schließt mit einem
+Urteil: `ALLOW`, `CONDITIONAL` oder `BLOCK`. Er blockiert nur bei einem Fehler auf einem Pfad, den die normale Arbeit erreicht, bei einem fehlenden Teil des Auftrags oder bei einer Sicherheitslücke; ein Fall, der nur gebaut wurde, um die Änderung zu brechen, geht mit seiner Eingabe ins Backlog. Hier lautet es `CONDITIONAL`: Der Countdown stimmt in den Tests, aber nur
 ein Mensch kann ihn auf einem echten Handy nach gesperrtem Bildschirm prüfen. Der Assistent legt deshalb ein Todo `U4`
 für dich an und nennt es im Commit.
 
 ## 7. Der Commit
 
 Nur der Orchestrator committet (`R-code-commit`), und ohne dass du es verlangst. Der Skill `act-commit` prüft, dass
-der Beleg vorliegt, lässt Lint und Tests des Projekts laufen, wo es sie hat, schließt die fertige Aufgabe und die Frage
-(bei der Standardeinstellung `done-entries: delete` wandern sie ins Archiv, markiert mit `purge: after-commit`, das
-Purge nach dem Commit löscht sie, sobald Git sie hält, und ihre IDs bleiben reserviert), nimmt die Dateien per
+der Beleg vorliegt, lässt Lint und die ganze Testsuite einmal auf dem abgenommenen Stand laufen (Builder und Reviewer haben nur die Tests ihrer
+`Tests:`-Zeile ausgeführt), schließt die fertige Aufgabe und die Frage
+(sie wandern ins Archiv unter `docs/ai/work/archive/`, nichts verlässt `docs/`, bevor es in seiner Monatsdatei steht, und ihre IDs bleiben reserviert), nimmt die Dateien per
 Pfadangabe auf (nie `git add -A`) und schreibt den Journal-Eintrag. Die Nachricht folgt dem Commit-Format des
 Projekts (`commit-format` unter [Formats](/agentic-coding-template-docs/de/reference/configuration/#formats); der
 Standard `auto` übernimmt den Stil des Repos), und mit der Standardeinstellung für das Changelog kommt eine Zeile

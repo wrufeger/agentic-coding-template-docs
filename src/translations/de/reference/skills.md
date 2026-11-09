@@ -4,8 +4,8 @@ Never translate commands, keys, ids or code. Maintained by scripts/gen-reference
 scripts/check-translations.mjs; see README "Editing the site". -->
 
 ## act
-<!-- source: 17ed0fcdf8a65861 -->
-Verwenden, wenn gefragt wird, welche Skills oder Befehle es gibt, nach einer Skill-Liste oder nach den genauen Anweisungen eines Skills, oder bei einem bloßen /act bzw. /act <name>. Gibt die Skill-Tabelle mit einzeiligen Beschreibungen aus, oder den genannten Skill vollständig. Führt keinen Skill aus.
+<!-- source: 71113786be65987c -->
+Verwenden, wenn gefragt wird, welche Skills oder Befehle es gibt, nach einer Skill-Liste oder den Anweisungen eines Skills, nach den Einstellungen, dem Stand oder der Template-Version des Projekts, oder bei einem bloßen /act, /act-config, /act-info bzw. /act-version. Gibt die Skill-Tabelle, einen Skill vollständig oder die Ausgabe eines Scripts aus. Führt keinen Skill aus.
 
 ## act-a11y
 <!-- source: 4495e8a6d5f3ec6c -->
@@ -36,8 +36,8 @@ Verwenden direkt nach der Abnahme einer Aufgabe, wenn ihr Beleg (ein Testlauf, e
 Verwenden, wenn der Sitzungsstart meldet, dass eine Archiv-Verdichtung fällig ist, oder wenn gebeten wird, das Archiv oder das Journal zu verdichten oder zusammenzuführen. Führt alte archivierte Einträge und Journal-Einträge wörtlich zu einer Datei je Art und Monat mit einer Monatsübersicht zusammen, prüft, dass nichts verloren ging, und committet den Lauf für sich. Wird nie von einem Sub-Agent ausgeführt.
 
 ## act-config
-<!-- source: 352fa55b90df8820 -->
-Verwenden, wenn gebeten wird, eine Einstellung in docs/ai/config.md anzuzeigen oder zu ändern („act-config“, „setze feedback auf manual“, „welche Einstellungen gibt es“). Listet die Einstellungen auf, erklärt eine einzelne oder schreibt einen neuen Wert, beantwortet von einem Script ohne das Modell. Nicht für die Rollen-Tabelle - die wird von Hand bearbeitet.
+<!-- source: 084dd4e58ff28588 -->
+Verwenden, wenn gebeten wird, eine Einstellung in docs/ai/config.md anzuzeigen oder zu ändern („act-config“, „setze feedback auf manual“). Beantwortet von einem Script ohne das Modell. Nicht für die Rollen-Tabelle.
 
 ## act-deps
 <!-- source: 35b59128504491c4 -->
@@ -76,8 +76,8 @@ Verwenden, wenn der Mensch die Sitzung übergeben oder verlassen will - „über
 Verwenden, wenn ein Feature, eine Idee oder ein Änderungswunsch vorgeschlagen wird: „können wir X ergänzen“, „es wäre gut, wenn“, „Änderungswunsch“. Prüft, was existiert, legt Optionen mit Empfehlung dar und legt nach der Entscheidung eine Aufwandsschätzung als Backlog-Eintrag und Aufgabe ab. Nicht zum Planen eines entschiedenen Blocks - dafür act-prepare.
 
 ## act-info
-<!-- source: 350fc5f1d0e8abeb -->
-Verwenden, wenn gefragt wird, in welchem Projekt, Ordner, Branch oder mit welcher Template-Version diese Sitzung arbeitet oder was hier offen ist („act-info“, „wo bin ich“, „Projektstand“). Gibt einen kurzen Block aus einem Script aus, rein lesend und ohne Netz. Nicht für die neueste verfügbare Version - dafür act-version.
+<!-- source: 407bfb175eb374d2 -->
+Verwenden, wenn gefragt wird, in welchem Projekt, Ordner, Branch oder mit welcher Template-Version diese Sitzung arbeitet oder was hier offen ist („act-info“). Rein lesend, ohne Netz. Nicht für die neueste Version - dafür act-version.
 
 ## act-integrations
 <!-- source: 88dd3fba699d56ce -->
@@ -136,8 +136,8 @@ Verwenden, wenn gebeten wird, Testlücken zu finden, die Testabdeckung eines Ber
 Verwenden, um auf eine neuere Template-Version in diesem Projekt zu prüfen oder sie einzuspielen, oder wenn gefragt wird, welche Template-Version installiert oder die neueste ist („aktualisiere das Template“, „act-update“). Holt die neue Version erst herein, wenn der Diff gezeigt und ihm zugestimmt wurde. Nicht, um lokale Abweichungen zu prüfen - dafür act-doctor.
 
 ## act-version
-<!-- source: 2821326eee0257f0 -->
-Verwenden, wenn gefragt wird, welche Template-Version installiert ist, welche Versionen oder Releases die Quelle anbietet oder was act-update nehmen würde („act-version“, „welche ACT-Version“, „gibt es ein neueres Release“). Gibt die Antwort aus einem Script aus und schreibt nur den lokalen Update-Hinweis unter `.act-local/` (Statuszeile, Board). Nicht, um ein Update einzuspielen - dafür act-update.
+<!-- source: ac17a5d80cd4bea3 -->
+Verwenden, wenn gefragt wird, welche Template-Version installiert ist, welche Releases die Quelle anbietet („act-version“, „gibt es ein neueres Release“). Schreibt nur den lokalen Update-Hinweis. Nicht, um ein Update einzuspielen - dafür act-update.
 
 ## _intro
 <!-- source: 46565377cf8cbe79 -->

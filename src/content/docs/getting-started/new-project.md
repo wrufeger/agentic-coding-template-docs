@@ -29,7 +29,7 @@ Any language works. There are three ways:
 1. **Right here.** The clone becomes the project. The `origin` remote is removed if it points at the template repository, and the project starts on a
    fresh `main` with no history of the template. Later template updates come only through
    [`act-update`](/agentic-coding-template-docs/getting-started/update/).
-2. **Somewhere else.** An empty or missing folder is set up directly with `--target`.
+2. **Somewhere else.** An empty or missing folder is set up directly with `--target`. The folder must lie outside the project you run it from (not the project itself, not a folder inside it, also not through a symlink or junction); `init.py` refuses that and creates nothing.
 3. **An existing project.** A folder that already holds a project — its own docs, a `CLAUDE.md`, an older AI
    setup — is taken over with `act-adopt`. The assistant sights every documentation and AI-tool source, proposes an
    action per source, waits until you approve the table once, then moves the material over on a branch `act-adopt`
@@ -74,7 +74,7 @@ file, and that takes an assistant: [`act-adopt`](/agentic-coding-template-docs/g
 
 Ten fixed steps, each printed as `[n/10]`:
 
-1. Collects the settings: name, owner, languages, stack, commands, tools, mode, feedback, update channel (`release` or `latest`, written to `docs/ai/config.md` § Update), working methods (`methods`, default `none`). It notes when the clone is already past the newest release.
+1. Collects the settings: name, owner, languages, stack, commands, tools, mode, feedback, update channel (`release` or `latest`, written to `docs/ai/config.md` § Update), working methods (`methods`, default `none`) and the scope profile (`profile` in § [Scope](/agentic-coding-template-docs/reference/configuration/#scope): `full` for a web project, else `standard`, decided from the stack; `--scope` sets it). It notes when the clone is already past the newest release.
 2. Resolves Git: in place it removes `origin` and rebuilds `main`; with `--target` it runs `git init` if needed.
 3. Checks your Git identity.
 4. Writes your workspace identity (also when `.act-local/identity.json` exists but lacks `identity`) and the local import folder `.act-local/import/`.
@@ -89,7 +89,7 @@ Ten fixed steps, each printed as `[n/10]`:
    `## [Unreleased]` section, unless `changelog` in § Formats is `release-notes-only` or `off` or the project already
    keeps a changelog under another name; an existing file is never overwritten.
 9. Writes `.act-lock.json` (the recorded template source and version) and `.act/MANIFEST.json`.
-10. Makes the first commit.
+10. Makes the first commit. It takes only the paths this run wrote; anything else already staged in the target stays staged and is named in the output.
 
 `init.py` never overwrites a file the project already has. A question that gets no input takes its shown default. A `language-docs` other than English leaves the
 scaffold in English. `act-setup` translates it in the same run; after a plain `init.py` an inbox note asks the

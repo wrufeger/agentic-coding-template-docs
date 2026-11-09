@@ -103,6 +103,10 @@ Language Server, der Eintrags-IDs wie T12, B7, Q3 oder U5 in Markdown-Dateien an
 <!-- source: b2df8059a1b0ea78 -->
 Die Ideen-Datei je Person `docs/ai/concept/ideas-<identity>.md` — eine versionierte Datei für jede Person eines Projekts, von dieser Person geschrieben…
 
+## table:incidents.py
+<!-- source: daf7710df440b06d -->
+Das Incident-Log. Hooks und Scripts halten fest, was schiefging, ohne jemanden aufzuhalten, und was der Mensch später sehen soll: eine geschützte Datei …
+
 ## table:info.py
 <!-- source: 3bbc667bf24cde04 -->
 Zeigt in einem kompakten Block, in welchem Projekt diese Sitzung arbeitet und wie es dort steht: Projektname, Ordner und Host, der Sitzungsname, den das Projekt…

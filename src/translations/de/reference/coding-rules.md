@@ -539,14 +539,15 @@ summary: explizite Nullability, keine Raw Types, korrekte Exception-Behandlung, 
   ein Werkzeug, das einmal sagen und nichts ungefragt installieren.
 
 ## CR-java-modern-idioms
-<!-- source: 6685f30bda21814b -->
+<!-- source: 73a1783abb076fa2 -->
 Records, Sealed Types, Text Blocks, Virtual Threads
-summary: moderne Sprachfeatures, meist ab Java 17, Virtual Threads ab Java 21
+summary: moderne Sprachfeatures, meist ab Java 17, Pattern Matching für switch und Virtual Threads ab Java 21
 
 - Records für unveränderliche Datenträger (DTOs, Value Objects) verwenden statt einer handgeschriebenen
-  Klasse mit Gettern, `equals`, `hashCode` und Konstruktor — erfordert Java 17 (Records) bzw. 16 (Preview).
-- Sealed Interfaces/Classes mit Pattern Matching (`switch` auf den Typ) statt `instanceof`-Ketten
-  verwenden — erfordert Java 17.
+  Klasse mit Gettern, `equals`, `hashCode` und Konstruktor — erfordert Java 16 (Records; Preview in 14 und 15).
+- Sealed Interfaces/Classes statt offener Hierarchien verwenden — erfordert Java 17; mit Pattern Matching
+  für `switch` (`switch` auf den Typ) statt `instanceof`-Ketten — erfordert Java 21 (dort final; in 17 nur
+  Preview).
 - Text Blocks für mehrzeilige Strings (SQL, JSON-Vorlagen) statt Konkatenation verwenden — erfordert
   Java 17.
 - Virtual Threads nur verwenden, wo die Laufzeit und jede Bibliothek auf dem Weg sie unterstützen —
@@ -743,7 +744,7 @@ das vor dem Satz eingerichtet wurde), vor Arbeit an Nuxt-Code `.act/coding/nuxt5
 Eigentümers.
 
 ## CR-nuxt-basics
-<!-- source: 1ff3099ed3afdbb6 -->
+<!-- source: 89b759182ba04d8d -->
 Bewährte Nuxt-Standards
 summary: Verzeichnisstruktur, Datenabruf, typisierte Handler, Runtime-Konfiguration, Fallstricke
 
@@ -813,11 +814,16 @@ summary: Verzeichnisstruktur, Datenabruf, typisierte Handler, Runtime-Konfigurat
   - **Windows:** Ein abgebrochener Dev-Server kann seinen Port belegt halten; der nächste Start weicht auf
     den nächsten freien Port aus, und HMR-/WebSocket-Fehler folgen. Ist es ein Server, den der Assistent
     selbst gestartet hat, genau diesen Prozess beenden, statt einen eigenen HMR-Port zu konfigurieren. Die
-    lauschende PID findet `(Get-NetTCPConnection -LocalPort <port> -State Listen).OwningProcess` oder
-    `netstat -ano | findstr /C:":<port> " | findstr LISTENING` — ein schlichtes `findstr ":<port> "`
-    trifft auch längere Portnummern, und Zeilen ohne `LISTENING` gehören zu Clients —, dann
-    `taskkill /PID <pid> /F`; anderswo `lsof -iTCP:<port> -sTCP:LISTEN`, `kill <pid>`. Ein Server auf dem
-    Port des Eigentümers gehört ihm: erst fragen (`R-safe-dev-server`).
+    lauschende PID findet `(Get-NetTCPConnection -LocalPort <port> | Where-Object RemotePort -eq 0).OwningProcess`.
+    Weder auf `-State Listen` verlassen (liefert auf manchen Windows-Builds Client-Verbindungen oder nichts) noch auf
+    `netstat | findstr LISTENING` (das Wort ist lokalisiert, auf deutschem Windows `ABHÖREN`). Der Filter kann
+    trotzdem Bound- oder Closed-Einträge und mehrere oder veraltete PIDs liefern: vor `Stop-Process -Id <pid>`
+    prüfen, dass die Befehlszeile des Prozesses (`(Get-CimInstance Win32_Process -Filter "ProcessId=<pid>").CommandLine`)
+    der selbst gestartete Testserver ist (`R-safe-dev-server`). Aus Git Bash die Befehle in
+    `powershell -NoProfile -Command "…"` packen oder `taskkill //PID <pid> //F` verwenden (ein einzelnes `/PID` wird
+    dort in einen Pfad umgeschrieben und beendet nichts). Danach `http://localhost:<port>/` anfragen (ein Server kann
+    nur auf `::1` lauschen): die Anfrage muss abgelehnt werden. Anderswo `lsof -iTCP:<port> -sTCP:LISTEN` und `kill <pid>`.
+    Ein Server auf dem Port des Eigentümers gehört ihm: erst fragen.
 
 ## CR-nuxt-root-folders
 <!-- source: f338f1501a84673b -->

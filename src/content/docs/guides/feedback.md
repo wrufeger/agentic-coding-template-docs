@@ -58,4 +58,10 @@ Every string that could leave the project runs through a privacy check first: cr
 - Worker measurements (`usage.py --estimates`) stay in `.act-local/usage.json` and are never part of a payload.
 - The project's journal gets one entry per day, `<date>-feedback-sent.md`, with one line per send: the time, the kind of send (batch or direct message) and, for a batch, the number of entries and each entry's kind and title. The text of an entry and of a direct message is never recorded.
 
+## The local incident log
+
+Separate from feedback, and never sent: real faults (a protected file that was put back, a check that crashed, a model switch, a `warn` hit that let a write, a delete or a secret-file read through) are logged on your machine in `.act-local/incidents.jsonl` and arrive as one inbox report per day at session start. Only identifiers are logged, never a command or a path. `ACT_INCIDENT_LOG=off` in the environment pauses it for one run.
+
+Refusals of the safety checks are only counted, per check and role (in `.act-local/usage.json`). When one check refused workers at least 3 times within 7 days, `doctor.py --inbox` files one question proposing a sentence for the role file or the assignment header that tells workers beforehand what that check does not allow.
+
 See also the [configuration reference](/agentic-coding-template-docs/reference/configuration/) for the three keys, and [Configuration](/agentic-coding-template-docs/concepts/configuration/) for how the file works.

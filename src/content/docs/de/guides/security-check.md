@@ -3,7 +3,7 @@ title: Sicherheitsprüfung
 description: Wonach die Sicherheitsprüfung vor einem Commit sucht - gefährliche Muster, verwundbare Abhängigkeiten, die tiefe Prüfung - und was jeder Wert von security-check ausführt.
 sidebar:
   order: 2
-sourceHash: b0860db97b9d7f5b98d73132acad4fbe418fc8483db26ce85271fbad9de8b00c
+sourceHash: 6b2260ab6daf9d00f9fed370d1921620bddcd7390eb1d49ae4d1c02664c6ef73
 ---
 
 Die Sicherheitsprüfung wird mit einem Schlüssel gesetzt, `security-check`, in der Tabelle Checks von `docs/ai/config.md`. Anders als die übrigen Prüfungen nimmt sie nicht `block`, `warn` oder `off`, sondern eine Stufe.
@@ -33,6 +33,7 @@ Eine Datei, die keinen Kommentar tragen kann (JSON, etwa ein Script-Eintrag, des
 Eine Live-Abfrage bekannter Schwachstellen in deinen Abhängigkeiten. Sie nutzt `osv-scanner`, falls installiert, sonst `npm audit`, `pnpm audit`, `composer audit` oder `pip-audit` für das passende Ökosystem. Zu den Lock- und Requirement-Dateien, die sie liest, gehören `package-lock.json`, `pnpm-lock.yaml` (pnpm 9 oder neuer), `composer.lock`, `requirements.txt`, `go.mod` und `Cargo.lock`.
 
 - **Beim Commit**: für genau die Lock-Dateien, die dieser Commit berührt. Der Scan läuft im Hintergrund; ist er nicht fertig, wird der Commit einmal mit „dependency scan running" abgelehnt, und der erneute Versuch liest das Ergebnis, das für den Tag zwischengespeichert ist.
+- **Ein verlinkter Scan-Cache hält den Commit an**: Solange `.act-local` oder sein Scan-Cache-Ordner ein Link oder eine Junction ist, lässt sich dadurch kein Scan-Ergebnis festhalten; ein Commit, der eine Lock-Datei berührt, wird deshalb angehalten, statt ungeprüft durchzugehen. Die Meldung nennt den Link; er wird durch einen echten Ordner ersetzt, oder `security-check: off` wird gesetzt.
 - **Nach `git merge`, `git pull` oder `git cherry-pick`**: Die Lock-Dateien, die der Befehl hereingebracht hat, werden
   gleich danach geprüft. Nichts wird aufgehalten; ein Befund landet als ein Bericht in der Inbox, einmal pro
   Lock-Datei-Stand und Tag.
@@ -43,7 +44,7 @@ Eine Live-Abfrage bekannter Schwachstellen in deinen Abhängigkeiten. Sie nutzt 
 
 ## Die tiefe Prüfung (`full`)
 
-`python .act/scripts/security_deep.py [--since <ref> | --all]` führt Semgrep mit offenen Regelsätzen über die Dateien aus, die sich seit dem jüngsten Tag geändert haben (oder mit `--all` über den ganzen Baum). Sie läuft nur auf Anforderung und vor einem Release (`act-release`), nie bei jedem Commit, und bei einer anderen Stufe als `full` gibt sie eine Zeile aus und tut nichts, es sei denn, du übergibst `--force`. Der Release-Skill fügt einen Sicherheitsdurchgang durch die Rolle `reviewer` hinzu.
+`python .act/scripts/security_deep.py [--since <ref> | --all]` führt Semgrep mit offenen Regelsätzen über die Dateien aus, die sich seit dem jüngsten Tag geändert haben (oder mit `--all` über den ganzen Baum). Sie läuft nur auf Anforderung und vor einem Release (`act-release`), nie bei jedem Commit, und bei einer anderen Stufe als `full` gibt sie eine Zeile aus und tut nichts, es sei denn, du übergibst `--force`. Der Release-Skill fügt einen Sicherheitsdurchgang durch die Rolle `reviewer` hinzu. Sein Urteil folgt dem Schweregrad: `BLOCK` nur für einen Fehler auf einem Pfad, den gewöhnliche Arbeit erreicht, einen fehlenden Teil des Auftrags, eine Sicherheitslücke, die ein Modell ohne Absicht erzeugen kann, oder eine abgeschwächte Prüfung, deren Grund der Autor nicht nennt; ein konstruierter Randfall wird stattdessen als Backlog-Fall abgelegt.
 
 ## Welche Stufe wählen
 

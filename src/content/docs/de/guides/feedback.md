@@ -3,7 +3,7 @@ title: Feedback
 description: Freiwilliges Feedback an den Autor des Templates - die Modi, Takt und Scope, was nie gesendet wird und wo die lokale Kopie bleibt.
 sidebar:
   order: 1
-sourceHash: 784ea2a8a233f9fc6f0aa92bd4b9822ba91896d9f5d510eca4f95f942ba04191
+sourceHash: 0dc3bfd07c5186eb7f1ff1e9376c5cdaa17ac3b0fee4a29ee8e38c52fa7a1369
 ---
 
 Du kannst dem Autor des Templates als Feedback melden, was der Arbeitsweise gutgetan hat oder fehlte. Feedback ist freiwillig, betrifft **nur die Arbeitsweise, nie dein Projekt**, und alles, was den Rechner verlässt, wird auch lokal aufbewahrt.
@@ -58,5 +58,11 @@ Jede Zeichenkette, die das Projekt verlassen könnte, läuft zuerst durch eine D
 - Jedes Senden schreibt eine vollständige Kopie seiner Nutzlast nach `.act-local/feedback/sent/` (per gitignore ausgeschlossen, verlässt nie deinen Checkout). Wartende Einträge und Buchführung liegen daneben in `.act-local/feedback/`.
 - Messwerte der Worker (`usage.py --estimates`) bleiben in `.act-local/usage.json` und sind nie Teil einer Nutzlast.
 - Das Journal des Projekts bekommt einen Eintrag pro Tag, `<date>-feedback-sent.md`, mit einer Zeile pro Senden: Uhrzeit, Art des Sendens (Sammelversand oder Direktnachricht) und bei einem Sammelversand die Anzahl der Einträge sowie Art und Titel jedes Eintrags. Der Text eines Eintrags und einer Direktnachricht wird nie festgehalten.
+
+## Das lokale Incident-Log
+
+Getrennt vom Feedback und nie gesendet: echte Fehler (eine zurückgesetzte geschützte Datei, eine abgestürzte Prüfung, ein Modellwechsel, ein `warn`-Treffer, der ein Schreiben, ein Löschen oder das Lesen einer geheimen Datei durchließ) werden auf diesem Rechner in `.act-local/incidents.jsonl` festgehalten und kommen beim Sitzungsstart als ein Inbox-Bericht pro Tag an. Festgehalten werden nur Kennungen, nie ein Befehl oder ein Pfad. `ACT_INCIDENT_LOG=off` in der Umgebung pausiert das Log für einen Lauf.
+
+Ablehnungen der Sicherheitsprüfungen werden nur gezählt, je Prüfung und Rolle (in `.act-local/usage.json`). Hat eine Prüfung Worker innerhalb von 7 Tagen mindestens 3-mal abgelehnt, legt `doctor.py --inbox` eine Frage an: Sie schlägt einen Satz für die Rollendatei oder den Auftragskopf vor, der Workern vorab sagt, was diese Prüfung nicht erlaubt.
 
 Siehe auch die [Konfigurationsreferenz](/agentic-coding-template-docs/de/reference/configuration/) für die drei Schlüssel und [Konfiguration](/agentic-coding-template-docs/de/concepts/configuration/) dafür, wie die Datei funktioniert.

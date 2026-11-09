@@ -4,14 +4,14 @@ Never translate commands, keys, ids or code. Maintained by scripts/gen-reference
 scripts/check-translations.mjs; see README "Editing the site". -->
 
 ## checks
-<!-- source: 7e9cac4fdd282180 -->
+<!-- source: cd4920c9b4ae9703 -->
 Mechanisch geprüfte Regeln — Details
 
-Detailseite zu den Regeln, die `topics/checks.md` nennen. Jede Regel in `.act/rules/` behält, was verboten oder
-verlangt ist; was ihre Prüfung erkennt, wo ihre Grenzen liegen, wie sie geschaltet wird und welche Syntax sie
-erwartet, steht hier, ein Abschnitt je Regel. Die Sperrmeldungen der Prüfungen nennen die Syntax und verweisen
-hierher. Die Prüfungen werden in `docs/ai/config.md` § Checks geschaltet (`block`, `warn` oder `off`). Die Sätze
-darunter sind der frühere Text der Regeln, unverändert hierher verschoben.
+Detailseite zu den Regeln, die `topics/checks.md` nennen. Eine Regel in `.act/rules/` sagt, was verboten oder verlangt
+ist; diese Seite ergänzt je Prüfung, was sie sperrt, wie sie geschaltet wird und welche Grenzen ein Besitzer kennen muss.
+Wie eine Prüfung einen Befehl liest (Erlaubnislisten des Parsers, Zeitbudgets, Fehlerbehandlung), steht bei ihrem Code in
+`.act/hooks/checks/` (Kopfkommentar des Moduls); die Sperrmeldungen nennen die Syntax und verweisen hierher. Die
+Prüfungen werden in `docs/ai/config.md` § Checks geschaltet (`block`, `warn` oder `off`).
 
 ## docs-order
 <!-- source: 8eee00eea2bb607b -->
@@ -39,25 +39,25 @@ vom Sitzungsstart nicht geladen und hängt an keiner Regel: lesen, wenn jemand I
 Editor anklickbar haben will. Für ein Projekt, dessen Leute sie nicht installieren, gilt nichts davon.
 
 ## ide
-<!-- source: ab54a19c2036e1f1 -->
+<!-- source: 1102f8c529c9f71f -->
 IDE-MCP-Server
 
 Detailseite zu einer Regel, die sie als `topics/ide.md` referenziert. Wird nur geladen, wenn der Sitzungsstart
 einen verbundenen IDE-MCP-Server erkennt (JetBrains `idea` und ähnliche Namen in `.mcp.json`, den
 Claude-Einstellungen oder `~/.claude.json`, oder Claude Codes eigenen `ide`-Server — siehe
-`_ide_mcp_connected` in `checks/session.py`). Sonst wird sie nicht geladen; für ein Projekt ohne einen solchen
+`_ide_mcp_connected` in `checks/session_context.py`). Sonst wird sie nicht geladen; für ein Projekt ohne einen solchen
 Server gilt nichts davon. Der `ide`-Server von Claude Code bietet `getDiagnostics` (lesend, für alle in
 Ordnung) und `executeCode` (nur Orchestrator, wie jedes Tool, das Code ausführt).
 
 ## ideas
-<!-- source: 6cdeac7b19e8f2ba -->
+<!-- source: e7ded355c2af8dc8 -->
 Ideen
 
 Detailseite, angekündigt von der Topic-Zeile des Sitzungsstarts. „ideas“ ist aktiv, wenn die eigene Ideendatei
 des Sitzungsinhabers — `docs/ai/concept/ideas-<identity>.md`, Regeln für den Menschen in der `README.md` dieses
 Ordners — Einträge hat, die neu oder seit der letzten Verarbeitung geändert sind; der Sitzungsstart nennt sie
 in einem Hinweis `[act] ideas:`. Mechanik: `.act/scripts/ideas.py`, aufgerufen aus
-`.act/hooks/checks/session.py`.
+`.act/hooks/checks/session_context.py`.
 
 ## live-systems
 <!-- source: a1d03acb0e39d7c5 -->
@@ -82,13 +82,6 @@ Safeguard-Blocks
 
 Detailseite zu `R-safe-block` (`.act/rules/shared/10-safety.md`). Lies sie immer, wenn ein Tool eine Anfrage
 oder Aktion als riskant markiert — eine Schutzvorkehrung, ein Inhaltsfilter, eine Rechteausweitung.
-
-## worker-rules
-<!-- source: 0cb68252c4773154 -->
-Worker-Regeln ohne die Orchestrator-Regeln
-
-Detailseite dazu, wie ein Worker (Sub-Agent) seine Regeln bekommt. Lies sie, wenn einem Worker eine Regel zu
-fehlen scheint, wenn eine Rollendatei geändert wird oder wenn `CLAUDE.md` groß wird.
 
 ## _intro
 <!-- source: 8c88cf2e463d41fe -->
