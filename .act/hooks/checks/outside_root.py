@@ -21,7 +21,9 @@
 #          started there) reads that directory. The command line of `wsl`/`wsl.exe` is read as the
 #          commands it runs inside WSL, where `/mnt/<x>/...` is the Windows drive <X>: (_scan_wsl,
 #          the same mapping the shared write-target scanners apply there, and only there: a file
-#          tool's `/mnt/d/x` is no drive on Windows). MCP tools are not looked at.
+#          tool's `/mnt/d/x` is no drive on Windows). MCP tools are not looked at here, except
+#          the read tools of the IDE server's known list, whose path arguments `ide-mcp` hands to
+#          this check as a Read.
 #
 #          Two readings of a path word. The file tools expand nothing, so their path is taken
 #          literally (`$x`, `{a,b}` and `%X%` are plain characters) and `x/..` is cut out as text, as
@@ -38,7 +40,14 @@
 #          `outside-root-allow` row of docs/ai/config.md (a path relative to the project root or
 #          starting with `~`, ` (read)` behind it = read-only; an entry with glob characters opens
 #          only what its pattern hits, `../zone/o*` the folders of `zone` that start with `o`, never
-#          `zone` itself); and, while a marker younger than 24 hours says so, the target folder of an
+#          `zone` itself; an absolute path - a drive path in either slash style, or a POSIX-rooted
+#          one - outside the project and outside the home directory is entered as read-only whether
+#          or not ` (read)` stands behind it: it is the entry for a program folder, meant for reading
+#          and starting a program, not for writing. Only the writes the scanners below recognize are
+#          refused there, exactly as below a ` (read)` entry; a write they do not see passes. An
+#          entry with a glob character keeps the glob rule above (writable unless ` (read)`), and one that is a drive root, `/`
+#          or a folder above the project or the home directory opens reading everything below it);
+#          and, while a marker younger than 24 hours says so, the target folder of an
 #          act-adopt run (`.act-local/outside-allow/adopt.json`, written by the adopt scripts from
 #          inside Python). A marker target that would open far more than one project counts as
 #          broken: a drive root, `/`, a UNC share root, the home directory or a directory above it,
@@ -50,12 +59,15 @@
 #          means `warn`, `ACT_OUTSIDE_ROOT` overrides it for one run. Under `warn` the message goes
 #          to stdout and the call passes.
 #
-# Failure: this module is deliberately NOT in dispatch.py's `_FAIL_CLOSED` set. The default mode is
-#          `warn`, and a crash of an accident guard must not refuse every Bash or Write call (the
-#          owner could not even edit the config row that switches it off). A crash in the dispatcher
-#          therefore skips the check with one line on stderr, like `secret_read`; inside this
+# Failure: this module is one of dispatch.py's fail-closed guards for Bash and PowerShell, like
+#          `secret_read`: if it cannot be imported or raises while it looks at such a call, the
+#          dispatcher refuses that call and reports the failure to the model and the human. Read,
+#          Write, Edit and the other tools stay possible, so the owner (or the assistant) can still
+#          look into the cause and edit the config row that switches the check off. Inside this
 #          module each scanner runs on its own, so a bug in one (say the PowerShell target
-#          scanner) does not hide what the others found.
+#          scanner) does not hide what the others found - but a scanner that raises on a Bash or
+#          PowerShell command still refuses that call, naming the exception class (whatever the
+#          mode says, short of `off`): what the scanner would have found is unknown.
 #
 # Known limits:
 #   - a program that touches the path itself stays invisible (`python script.py`, `node app.js`);
@@ -68,16 +80,22 @@
 #     Nothing is looked up on the network: a UNC path to another host is compared as written. NTFS
 #     data streams (`f:name`, `f::$DATA`) are cut off; Windows short names (`PROGRA~1`) and trailing
 #     dots or spaces in a segment are compared as written.
-#   - a command line with more than 150 `cd`-like statements is not given to the shared write-target
-#     scanners (their cost grows with the cube of such a chain: 800 statements took 20 seconds);
-#     the words are still read as reads, and a word naming the marker folder counts as a write.
+#   - a command line with more than 150 `cd`-like statements is refused, whatever the mode says short
+#     of `off`: the shared write-target scanners are not run on it (their cost grows with the cube of
+#     such a chain: 800 statements took 20 seconds), so a write behind it would go unseen. The
+#     message asks for shorter commands.
 #   - the `cd` tracking is lexical and best effort: a relative word counts only if it leaves the
 #     allowed places from every directory the scanner thinks the shell may be in.
 #   - heuristics against false alarms, all best effort: the program word, the text of `echo`/
 #     `printf`, the value of `-m`/`--message`/`--body`/`--title`, URLs, the search pattern of
 #     `grep`/`rg`, the script of `sed`/`awk`/`jq` and the value of `find -name` are not paths. A
-#     path hidden behind one of those words goes unseen. A lone `/` is not a path, and on Windows
-#     a one-segment word such as `/c` or `/s` is a switch.
+#     path hidden behind one of those words goes unseen. A lone `/` is the root, except as the
+#     operator of `expr`/`let`, inside `$((...))`/`((...))`, in a PowerShell expression, and as the
+#     value of a delimiter option (`cut -d /`); on Windows a one-segment word such as `/c` or `/s`
+#     is a switch. A `file:` URL is not a URL here but the path it names (`file:///home/u/x` is
+#     `/home/u/x`, `file://host/share/x` is `//host/share/x`, percent-decoded). The words of a
+#     `for` loop are no paths when every use of the variable in the loop is the tail of a
+#     `<scheme>://<host>` URL inside its literal body (`for p in /a /b; do curl "https://host$p"; done`).
 #   - a tree with a hidden `.act-local/outside-allow/` staged inside the project and copied into the
 #     project root as `dir/.` is not followed (only such a source from outside the project is, since a
 #     copy inside the project is everyday work); nor are links (`ln -s`).
@@ -96,14 +114,18 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
+from urllib.parse import unquote
 
 import actlib
 
 from .brace_expand import expand_braces
-from .command_words import _command_word_lists_new, _strip_command_prefix, _stripped_word_lists
-from .common import _TOOL_PATH_FIELDS, _check_mode, _shell_command
+from .command_parse import Parse, parse_for
+from .command_words import _strip_command_prefix
+from .inline_code import UNKNOWN_WRITE, mentions_interpreter
+from .common import _TOOL_PATH_FIELDS, _check_mode, _note_hit, _shell_command, _target_class
 from .powershell_targets import (
-    _extract_ps_command_flag, _powershell_write_targets, _ps_raw_redirect_targets,
+    _extract_ps_command_flag, _is_unplaced_target,
+    _unplaced_reason,
 )
 from .secret_read import (
     _GREP_FAMILY,
@@ -112,13 +134,12 @@ from .secret_read import (
     _LITERAL_RE,
     _candidate_words,
     _grep_pattern_index,
-    _ps_word_lists,
 )
 from .shell_targets import (
     _GIT_WRITES_WORKER_SCOPE,
-    _bash_write_targets,
     _command_name,
     _heredoc_may_feed_shell,
+    _operands,
     _resolve_path,
     _to_native_path,
     _wsl_command_line,
@@ -133,13 +154,17 @@ _ENV_OVERRIDE = "ACT_OUTSIDE_ROOT"
 _ENTRY_TTL = timedelta(hours=24)
 _MARKER_PARTS = (".act-local", "outside-allow")
 _MARKER_FILE = "adopt.json"
-_MAX_BASES = 8
-_MAX_NAMED = 3
+_MAX_BASES = 8  # directories one command may run in; more is unknown and refused (_Judge.capped)
 # More `cd`-like statements than this and the shared write-target scanners are not run (see _shell_findings).
 _MAX_CD_FOR_TARGET_SCAN = 150
 _CD_WORD_RE = re.compile(r"(?<![\w./-])(?:cd|chdir|pushd|set-location|sl|push-location)(?![\w./-])", re.IGNORECASE)
-# Paths with more segments than this are cut lexically, not resolved (symlinks are not followed there).
-_MAX_RESOLVE_SEGMENTS = 40
+# A path with more segments than this is not resolved (the walk costs a file system call per segment) and the call
+# is refused as unknown (_UnknownPath).
+_MAX_RESOLVE_SEGMENTS = 200  # above the most a chain of _MAX_CD_FOR_TARGET_SCAN directory changes reaches
+
+
+class _UnknownPath(ValueError):
+    """A path the check does not follow to the end (_MAX_RESOLVE_SEGMENTS)."""
 # A key that no real directory key can contain: a POSIX-rooted path on Windows has no drive, so it
 # lies outside every place without being comparable to one.
 _POSIX_PREFIX = "\0posix:"
@@ -156,7 +181,11 @@ _ONLY_SLASHES_RE = re.compile(r"^/{2,}$")
 # One or more forward slashes and nothing else: the same word with a single `/` included. A division
 # or a separator in the `-c` text of a language interpreter (`python -c "print(7 / 2)"`) is such a word.
 _BARE_SLASHES_RE = re.compile(r"^/+$")
-_FILE_URL_RE = re.compile(r"^file:/{2,3}(?=[A-Za-z]:|/|[^/])", re.IGNORECASE)
+# A `file:` URL names a local path: `file:///home/u/x`, `file:///C:/x`, `file://C:/x`, `file://host/share/x`
+# (see `_file_url_path`); one slash (`file:/x`) too.
+_FILE_URL_RE = re.compile(r"^file:/", re.IGNORECASE)
+_DRIVE_ONLY_RE = re.compile(r"^[A-Za-z]:$")
+_URL_DRIVE_PATH_RE = re.compile(r"^/[A-Za-z]:(?:[\\/]|$)")
 _DYNAMIC_RE = re.compile(r"[$`{]|%[A-Za-z_][A-Za-z0-9_]*%")
 # (`//ve` is how Git Bash spells the Windows switch `/ve`, so that it is not turned into a path.)
 _SWITCH_RE = re.compile(r"^/{1,2}[A-Za-z?][A-Za-z0-9:?=,+-]*$")
@@ -335,6 +364,28 @@ def _collapse_dotdot(text: str) -> str:
     return prefix + "/".join(stack)
 
 
+def _file_url_path(text: str) -> str:
+    """A `file:` URL as the path it names, percent-decoded: `file:///home/u/x` -> `/home/u/x`,
+    `file:///C:/x` and `file://C:/x` -> `C:/x`, `file://host/share/x` -> `//host/share/x` (a UNC path;
+    an empty host and `localhost` are this machine). Any other text is returned as it is."""
+    if not _FILE_URL_RE.match(text):
+        return text
+    rest = text[len("file:"):]
+    for mark in ("?", "#"):  # a query and a fragment are no part of the path
+        rest = rest.split(mark, 1)[0]
+    if rest.startswith("//"):
+        rest = rest[2:]
+        cut = rest.find("/")
+        host, rest = (rest, "") if cut < 0 else (rest[:cut], rest[cut:])
+        if _DRIVE_ONLY_RE.match(host):
+            rest = host + rest  # `file://C:/x`
+        elif host and host.lower() != "localhost":
+            rest = "//" + host + rest
+    if _URL_DRIVE_PATH_RE.match(rest):
+        rest = rest[1:]  # `/C:/x`
+    return unquote(rest, errors="replace").split("\x00", 1)[0] or text  # a NUL ends the name
+
+
 def _strip_stream(text: str) -> str:
     """On Windows a `:name` after the file name (`f.json:zone`, `f.json::$DATA`) is an NTFS data stream
     of the same file: cut it off, so the file is judged as itself. A drive letter's colon stays; a
@@ -373,7 +424,9 @@ def _resolve_text(raw: str, base: Optional[str], bash: bool, mode: str = "shell"
             text = home + text[match.end():]
         elif text.startswith("~"):
             return None  # `~user`: not knowable here
-    text = _FILE_URL_RE.sub("", text, count=1)
+    text = _file_url_path(text)
+    if chr(0) in text:
+        return None  # a decoded %00
     # The native drive form first (`/d/x`, the extended-length `\\?\D:\x`, the admin share
     # `\\localhost\C$\x`): the prefix holds a `?` that the glob cut below would take for a wildcard,
     # the share a `$` that the dynamic cut would.
@@ -404,8 +457,8 @@ def _resolve_text(raw: str, base: Optional[str], bash: bool, mode: str = "shell"
     if candidate and len(_SEGMENT_SPLIT_RE.split(candidate)) > _MAX_RESOLVE_SEGMENTS:
         # Resolving walks every segment of the path and costs O(depth) file system calls; a chain of
         # `cd sub &&` a thousand times makes that quadratic. Far past any real directory depth the
-        # path is cut lexically instead.
-        return os.path.normpath(candidate)
+        # path is unknown, and so is what the command touches.
+        raise _UnknownPath(f"a path with more than {_MAX_RESOLVE_SEGMENTS} segments")
     resolved = _resolve_path(text, base)
     return str(resolved) if resolved is not None else None
 
@@ -423,6 +476,8 @@ def _looks_like_path(candidate: str, strict: bool = False) -> bool:
         return True
     if text == "/" and not strict:
         return True  # a shell word of its own (`ls /`) is the root, as `//` is; in a text literal it is not
+    if _FILE_URL_RE.match(text):
+        return True  # a `file:` URL is a local path (curl, git and others read it)
     if len(text) < 2 or _URL_RE.match(text) or (strict and _ONLY_SLASHES_RE.match(text)):
         return False
     if _HOME_TOKEN_RE.match(text) or _DRIVE_RE.match(text) or _UNC_RE.match(text):
@@ -508,10 +563,43 @@ def _marker_target(root: Path) -> Optional[str]:
     return _key(text)
 
 
+def _is_absolute_form(part: str) -> bool:
+    """True for an entry written as an absolute path: a drive path in either slash style (`D:\\x`,
+    `D:/x`) or a POSIX-rooted one (`/opt/x`; on Windows the Git-Bash `/d/x` too). A UNC share
+    (`//host/share`), `~`, a drive-relative `D:x` and a relative path are not."""
+    return bool(_DRIVE_RE.match(part)) or (part[:1] == "/" and part[1:2] != "/")
+
+
+# Program-folder entry, what the check does with it: the path is judged as resolved (`..` cut out), so a sibling
+# folder that shares the name prefix (`Browser-old` next to `Browser`), the parent folder and a path that leaves the
+# folder through `..` stay refused. An entry written as a `file:` URL or as `//localhost/C$/` is not recognised as
+# absolute and is ignored. "Starting" is what the check sees of a program: the program word of a command is no path
+# (`"D:/Program Files/Browser/browser.exe" --headless` needs no entry), but a `cd` into the folder, a path argument
+# or a wrapper (`xvfb-run`, `Start-Process`, `bash -c`) does; what the started program writes itself is invisible.
+# A relative path, `~`, a glob entry, a UNC share and an absolute path inside the project or the home directory keep
+# their own behaviour (the last two are writable).
+def _program_folder_entry(part: str, key: str, root: Path) -> bool:
+    """True when the entry (no glob characters, already resolved to `key`) is exactly the program-folder
+    form: written as an absolute path, and lying neither in the project nor in the home directory
+    (those have their own forms). Such an entry is read-only, like one with ` (read)` behind it: meant
+    for reading and starting a program. Judged on the resolved key, so `D:/prog/../other` counts as
+    `D:/other`."""
+    if not _is_absolute_form(part):
+        return False
+    root_key = _resolve_key(str(root), None, False)
+    if root_key and _under(key, root_key):
+        return False
+    home = _home()
+    home_key = _resolve_key(home, None, False) if home else None
+    return not (home_key and _under(key, home_key))
+
+
 def _allow_entries(value: str, root: Path) -> list[tuple[str, bool, bool]]:
     """The (key or glob regex source, read-only, is a pattern) triples of the `outside-root-allow`
     value: `none` or empty = nothing. An entry with glob characters opens only what its pattern hits
-    (`../zone/o*` the folders of `zone` that start with `o`, never `zone` itself)."""
+    (`../zone/o*` the folders of `zone` that start with `o`, never `zone` itself). An entry that is an
+    absolute path outside the project and the home directory is read-only whatever follows it (see
+    `_program_folder_entry`)."""
     text = value.strip().strip("`").strip()
     if not text or text.lower() == "none":
         return []
@@ -524,8 +612,8 @@ def _allow_entries(value: str, root: Path) -> list[tuple[str, bool, bool]]:
             read_only = True
             part = part[: match.start()].strip()
         part = part.strip("`'\" ")
-        if not part:
-            continue
+        if not part or _FILE_URL_RE.match(part):
+            continue  # a `file:` URL is no entry (it names no place relative to the project)
         if any(char in part for char in _GLOB_CHARS):
             directory = _cut_glob(part)
             base = _resolve_key(directory or ".", str(root), False, "file")
@@ -535,7 +623,7 @@ def _allow_entries(value: str, root: Path) -> list[tuple[str, bool, bool]]:
             continue
         key = _resolve_key(part, str(root), False, "file")
         if key:
-            entries.append((key, read_only, False))
+            entries.append((key, read_only or _program_folder_entry(part, key, root), False))
     return entries
 
 
@@ -589,21 +677,45 @@ class _Judge:
         self.lock_parent_key = _key(_marker_dir(root).parent)
         self.root_key = _resolve_key(str(root), None, False) or _key(root)
         self.found: list[_Finding] = []
+        # Reasons why a shell command was not looked at in full (a scanner raised, the command is longer than the
+        # scanners follow): the call is refused for them, see check_outside_root.
+        self.unchecked: list[str] = []
+
+    def capped(self, bases: list) -> list:
+        """The directories a command may run in, at most _MAX_BASES; more is unknown and refuses the call."""
+        if len(bases) > _MAX_BASES:
+            reason = f"it may run in more than {_MAX_BASES} different directories"
+            if reason not in self.unchecked:
+                self.unchecked.append(reason)
+        return bases[:_MAX_BASES]
 
     def judge(self, raw: str, write: bool, bases: list[Optional[str]], mode: str = "shell") -> None:
         keys: list[str] = []
         texts: list[str] = []
-        for base in (bases or [None])[:_MAX_BASES]:
-            text = _resolve_text(raw, base, self.bash, mode)
-            if text:
-                keys.append(_key(text))
-                texts.append(text)
+        try:
+            for base in self.capped(bases or [None]):
+                text = _resolve_text(raw, base, self.bash, mode)
+                if text:
+                    keys.append(_key(text))
+                    texts.append(text)
+        except _UnknownPath as unknown:
+            self.unchecked.append(f"it holds {unknown}, more than the check follows")
+            return
         if not keys:
             return
         locked = write and any(_under(key, self.lock_key) for key in keys)
         if not locked and any(self.places.allows(key, write) for key in keys):
             return
         self._add(raw, keys[0], texts[0], write, locked)
+
+    def scanner_failed(self, exc: Exception) -> None:
+        """A scanner raised on this command: what it would have found is unknown, so the call counts as not checked."""
+        reason = (
+            f"it holds {exc}, more than the check follows" if isinstance(exc, _UnknownPath)
+            else f"a scanner of the check failed on it ({type(exc).__name__})"
+        )
+        if reason not in self.unchecked:
+            self.unchecked.append(reason)
 
     def lock(self, raw: str, text: str) -> None:
         """A write that can create the marker folder (a copy, an unpacking or a sync into one of its
@@ -736,17 +848,91 @@ class _Words(list):
 
 
 _OPERAND_START_RE = re.compile(r"^[(\[]*[\d$]")
+# Programs whose arguments are an arithmetic expression: a lone `/` between two operands is the operator there.
+_DIVISION_COMMANDS = frozenset({"expr", "let"})
 
 
-def _is_division(name: str, args: list[str], index: int) -> bool:
-    """True when the lone `/` at `args[index]` stands between two operands of an expression (`expr 6 /
-    2`, `$((6 / 2))`, `$x / 1MB`): something that can be divided on its left (an argument, or a command
-    word that starts like a number, a variable, a parenthesis or a property) and a number, variable or parenthesis
-    on its right. `ls /`, `find / -name x` and `du -sh /` do not match."""
+# What may stand inside an arithmetic expression of the shell, `$(( ... ))` or `(( ... ))`, that is taken out of the
+# command before its words are read: no command substitution, quote, backtick, `;`, backslash or line break. Bash
+# evaluates names there as variables and never reads a file, so `$(( a / b ))` and `$(( /etc/passwd ))` name no place.
+_ARITHMETIC_BAD_RE = re.compile("[`'\";\\\\\\n]|\\$\\(")
+_ARITHMETIC_START_RE = re.compile(r"\$\(\(|(?:^|[;&|{(\n]|\b(?:then|do|else|elif|if|while|until))[ \t]*\(\(")
+
+
+def _without_arithmetic(command: str) -> str:
+    """`command` with every shell arithmetic expression `$(( ... ))` and `(( ... ))` (at a command start) that
+    holds nothing but operands and operators replaced by `$((0))` / `((0))`: the shell word lexer reads the inside
+    of `$(( ... ))` as a command, where the `/` of `6 / 2` would be taken for the root. An expression with a
+    command substitution, quote or backtick inside, or one that is not closed, stays as it is."""
+    out: list[str] = []
+    position = 0
+    for match in _ARITHMETIC_START_RE.finditer(command):
+        start = match.start()
+        if start < position:
+            continue
+        opener = match.end() - 2
+        # Inside the body the parentheses must balance; the first `)` that would take the depth below 0 has to be
+        # followed by the second `)` of the closer. Any other character there means the shell reads subshells or a
+        # command substitution (`((cat /etc/passwd) && (ls))`), not arithmetic.
+        depth = 0
+        end = None
+        for index in range(opener + 2, len(command)):
+            char = command[index]
+            if char == "(":
+                depth += 1
+            elif char == ")":
+                if depth:
+                    depth -= 1
+                elif command[index + 1:index + 2] == ")":
+                    end = index + 1
+                    break
+                else:
+                    break
+        if end is None or end - 1 <= opener + 2:
+            continue
+        body = command[opener + 2:end - 1]
+        if _ARITHMETIC_BAD_RE.search(body):
+            continue
+        out.append(command[position:opener])
+        out.append("((0))")
+        position = end + 1
+    out.append(command[position:])
+    return "".join(out)
+
+
+# The word before a lone `/` in a PowerShell statement that makes it a division: a number (`1MB`), a variable or a
+# property of one (`$x`, `$x.Length`), a closed parenthesis or index, with or without properties behind it
+# (`(Get-Item a).Length`, `$a[0]`, `(Get-ChildItem | Measure-Object Length -Sum).Sum`).
+_PS_OPERAND_END_RE = re.compile(r"^(?:[+-]?\d[\d_.]*(?:kb|mb|gb|tb|pb)?|\$[\w:.{}]+|.*[)\]](?:\.\w+)*)$", re.IGNORECASE)
+
+
+def _paren_open(words: list[str]) -> bool:
+    """True when `words` leave a parenthesis unclosed (`((Get-Item`, `$(`)."""
+    text = " ".join(words)
+    return text.count("(") > text.count(")")
+
+
+def _is_division(name: str, args: list[str], index: int, powershell: bool = False) -> bool:
+    """True when the lone `/` at `args[index]` is the operator of an expression, not the root. Allow-list,
+    with a number, variable or parenthesis after the `/` in every form: `expr` and `let` (`expr 6 / 2`, an
+    argument before it); in the shell an arithmetic expression `$(( ... ))` or `(( ... ))`, which is cut out of the
+    command first (_without_arithmetic, so no `/` of it gets here); in PowerShell a
+    statement that is an expression itself (its first word starts like a number, a variable, a parenthesis,
+    a type or a property: `$x / 1MB`, `(Get-Item a).Length / 1MB`), an open parenthesis before the `/`
+    (`Write-Output ((Get-Item a).Length / 1MB)`) or a number, variable or closed parenthesis right before it
+    (`x = 7 / 2`; limit: `Get-ChildItem $dir / 2` passes). Anything else, `ls -la / 2`, `du -sh / $X`, `ls /`, is the
+    root: a number or a variable behind it does not make it a division."""
     following = args[index + 1] if index + 1 < len(args) else ""
     if not _OPERAND_START_RE.match(following):
         return False
-    return index > 0 or name[:1] in ("(", "$", "[", ".") or name[:1].isdigit()
+    before = [name, *args[:index]]
+    if name in _DIVISION_COMMANDS:
+        return index > 0
+    if not powershell:
+        return False
+    left = args[index - 1] if index > 0 else name
+    return (name[:1] in ("(", "$", "[", ".") or name[:1].isdigit() or _paren_open(before)
+            or bool(_PS_OPERAND_END_RE.match(left)))
 
 
 # Options whose next word is a separator or delimiter, per program (`cut -d / -f1`, `sort -t /`, `awk -F /`):
@@ -770,7 +956,9 @@ def _is_separator_value(name: str, args: list[str], index: int) -> bool:
     return index > 0 and args[index - 1] in _SEPARATOR_VALUE_OPTIONS.get(name, frozenset())
 
 
-def _read_candidates(name: str, args: list[str], feeds_xargs: bool = False) -> list[tuple[str, bool]]:
+def _read_candidates(
+    name: str, args: list[str], feeds_xargs: bool = False, powershell: bool = False,
+) -> list[tuple[str, bool]]:
     """(word, strict) pairs of a simple command that may name a place; `strict` marks a string
     literal of inline interpreter code, where a `..` is no path."""
     if name in _TEXT_COMMANDS and not feeds_xargs:
@@ -782,7 +970,7 @@ def _read_candidates(name: str, args: list[str], feeds_xargs: bool = False) -> l
             continue
         for position, candidate in enumerate(_candidate_words(word)):
             if candidate.strip().strip("'\"") == "/" and (
-                position or _is_division(name, args, index) or _is_separator_value(name, args, index)
+                position or _is_division(name, args, index, powershell) or _is_separator_value(name, args, index)
             ):
                 # `--grep=/` (the value of an option), `6 / 2` (a division) and `cut -d /` (a delimiter)
                 # name no place
@@ -833,36 +1021,10 @@ def _last_segment(word: str) -> str:
     return _SEGMENT_SPLIT_RE.split(word.strip().strip("'\"").rstrip("\\/"))[-1]
 
 
-def _operands(args: list[str], value_flags: frozenset) -> tuple[list[str], dict[str, str]]:
-    """(operands, flag -> value) of a POSIX-style command line: `-t DIR`, `-tDIR`, `--flag=DIR`."""
-    operands: list[str] = []
-    values: dict[str, str] = {}
-    index = 0
-    while index < len(args):
-        arg = args[index]
-        if arg == "--":
-            operands.extend(args[index + 1:])
-            break
-        if arg.startswith("--"):
-            flag, _, value = arg.partition("=")
-            if flag in value_flags:
-                if value:
-                    values[flag] = value
-                elif index + 1 < len(args):
-                    values[flag] = args[index + 1]
-                    index += 1
-        elif arg.startswith("-") and len(arg) > 1:
-            if arg in value_flags and index + 1 < len(args):
-                values[arg] = args[index + 1]
-                index += 1
-            else:
-                for flag in value_flags:
-                    if len(flag) == 2 and arg.startswith(flag) and len(arg) > 2:
-                        values[flag] = arg[2:]
-        else:
-            operands.append(arg)
-        index += 1
-    return operands, values
+def _last_value(values: dict[str, list[str]], *flags: str) -> Optional[str]:
+    """The value of the first of `flags` that was given with a non-empty value; of a repeated flag the
+    last one, since for `cp -t`, `tar -C` and `unzip -d` the later option overrides the earlier."""
+    return next((values[flag][-1] for flag in flags if values.get(flag) and values[flag][-1]), None)
 
 
 def _ps_operands(args: list[str]) -> tuple[list[str], dict[str, str], set[str]]:
@@ -913,7 +1075,7 @@ def _copy_plan(name: str, args: list[str]) -> Optional[tuple[list[str], str, boo
         recursive = any(item and "recurse".startswith(item) for item in switches)
         return [part for part in slots["path"].split(",") if part], slots["destination"], recursive
     operands, values = _operands(args, frozenset({"-t", "--target-directory"}))
-    target = values.get("-t") or values.get("--target-directory")
+    target = _last_value(values, "-t", "--target-directory")
     if target:
         return (operands, target, _is_recursive(args)) if operands else None
     if len(operands) < 2:
@@ -934,10 +1096,10 @@ def _extract_destination(name: str, args: list[str]) -> Optional[tuple[Optional[
         if not extracts:
             return None
         _, values = _operands(args, frozenset({"-C", "--directory"}))
-        return (values.get("-C") or values.get("--directory"),)
+        return (_last_value(values, "-C", "--directory"),)
     if name == "unzip":
         _, values = _operands(args, frozenset({"-d"}))
-        return (values.get("-d"),)
+        return (values.get("-d", [None])[-1],)
     if name == "expand-archive":
         operands, named, _ = _ps_operands(args)
         spare = iter(operands)
@@ -961,7 +1123,7 @@ def _lock_scan(judge: _Judge, name: str, args: list[str], bases: list[Optional[s
             return
         sources, destination, recursive = plan
         recursive = recursive or _COPY_COMMANDS[name]
-        for base in bases[:_MAX_BASES]:
+        for base in judge.capped(bases):
             dest_text = _resolve_text(destination, base, judge.bash)
             if not dest_text or dest_text.startswith(_POSIX_PREFIX):
                 continue
@@ -989,7 +1151,7 @@ def _lock_scan(judge: _Judge, name: str, args: list[str], bases: list[Optional[s
     else:
         return
     for destination in destinations:
-        for base in bases[:_MAX_BASES]:
+        for base in judge.capped(bases):
             if destination is None:
                 # No explicit destination: the shell's own directory, but only `.act-local` itself.
                 if base and _resolve_key(base, None, judge.bash) == judge.lock_parent_key:
@@ -1052,18 +1214,19 @@ def _scan_wsl(judge: _Judge, args: list[str], bases: list[Optional[str]], depth:
         if _DRIVE_RE.match(moved) or _UNC_RE.match(moved):
             judge.judge(moved, False, bases)
             texts = [
-                text for base in bases[:_MAX_BASES]
+                text for base in judge.capped(bases)
                 for text in [_resolve_text(moved, base, judge.bash)]
                 if text and not text.startswith(_POSIX_PREFIX)
             ]
-            bases = list(dict.fromkeys(texts))[:_MAX_BASES] if texts else [None]
+            bases = list(dict.fromkeys(texts)) if texts else [None]
         else:
             bases = [None]
     lists: list[list[str]] = []
     if exec_mode:
         lists.append(_Words(str(_wsl_native_word(word)) for word in rest))
     else:
-        for words in _shell_word_lists(" ".join(str(word) for word in rest)):
+        nested = Parse("Bash", " ".join(str(word) for word in rest))  # the nested text: its own reading
+        for words in _shell_word_lists(nested):
             item = _Words(str(_wsl_native_word(word)) for word in words)
             item.feeds_xargs = bool(getattr(words, "feeds_xargs", False))
             lists.append(item)
@@ -1080,7 +1243,7 @@ def _scan_from(judge: _Judge, word_lists: list[list[str]], bases: list[Optional[
         if name == "wsl" and depth < 2 and _scan_wsl(judge, args, bases, depth):
             continue  # the words of the wsl call itself are its options and the line read above
         feeds = bool(getattr(words, "feeds_xargs", False))
-        for text, _strict in _read_candidates(name, args, feeds):
+        for text, _strict in _read_candidates(name, args, feeds, not judge.bash):
             judge.judge(text, False, bases)
         if len(words) > 2 and _PS_ASSIGN_RE.match(str(words[0])) and words[1] == "=":
             # `$t = "C:\\x"`: the value of an assignment is a word like any other.
@@ -1092,15 +1255,16 @@ def _scan_from(judge: _Judge, word_lists: list[list[str]], bases: list[Optional[
             flag = next((i for i, arg in enumerate(args) if arg.lower() in ("/c", "/k", "/r")), None)
             if flag is not None:
                 try:
-                    inner = _ps_word_lists(" ".join(args[flag + 1:]))
-                except Exception:  # noqa: BLE001
+                    inner = Parse("PowerShell", " ".join(args[flag + 1:])).ps_words()  # the nested text: its own reading
+                except Exception as exc:  # noqa: BLE001 - the command counts as not checked
+                    judge.scanner_failed(exc)
                     inner = []
                 if inner:
                     _scan_from(judge, inner, bases, depth + 1)
         try:
             _lock_scan(judge, name, args, bases)
-        except Exception:  # noqa: BLE001 - the plain read scan keeps its findings
-            pass
+        except Exception as exc:  # noqa: BLE001 - the plain read scan keeps its findings, the call is refused
+            judge.scanner_failed(exc)
         if name not in _TEXT_COMMANDS and name not in _CD_NAMES and name != "export":
             # A command that runs in a directory outside the allowed places acts there, whatever its
             # words are (`cat a.txt` after the session started elsewhere).
@@ -1109,15 +1273,67 @@ def _scan_from(judge: _Judge, word_lists: list[list[str]], bases: list[Optional[
             index = _positional_after(args)
             if index is not None and args[index] not in ("-", "--"):
                 moved = [
-                    text for base in bases[:_MAX_BASES]
+                    text for base in judge.capped(bases)
                     for text in [_resolve_text(args[index], base, judge.bash)]
                     if text and not text.startswith(_POSIX_PREFIX)
                 ]
                 if moved:
-                    bases = list(dict.fromkeys(moved))[:_MAX_BASES]
+                    bases = list(dict.fromkeys(moved))
 
 
 _QUOTED_HEREDOC_RE = re.compile(r"""<<(-?)\s*(?:'([^'\s]+)'|"([^"\s]+)"|\\(\w+))""")
+
+
+def _arithmetic_open_before(command: str) -> list[bool]:
+    """For every index of `command`: True when an arithmetic expression (`$(( ... ))`, `(( ... ))` at a command
+    start, `$[ ... ]`) is still open there, counted across lines. Quotes are not followed, on purpose: a quote
+    that hides an opener only makes more of the command count as arithmetic, where a `<<` is a shift and no heredoc
+    (so less is stripped, never more)."""
+    openers = {match.end() - 2 for match in _ARITHMETIC_START_RE.finditer(command)}
+    flags = [False] * (len(command) + 1)
+    stack: list[str] = []
+    index = 0
+    while index < len(command):
+        flags[index] = "A" in stack or "B" in stack
+        char = command[index]
+        if index in openers or (char == "$" and command.startswith("$((", index)):
+            if char == "$":
+                flags[index + 1] = flags[index + 2] = True
+                index += 1
+            stack.append("A")
+            flags[index + 1] = True
+            index += 2
+            continue
+        if char == "$" and command.startswith("$[", index):
+            stack.append("B")
+        elif char == "(" and stack:
+            stack.append("p")
+        elif char == ")" and stack:
+            if stack[-1] == "A":
+                stack.pop()
+                if command.startswith(")", index + 1):
+                    flags[index + 1] = True
+                    index += 1
+            elif stack[-1] == "p":
+                stack.pop()
+        elif char == "]" and stack and stack[-1] == "B":
+            stack.pop()
+        index += 1
+    return flags
+
+
+def _without_arithmetic_shifts(command: str) -> str:
+    """`command` with every `<<` inside an arithmetic expression blanked out (same length): the word lexers
+    take `<<'EOF'` there for a heredoc and skip the lines up to `EOF`, which in bash are commands (`(( 1
+    <<'EOF' ))` followed by `touch /x`). Nothing in an arithmetic expression is a path, so nothing is lost."""
+    if "<<" not in command:
+        return command
+    inside = _arithmetic_open_before(command)
+    chars = list(command)
+    for index in range(len(chars) - 1):
+        if chars[index] == "<" and chars[index + 1] == "<" and inside[index]:
+            chars[index] = chars[index + 1] = " "
+    return "".join(chars)
 
 
 def _without_quoted_heredocs(command: str) -> str:
@@ -1161,15 +1377,13 @@ def _leading_assignments(words: list[str]) -> list[str]:
     return found
 
 
-def _shell_word_lists(command: str) -> list[list[str]]:
-    """The simple commands of `command` as word lists, read with the quote-aware word lexer alone.
-    The union with the previous reading that the write-guards use (`_stripped_word_lists`) also
-    takes a backtick span inside single quotes (`printf '... `GET /x` ...'`) for a command, which
-    for a guard that judges every word is a steady source of false alarms; that union is the
-    fallback only when the lexer fails. An assignment in front of a command is returned as the
-    arguments of its own `export`; the command that feeds `xargs` is marked (`_Words`)."""
+def _shell_word_lists(parse: Parse) -> list[list[str]]:
+    """The simple commands of `parse.command` as word lists, read the way every other check reads them
+    (`Parse.words`); a coarse split only when the lexer fails. An assignment in front of a
+    command is returned as the arguments of its own `export`; the command that feeds `xargs` is
+    marked (`_Words`)."""
     try:
-        raw = _command_word_lists_new(command)
+        raw = parse.words()
         lists: list[list[str]] = []
         for index, (words, _separator) in enumerate(raw):
             assigned = _leading_assignments(words)
@@ -1185,28 +1399,25 @@ def _shell_word_lists(command: str) -> list[list[str]]:
             lists.append(item)
         return lists
     except Exception:  # noqa: BLE001 - a scanner bug must not turn into a silent allow
-        try:
-            return _stripped_word_lists(command)
-        except Exception:  # noqa: BLE001
-            return _coarse_word_lists(command)
+        return _coarse_word_lists(parse.command)
 
 
 # Programs whose `-c` text is code of a language, not a command line.
 _CODE_INTERPRETERS = _INTERPRETERS - {"pwsh", "powershell"}
 
 
-def _ps_lists(command: str, depth: int = 0) -> list[list[str]]:
-    """`_ps_word_lists` with one change: in the `-c` text of a language interpreter (`python -c "print(7
+def _ps_lists(parse: Parse, depth: int = 0) -> list[list[str]]:
+    """`Parse.ps_words(2)` with one change: in the `-c` text of a language interpreter (`python -c "print(7
     // 2)"`) a word of only slashes is an operator or a comment of that language, not a path, so it is
     left out. The text of a nested shell or PowerShell (`pwsh -c "ls //"`) is a command line and keeps
     every word."""
     lists: list[list[str]] = []
-    for words in _ps_word_lists(command, 2):  # 2: the nested text is read here, not there
+    for words in parse.ps_words(2):  # 2: the nested text is read here, not there
         lists.append(words)
         inner = _extract_ps_command_flag(words[1:]) if depth < 2 else None
         if not inner:
             continue
-        nested = _ps_lists(inner, depth + 1)
+        nested = _ps_lists(Parse(parse.tool_name, inner), depth + 1)  # the nested text: its own reading
         if _command_name(words[0]) in _CODE_INTERPRETERS:
             trimmed = ([word for word in item if not _BARE_SLASHES_RE.match(word)] for item in nested)
             nested = [item for item in trimmed if item]
@@ -1214,13 +1425,110 @@ def _ps_lists(command: str, depth: int = 0) -> list[list[str]]:
     return lists
 
 
-def _shell_findings(judge: _Judge, tool: str, command: str, cwd: str) -> None:
+# --- loop words that are only the tail of a URL ---------------------------------------------------
+#
+# `for p in /a /b; do curl "https://host$p"; done`: the words after `in` are no files, they only ever
+# stand directly behind `<scheme>://<host>` in a URL. Allow-list: the words are left out of the read scan
+# only when the loop is literal and EVERY use of the variable in the command is such a URL tail inside
+# its body; anything else (a use outside the body, a plain `$p`, `${p:-x}`, `${!p}`, a `file:` URL, a
+# body with a command substitution, a nested loop, `eval` ...) reads the words as before.
+
+_LOOP_WORD = r"[^\s;&|<>$`'\"\\(){}*?\[\]~#!=]+"
+_LOOP_HEAD_RE = re.compile(
+    r"(?:^|(?<=[;&|\n]))[ \t]*for[ \t]+(?P<var>[A-Za-z_]\w*)[ \t]+in[ \t]+"
+    r"(?P<words>" + _LOOP_WORD + r"(?:[ \t]+" + _LOOP_WORD + r")*)[ \t]*(?:;|\n)[ \t\n]*do(?=[\s;])"
+)
+_LOOP_DONE_RE = re.compile(r"(?:^|(?<=[\s;]))done(?=[\s;&|)]|$)")
+_LOOP_BODY_BAD_RE = re.compile(
+    r"`|\$\(|<<|\$\{!|(?:^|(?<=[;&|(\n]))[ \t]*\.(?=\s|$)"
+    r"|\b(?:for|while|until|do|case|select|function|coproc|eval|declare|typeset|source"
+    r"|export|local|readonly|set|IFS)\b"
+)
+_URL_TAIL_SCHEMES = "https?|ftps?|wss?"
+
+
+def _in_quotes_at(command: str, position: int) -> bool:
+    """True when `position` lies inside a quoted string of the shell command (a plain left-to-right
+    reading, good enough to keep a loop that is only text out of the allow-list)."""
+    state = ""
+    index = 0
+    while index < position:
+        char = command[index]
+        if state == "'":
+            if char == "'":
+                state = ""
+        elif char == "\\":
+            index += 1
+        elif state == '"':
+            if char == '"':
+                state = ""
+        elif char in ("'", '"'):
+            state = char
+        index += 1
+    return state != ""
+
+
+def _url_loop_words(command: str) -> list[tuple[int, int]]:
+    """The (start, end) spans of the word lists after `in` of the `for` loops whose variable is used
+    only as the tail of a `<scheme>://<host>` URL inside the loop's body (see above)."""
+    if "<<" in command:
+        return []
+    spans: list[tuple[int, int]] = []
+    for head in _LOOP_HEAD_RE.finditer(command):
+        var = head.group("var")
+        if _in_quotes_at(command, head.start("var")):
+            continue
+        done = next(
+            (m for m in _LOOP_DONE_RE.finditer(command, head.end()) if not _in_quotes_at(command, m.start())),
+            None,
+        )
+        if done is None:
+            continue
+        body_start, body_end = head.end(), done.start()
+        if _LOOP_BODY_BAD_RE.search(command[body_start:body_end]):
+            continue
+        name = re.escape(var)
+        uses = {
+            match.start()
+            for match in re.finditer(rf"\$(?:{name}(?!\w)|\{{[^}}]*(?<!\w){name}(?!\w)[^}}]*\}})", command)
+        }
+        tails = {
+            match.start("ref")
+            for match in re.finditer(
+                rf"(?<![^\s'\"=])(?:{_URL_TAIL_SCHEMES})://[^\s/$`'\"\\;&|<>(){{}}]+(?P<ref>\${name}(?!\w)|\$\{{{name}\}})",
+                command[:body_end], re.IGNORECASE,
+            )
+            if match.start("ref") >= body_start
+        }
+        # The bare name may occur only in the head and in the tails: `x=p; cat "${!x}"` and `printenv p`
+        # use the variable by name alone.
+        names = len(re.findall(rf"(?<!\w){name}(?!\w)", command))
+        if uses and uses == tails and names == 1 + len(tails):
+            spans.append((head.start("words"), head.end("words")))
+    return spans
+
+
+def _without_url_loop_words(command: str) -> str:
+    """`command` with the words of every loop of `_url_loop_words` replaced by a plain word, for the read
+    scan only (the write-target scanners get the command as it is)."""
+    try:
+        spans = _url_loop_words(command)
+    except Exception:  # noqa: BLE001 - no allow-list then, the words are read as before
+        return command
+    for start, end in reversed(spans):
+        command = command[:start] + "_" + command[end:]
+    return command
+
+
+def _shell_findings(judge: _Judge, tool: str, command: str, cwd: str, parse: Parse) -> None:
     powershell = tool == "PowerShell"
+    whole = command  # the write scan below reads the program a quoted heredoc feeds to an interpreter, like `-c`/`-e`
     # The text of a quoted heredoc is never run; cut out first, so that a line of the command that
     # does not tokenize cannot push a scanner into reading the body as commands (`<id>` in a commit
     # message would be a redirection). A body a shell may run (`bash <<'EOF'`) stays.
     if not powershell:
         try:
+            command = _without_arithmetic_shifts(command)
             if not _heredoc_may_feed_shell(command):
                 command = _without_quoted_heredocs(command)
         except Exception:  # noqa: BLE001 - the whole command is scanned then
@@ -1229,37 +1537,61 @@ def _shell_findings(judge: _Judge, tool: str, command: str, cwd: str) -> None:
     try:
         if len(_CD_WORD_RE.findall(command)) > _MAX_CD_FOR_TARGET_SCAN:
             # The shared write-target scanners follow every directory change and their cost grows with
-            # the cube of a `cd a; cd b; ...` chain (800 of them: 20 s, past any hook timeout). Beyond
-            # a chain no real command line has they are skipped: the words are still read as reads,
-            # and a word that names the marker folder counts as a write to it.
+            # the cube of a `cd a; cd b; ...` chain (800 of them: 20 s, past any hook timeout). They are
+            # not run beyond a chain no real command line has, and the call is refused rather than let
+            # through unchecked: a write behind such a chain would not be seen. A word that names the
+            # marker folder is still reported as a write to it.
+            judge.unchecked.append(
+                f"it holds more than {_MAX_CD_FOR_TARGET_SCAN} directory changes (cd, pushd, Set-Location ...), "
+                "more than the write-target scanners can follow"
+            )
             if "outside-allow" in command.lower():
                 judge.lock(".act-local/outside-allow", judge.lock_dir)
         elif powershell:
-            targets = _powershell_write_targets(command, cwd, _GIT_WRITES_WORKER_SCOPE)
+            reading = parse.for_text(command)
+            targets = reading.write_targets(cwd, _GIT_WRITES_WORKER_SCOPE)
             if targets is None:
-                targets = _ps_raw_redirect_targets(command)
+                targets = reading.ps_raw_redirects()
             for target in sorted(targets):
+                if target == UNKNOWN_WRITE:
+                    continue  # inline code whose path the text does not show: refused by the write guards, in every mode
+                if _is_unplaced_target(target):
+                    # The scanner could not place this write (a relative one behind more directory changes than
+                    # it tracks, a command larger than its budget): not checked in full, refused like a scanner
+                    # failure — never resolved against the directory the command started in.
+                    reason = f"it holds a write the scanner could not place ({_unplaced_reason(target)})"
+                    if reason not in judge.unchecked:
+                        judge.unchecked.append(reason)
+                    continue
                 judge.judge(target, True, [cwd])
         else:
-            for target, base in _bash_write_targets(command, cwd, _GIT_WRITES_WORKER_SCOPE):
+            scanned = parse.for_text(whole if mentions_interpreter(whole) else command)
+            for target, base in scanned.bash_write_targets(cwd, _GIT_WRITES_WORKER_SCOPE):
+                if target == UNKNOWN_WRITE:
+                    continue  # inline code whose path the text does not show: refused by the write guards, in every mode
+                if _is_unplaced_target(target):
+                    judge.unchecked.append(f"it holds a write the scanner could not place ({_unplaced_reason(target)})")
+                    continue
                 judge.judge(str(target), True, [base if base is not None else cwd])
-    except Exception:  # noqa: BLE001 - the read scan below still runs
-        pass
+    except Exception as exc:  # noqa: BLE001 - the read scan below still runs, the call is refused
+        judge.scanner_failed(exc)
     groups: list[list[list[str]]] = []
     if powershell:
         try:
-            groups.append(_ps_lists(command))
-        except Exception:  # noqa: BLE001
-            pass
+            groups.append(_ps_lists(parse.for_text(command)))
+        except Exception as exc:  # noqa: BLE001
+            judge.scanner_failed(exc)
     try:
-        groups.append(_shell_word_lists(command))
-    except Exception:  # noqa: BLE001
-        pass
+        # The inside of a shell arithmetic expression is no command line (PowerShell has none of that syntax).
+        groups.append(_shell_word_lists(parse.for_text(
+            command if powershell else _without_url_loop_words(_without_arithmetic(command)))))
+    except Exception as exc:  # noqa: BLE001
+        judge.scanner_failed(exc)
     for lists in groups:
         try:
             _scan_word_lists(judge, lists, cwd)
-        except Exception:  # noqa: BLE001 - one group failing leaves the other
-            continue
+        except Exception as exc:  # noqa: BLE001 - one group failing leaves the other, the call is refused
+            judge.scanner_failed(exc)
 
 
 # --- the check ---------------------------------------------------------------------------------
@@ -1295,18 +1627,32 @@ def _message(findings: list[_Finding], tool: str, mode: str) -> str:
         action = "writes" if first.write else "reads"
         what = f"{tool} {action} {shown}, outside the project and its allowed places (R-safe-outside-root)."
         ways = (
-            "Ways out: an entry in `outside-root-allow` (docs/ai/config.md § Checks; `<path>` or "
-            "`<path> (read)`), the folder under `permissions.additionalDirectories`, or "
+            "Ways out, only on the owner's word for this case (never add one yourself): an entry in "
+            "`outside-root-allow` (docs/ai/config.md § Checks; `<path>` or `<path> (read)`; for a program "
+            "folder outside the project and the home directory, such as a browser, the absolute path "
+            "`D:/Program Files/Browser` or `/opt/browser`, which is read-only: for reading and starting a "
+            "program, not for writing), the folder under `permissions.additionalDirectories`, or "
             f"{_ENV_OVERRIDE}=warn for one run"
         )
     more = ""
     if len(findings) > 1:
-        named = ", ".join(
-            f"`{item.raw}` ({'write' if item.write else 'read'})" for item in findings[1:_MAX_NAMED]
-        )
-        rest = len(findings) - _MAX_NAMED
-        more = f" Also outside: {named}" + (f" and {rest} more." if rest > 0 else ".")
+        more = f" {len(findings) - 1} more path(s) outside, the same way."
     return f"{lead} {what}{more} {ways}"
+
+
+def _unchecked_message(reasons: list[str], tool: str, found: list[_Finding]) -> str:
+    if not found:
+        named = ""
+    elif found[0].lock:
+        named = f" It also writes where the `.act-local/outside-allow` folder could be created (`{found[0].raw}`)."
+    else:
+        named = f" It also reads or writes `{found[0].raw}`, outside the project and its allowed places."
+    bug = " A scanner failure is a bug of the template: report it." if any("failed" in item for item in reasons) else ""
+    return (
+        f"[act] outside-root refused -- {tool} command not checked in full: {'; '.join(reasons)}, so what it "
+        f"touches is unknown (R-safe-outside-root).{named} Split it into shorter commands.{bug} The owner can set "
+        f"`outside-root` to `off` in docs/ai/config.md § Checks, or for one run with {_ENV_OVERRIDE}=off"
+    )
 
 
 def check_outside_root(payload: dict) -> int:
@@ -1333,13 +1679,24 @@ def check_outside_root(payload: dict) -> int:
     places = _build_places(root, payload, config)
     judge = _Judge(root, places, bash=tool != "PowerShell")
     if shell is not None:
-        _shell_findings(judge, shell[0], shell[1], cwd)
+        _shell_findings(judge, shell[0], shell[1], cwd, parse_for(payload, shell[1]))
     else:
         _file_tool_findings(judge, payload, cwd)
+    if shell is not None and judge.unchecked:
+        # Fail closed, like a failing check module (dispatch.py): a command the scanners did not see in full
+        # may hold what they would have refused. Whatever mode says, short of `off`.
+        print(_unchecked_message(judge.unchecked, tool, judge.found), file=sys.stderr)
+        return 2
     if not judge.found:
         return 0
     message = _message(judge.found, tool, mode)
     if mode == "warn":
+        # the incident log counts a hit only when the call wrote (a read outside is a hint nobody needs to act on);
+        # reported here, not left to the printed text, so that an override from the environment counts as well
+        writes = [item for item in judge.found if item.write]
+        shown = (writes or judge.found)[0]
+        _note_hit("outside-root", ("reserved-folder" if shown.lock else "outside-write") if writes else "outside-read",
+                  _target_class(shown.shown, root), acts=bool(writes))
         print(message)
         return 0
     print(message, file=sys.stderr)

@@ -50,7 +50,7 @@
 # A Bash target's quoting travels with it up to the judgment (shell_targets._Word.live): a glob
 # character bash takes literally - quoted or escaped - expands nothing, so `mkdir -p 'server/api/[id]'`
 # is the folder `[id]` and is not refused for a neighbour the unquoted word would hit; the unquoted
-# word, and a word whose quoting is not known (a nested shell, `eval`, `$(...)`, the legacy scanner,
+# word, and a word whose quoting is not known (a nested shell, `eval`, `$(...)`,
 # PowerShell), is expanded as before (_live_glob_pattern, _shell_expansion_escapes).
 
 from __future__ import annotations
@@ -70,17 +70,11 @@ import actlib
 
 from . import inline_code as _inline_code
 from .brace_expand import literal_brace_variants
-from .common import _TOOL_PATH_FIELDS, _WORKER_TOOL_NAMES, _check_mode
-from .powershell_targets import (
-    _powershell_inline_code_targets,
-    _powershell_write_targets,
-    _ps_raw_redirect_targets,
-)
+from .command_parse import parse_for
+from .common import _TOOL_PATH_FIELDS, _WORKER_TOOL_NAMES, _check_mode, _is_unplaced_target
 from .shell_targets import (
     _GIT_WRITES_WORKER_SCOPE,
     _Word,
-    _bash_inline_code_targets,
-    _bash_write_targets,
     _is_absolute_target,
     _is_dynamic_target,
     _resolve_path,
@@ -88,9 +82,9 @@ from .shell_targets import (
 )
 
 __all__ = [
-    "_WORKER_SCOPES_DIRNAME", "_SCOPE_ENTRY_TTL", "_SAFE_ID_RE", "_SCOPE_LINE_RE",
+    "_WORKER_SCOPES_DIRNAME", "_SCOPE_ENTRY_TTL", "_SAFE_ID_RE", "_SCOPE_LINE_RE", "_TESTS_LINE_RE",
     "_strip_backticks", "_split_glob_prefix", "_root_relative_pattern", "_external_directories",
-    "_external_pattern", "_scope_pattern", "_parse_write_scope", "_worker_scopes_dir",
+    "_external_pattern", "_scope_pattern", "_parse_write_scope", "_parse_pattern_list", "_parse_tests_scope", "_assignment_scope", "_worker_scopes_dir",
     "_worker_scope_file", "_read_json_object", "_entry_is_fresh", "_scope_file_is_prunable",
     "_prune_worker_scope_files", "_store_worker_scope_entry", "_entry_has_ended",
     "_record_worker_scope", "_read_worker_scope_entry", "_recent_restricted_scope_registered",
@@ -125,6 +119,14 @@ _WORKFLOW_SCAN_LINES = 5  # records at the top of a workflow transcript searched
 # (impossible) empty pattern list — see _parse_write_scope.
 _SCOPE_LINE_RE = re.compile(
     r"^[ \t]*(?:[-*]\s+)?(?:\*\*|__)?Write scope(?:\*\*|__)?:(?:\*\*|__)?\s*(.+?)\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+# "Tests: <patterns>" — the tree an assignment that runs tests or probes reads, as its own line in the
+# same shapes as the `Write scope:` line (bullet, bold key, backticks, trailing "/"). It is bookkeeping for
+# worker_scope_overlap only: no write is ever judged by it.
+_TESTS_LINE_RE = re.compile(
+    r"^[ \t]*(?:[-*]\s+)?(?:\*\*|__)?Tests(?:\*\*|__)?:(?:\*\*|__)?\s*(.+?)\s*$",
     re.IGNORECASE | re.MULTILINE,
 )
 
@@ -294,7 +296,13 @@ def _parse_write_scope(prompt: str, root: Optional[Path] = None) -> Optional[dic
     match = _SCOPE_LINE_RE.search(prompt)
     if not match:
         return None
-    raw = match.group(1).strip()
+    return _parse_pattern_list(match.group(1), root)
+
+
+def _parse_pattern_list(text: str, root: Optional[Path]) -> Optional[dict]:
+    """The pattern list of one scope line (the text after its key), read as _parse_write_scope documents:
+    None for an empty list, else {"mode": "none"}, {"mode": "patterns", ...} or {"mode": "error", ...}."""
+    raw = text.strip()
     parts = [_strip_backticks(p.strip()) for p in raw.split(",")]
     parts = [p for p in parts if p]
     if not parts:
@@ -317,6 +325,59 @@ def _parse_write_scope(prompt: str, root: Optional[Path] = None) -> Optional[dic
     return {"mode": "patterns", "patterns": patterns}
 
 
+def _plausible_tests_pattern(pattern: str, root: Optional[Path]) -> bool:
+    """A word of a `Tests:` line counts as a pattern only if it looks like a path: it holds no white space
+    and has a `/` or a glob character (`*`, `?`, `[`), or it names an existing path below the project root.
+    Prose after the key (`Tests: run the suite`, `Tests: python tests/run.py`) is not a tree."""
+    if pattern.lower() == "none":
+        return False
+    if not any(char.isspace() for char in pattern) and any(char in pattern for char in "/*?["):
+        return True
+    if root is None:
+        return False
+    try:
+        return (root / pattern).exists()
+    except (OSError, ValueError):
+        return False
+
+
+def _parse_tests_scope(prompt: str, root: Optional[Path] = None) -> list[str]:
+    """The patterns of the first `Tests: ...` line of an assignment prompt, normalized like `Write scope:`
+    patterns (see _parse_write_scope). Each comma-separated word is judged on its own: one that is no
+    plausible path (_plausible_tests_pattern) or lies outside the project and its additionalDirectories is
+    dropped and the others are kept. [] if there is no such line or nothing valid remains (the line then
+    counts as absent)."""
+    match = _TESTS_LINE_RE.search(prompt)
+    if not match:
+        return []
+    patterns: list[str] = []
+    for part in match.group(1).split(","):
+        pattern = _strip_backticks(part.strip()).replace("\\", "/")
+        if not pattern or not _plausible_tests_pattern(pattern, root):
+            continue
+        trailing_slash = pattern.endswith("/")
+        if trailing_slash:
+            pattern = pattern[:-1]
+        if root is not None:
+            pattern, error = _scope_pattern(pattern, root)
+            if error:
+                continue
+        if trailing_slash:
+            pattern += "/**"
+        patterns.append(pattern)
+    return patterns
+
+
+def _assignment_scope(prompt: str, root: Optional[Path] = None) -> dict:
+    """What an Agent/Task start records for its worker: the `Write scope:` scope (unrestricted without
+    the line) and, when the assignment has a `Tests:` line, its patterns under "tests"."""
+    scope = _parse_write_scope(prompt, root) or {"mode": "unrestricted"}
+    tests = _parse_tests_scope(prompt, root)
+    if tests:
+        scope = dict(scope, tests=tests)
+    return scope
+
+
 def _worker_scopes_dir(root: Path) -> Path:
     return root / ".act-local" / _WORKER_SCOPES_DIRNAME
 
@@ -334,19 +395,9 @@ def _worker_scope_file(root: Path, tool_use_id: str) -> Optional[Path]:
 
 
 def _read_json_object(path: Path) -> Optional[dict]:
-    """Local, minimal twin of actlib._read_json — kept in this module rather than imported since
-    that helper is private to actlib.py. Same contract: None for missing/unreadable/non-object.
-    A file that is not valid UTF-8 (UnicodeDecodeError, and only that error from decoding) counts
-    as malformed JSON: None. Any other exception is not caught here.
-    The read is retried briefly on Windows (actlib.read_text_retrying): a scanner holding a
-    just-renamed entry open must not make a worker's own scope or cap entry look absent."""
-    if not path.is_file():
-        return None
-    try:
-        data = json.loads(actlib.read_text_retrying(path))
-    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
-        return None
-    return data if isinstance(data, dict) else None
+    """actlib._read_json with the short Windows retry: a scanner holding a just-renamed entry open
+    must not make a worker's own scope or cap entry look absent."""
+    return actlib._read_json(path, retry=True)
 
 
 def _entry_is_fresh(entry: dict) -> bool:
@@ -614,7 +665,7 @@ def _normalize_candidate_path(raw: str, root: Path, base: str) -> Optional[str]:
     """Turn a write-target path (absolute Windows, forward-slash, or Git-Bash `/d/...` form, or
     one already relative — resolved against `base`, not always `root`: a Bash target is relative to
     the tool call's own `cwd`, tracked forward through any `cd` the command made, see
-    shell_targets._bash_write_targets) into the form _matches_scope compares against: project-root-
+    `Parse.bash_write_targets`) into the form _matches_scope compares against: project-root-
     relative POSIX when it resolves under `root`, same as always; its own resolved absolute-POSIX
     form otherwise — still out of scope by definition (shell_targets' module docstring step
     4) unless the scope's own patterns include a matching absolute-POSIX one, which only happens for
@@ -770,7 +821,7 @@ def _live_glob_pattern(raw: str) -> Optional[str]:
     literally too (`'server/api/[id]'` -> `server/api/[[]id]`); None when nothing is left for the shell
     to expand - no glob character at all, or every one of them quoted (`mkdir -p 'server/api/[id]'`
     creates the folder `[id]`, whatever neighbours exist). A word without `live` (one from a nested
-    shell, `eval` or `$(...)`, the legacy scanner's, a PowerShell target) keeps every glob character
+    shell, `eval` or `$(...)`, a PowerShell target) keeps every glob character
     live, as before."""
     text = str(raw)
     if not any(char in text for char in "*?["):
@@ -821,8 +872,9 @@ def _write_scope_message(target: str, scope: dict, hint: str = "") -> str:
         allowed = "none (read-only assignment)"
     else:
         allowed = ", ".join(scope.get("patterns") or []) or "none"
+    shown = target if len(target) <= 200 else f"{target[:200]}..."  # a long command text stays out of the message
     message = (
-        f"[act] outside this assignment's write scope: {target} (allowed: {allowed}; "
+        f"[act] outside this assignment's write scope: {shown} (allowed: {allowed}; "
         "Write scope patterns are project-root-relative). The assignment names its scope as one line "
         "`Write scope: <glob>[, <glob> ...]`, e.g. `Write scope: src/**, tests/*.py` (`dir/` means everything "
         "under dir, `none` means read-only); syntax: .act/rules/topics/checks.md"
@@ -956,20 +1008,54 @@ def _inline_target_offends(raw: str, base: Optional[str], root: Path, scope: dic
     so does a relative one without a known directory. A literal is judged as written: see
     _inline_literal_path for the one Windows case where that takes a drive."""
     raw = _inline_literal_path(raw, base, root)
-    dynamic = _INLINE_DYNAMIC_RE.search(raw) is not None
+    dynamic = _INLINE_DYNAMIC_RE.search(raw) is not None or _is_unplaced_target(raw)
     if scope.get("mode") == "none" or dynamic or (base is None and not _is_absolute_target(raw)):
         return True
     rel = _normalize_candidate_path(raw, root, base if base is not None else str(root))
     return rel is None or not _matches_scope(rel, scope.get("patterns") or [])
 
 
-def _inline_hint(language: str, raw: str, scope: dict, in_throwaway_place: bool = False) -> str:
-    """How to proceed after a refusal of inline interpreter code: what was found, and the ways out."""
+# A heredoc operator (`<<`, `<<-`, not the here-string `<<<`) followed by its delimiter, or the opening of a
+# PowerShell here-string (`@'` / `@"` at the end of a line).
+_HEREDOC_START_RE = re.compile(r"""(?<!<)<<-?(?!<)\s*[\\'"A-Za-z_]|@['"]\s*$""", re.MULTILINE)
+
+
+def _literal_in_heredoc_body(command: str, raw: str) -> bool:
+    """True if the path literal `raw` stands in the text of `command` after the first heredoc (or here-string)
+    opener: it was found in the body of an interpreter call fed through one. Used for the wording of a refusal
+    only, never for a verdict; a literal the reader decoded (escapes) differently from how it stands in the
+    text is not found and simply gets the shorter message."""
+    start = _HEREDOC_START_RE.search(command)
+    return start is not None and raw in command[start.end():]
+
+
+_HEREDOC_WAY_OUT = (
+    "the code is fed to the interpreter through a heredoc: if the code only reads that path (a literal mistaken "
+    "for a target), write the helper script as a file inside the write scope and run it (`python <file>`), or "
+    "use Write/Edit instead of a heredoc; a file outside the write scope is never written, not through a script "
+    "either"
+)
+
+
+def _inline_hint(
+    language: str, raw: str, scope: dict, in_throwaway_place: bool = False, in_heredoc: bool = False
+) -> str:
+    """How to proceed after a refusal of inline interpreter code: what was found, and the ways out. With
+    `in_heredoc` (the path literal was found in the body of a heredoc) it also names the way out for a
+    program fed that way: a script file inside the scope, run as a file; not for a read-only assignment,
+    which has no place in the scope to write one."""
     hint = (
         f"inline {language} code with a write call names a path outside the write scope: write the file with "
         "Write/Edit; read outside the scope in a separate call without a write call"
     )
-    if _INLINE_DYNAMIC_RE.search(raw):
+    if in_heredoc and scope.get("mode") != "none":
+        hint += "; " + _HEREDOC_WAY_OUT
+    if _is_unplaced_target(raw):
+        hint = (
+            f"inline {language} code with a write call names a path its text does not show: write the path out "
+            "as a literal, or write the file with Write/Edit"
+        )
+    elif _INLINE_DYNAMIC_RE.search(raw):
         hint += "; a path with `$` or a backtick in the code cannot be checked, write it out"
     way_out = _throwaway_way_out(scope, in_throwaway_place)
     return f"{hint}; {way_out}" if way_out else hint
@@ -1007,7 +1093,7 @@ def check_worker_write_scope(payload: dict) -> int:
             tool_use_id = payload.get("tool_use_id")
             prompt = tool_input.get("prompt")
             if isinstance(tool_use_id, str) and tool_use_id and isinstance(prompt, str):
-                scope = _parse_write_scope(prompt, root) or {"mode": "unrestricted"}
+                scope = _assignment_scope(prompt, root)
                 _record_worker_scope(root, tool_use_id, scope)
         return 0
 
@@ -1026,16 +1112,17 @@ def check_worker_write_scope(payload: dict) -> int:
         if isinstance(command, str):
             cwd_raw = payload.get("cwd")
             base_cwd = cwd_raw if isinstance(cwd_raw, str) and cwd_raw else str(root)
-            write_targets = _bash_write_targets(command, base_cwd, _GIT_WRITES_WORKER_SCOPE)
+            write_targets = parse_for(payload, command).write_targets(
+                base_cwd, _GIT_WRITES_WORKER_SCOPE, inline=False)
             inline_source = (tool_name, command, base_cwd)
     elif tool_name == "PowerShell":
         command = tool_input.get("command")
         if isinstance(command, str):
             cwd_raw = payload.get("cwd")
             base_cwd = cwd_raw if isinstance(cwd_raw, str) and cwd_raw else str(root)
-            ps_targets = _powershell_write_targets(command, base_cwd, _GIT_WRITES_WORKER_SCOPE)
+            ps_targets = parse_for(payload, command).write_targets(base_cwd, _GIT_WRITES_WORKER_SCOPE)
             if ps_targets is None:
-                ps_targets = _ps_raw_redirect_targets(command)
+                ps_targets = parse_for(payload, command).ps_raw_redirects()
             # powershell_targets already resolves what it can to an absolute path itself (a
             # PowerShell script has exactly one current directory at any point, unlike Bash's
             # possibly-several); pairing every target with base=None below still resolves
@@ -1057,12 +1144,9 @@ def check_worker_write_scope(payload: dict) -> int:
     # from the shell targets: (path, base directory or None, language).
     inline_targets: list[tuple[str, Optional[str], str]] = []
     if inline_source is not None:
-        source_tool, source_command, source_cwd = inline_source
+        _source_tool, source_command, source_cwd = inline_source
         try:
-            if source_tool == "Bash":
-                inline_targets = _bash_inline_code_targets(source_command, source_cwd)
-            else:
-                inline_targets = _powershell_inline_code_targets(source_command, source_cwd)
+            inline_targets = parse_for(payload, source_command).inline_targets(source_cwd)
         except _inline_code.ReaderFailure as failure:
             # A program error of the reader (not a text it cannot read): the inline code was not judged,
             # so the call is not let through as if it had no write call.
@@ -1154,7 +1238,10 @@ def check_worker_write_scope(payload: dict) -> int:
         in_throwaway_place = _names_throwaway_place(
             _inline_literal_path(raw_path, base, root), base, root, scratchpad_dir, literal_brace=True
         )
-        message = _write_scope_message(raw_path, scope, _inline_hint(language, raw_path, scope, in_throwaway_place))
+        in_heredoc = inline_source is not None and _literal_in_heredoc_body(inline_source[1], raw_path)
+        message = _write_scope_message(
+            raw_path, scope, _inline_hint(language, raw_path, scope, in_throwaway_place, in_heredoc)
+        )
         if mode == "warn":
             print(message)
             return 0

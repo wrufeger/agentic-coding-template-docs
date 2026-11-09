@@ -30,7 +30,8 @@ Say which of the three applies when you start, so the human sees where the text 
       (timeout, unparsable output, a Semgrep error) — treat this like a finding: it blocks the
       release the same as step 3.3 below, until fixed or explicitly accepted.
    2. Start a security pass of the `reviewer` role over the same changed files: `Tier: elevated ·
-      Estimate: ~<n> min · ~<n> tkn fresh · ~<n> tkn cache · Cap: <n> · Write scope: none` (`R-cost-delegate`).
+      Estimate: ~<n> min · ~<n> tkn fresh · ~<n> tkn cache · Cap: <n>`, then `Write scope: none` on a line
+      of its own, since the check reads that line only at a line start (`R-cost-delegate`).
    3. A finding of severity ERROR/high (from either step) blocks the release until it is either
       fixed, or explicitly accepted with a reason in `docs/ai/local/security-accepted.md` — one
       line per accepted Semgrep finding, `<rule-id> <path>: <reason>` (advisory ids from the
@@ -49,7 +50,9 @@ Say which of the three applies when you start, so the human sees where the text 
    changelog format; append the lower-severity checklist from step 3 (when it ran) under its own heading.
    - `changelog: file` — into `CHANGELOG.md`: with a format that collects entries as you go
      (`keep-a-changelog`), turn the `[Unreleased]` section into `[X.Y.Z] - <date>`, add what the commits show
-     and the section lacks, open a new empty `[Unreleased]`; with `at-release` write the whole section. No
+     and the section lacks, add the head line and 3 to 5 highlights (taking those entries out of the list), turn
+     `### Upgrading` into `### Upgrading from <last tag>`, shorten entries over the format's limit, open a new
+     empty `[Unreleased]`; with `at-release` write the whole section in that form. No
      `CHANGELOG.md` yet: create it from the starter of the changelog format first (`act-update` offers the file
      to older projects too).
    - `release-notes-only` — no `CHANGELOG.md`; write the notes in the release notes format and keep them in the
@@ -71,7 +74,8 @@ Say which of the three applies when you start, so the human sees where the text 
       on a pushed tag and creates the release (`gh release create`, `softprops/action-gh-release`,
       `actions/create-release`, a GitLab job with a `release:` keyword). Name the file that made you skip and
       stop; publishing twice would fail or duplicate.
-   2. **Access** — `python .act/scripts/integrations.py status`, as in `act-pr` step 1. No token in chat.
+   2. **Access** — read the flow in `.act/rules/topics/live-systems.md` ("Repo host and issue tracker") before
+      the first write; access as in `act-pr` step 1.
    3. **Push** — the tag must be on the remote before the entry is made, or the host would create it at the
       head of its default branch. Ask "push the version commit and tag `<tag>` to `<remote>`?" and push only
       after the human's own "yes" (never a worker).
@@ -81,15 +85,13 @@ Say which of the three applies when you start, so the human sees where the text 
    5. **Preview** — `python .act/scripts/forge.py create-release --tag <tag> --title "<title>" --body-file
       <file> --show-body` without `--apply` sends nothing and shows what would be sent. A tag with a
       pre-release suffix (`-rc.1`, `-beta`) is published as a pre-release by itself (GitLab has no such flag;
-      the preview says so). The preview also names the tag check that `--apply` runs first. Show it and offer:
+      the preview says so). The preview also names the tag check that `--apply` runs first. Show it, then offer:
       **publish** · **cancel**.
-   6. **Publish** — only after an explicit "yes" for exactly this preview: the same command plus `--apply`
-      (one request, after a local `git ls-remote` for the tag: no token, no API call; a tag that is not on the remote
-      stops the run with exit 2, so push it and run the command again). The way back is deleting the release entry in the host's web interface; the tag stays.
-   7. **Verify** — `python .act/scripts/forge.py releases --limit 5` must list the tag with the right title
-      (`R-work-evidence`); show the link. Record the link, the date and the "yes" in the journal
-      (`R-safe-approval`).
-   A failure of `forge.py` (exit 2, one line) is reported as it is; the release stays unpublished, tag and
-   changelog are not undone.
+   6. **Publish** — after the "yes" for exactly this preview: the same command plus `--apply` (after a local
+      `git ls-remote` for the tag; a tag not on the remote stops the run with exit 2, so push it and run again).
+      Way back: `live-systems.md`.
+   7. **Verify and record** — `forge.py releases --limit 5` lists the tag with the right title; show the link;
+      journal entry.
+   On a `forge.py` failure the release stays unpublished; tag and changelog are not undone.
 
 No release on a red required check, not even "just this once."

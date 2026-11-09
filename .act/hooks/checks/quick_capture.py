@@ -8,7 +8,7 @@
 #            idea: -> new `## <title>` section at the end of docs/ai/concept/ideas-<identity>.md
 #          Every further line that starts with a prefix opens another entry; lines in between belong
 #          to the entry above. Text before the first prefix means: no capture, the message goes on
-#          to the model unchanged. dispatch.py checks the cheap prefix pattern (PREFIX_START_RE) on
+#          to the model unchanged. dispatch.py checks a cheap prefix pattern on
 #          the raw prompt before it imports this module, so a normal prompt never pays for it.
 #
 #          capture() returns the text for the hook's {"decision": "block", "reason": ...} answer, or
@@ -27,10 +27,8 @@ from typing import Optional
 
 from .common import _is_harness_message
 
-__all__ = ["PREFIX_START_RE", "parse_entries", "short_title", "capture"]
+__all__ = ["parse_entries", "short_title", "capture"]
 
-# Cheap test dispatch.py applies to the raw prompt: the first non-blank line starts with a prefix.
-PREFIX_START_RE = re.compile(r"\s*(?:todo|note|idea):", re.IGNORECASE)
 _LINE_PREFIX_RE = re.compile(r"[ \t]*(todo|note|idea):[ \t]*", re.IGNORECASE)
 _TITLE_WIDTH = 60
 # Seconds to wait for entries.lock per entry: the hook's own limit is 10 s for the whole message.
@@ -70,13 +68,6 @@ def short_title(text: str) -> str:
     return (cut[:space] if space > _TITLE_WIDTH // 2 else first[:_TITLE_WIDTH]).rstrip(" ,;:-")
 
 
-def _rel(root: Path, path: Path) -> str:
-    try:
-        return path.relative_to(root).as_posix()
-    except ValueError:
-        return path.as_posix()
-
-
 def capture(root: Path, payload: dict) -> Optional[str]:
     """File every prefixed entry of payload["prompt"]; the reason text to show, or None."""
     prompt = payload.get("prompt")
@@ -102,13 +93,13 @@ def capture(root: Path, payload: dict) -> Optional[str]:
                 body = "" if text.strip() == title else text
                 if kind == "idea":
                     path = ideas.append_section(root, title, body)
-                    lines.append(f"[act] captured idea -> {_rel(root, path)}")
+                    lines.append(f"[act] captured idea -> {actlib.rel_posix(path, root)}")
                     continue
                 path, entry_id = entries.create_entry(
                     root, kind, title, recipient=identity, body=f"{body}\n" if body else "",
                     extra_header=[("triage", "open")], lock_timeout=_LOCK_WAIT)
                 label = f"{kind} {entry_id}" if entry_id else kind
-                lines.append(f"[act] captured {label} -> {_rel(root, path)} (triage pending)")
+                lines.append(f"[act] captured {label} -> {actlib.rel_posix(path, root)} (triage pending)")
             except Exception as exc:  # one failed entry must not hide the ones already filed
                 print(f"[act] quick-capture: filing {kind} failed ({exc!r})", file=sys.stderr)
                 failed.append(f"[act] filing failed for {kind}: {exc}\n{text}")

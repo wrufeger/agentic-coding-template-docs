@@ -79,6 +79,7 @@ class ProjectConfig(TypedDict):
     feedback_mode: str
     update_channel: str
     methods: str
+    profile: str
 
 
 class BridgeSpec(TypedDict):
@@ -539,9 +540,21 @@ def _language(key: str, given: Optional[str], prompt_text: str, default: str, in
     return code, given is not None
 
 
+# The coding sets that make a project a web project; with a `.html` file they decide the scope profile.
+_WEB_SETS = frozenset({"nuxt", "nuxt5", "vue", "react", "tailwind", "css"})
+
+
+def default_profile(root: Path, stack: str) -> str:
+    """`full` for a web project (a frontend framework, CSS or HTML found in the directory or named in the
+    stack text), else `standard` -- the scope profile a new project starts with (docs/ai/config.md § Scope)."""
+    web = bool(_detect_coding_sets(root, stack, set(_WEB_SETS))) or _has_flat(root, ("src", "public"), (".html", ".htm"))
+    return "full" if web else "standard"
+
+
 def step_config(root: Path, interactive: bool, notes: list[str],
                 languages: Optional[dict[str, Optional[str]]] = None,
-                update_channel: Optional[str] = None, methods: Optional[str] = None) -> ProjectConfig:
+                update_channel: Optional[str] = None, methods: Optional[str] = None,
+                scope: Optional[str] = None) -> ProjectConfig:
     default_owner = "unknown"
     git_name = _git(["config", "user.name"], cwd=root, check=False).stdout.strip()
     if git_name and not _is_placeholder_name(git_name):
@@ -602,6 +615,7 @@ def step_config(root: Path, interactive: bool, notes: list[str],
         "feedback_mode": feedback_mode,
         "update_channel": channel,
         "methods": chosen_methods,
+        "profile": scope or default_profile(root, stack),
     }
 
 
@@ -964,6 +978,9 @@ def step_workspace_identity(root: Path, plan: bool, owner: str) -> str:
         return "no usable name, nothing created: run board.py --identity <name>"
     if status != "created" or data is None:
         return "already present, left unchanged"
+    blocked = "" if plan else actlib.link_problem(root, root / ".act-local" / "identity.json")
+    if blocked:
+        return f"identity '{data['identity']}' not stored: {blocked}; run board.py --identity <name> once it is a real folder"
     return (f"identity '{data['identity']}', workspace '{data.get('workspace', '(to be created)')}'"
             + (" (plan)" if plan else ""))
 
@@ -1812,6 +1829,8 @@ def _config_tokens(cfg: ProjectConfig) -> dict[str, str]:
         "<update-channel>": cfg.get("update_channel", _UPDATE_CHANNEL_DEFAULT),
         # .act/skeleton/config.md § Scope's `methods` row (rules.sync_method_imports reads it back).
         "<methods>": cfg.get("methods", METHODS_DEFAULT),
+        # .act/skeleton/config.md § Scope's `profile` row; a caller that builds the dict itself (adopt) gets `full`.
+        "<profile>": cfg.get("profile", act_profile.DEFAULT_PROFILE),
     }
 
 
@@ -1918,8 +1937,8 @@ def _merge_settings_hooks(
 # decided 2026-09-20.
 # `--target <dir>` run from a checkout that is itself an already set-up project (its own
 # docs/ai/config.md exists) carries that project's own rule/coding-rule deviations plus its whole
-# docs/ai/local/ tree into the freshly materialized target -- never the `use:` set selection
-# (coding_rules.md), never work state (docs/ai/inbox/, docs/ai/work/, docs/project/ beyond the two
+# docs/ai/local/ tree into the freshly materialized target -- of the `use:` set selection (coding_rules.md) only the
+# sets switched off with a reason, never work state (docs/ai/inbox/, docs/ai/work/, docs/project/ beyond the two
 # named sections). What does not fit (a group id the target has no match for) is named in the
 # inbox, never silently dropped. `--no-local` opts out.
 # ---------------------------------------------------------------------------
@@ -2032,30 +2051,14 @@ def _insert_after_mark(text: str, mark_name: str, new_lines: list[str]) -> tuple
     return text[:insert_at] + "\n\n" + "\n".join(new_lines) + text[insert_at:], True
 
 
-_SET_OFF_WITH_REASON = re.compile(r"^-\s*\[ \]\s*use:\s*(?P<path>\S+)\s+(?:—|–|--)\s*(?P<reason>\S.*?)\s*$")
-
-
-def _sets_switched_off_with_reason(text: str) -> dict[str, str]:
-    """Normalized set path -> reason, for every `- [ ] use: <path> — <reason>` line of a project file's
-    text. Read from the raw lines on purpose: `rules.py` does not record a reason on a set line. A set
-    switched off without a reason is a stack default (every set the stack does not need starts
-    unchecked) and is never carried -- the same rule as for a group."""
-    found: dict[str, str] = {}
-    for line in text.splitlines():
-        match = _SET_OFF_WITH_REASON.match(line)
-        if match:
-            found[rules.normalize_set_path(match.group("path"))] = match.group("reason")
-    return found
-
-
 def _carry_over_area(root: Path, source_root: Path, area: "rules.Area", plan: bool,
                       dest_was_preexisting: bool, notes: list[str],
                       carry: frozenset[str] = frozenset(CARRY_CATEGORIES)) -> Optional[str]:
     """One area (docs/ai/rules.md or docs/project/coding_rules.md): copy the source project's
     switched-off groups (with their reason) and its '## Overrides'/'## Own rules' sections into
     the target's freshly materialized file of the same area -- only for a group id the target file
-    already carries a checkbox line for (a set the target never enabled has none, so the `use:`
-    selection itself is never touched here). Never overwrites a target file that already has
+    already carries a checkbox line for; of the `use:` selection only a set switched off with a
+    reason is carried (switched off in the target, with that reason). Never overwrites a target file that already has
     overrides/own rules of its own, and never touches one at all if it pre-dates this run
     (`dest_was_preexisting`): docking `--target` onto an already set-up project whose file
     just has no '## Overrides'/'## Own rules' section yet still means a person made those checkbox
@@ -2090,7 +2093,11 @@ def _carry_over_area(root: Path, source_root: Path, area: "rules.Area", plan: bo
         head_copy = tmp_dir / source_path.name
         head_copy.write_bytes(head_bytes)
         source_project = rules.parse_project_file(head_copy, area)
-    source_sets_off = _sets_switched_off_with_reason(head_bytes.decode("utf-8", errors="replace"))         if "exceptions" in carry and area.name == "coding" else {}
+    # Every unchecked set line with a reason is carried; one without a reason is a stack default (the sets the
+    # stack does not need start unchecked) and is not -- the same rule as for a group.
+    source_sets_off = {
+        pset.path: pset.reason for pset in source_project.sets if not pset.enabled and pset.reason
+    } if "exceptions" in carry and area.name == "coding" else {}
     has_deviation = (
         bool(source_sets_off) or
         ("overrides" in carry and source_project.overrides) or ("rules" in carry and source_project.own_rules)
@@ -2131,18 +2138,14 @@ def _carry_over_area(root: Path, source_root: Path, area: "rules.Area", plan: bo
         if tset is None:
             sets_missing.append(set_path)
             continue
-        if not tset.enabled:
-            continue  # off in the target already
         idx = tset.line - 1
+        if not tset.enabled:  # off in the target already: only the reason is carried
+            if rules.RE_USE.match(lines[idx].split("]", 1)[1].strip()).group("reason") is None:
+                lines[idx] = lines[idx].rstrip() + f" — {reason}"
+            continue
         lines[idx] = rules.coding_set_line(re.sub(r"\[[xX]\]", "[ ]", lines[idx], count=1))  # bare path, no import
-        with_reason = lines[idx].rstrip() + f" — {reason}"
-        # the reason goes on the line only where rules.py reads such a line; else it goes to the note
-        if re.match(r"^-\s*\[ \]\s*(.*)$", with_reason) and rules.RE_USE.match(
-                re.match(r"^-\s*\[ \]\s*(.*)$", with_reason).group(1)):
-            lines[idx] = with_reason
-        else:
-            notes.append(f"Rule set {set_path} is switched off in the source project ({reason}); switched off "
-                         f"here too, the reason has no place on a set line: {_relative_label(dest_path, root)}.")
+        if rules.RE_USE.match(lines[idx].split("]", 1)[1].strip()).group("reason") is None:
+            lines[idx] = lines[idx].rstrip() + f" — {reason}"
         sets_toggled.append(set_path)
 
     missing = sorted(gid for gid in source_group_state if gid not in target_group_ids) if "exceptions" in carry else []
@@ -2931,10 +2934,6 @@ def _has_marker(path: Path, marker: str) -> bool:
         return False
 
 
-def _has_template_readme_marker(path: Path) -> bool:
-    return _has_marker(path, TEMPLATE_README_MARKER)
-
-
 # First line of the template's own root entry files (CLAUDE.md, AGENTS.md) before a clone is
 # turned into a project: tells an AI tool opening the bare clone that it is sitting
 # in the template, not a project, and to follow .act/skills/act-setup/SKILL.md. `step_materialize`
@@ -3491,13 +3490,22 @@ def step_commit(root: Path, plan: bool, no_commit: bool, paths: list[Path],
         return "nothing to commit"
     if plan:
         return f"would commit {len(rels)} path(s): {', '.join(rels)}"
-    actlib.git_pathspec_stdin(["add"], rels, cwd=root)
-    diff = _git(["diff", "--cached", "--name-only"], cwd=root)
-    if not diff.stdout.strip():
-        return "nothing staged, no commit made"
-    _git(["commit", "-m", message], cwd=root)
+    actlib.git_pathspec_stdin(["--literal-pathspecs", "add"], rels, cwd=root)
+    diff = _git(["diff", "--cached", "--no-renames", "--name-only", "-z"], cwd=root)
+    staged = [name for name in diff.stdout.split("\0") if name]
+    # The index may hold more than this run staged (the target repo's own work in progress). The
+    # commit is limited to the run's own paths; foreign entries stay staged and are only named.
+    own = [name for name in staged if any(name == rel or name.startswith(rel.rstrip("/") + "/") for rel in rels)]
+    foreign = [name for name in staged if name not in own]
+    note = ""
+    if foreign:
+        shown = ", ".join(foreign[:5]) + (f" (+{len(foreign) - 5} more)" if len(foreign) > 5 else "")
+        note = f"; left {len(foreign)} foreign staged path(s) staged: {shown}"
+    if not own:
+        return "nothing staged, no commit made" + note
+    actlib.git_pathspec_stdin(["--literal-pathspecs", "commit", "-m", message], rels, cwd=root)
     sha = _git(["rev-parse", "--short", "HEAD"], cwd=root).stdout.strip()
-    return f"committed {len(rels)} path(s) as {sha}"
+    return f"committed {len(rels)} path(s) as {sha}{note}"
 
 
 # ---------------------------------------------------------------------------
@@ -3746,16 +3754,8 @@ def run_profile_only(root: Path, plan: bool, interactive: bool, no_commit: bool,
 # Main
 # ---------------------------------------------------------------------------
 
-def main(argv: list[str]) -> int:
-    # Step output can carry an em dash (e.g. the coding-rules summary in step 6); on Windows,
-    # stdout/stderr otherwise default to the console's legacy code page instead of UTF-8, which
-    # would corrupt it. Same fix as .act/scripts/rules.py.
-    for stream in (sys.stdout, sys.stderr):
-        try:
-            stream.reconfigure(encoding="utf-8")
-        except (AttributeError, ValueError):
-            pass
-
+def _parse_args(argv: list[str]) -> tuple[argparse.Namespace, Optional[str], frozenset[str]]:
+    """The command line: (arguments, the `--methods` answer or None, the `--carry` categories)."""
     parser = argparse.ArgumentParser(
         description="Turn a template checkout into a project, or dock onto an existing directory "
                     "(--target). Inside a project that is already set up, only --profile runs (see "
@@ -3793,6 +3793,9 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--methods", metavar="LIST",
                         help="working methods to switch on (names from .act/methods/, comma-separated, or none) "
                              "instead of asking; default none")
+    parser.add_argument("--scope", choices=act_profile.PROFILES, metavar="{minimal,standard,full}",
+                        help="the scope profile of a new project (docs/ai/config.md § Scope) instead of the "
+                             "detected one: full for a web project, standard for any other")
     args = parser.parse_args(argv)
     methods_given: Optional[str] = None
     if args.methods is not None:
@@ -3810,114 +3813,116 @@ def main(argv: list[str]) -> int:
         carry = parse_carry(args.carry, args.no_local)
     except ValueError as exc:
         parser.error(str(exc))
+    return args, methods_given, carry
 
-    plan = args.plan
-    source_act = Path(__file__).resolve().parent.parent  # .act/
-    is_target = args.target is not None
 
-    if is_target:
-        root = Path(args.target).resolve()
-        refusal = own_root_refusal(Path(args.target), source_act.parent)
-        if refusal:
-            print(f"init.py: {refusal}", file=sys.stderr)
-            sys.exit(1)
-        print(f"[act] target mode: {root}")
-        if not root.exists():
-            print("  creating target directory" + (" (plan)" if plan else ""))
-            if not plan:
-                root.mkdir(parents=True)
-        else:
-            hint = _existing_project_hint(root, source_act)
-            if hint:
-                print(hint)
-        act_dest = root / ".act"
-        if act_dest.resolve() != source_act.resolve():
-            if act_dest.exists():
-                print("  .act/ already present in target, left unchanged")
-            else:
-                print("  copying .act/ into target" + (" (plan)" if plan else ""))
-                if not plan:
-                    shutil.copytree(source_act, act_dest,
-                                    ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"))
+def _enter_target(args: argparse.Namespace, plan: bool, source_act: Path) -> Path:
+    """`--target` mode: refuses the project's own root, creates the directory and copies `.act/`
+    into it; returns the target root (the process changes into it unless `plan`)."""
+    root = Path(args.target).resolve()
+    refusal = own_root_refusal(Path(args.target), source_act.parent)
+    if refusal:
+        print(f"init.py: {refusal}", file=sys.stderr)
+        sys.exit(1)
+    print(f"[act] target mode: {root}")
+    if not root.exists():
+        print("  creating target directory" + (" (plan)" if plan else ""))
         if not plan:
-            os.chdir(root)
-        elif not act_dest.exists():
-            # Plan run against a target that doesn't exist yet: nothing on disk to resolve
-            # against, so later steps only report what they would do with the given config.
-            pass
+            root.mkdir(parents=True)
     else:
-        root = actlib.repo_root()
-        if not plan:
-            os.chdir(root)
+        hint = _existing_project_hint(root, source_act)
+        if hint:
+            print(hint)
+    act_dest = root / ".act"
+    if act_dest.resolve() != source_act.resolve():
+        if act_dest.exists():
+            print("  .act/ already present in target, left unchanged")
+        else:
+            print("  copying .act/ into target" + (" (plan)" if plan else ""))
+            if not plan:
+                shutil.copytree(source_act, act_dest,
+                                ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"))
+    if not plan:
+        os.chdir(root)
+    # A plan run against a target that doesn't exist yet: nothing on disk to resolve against, so
+    # later steps only report what they would do with the given config.
+    return root
 
-        # Refuse before asking anything -- when this checkout is the template's own
-        # development checkout, never a project to build in place, this has to be caught before
-        # step_config's own questions (step 1), not only once step_git_in_place (step 2) runs --
-        # otherwise a refusal still means the owner was asked project name/owner/stack first for
-        # nothing. Read-only, so a refusal leaves the clone exactly as it was found.
-        dev_reason = _template_dev_checkout_reason(root)
-        if dev_reason:
-            marker_present = (root / ".act-local" / "template-dev").exists()
-            advice = "run with '--target <dir>' to build a project (or a throwaway probe) elsewhere"
-            if marker_present:
-                advice += (
-                    ", or delete '.act-local/template-dev' if this really is a fresh clone meant "
-                    "to become a project"
-                )
-            if plan:
-                print(
-                    f"[act] repository already present; would refuse to run in place ({dev_reason}); "
-                    f"'origin' and the current branch would be left unchanged; {advice}"
-                )
-                return 0
+
+def _enter_in_place(args: argparse.Namespace, plan: bool) -> tuple[Path, Optional[int]]:
+    """In-place mode (the current checkout becomes the project): (root, None) to carry on, or
+    (root, exit code) when the run ends here -- a plan that would be refused, or the owner-profile
+    catch-up of a project that is already set up. A refusal exits with 1."""
+    root = actlib.repo_root()
+    if not plan:
+        os.chdir(root)
+
+    # Refuse before asking anything -- when this checkout is the template's own
+    # development checkout, never a project to build in place, this has to be caught before
+    # step_config's own questions (step 1), not only once step_git_in_place (step 2) runs --
+    # otherwise a refusal still means the owner was asked project name/owner/stack first for
+    # nothing. Read-only, so a refusal leaves the clone exactly as it was found.
+    dev_reason = _template_dev_checkout_reason(root)
+    if dev_reason:
+        marker_present = (root / ".act-local" / "template-dev").exists()
+        advice = "run with '--target <dir>' to build a project (or a throwaway probe) elsewhere"
+        if marker_present:
+            advice += (
+                ", or delete '.act-local/template-dev' if this really is a fresh clone meant "
+                "to become a project"
+            )
+        if plan:
             print(
-                f"init.py: {dev_reason} -- refusing to run in place; 'origin' and the current "
-                f"branch are left unchanged; {advice}",
-                file=sys.stderr,
+                f"[act] repository already present; would refuse to run in place ({dev_reason}); "
+                f"'origin' and the current branch would be left unchanged; {advice}"
             )
-            sys.exit(1)
+            return root, 0
+        print(
+            f"init.py: {dev_reason} -- refusing to run in place; 'origin' and the current "
+            f"branch are left unchanged; {advice}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
-        # A project that already went through init -- its own
-        # .act-lock.json (step 9) or docs/ai/config.md (step 6) is there -- is never "a clone to
-        # turn into a project" again. Step 2 would rename its current branch to 'template' and
-        # rebuild 'main' as an orphan with none of the project's own history on it; the check
-        # above cannot catch this (a project is neither the dev checkout nor a multi-worktree
-        # repository). Refused here, read-only, before step_config's questions -- with one
-        # deliberate exception: `--profile`, the "catch up" path, runs the owner-profile
-        # step alone (run_profile_only) and nothing else.
-        set_up_reason = _set_up_project_reason(root)
-        if set_up_reason:
-            if args.profile:
-                return run_profile_only(root, plan, actlib.is_interactive() and not plan, args.no_commit, set_up_reason)
-            consequence = (
-                "step 2 would rename the current branch to 'template' and rebuild 'main' as an "
-                "orphan branch without this project's own history"
-            )
-            advice = (
-                "to apply the owner profile here, run 'init.py --profile' (in a set-up project only "
-                "that step runs); to bring .act/ up to date, run 'python .act/scripts/update.py'; "
-                "to build a new project from this one, run 'init.py --target <dir>'"
-            )
-            if plan:
-                print(f"[act] {set_up_reason}; would refuse to run in place ({consequence}); nothing changed; {advice}")
-                return 0
-            print(
-                f"init.py: {set_up_reason} -- refusing to run in place: {consequence}; nothing was "
-                f"changed; {advice}",
-                file=sys.stderr,
-            )
-            sys.exit(1)
+    # A project that already went through init -- its own
+    # .act-lock.json (step 9) or docs/ai/config.md (step 6) is there -- is never "a clone to
+    # turn into a project" again. Step 2 would rename its current branch to 'template' and
+    # rebuild 'main' as an orphan with none of the project's own history on it; the check
+    # above cannot catch this (a project is neither the dev checkout nor a multi-worktree
+    # repository). Refused here, read-only, before step_config's questions -- with one
+    # deliberate exception: `--profile`, the "catch up" path, runs the owner-profile
+    # step alone (run_profile_only) and nothing else.
+    set_up_reason = _set_up_project_reason(root)
+    if set_up_reason:
+        if args.profile:
+            return root, run_profile_only(root, plan, actlib.is_interactive() and not plan, args.no_commit, set_up_reason)
+        consequence = (
+            "step 2 would rename the current branch to 'template' and rebuild 'main' as an "
+            "orphan branch without this project's own history"
+        )
+        advice = (
+            "to apply the owner profile here, run 'init.py --profile' (in a set-up project only "
+            "that step runs); to bring .act/ up to date, run 'python .act/scripts/update.py'; "
+            "to build a new project from this one, run 'init.py --target <dir>'"
+        )
+        if plan:
+            print(f"[act] {set_up_reason}; would refuse to run in place ({consequence}); nothing changed; {advice}")
+            return root, 0
+        print(
+            f"init.py: {set_up_reason} -- refusing to run in place: {consequence}; nothing was "
+            f"changed; {advice}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    return root, None
 
-    interactive = actlib.is_interactive() and not plan
-    notes: list[str] = []
-    # Before any step can write the lock: only a project without one is fresh (step 9).
-    lock_existed_before = (root / ".act-lock.json").exists()
-    # Whether docs/ai/rules.md is this run's own work (step 9 records what it was offered).
-    rules_md_existed_before = (root / rules.AREAS["core"].project_file).is_file()
 
+def _step_config_report(root: Path, plan: bool, interactive: bool, notes: list[str], args: argparse.Namespace,
+                        methods_given: Optional[str], source_act: Path) -> ProjectConfig:
+    """Step 1: collect the config and print it."""
     cfg = step_config(root, interactive, notes,
                       {"language-docs": args.language_docs, "language-chat": args.language_chat},
-                      args.update_channel, methods_given)
+                      args.update_channel, methods_given, args.scope)
     if not (root / "docs" / "ai" / "config.md").is_file() and cfg["update_channel"] == "release":
         release_note = _clone_release_note(source_act.parent)
         if release_note:
@@ -3935,40 +3940,57 @@ def main(argv: list[str]) -> int:
         f"config: name={cfg['name']!r}, owner={cfg['owner']!r}, language-chat={cfg['language_chat']!r}, "
         f"language-docs={cfg['language_docs']!r}, "
         f"stack={cfg['stack']!r}, tools={cfg['tools']}, mode={cfg['mode']!r}, "
-        f"feedback={feedback_display}, update-channel={cfg.get('update_channel', 'release')!r} "
-        "(suggested, change it in docs/ai/config.md)",
+        f"feedback={feedback_display}, update-channel={cfg.get('update_channel', 'release')!r}, "
+        f"profile={cfg['profile']!r} (suggested, change it in docs/ai/config.md)",
     )
+    return cfg
 
-    orphan_rebuilt = False
-    can_delete_old_branch = False
-    old_branch_tip = ""
+
+class _GitOutcome(NamedTuple):
+    """What step 2 hands the later steps. The last three fields only mean something in place."""
+    template_origin: str
+    template_commit: str
+    verify_commit: str
+    orphan_rebuilt: bool
+    can_delete_old_branch: bool
+    old_branch_tip: str
+
+
+def _step_git(root: Path, plan: bool, is_target: bool, source_act: Path, notes: list[str]) -> _GitOutcome:
+    """Step 2, one function per mode (step_git_target / step_git_in_place); prints the step."""
     if is_target:
         summary, template_origin, template_commit = step_git_target(root, plan, source_act)
-        verify_commit = template_commit
         _print_step(2, summary)
-    else:
-        git_result = step_git_in_place(root, plan)
-        summary = git_result.summary
-        template_origin = git_result.template_source
-        template_commit = git_result.template_commit
-        orphan_rebuilt = git_result.orphan_rebuilt
-        verify_commit = git_result.verify_commit
-        can_delete_old_branch = git_result.can_delete_old_branch
-        old_branch_tip = git_result.old_branch_tip
-        _print_step(2, summary)
-        if orphan_rebuilt and not can_delete_old_branch:
-            notes.append(
-                f"The old branch 'template' was kept -- {git_result.keep_old_branch_reason}. "
-                "Review it, fold anything worth keeping into 'main', or delete it yourself "
-                "once you're sure (`git branch -D template`)."
-            )
+        return _GitOutcome(template_origin, template_commit, template_commit, False, False, "")
+    git_result = step_git_in_place(root, plan)
+    _print_step(2, git_result.summary)
+    if git_result.orphan_rebuilt and not git_result.can_delete_old_branch:
+        notes.append(
+            f"The old branch 'template' was kept -- {git_result.keep_old_branch_reason}. "
+            "Review it, fold anything worth keeping into 'main', or delete it yourself "
+            "once you're sure (`git branch -D template`)."
+        )
+    return _GitOutcome(git_result.template_source, git_result.template_commit, git_result.verify_commit,
+                       git_result.orphan_rebuilt, git_result.can_delete_old_branch, git_result.old_branch_tip)
 
-    _print_step(3, step_identity(root, plan, interactive, notes))
-    _print_step(4, f"{step_workspace_identity(root, plan, cfg['owner'])}; {step_import_folder(root, plan)}")
 
-    selected_bridges, thin_summary = step_thin_bridges(cfg["tools"])
-    _print_step(5, thin_summary)
+class _Materialized(NamedTuple):
+    """What step 6 hands the later steps."""
+    messages: list[str]
+    generated: dict
+    generated_hashes: dict
+    touched_bridges: list
+    copies: dict
+    pending_booking: dict
+    note_paths: list[Path]  # translate / dependency-check / security-offer entries, each only when written
+    imported_paths: list[Path]
 
+
+def _step_materialize_all(root: Path, plan: bool, interactive: bool, cfg: ProjectConfig, notes: list[str],
+                          args: argparse.Namespace, carry: frozenset[str], source_act: Path, is_target: bool,
+                          selected_bridges, verify_commit: str) -> _Materialized:
+    """Step 6: skeleton, bridges and copies, the three offer notes, then the carry-over from the
+    source project and owner profile (--target) or the owner profile alone (in place)."""
     # Whether the target already had its own docs/ai/rules.md / coding_rules.md *before*
     # this run -- captured here, before step_materialize can create either from the skeleton, so
     # `_carry_over_area` only ever touches a file this run itself materialized, never a docked
@@ -3977,10 +3999,6 @@ def main(argv: list[str]) -> int:
         area.project_file: (root / area.project_file).is_file()
         for area in (rules.AREAS["core"], rules.AREAS["coding"])
     } if is_target else {}
-
-    # Tracked files already missing before steps 6 and 8 run: whatever is missing afterwards and was not
-    # before is a deletion of this run's own, and goes into step 10's commit.
-    missing_before = _tracked_but_missing(root) if not is_target and not plan else set()
 
     pending_booking: dict = {}  # the settings.json booking, written with step 9's lock (not earlier)
     materialize_messages, generated, touched_bridges, copies = step_materialize(
@@ -3994,15 +4012,14 @@ def main(argv: list[str]) -> int:
     # the methods section of docs/project/coding_rules.md; step 7 writes .gitignore/.gitattributes,
     # step 8 README.md/CHANGELOG.md/LICENSE only.
     generated_hashes = {rel: actlib.generated_hash(path) for rel, path in generated.items() if path.is_file()}
-    translate_path, translate_message = step_translate_note(root, plan, cfg)
-    if translate_message:
-        materialize_messages.append(translate_message)
-    dependency_check_path, dependency_check_message = step_dependency_check_note(root, plan)
-    if dependency_check_message:
-        materialize_messages.append(dependency_check_message)
-    security_check_offer_path, security_check_offer_message = step_security_check_offer(root, plan)
-    if security_check_offer_message:
-        materialize_messages.append(security_check_offer_message)
+    note_paths: list[Path] = []
+    offers = (step_translate_note(root, plan, cfg), step_dependency_check_note(root, plan),
+              step_security_check_offer(root, plan))
+    for offer_path, offer_message in offers:
+        if offer_message:
+            materialize_messages.append(offer_message)
+        if offer_path is not None and not plan:
+            note_paths.append(offer_path)
     imported_paths: list[Path] = []
     if is_target:
         combined_summary, combined_paths = step_source_and_profile(
@@ -4018,60 +4035,117 @@ def main(argv: list[str]) -> int:
         )
         materialize_messages.append(profile_summary)
         imported_paths.extend(profile_paths)
-    _print_step(6, "; ".join(materialize_messages))
+    return _Materialized(materialize_messages, generated, generated_hashes, touched_bridges, copies,
+                         pending_booking, note_paths, imported_paths)
+
+
+def _step_own_files_target(root: Path, plan: bool) -> list[Path]:
+    """Step 8 with `--target`: nothing of the template's own to decide, only the project changelog.
+    Returns the root files for the commit."""
+    changelog_path, changelog_message = step_project_changelog(root, plan)
+    _print_step(8, "skipped in --target mode (docking onto an existing project, nothing of the template's own to decide); "
+                + changelog_message)
+    return [changelog_path] if changelog_path is not None else []
+
+
+def _step_own_files_in_place(root: Path, plan: bool, interactive: bool, cfg: ProjectConfig, verify_commit: str,
+                             notes: list[str]) -> list[Path]:
+    """Step 8 in place: retire the template's own README(s), CHANGELOG.md, LICENSE and community
+    files. Returns the root files for the commit.
+
+    README.md/CHANGELOG.md/LICENSE at the repo root, whatever this step did with them (replaced,
+    removed, kept as-is, or left as the project's own) -- always re-added to the new commit if still
+    there: step 2's orphan rebuild of 'main' drops every path from the index, including these, so
+    leaving them out of the commit paths would leave them as untracked residue after step 10's
+    pathspec commit even though nothing about them needs a human decision (found in a probe,
+    tests/probes/t76-bootstrap; --target never touches them)."""
+    own_files_message = step_own_files(root, plan, interactive, cfg, verify_commit, notes)
+    changelog_path, changelog_message = step_project_changelog(
+        root, plan, template_one_goes="CHANGELOG.md would be removed" in own_files_message)
+    own_files_message += "; " + changelog_message
+    _print_step(8, own_files_message)
+    # Under --plan nothing is removed yet: a file step 8 only *would* remove is no commit path,
+    # or step 10's preview would list a file step 8 just announced as gone.
+    planned_removals = {
+        part.split(" ", 1)[0] for part in own_files_message.split("; ") if " would be removed" in part
+    }
+    own_root_files = [
+        p for p in (root / "README.md", root / "CHANGELOG.md", root / "LICENSE", root / ".github" / "README.md",
+                    *(root / rel for rel in _community_files(root)))
+        if p.is_file() and p.relative_to(root).as_posix() not in planned_removals
+    ]
+    if plan and changelog_message.startswith("CHANGELOG.md would be created"):
+        own_root_files.append(root / "CHANGELOG.md")  # the template's one goes, the project's new one replaces it
+    # An untracked file under .github/ with no template marker is the project's own: init never owned
+    # it, so it is not committed here -- but it would otherwise sit there untracked without a word.
+    # A file the clone already tracks (detached-HEAD route) is in history anyway, so it is not named.
+    own_set = {p.relative_to(root).as_posix() for p in own_root_files}
+    tracked_now = set(_git(["ls-files", "-z", "--", ".github"], cwd=root, check=False).stdout.split("\0"))
+    unmarked = sorted(
+        p.relative_to(root).as_posix() for p in (root / ".github").rglob("*")
+        if p.is_file() and p.relative_to(root).as_posix() not in own_set
+        and p.relative_to(root).as_posix() not in planned_removals
+        and p.relative_to(root).as_posix() not in tracked_now
+    ) if (root / ".github").is_dir() else []
+    if unmarked:
+        verb = "would be left out of" if plan else "were left out of"
+        notes.append(
+            f"Files under .github/ that are not the template's own {verb} the first commit: "
+            + ", ".join(unmarked) + ". Add them yourself (`git add`) if they belong to the project."
+        )
+    return own_root_files
+
+
+def main(argv: list[str]) -> int:
+    # Step output can carry an em dash (e.g. the coding-rules summary in step 6); on Windows,
+    # stdout/stderr otherwise default to the console's legacy code page instead of UTF-8, which
+    # would corrupt it. Same fix as .act/scripts/rules.py.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8")
+        except (AttributeError, ValueError):
+            pass
+
+    args, methods_given, carry = _parse_args(argv)
+    plan = args.plan
+    source_act = Path(__file__).resolve().parent.parent  # .act/
+    is_target = args.target is not None
+    if is_target:
+        root = _enter_target(args, plan, source_act)
+    else:
+        root, exit_code = _enter_in_place(args, plan)
+        if exit_code is not None:
+            return exit_code
+
+    interactive = actlib.is_interactive() and not plan
+    notes: list[str] = []
+    # Before any step can write the lock: only a project without one is fresh (step 9).
+    lock_existed_before = (root / ".act-lock.json").exists()
+    # Whether docs/ai/rules.md is this run's own work (step 9 records what it was offered).
+    rules_md_existed_before = (root / rules.AREAS["core"].project_file).is_file()
+
+    cfg = _step_config_report(root, plan, interactive, notes, args, methods_given, source_act)
+    git = _step_git(root, plan, is_target, source_act, notes)
+    _print_step(3, step_identity(root, plan, interactive, notes))
+    _print_step(4, f"{step_workspace_identity(root, plan, cfg['owner'])}; {step_import_folder(root, plan)}")
+    selected_bridges, thin_summary = step_thin_bridges(cfg["tools"])
+    _print_step(5, thin_summary)
+
+    # Tracked files already missing before steps 6 and 8 run: whatever is missing afterwards and was not
+    # before is a deletion of this run's own, and goes into step 10's commit.
+    missing_before = _tracked_but_missing(root) if not is_target and not plan else set()
+
+    mat = _step_materialize_all(root, plan, interactive, cfg, notes, args, carry, source_act, is_target,
+                                selected_bridges, git.verify_commit)
+    _print_step(6, "; ".join(mat.messages))
 
     gitfiles_messages, touched_gitfiles = step_git_files(root, plan)
     _print_step(7, "; ".join(gitfiles_messages))
 
-    # README.md/CHANGELOG.md/LICENSE at the repo root, whatever step 8 below did with them (replaced,
-    # removed, kept as-is, or left as the project's own) -- always re-added to the new commit here
-    # if still there, in-place only: step 2's orphan rebuild of 'main' drops every path from the
-    # index, including these, so leaving them out of `commit_paths` would leave them as untracked
-    # residue after step 10's pathspec commit even though nothing about them needs a human decision
-    # (found in a probe, tests/probes/t76-bootstrap; --target never touches them, same reasoning as
-    # step 8).
-    own_root_files: list[Path] = []
     if is_target:
-        changelog_path, changelog_message = step_project_changelog(root, plan)
-        _print_step(8, "skipped in --target mode (docking onto an existing project, nothing of the template's own to decide); "
-                    + changelog_message)
-        if changelog_path is not None:
-            own_root_files.append(changelog_path)
+        own_root_files = _step_own_files_target(root, plan)
     else:
-        own_files_message = step_own_files(root, plan, interactive, cfg, verify_commit, notes)
-        changelog_path, changelog_message = step_project_changelog(
-            root, plan, template_one_goes="CHANGELOG.md would be removed" in own_files_message)
-        own_files_message += "; " + changelog_message
-        _print_step(8, own_files_message)
-        # Under --plan nothing is removed yet: a file step 8 only *would* remove is no commit path,
-        # or step 10's preview would list a file step 8 just announced as gone.
-        planned_removals = {
-            part.split(" ", 1)[0] for part in own_files_message.split("; ") if " would be removed" in part
-        }
-        own_root_files = [
-            p for p in (root / "README.md", root / "CHANGELOG.md", root / "LICENSE", root / ".github" / "README.md",
-                        *(root / rel for rel in _community_files(root)))
-            if p.is_file() and p.relative_to(root).as_posix() not in planned_removals
-        ]
-        if plan and changelog_message.startswith("CHANGELOG.md would be created"):
-            own_root_files.append(root / "CHANGELOG.md")  # the template's one goes, the project's new one replaces it
-        # An untracked file under .github/ with no template marker is the project's own: init never owned
-        # it, so it is not committed here -- but it would otherwise sit there untracked without a word.
-        # A file the clone already tracks (detached-HEAD route) is in history anyway, so it is not named.
-        own_set = {p.relative_to(root).as_posix() for p in own_root_files}
-        tracked_now = set(_git(["ls-files", "-z", "--", ".github"], cwd=root, check=False).stdout.split("\0"))
-        unmarked = sorted(
-            p.relative_to(root).as_posix() for p in (root / ".github").rglob("*")
-            if p.is_file() and p.relative_to(root).as_posix() not in own_set
-            and p.relative_to(root).as_posix() not in planned_removals
-            and p.relative_to(root).as_posix() not in tracked_now
-        ) if (root / ".github").is_dir() else []
-        if unmarked:
-            verb = "would be left out of" if plan else "were left out of"
-            notes.append(
-                f"Files under .github/ that are not the template's own {verb} the first commit: "
-                + ", ".join(unmarked) + ". Add them yourself (`git add`) if they belong to the project."
-            )
+        own_root_files = _step_own_files_in_place(root, plan, interactive, cfg, git.verify_commit, notes)
 
     try:
         methods_line = step_methods(root, plan, cfg.get("methods", METHODS_DEFAULT), methods_given is not None)
@@ -4080,28 +4154,24 @@ def main(argv: list[str]) -> int:
     except (OSError, UnicodeDecodeError) as exc:
         notes.append(f"Working methods were not entered ({exc.__class__.__name__}: {exc}); "
                      f"run {rules.SYNC_METHODS_COMMAND} after fixing docs/ai/config.md.")
-    _print_step(9, step_lock_and_cache(root, plan, template_origin, template_commit, generated, copies, generated_hashes,
+    _print_step(9, step_lock_and_cache(root, plan, git.template_origin, git.template_commit, mat.generated, mat.copies,
+                                        mat.generated_hashes,
                                         lock_existed_before=lock_existed_before,
                                         rules_md_existed_before=rules_md_existed_before,
-                                        settings_booking=pending_booking.get("booking")))
+                                        settings_booking=mat.pending_booking.get("booking")))
 
     inbox_path = _write_inbox_note(root, cfg["owner"], notes, plan)
     commit_paths = [
-        root / ".act", root / ".act-lock.json", *touched_bridges, *touched_gitfiles, *own_root_files,
+        root / ".act", root / ".act-lock.json", *mat.touched_bridges, *touched_gitfiles, *own_root_files,
         # Weg C (docs/ai/local/ copy) and the owner-profile import (scripts/checklists/agents/
         # skills + their tool bridges) each report exactly the paths they wrote -- never a
         # whole-directory add (`docs/ai/local`, `.claude`, `.agents`), which would sweep in
         # anything else already sitting there, including a target's own untracked files.
-        *imported_paths,
+        *mat.imported_paths,
     ]
     if inbox_path is not None:
         commit_paths.append(inbox_path)
-    if translate_path is not None and not plan:
-        commit_paths.append(translate_path)
-    if dependency_check_path is not None and not plan:
-        commit_paths.append(dependency_check_path)
-    if security_check_offer_path is not None and not plan:
-        commit_paths.append(security_check_offer_path)
+    commit_paths.extend(mat.note_paths)
     removed_by_run = (_tracked_but_missing(root) - missing_before) if not is_target and not plan else set()
     commit_message = step_commit(root, plan, args.no_commit, commit_paths, removed=removed_by_run)
     # The old 'template' branch is only ever removed once a real commit landed on the new 'main'
@@ -4109,8 +4179,8 @@ def main(argv: list[str]) -> int:
     # can_delete_old_branch held (a review finding) -- see _remove_old_template_branch
     # and step_git_in_place/_old_branch_disposition.
     commit_landed = commit_message.startswith("committed") or (plan and commit_message.startswith("would commit"))
-    if orphan_rebuilt and can_delete_old_branch and not is_target and not args.no_commit and commit_landed:
-        commit_message += f"; {_remove_old_template_branch(root, plan, old_branch_tip)}"
+    if git.orphan_rebuilt and git.can_delete_old_branch and not is_target and not args.no_commit and commit_landed:
+        commit_message += f"; {_remove_old_template_branch(root, plan, git.old_branch_tip)}"
     _print_step(10, commit_message)
 
     lint_hint = actlib.lint_exclusion_hint(root)

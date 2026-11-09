@@ -36,7 +36,7 @@ import time
 import unicodedata
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterator, NamedTuple, Optional
+from typing import Any, Iterator, NamedTuple, Optional, Sequence
 
 
 # Pauses between the replace attempts below, in seconds: about 0.35 s in all, so a hook stays fast.
@@ -81,7 +81,10 @@ def read_text_retrying(path: "str | os.PathLike[str]", encoding: str = "utf-8") 
 
 def scratch_base(root: "Optional[Path]") -> Optional[str]:
     """`<root>/.act-local/tmp` (created if needed) when `root` is a project (it has `.act/` or
-    `.act-local/`), else None -- the caller then falls back to the system temp directory. Never raises."""
+    `.act-local/`) and neither `.act-local` nor its `tmp` folder is a link or junction (or leaves the project),
+    else None. None means: the caller falls back to the system temp directory for its hook-internal
+    short-lived folders (the copies a check makes while it runs); nothing is ever written through a link.
+    Never raises."""
     if root is None:
         return None
     try:
@@ -89,6 +92,8 @@ def scratch_base(root: "Optional[Path]") -> Optional[str]:
         if not ((root / ".act").is_dir() or (root / ".act-local").is_dir()):
             return None
         base = root / ".act-local" / "tmp"
+        if not local_write_ok(root, base):
+            return None  # .act-local or its tmp folder is a link: the caller falls back, nothing goes through it
         base.mkdir(parents=True, exist_ok=True)
         return str(base)
     except OSError:
@@ -139,6 +144,122 @@ def _make_writable(path: "str | os.PathLike[str]") -> None:
                 os.chmod(child.path, stat.S_IWRITE | stat.S_IREAD)
             except OSError:
                 pass
+
+
+# ---------------------------------------------------------------------------
+# Links and junctions on the way to a write
+# ---------------------------------------------------------------------------
+
+_REPARSE_POINT = 0x400        # FILE_ATTRIBUTE_REPARSE_POINT (st_file_attributes)
+_NAME_SURROGATE = 0x20000000  # reparse tag bit: the point stands for another file system object
+
+
+def is_redirect(info: os.stat_result) -> bool:
+    """True for a symbolic link, a Windows junction or another reparse point that stands for another file
+    system object (a name surrogate). Works on Python 3.9: `Path.is_symlink()` and `os.path.islink` are False
+    for a junction in every version (3.12 added `os.path.isjunction` and `Path.is_junction` for it), but the
+    attributes of an `os.lstat` result show it (`st_reparse_tag` exists on Windows since 3.8). A reparse point
+    of unknown tag counts as a redirect; a cloud placeholder file
+    (OneDrive and the like) carries another tag and does not. Unlike `_is_link_or_junction`, which
+    deletion uses and which takes every reparse point for one."""
+    if stat.S_ISLNK(info.st_mode):
+        return True
+    if not getattr(info, "st_file_attributes", 0) & _REPARSE_POINT:
+        return False
+    tag = getattr(info, "st_reparse_tag", 0)
+    return not tag or bool(tag & _NAME_SURROGATE)
+
+
+def link_on_path(root: "str | os.PathLike[str]", path: "str | os.PathLike[str]") -> Optional[Path]:
+    """The first component below `root` on the way to `path` (`path` itself included) that is a link or
+    junction, else None. `root` itself is not looked at: the owner may reach the project through a link.
+    A component that does not exist ends the walk with None (what is created there is a real folder).
+    A `path` that does not lie below `root` is returned itself: nothing there may be written. Names are
+    compared as spelled (`..` is folded first), a link is never followed. A component that cannot be
+    examined (an `lstat` error other than "not there") is returned too: not safe."""
+    return _blocking_component(root, path)[0]
+
+
+def _blocking_component(root: "str | os.PathLike[str]", path: "str | os.PathLike[str]") -> "tuple[Optional[Path], bool]":
+    """(the component `link_on_path` names or None, True when it is named because it cannot be examined)."""
+    base = os.path.abspath(root)
+    target = os.path.abspath(path)
+    try:
+        parts = Path(target).relative_to(base).parts
+    except ValueError:
+        return Path(target), False
+    current = base
+    for part in parts:
+        current = os.path.join(current, part)
+        try:
+            info = os.lstat(current)
+        except (FileNotFoundError, NotADirectoryError):
+            return None, False
+        except OSError:
+            return Path(current), True  # cannot tell: not safe
+        if is_redirect(info):
+            return Path(current), False
+    return None, False
+
+
+def outside_project(root: "str | os.PathLike[str]", path: "str | os.PathLike[str]") -> bool:
+    """True when the real path of `path` (every link resolved, a missing tail kept as spelled) does not
+    lie under the real path of `root`, or cannot be resolved. The check that catches a redirect
+    `link_on_path` did not name."""
+    try:
+        real_root = os.path.normcase(os.path.realpath(root))
+        real = os.path.normcase(os.path.realpath(path))
+        return os.path.commonpath([real_root, real]) != real_root
+    except (OSError, ValueError):  # unresolvable is unsafe; ValueError: another drive
+        return True
+
+
+def link_problem(root: "str | os.PathLike[str]", path: "str | os.PathLike[str]") -> str:
+    """"" when `path` may be written below the project `root`: no component from `root` down to it is a
+    link or junction, and its real path stays under the real path of `root`. Else one short line saying
+    which component is a link, or that the path leaves the project (project-relative names, no absolute
+    path). The check is made at one moment; a link planted between it and the write is not caught."""
+    base = os.path.abspath(root)
+
+    def shown(item: "str | os.PathLike[str]") -> str:
+        try:
+            return Path(os.path.abspath(item)).relative_to(base).as_posix() or "."
+        except ValueError:
+            return Path(item).name or "?"
+
+    linked, unexaminable = _blocking_component(root, path)
+    if linked is not None:
+        try:
+            Path(linked).relative_to(base)
+        except ValueError:
+            return f"{shown(linked)} is not below the project"
+        if unexaminable:
+            return f"{shown(linked)} cannot be examined"
+        return f"{shown(linked)} is a link or junction"
+    if outside_project(root, path):
+        return f"{shown(path)} resolves outside the project"
+    return ""
+
+
+# Why a write under .act-local/ was skipped in this process (see local_write_ok); the session start
+# reports them as one line.
+_LOCAL_SKIPS: "list[str]" = []
+
+
+def local_write_ok(root: "str | os.PathLike[str]", path: "str | os.PathLike[str]") -> bool:
+    """True when `path` (a file or folder below `root/.act-local`) may be written: `link_problem` finds
+    nothing. Otherwise False, and the reason is kept for `take_local_skips()`: the caller writes nothing."""
+    problem = link_problem(root, path)
+    if problem and problem not in _LOCAL_SKIPS:
+        _LOCAL_SKIPS.append(problem)
+    return not problem
+
+
+def take_local_skips() -> "list[str]":
+    """The reasons `local_write_ok` refused a write so far in this process, each once; the list is emptied."""
+    taken = list(_LOCAL_SKIPS)
+    del _LOCAL_SKIPS[:]
+    return taken
 
 
 _JS_SUFFIXES = (".js", ".mjs", ".cjs")
@@ -263,7 +384,7 @@ def resolve(path: str) -> Optional[tuple[Path, str]]:
 # JSON state files — shared read/write helpers
 # ---------------------------------------------------------------------------
 
-def _read_json(path: Path) -> Optional[dict]:
+def _read_json(path: Path, retry: bool = False) -> Optional[dict]:
     """Read a JSON object from `path`. Returns None if the file is missing, unreadable, not valid
     UTF-8, or not a JSON object (never raises for those cases — callers fall back to a default).
     `ValueError` covers both `json.JSONDecodeError` and `UnicodeDecodeError` (both are subclasses
@@ -272,25 +393,32 @@ def _read_json(path: Path) -> Optional[dict]:
     `UnicodeDecodeError` uncaught, which made update.py abort mid-run and left `.act/` already
     replaced). A leading BOM (a file saved by Windows PowerShell 5) is read as UTF-8 too, not
     treated as unreadable — otherwise write_lock() would rewrite the lock from an empty object and
-    drop every key it held."""
+    drop every key it held. With `retry` the read is repeated briefly on Windows
+    (read_text_retrying), for a file another process has just renamed into place."""
     if not path.is_file():
         return None
     try:
-        data = json.loads(path.read_text(encoding="utf-8-sig"))
+        data = json.loads(read_text_retrying(path, "utf-8-sig") if retry else path.read_text(encoding="utf-8-sig"))
     except (OSError, ValueError):
         return None
     return data if isinstance(data, dict) else None
 
 
-def _write_json_merged(path: Path, data: dict, atomic: bool = False) -> dict:
+def _write_json_merged(path: Path, data: dict, atomic: bool = False,
+                       local_root: "Optional[Path]" = None) -> dict:
     """Write `data` to `path` as JSON, merging onto whatever is already there so unknown top-level
     keys already present on disk survive the write. Creates the parent directory if needed. With
     `atomic` the file is replaced in one step (write_text_atomic()), so a reader or a second writer
-    never sees it half written. Returns the merged dict actually written."""
-    path.parent.mkdir(parents=True, exist_ok=True)
+    never sees it half written. With `local_root` (the project root, for a file below its .act-local/)
+    nothing is created or written when a component on the way is a link or junction or the real path
+    leaves the project (local_write_ok); the merged dict is returned all the same. Returns the merged
+    dict actually written."""
     existing = _read_json(path)
     merged = dict(existing or {})
     merged.update(data)
+    if local_root is not None and not local_write_ok(local_root, path):
+        return merged
+    path.parent.mkdir(parents=True, exist_ok=True)
     if existing is not None and merged == existing:
         return merged  # nothing changed: leave the file (and a versioned one's git status) alone
     # LF on every platform: .act-lock.json is versioned in that form.
@@ -300,6 +428,39 @@ def _write_json_merged(path: Path, data: dict, atomic: bool = False) -> dict:
     else:
         write_text_lf(path, text)
     return merged
+
+
+def rel_posix(path: Path, root: Path) -> str:
+    """`path` relative to `root` with forward slashes; `path` itself (forward slashes) when it is not below `root`."""
+    try:
+        return path.relative_to(root).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def git_run(root: Path, args: "Sequence[str]", *, timeout: Optional[float] = None,
+            config: "Sequence[str]" = (), text: bool = True) -> "subprocess.CompletedProcess":
+    """`git [-c <config>...] -C <root> <args>` with output captured (UTF-8 with replacement characters
+    when `text`, bytes otherwise). Returns the finished process whatever its exit code; OSError (no git)
+    and subprocess.TimeoutExpired are the caller's to handle, each caller decides what a failed call means."""
+    command = ["git"]
+    for entry in config:
+        command += ["-c", entry]
+    command += ["-C", str(root), *args]
+    if text:
+        return subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                              timeout=timeout)
+    return subprocess.run(command, capture_output=True, timeout=timeout)
+
+
+SECURITY_CHECK_LEVELS = ("off", "local", "deps", "full")
+
+
+def security_check_level(config: dict[str, str]) -> str:
+    """`security-check` from docs/ai/config.md, normalized to one of SECURITY_CHECK_LEVELS - falls back to
+    "local" (the concept's own default) for a missing or unrecognized value."""
+    value = config.get("security-check", "").strip().lower()
+    return value if value in SECURITY_CHECK_LEVELS else "local"
 
 
 # ---------------------------------------------------------------------------
@@ -536,13 +697,15 @@ def record_update_result(root: Path, result: Optional[dict]) -> None:
     if read_config(root).get("update-check", "").strip().lower() == "off":
         return
     path = update_result_path(root)
+    state = root / ".act-local" / "update-check.json"
+    if not (local_write_ok(root, path) and local_write_ok(root, state)):
+        return  # .act-local is a link or leaves the project: nothing is written or removed through it
     try:
         if result is None:
             path.unlink(missing_ok=True)
         else:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(result) + "\n", encoding="utf-8")
-        state = root / ".act-local" / "update-check.json"
         state.parent.mkdir(parents=True, exist_ok=True)
         state.write_text(json.dumps({"last_checked": datetime.now().date().isoformat()}) + "\n",
                          encoding="utf-8")
@@ -592,7 +755,7 @@ def write_identity(data: dict) -> dict:
     if path.is_file() and _read_json(path) is None:
         raise ValueError(f"{path} exists but is not a JSON object; fix or delete it by hand "
                          f"(`board.py --identity <name>` replaces it)")
-    return _write_json_merged(path, data, atomic=True)
+    return _write_json_merged(path, data, atomic=True, local_root=repo_root())
 
 
 # Git user names that stand for "nobody set this" (init.py shows the same ones as placeholders).
@@ -622,7 +785,7 @@ def _identity_fill(root: Path, slug: str, existing: Optional[dict]) -> dict:
         data["workspace"] = uuid.uuid4().hex[:12]
     if not str((existing or {}).get("created") or "").strip():
         data["created"] = datetime.now().date().isoformat()
-    return _write_json_merged(_identity_path(root), data, atomic=True)
+    return _write_json_merged(_identity_path(root), data, atomic=True, local_root=root)
 
 
 def ensure_identity(root: Path, owner: Optional[str] = None, plan: bool = False) -> tuple[str, Optional[dict]]:
@@ -682,7 +845,7 @@ def write_cache(data: dict) -> dict:
     """Merge `data` (expected key: "generated", a dict mapping path -> sha256) onto
     .act-local/cache.json, creating the .act-local/ directory if needed. Returns the merged dict
     actually written."""
-    merged = _write_json_merged(_cache_path(), data)
+    merged = _write_json_merged(_cache_path(), data, local_root=repo_root())
     merged.setdefault("generated", {})
     return merged
 
@@ -716,7 +879,8 @@ def write_last_applied(data: dict) -> dict:
     _write_json_merged) and drop a legacy .act-local/last-applied.json. Returns `data`."""
     write_lock({"applied": data})
     try:
-        _last_applied_path().unlink()
+        if local_write_ok(repo_root(), _last_applied_path()):
+            _last_applied_path().unlink()
     except OSError:
         pass
     return data
@@ -979,6 +1143,7 @@ def _build_config_schema() -> dict[str, ConfigKey]:
     add("update-branch-hint", "Checks", values=_MODE3, default="warn")
     add("update-check", "Checks", values=_MODE3, default="block", effect=nxt)
     add("docs-order", "Checks", values=_MODE3, default="warn")
+    add("changelog-length", "Checks", values=_MODE3, default="warn")  # never refuses: block counts as warn
     add("own-rules-budget", "Checks", values=("off",), pattern=r"\d+", default="6000")
     add("logging", "Logging", values=_ON_OFF, default="off")
     add("log-level", "Logging", values=("DEBUG", "INFO", "WARN", "ERROR"), default="INFO")
@@ -988,7 +1153,6 @@ def _build_config_schema() -> dict[str, ConfigKey]:
     add("feedback-scope", "Feedback", pattern=r"\s*[abc]\s*(?:,\s*[abc]\s*)*", default="a,b,c")
     add("update-channel", "Update", values=("release", "latest"), default="release")
     add("advisory-check", "Update", values=_ON_OFF, default="on")
-    add("done-entries", "Archive", values=("delete", "keep"), default="delete")
     add("archive-compact", "Archive", values=("off",), pattern=r"\d+\s*d\s+\d+", default="30d 300", effect=nxt)
     add("tips", "Tips", values=("never", "occasionally", "regularly"), default="occasionally")
     return {entry.key: entry for entry in entries}
@@ -1002,26 +1166,6 @@ def config_value_ok(entry: ConfigKey, value: str) -> bool:
     if entry.values is not None and value.lower() in (item.lower() for item in entry.values):
         return True
     return entry.pattern is not None and re.fullmatch(entry.pattern, value, re.IGNORECASE) is not None
-
-
-# ---------------------------------------------------------------------------
-# done-entries — what happens to a finished task, backlog item or inbox entry
-# ---------------------------------------------------------------------------
-
-DONE_ENTRIES_VALUES = ("delete", "keep")
-
-
-def done_entries_mode(root: Optional[Path] = None) -> str:
-    """The effective `done-entries` mode of the project at `root`: "delete" or "keep".
-
-    `delete` removes a finished entry once Git holds it unchanged, `keep` moves it to the archive for
-    good. A missing, empty or unknown value is the default: `delete` when the project has its own Git
-    repository (a `.git` entry at the root), else `keep`. An explicit `delete` without a repository
-    counts as `keep` as well: nothing would hold the deleted text."""
-    root = root or repo_root()
-    raw = read_config(root).get("done-entries", "").strip().strip("`").strip().lower()
-    wanted = raw if raw in DONE_ENTRIES_VALUES else "delete"
-    return "delete" if wanted == "delete" and (root / ".git").exists() else "keep"
 
 
 # ---------------------------------------------------------------------------
@@ -1338,7 +1482,11 @@ def note_scaffold_for_translation(root: Path, rel_paths: list[str]) -> Optional[
         return None
     import entries  # deferred: entries imports this module
     inbox = root / INBOX_DIR
+    if link_problem(root, inbox):
+        return None  # a linked inbox is not written through; the migration names it in its description
     for entry in sorted(inbox.glob(f"*{TRANSLATE_NOTE_SUFFIX}")) if inbox.is_dir() else []:
+        if link_problem(root, entry):
+            continue  # a linked entry is neither read nor extended
         try:
             text = entry.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
@@ -1433,7 +1581,15 @@ def inbox_kind(text: str) -> str:
 # otherwise never gets it).
 # ---------------------------------------------------------------------------
 
-_HOOK_COMMAND_PREFIX = 'P=""; for c in python3 python'
+# The interpreter probe really runs each candidate (never `command -v`): python3, python, then the
+# Windows launcher `py -3`. "py -3" is two words, so the loop variable is expanded unquoted (`$c`,
+# `$P`) -- it only ever holds one of these three fixed literals, so no path is word-split; every
+# path (`"$D"`) stays quoted. The launcher is tried on every platform: where `py` does not exist the
+# probe simply fails and the loop moves on.
+_HOOK_COMMAND_PREFIX = 'P=""; for c in python3 python \'py -3\''
+# The form before the launcher was added; a project that has not run update.py since still carries
+# it, so is_ours_hook (and the status line check) keep recognizing it and replace it.
+_HOOK_COMMAND_PREFIX_OLD = 'P=""; for c in python3 python'
 
 
 def _hook_command_suffix(event: str) -> str:
@@ -1443,15 +1599,13 @@ def _hook_command_suffix(event: str) -> str:
     against the *hook's own* current directory, which a Bash tool's own lasting `cd` moves for the
     rest of the session — Python then can't find the file and exits 2, which
     Claude Code reads as "block", for every tool call, not just Bash's."""
+    return f'$P "$D" {event}'
+
+
+def _hook_command_suffix_quoted_form(event: str) -> str:
+    """The form with a quoted interpreter variable (`"$P" "$D"`), written before `py -3` joined the
+    candidates; still recognized by is_ours_hook so update.py's reconcile upgrades it."""
     return f'"$P" "$D" {event}'
-
-
-def _hook_command_suffix_old_form(event: str) -> str:
-    """The older form (bare relative ".act/hooks/dispatch.py"), still recognized by
-    is_ours_hook so update.py's reconcile replaces it with the current form instead of leaving it
-    behind as an unrecognized, un-mergeable duplicate in a project that has not run update.py
-    since that form changed."""
-    return f'"$P" .act/hooks/dispatch.py {event}'
 
 
 # Per event, every extra fixed argument this template's own hooks may pass dispatch.py beyond the
@@ -1473,11 +1627,10 @@ _HOOK_COMMAND_EXTRA_ARGS: dict[str, tuple[str, ...]] = {
 
 def _hook_command_suffixes(event: str) -> list[str]:
     """Every exact tail this template's own hook commands for `event` are known to end with,
-    current form first: the current $D-anchored form, the older bare-relative form (still
-    produced by a project that has not run update.py since it changed), and, for the one event with
-    an
-    extra fixed argument, each of those two with that argument appended too."""
-    bases = [_hook_command_suffix(event), _hook_command_suffix_old_form(event)]
+    current form first: the $D-anchored form with an unquoted interpreter variable, and the same
+    with a quoted one (still produced by a project that has not run update.py since it changed),
+    and, for the events with extra fixed arguments, each of those with that argument appended too."""
+    bases = [_hook_command_suffix(event), _hook_command_suffix_quoted_form(event)]
     extra_args = _HOOK_COMMAND_EXTRA_ARGS.get(event, ())
     return bases + [f"{base} {extra}" for base in bases for extra in extra_args]
 
@@ -1499,8 +1652,8 @@ def is_ours_hook(hook, event: str) -> bool:
     if not isinstance(hook, dict):
         return False
     command = hook.get("command", "")
-    if not isinstance(command, str) or not command.startswith(_HOOK_COMMAND_PREFIX):
-        return False
+    if not isinstance(command, str) or not command.startswith(_HOOK_COMMAND_PREFIX_OLD):
+        return False  # the current prologue starts with the old one, so one check covers both
     return any(command.endswith(suffix) or command.endswith(suffix + "; true")
                for suffix in _hook_command_suffixes(event))
 
@@ -1630,18 +1783,23 @@ def merge_settings_hooks(current: dict, bridge_data: dict) -> tuple[dict, list[s
 # "the project's own choice always wins" rule.
 # ---------------------------------------------------------------------------
 
-def status_line_command() -> str:
+def status_line_command(*, old_form: bool = False) -> str:
     """The exact shell command for the template's statusLine bridge entry: the same
     interpreter-detection prologue the hook commands use (_HOOK_COMMAND_PREFIX), invoking
     .act/hooks/statusline.py with no event argument (it takes none, unlike dispatch.py) and no
     trailing "; true" — a statusLine command's stdout is read as the line to show regardless of its
     exit code, but a missing interpreter or file must still resolve to an empty line rather than an
-    error banner, hence the same "exit 0 either way" guard as every other generated hook command."""
+    error banner, hence the same "exit 0 either way" guard as every other generated hook command.
+    `old_form=True` gives the text written before `py -3` joined the candidates (quoted `"$c"`,
+    `"$P"`), which _is_ours_status_line still recognizes."""
+    prefix = _HOOK_COMMAND_PREFIX_OLD if old_form else _HOOK_COMMAND_PREFIX
+    probe_word = '"$c"' if old_form else "$c"
+    call_word = '"$P"' if old_form else "$P"
     return (
-        f'{_HOOK_COMMAND_PREFIX}; do "$c" -c \'import sys; sys.exit(0 if sys.version_info>=(3,9) '
+        f'{prefix}; do {probe_word} -c \'import sys; sys.exit(0 if sys.version_info>=(3,9) '
         'else 1)\' >/dev/null 2>&1 && { P="$c"; break; }; done; '
         'D="${CLAUDE_PROJECT_DIR:-.}/.act/hooks/statusline.py"; '
-        'if [ -z "$P" ]; then exit 0; fi; if [ ! -f "$D" ]; then exit 0; fi; "$P" "$D"'
+        f'if [ -z "$P" ]; then exit 0; fi; if [ ! -f "$D" ]; then exit 0; fi; {call_word} "$D"'
     )
 
 
@@ -1652,7 +1810,8 @@ def _is_ours_status_line(entry) -> bool:
     (a wrapped call, extra flags, a completely different script) is correctly left alone."""
     if not isinstance(entry, dict):
         return False
-    return entry.get("type") == "command" and entry.get("command") == status_line_command()
+    return entry.get("type") == "command" and entry.get("command") in (
+        status_line_command(), status_line_command(old_form=True))
 
 
 def _user_wide_status_line_path() -> Path:
@@ -1807,12 +1966,12 @@ def merge_settings_artifact(
         if once:
             cache = _read_json(cache_path) or {}
             if cache.get("artifact_conflict_hint") != conflict:
-                _write_json_merged(cache_path, {"artifact_conflict_hint": conflict})
+                _write_json_merged(cache_path, {"artifact_conflict_hint": conflict}, local_root=root)
                 notes.append(text)
         else:
             notes.append(text)
     elif once and (_read_json(cache_path) or {}).get("artifact_conflict_hint"):
-        _write_json_merged(cache_path, {"artifact_conflict_hint": ""})
+        _write_json_merged(cache_path, {"artifact_conflict_hint": ""}, local_root=root)
     return new_current, changed, notes, booking
 
 
@@ -2033,6 +2192,18 @@ def split_header(text: str) -> tuple[str, str]:
             count += 1
     head_length = start + sum(len(line) + 1 for line in lines[:count])
     return text[:head_length], text[head_length:]
+
+
+def frontmatter_lines(text: str) -> Optional[list[str]]:
+    """The lines between the opening `---` (the first line; a leading BOM is ignored) and the next
+    `---` line, without either; None when the text has no frontmatter or the block never closes."""
+    lines = text.lstrip("\ufeff").splitlines()
+    if not lines or lines[0].strip() != FRONTMATTER_DELIMITER:
+        return None
+    for index in range(1, len(lines)):
+        if lines[index].strip() == FRONTMATTER_DELIMITER:
+            return lines[1:index]
+    return None
 
 
 def is_frontmatter(head: str) -> bool:

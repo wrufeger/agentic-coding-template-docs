@@ -7,7 +7,8 @@
 #
 #          1. For everyone: a write under `.git/hooks/**` or to `.git/config` / `.git/config.worktree`
 #             (file tools and the write targets of a Bash/PowerShell command, found by the shared
-#             scanners shell_targets / powershell_targets), and `git config` / `git -c` /
+#             readers shell_targets / powershell_targets, asked through the dispatcher's shared parse,
+#             command_parse.py), and `git config` / `git -c` /
 #             `GIT_CONFIG_KEY_<n>` with a key that runs code (`_dangerous_reason`). A hook or such a
 #             key runs at the next git command, past every other check and beyond the session.
 #          2. For workers only (the payload carries `agent_id`): a write to `.claude/settings*.json`,
@@ -108,10 +109,21 @@
 #     `GIT_CONFIG_PARAMETERS` are, as they are `-c` in another spelling. A separate `export` is not
 #     followed.
 #   - `git config --global core.hooksPath` is free by decision and applies to every repository.
+#   - Two boundaries hold for every shell check that reads write targets from the command text (write-guard,
+#     worker-write-scope, git-metadata-guard, outside-root), since the checks read the text and run nothing:
+#     RUNTIME CODE - code that becomes a script only when the command runs (`bash <<< '...'`,
+#     `source /dev/stdin`, `$CMD <<'EOF'`, `eval "$(cat <<'EOF' ...)"`, `[scriptblock]::Create`, `Start-Process`) -
+#     is not followed into; and STATE - a target that depends on an earlier command or on an alternative
+#     (`ln -s <project>/src l && echo x > l/f`, `cd a || cd b` many times over) - is judged on what the text
+#     says, not on what the file system will hold. The checks are a guard rail against mistakes, not a wall
+#     against intent: whoever routes a write around them already acts against their own assignment.
 #   - A `git config` inside an alias, a script or an `eval` text the scanners cannot open is judged
 #     only as far as command_words reads it. Not followed: `xargs ... git config`, `git submodule
 #     foreach '...'`, an archive unpacked into the git directory (`tar -C .git`, `Expand-Archive`).
 #   - A `git` started through `Start-Process` is read from its text only (`_start_process_git_args`).
+#   - A git call behind a PowerShell assignment (`$null = git config core.hooksPath x`) is read through
+#     powershell_targets._strip_program_assignment, so only the forms that helper takes: a plain
+#     variable, plain arguments (no sub-expression, script block, comma or backtick among them).
 #   - Failure mode: a scanner error is NOT swallowed into an allow — it falls back to a raw-text
 #     search for the protected names (`_RAW_GIT_RE`/`_RAW_CLAUDE_RE`), like checks/write_guard.py.
 
@@ -120,7 +132,6 @@ from __future__ import annotations
 import glob as globlib
 import os
 import re
-import shlex
 import sys
 import time
 from pathlib import Path
@@ -129,13 +140,10 @@ from typing import Optional
 import actlib
 
 from . import inline_code as _inline_code
-from .command_words import _git_invocations_with_prefix
-from .common import _TOOL_PATH_FIELDS, _check_mode, _is_worker
-from .git_reset_hard import _resolve_cwd_after_leading_cd, _resolve_target_dir
-from .powershell_targets import _powershell_write_targets
-from .shell_targets import (
-    _GIT_WRITES_TEMPLATE_GUARD, _bash_inline_code, _bash_write_targets, _is_dynamic_target, _resolve_path,
-)
+from .command_parse import Parse, parse_for
+from .common import MAX_NESTING, _TOOL_PATH_FIELDS, _check_mode, _is_worker
+from .git_discard import _resolve_cwd_after_leading_cd, _resolve_target_dir
+from .shell_targets import _GIT_WRITES_TEMPLATE_GUARD, _is_dynamic_target, _resolve_path
 from .worker_git_write import _parse_git_invocation
 from .write_guard import _guard_root
 
@@ -552,15 +560,38 @@ def _start_process_git_args(command: str) -> list[list[str]]:
     return found
 
 
-def _invocation_reason(command: str, base_cwd: Optional[str]) -> Optional[str]:
+def _assigned_git_invocations(
+    command: str, parse: Optional[Parse] = None,
+) -> list[tuple[list[str], list[str]]]:
+    """The git calls of a PowerShell `command` that sit behind a variable assignment (`$null = git
+    config core.hooksPath x`, `$x = git -c core.fsmonitor=y status`), as (prefix, argv) like
+    `Parse.git_invocations_with_prefix`: the Bash word scanner reads `$x` as the command
+    there and never sees the git call. The assignment is cut off by the helper the write scanner
+    uses (powershell_targets._strip_program_assignment), so both read the same forms. `parse` is the
+    dispatcher's reading of `command`; without it the command is read here. The PowerShell word lists
+    are read only when this is asked, i.e. for a PowerShell call, and a reader error propagates to the
+    caller's fallback."""
+    if parse is None:
+        parse = Parse("PowerShell", command)
+    return parse.assigned_git_invocations()
+
+
+def _invocation_reason(
+    command: str, base_cwd: Optional[str], powershell: bool = False, parse: Optional[Parse] = None,
+) -> Optional[str]:
     """Why a git call in the shell `command` is refused (key that runs code, template directory),
-    or None."""
+    or None. With `powershell`, a git call behind a variable assignment is read as well. `parse` is the
+    dispatcher's reading of `command`; without it the command is read here."""
     if _CONFIG_EXPR_KEY_RE.search(command):
         return "contains a git config key that cannot be determined (an expression)"
-    effective_cwd, determinable = _resolve_cwd_after_leading_cd(command, base_cwd)
-    invocations = _git_invocations_with_prefix(command) + [
+    if parse is None:
+        parse = Parse("PowerShell" if powershell else "Bash", command)
+    effective_cwd, determinable = _resolve_cwd_after_leading_cd(command, base_cwd, parse)
+    invocations = parse.git_invocations_with_prefix() + [
         ([], args) for args in _start_process_git_args(command)
     ]
+    if powershell:
+        invocations += _assigned_git_invocations(command, parse)
     for prefix, args in invocations:
         env = _env_words(prefix, command)
         reason = _prefix_reason(env)
@@ -752,7 +783,7 @@ _COPY_WORDS = frozenset({"cp", "mv", "copy-item", "move-item", "cpi", "mi", "cop
 _POWERSHELL_VALUE_PARAMS = frozenset({
     "-path", "-literalpath", "-destination", "-filter", "-include", "-exclude", "-credential",
 })
-_SEGMENT_SPLIT_RE = re.compile(r"&&|\|\||[;|\n]")
+_SEGMENT_SPLIT_RE = re.compile(r"&&|\|\||[;|\n]")   # coarse split of a line the reader cannot tokenize
 
 
 _REDIRECT_WORD_RE = re.compile(r"^(?:\d*|&|\*)(?:>>?|>&|<)(.*)$")
@@ -760,7 +791,8 @@ _REDIRECT_WORD_RE = re.compile(r"^(?:\d*|&|\*)(?:>>?|>&|<)(.*)$")
 
 def _drop_redirections(words: list[str]) -> list[str]:
     """The words without shell redirections (`2>/dev/null`, `2> /dev/null`, `>&2`, `&> f`, `< f`): a
-    redirection is not an operand of the command, so it must not become the copy destination. The
+    redirection is not an operand of the command, so it must not become the copy destination. The reader
+    leaves them out of a line it tokenizes; this covers a piece it cannot (the coarse split). The
     redirection's own file is a write target the other scanners already judge."""
     kept: list[str] = []
     skip_next = False
@@ -776,14 +808,10 @@ def _drop_redirections(words: list[str]) -> list[str]:
     return kept
 
 
-def _copy_operands(segment: str, powershell: bool) -> Optional[tuple[list[str], list[str]]]:
-    """(sources, destinations) of a `cp`/`mv`/`Copy-Item`/`Move-Item` command segment, or None if the
-    segment is none of these. Best effort on the words: options are skipped, `-t DIR` /
-    `--target-directory DIR` and PowerShell `-Path` / `-Destination` are read."""
-    try:
-        words = shlex.split(segment, posix=not powershell)
-    except ValueError:
-        words = segment.split()
+def _copy_operands(words: list[str], powershell: bool) -> Optional[tuple[list[str], list[str]]]:
+    """(sources, destinations) of a `cp`/`mv`/`Copy-Item`/`Move-Item` command given as its words (one
+    simple command), or None if it is none of these. Best effort on the words: options are skipped,
+    `-t DIR` / `--target-directory DIR` and PowerShell `-Path` / `-Destination` are read."""
     words = _drop_redirections([word.strip("'\"") if powershell else word for word in words])
     index = 0
     while index < len(words) and (
@@ -1094,9 +1122,34 @@ def _without_text_reader_heredoc(command: str) -> str:
     return command  # no end word: the body runs to the end of the input and stays as it is
 
 
+def _copy_word_lists(command: str, powershell: bool, parse: Optional[Parse] = None) -> list[list[str]]:
+    """The words of every simple command of `command` that a copy reading looks at, from two readings
+    of the text, each word list once. The first reads each line by the shared parse, which knows quotes:
+    a `;`, `&&` or `|` inside a quoted name does not end a command, a redirection and its operand are
+    left out. The second cuts the text at every separator whether quoted or not and reads each piece: a
+    program text that only looks like a shell line (`python -c '":";cp a .git/hooks/x;":"'`) stays read as
+    one, which a fail-closed copy reading has always done. A heredoc body that a shell may run is read as
+    commands in both, which only a line-wise reading does. `parse` is the reading of `command` (a text
+    equal to it is read from it, any other text from a parse of its own), else one is made. A piece the
+    reader cannot tokenize is split at its blanks."""
+    base = (parse if parse is not None else Parse("PowerShell" if powershell else "Bash", command)).for_text(command)
+    pieces = [(line, False) for line in command.split("\n")]
+    pieces += [(segment, True) for segment in _SEGMENT_SPLIT_RE.split(command)]
+    found: list[list[str]] = []
+    seen: set[tuple[str, ...]] = set()
+    for text, coarse in pieces:
+        reading = base.for_text(text.rstrip("\r"))
+        lists = reading.ps_words() if powershell else reading.plain_words()
+        for words in lists or ([reading.command.split()] if coarse else []):
+            if tuple(words) not in seen:
+                seen.add(tuple(words))
+                found.append(words)
+    return found
+
+
 def _copy_effective_targets(
     command: str, powershell: bool, base: Optional[str] = None, deadline: Optional[float] = None,
-    special_dirs: Optional[list[Path]] = None,
+    special_dirs: Optional[list[Path]] = None, parse: Optional[Parse] = None,
 ) -> list[str]:
     """The files a shell copy/move writes when its destination is a directory: for each source the
     destination followed by the source's own name (`cp payload/.envrc .` writes `./.envrc`,
@@ -1110,12 +1163,13 @@ def _copy_effective_targets(
     keeps a large tree fast. A source with a variable (`$D/x`) gives no usable name and is not
     followed. A source that cannot be read before `deadline` (a monotonic instant) raises
     `_CopySourceTooLarge`. The body of a quoted heredoc that only a text reader stores is left out
-    (`_without_text_reader_heredoc`); any other body is read like the rest of the command."""
+    (`_without_text_reader_heredoc`); any other body is read like the rest of the command, line by line."""
     found: list[str] = []
     if not powershell:
         command = _without_text_reader_heredoc(command)
-    for segment in _SEGMENT_SPLIT_RE.split(command):
-        operands = _copy_operands(segment, powershell)
+    lists = _copy_word_lists(command, powershell, parse)
+    for words in lists:
+        operands = _copy_operands(words, powershell)
         if operands is None:
             continue
         sources, destinations = operands
@@ -1138,7 +1192,7 @@ def _copy_effective_targets(
 # How deep a program inside a command line of inline Python is read as a program again: the program a
 # Bash command hands to `python` is depth 0, a `python -c` inside its `os.system(...)` depth 1; at
 # _MAX_PROGRAM_DEPTH a command line is read as shell text only, and an `exec` of a literal is not read again.
-_MAX_PROGRAM_DEPTH = 2
+_MAX_PROGRAM_DEPTH = MAX_NESTING
 _FREED_TEXT = "__act_inline_python__"
 
 
@@ -1202,22 +1256,24 @@ def _python_program_reason(
                 )
                 if reason:
                     return reason, True, False
+        elif call.values:
+            return f"runs Python text nested deeper than {MAX_NESTING} levels (from {where})", True, False
     return None, True, program.harmless
 
 
 def _python_programs_reason(
     command: str, base_cwd: Optional[str], gitdirs: list[Path], claude_dirs: list[Path], worker: bool,
-    deadline: float, depth: int,
+    deadline: float, depth: int, parse: Parse,
 ) -> tuple[Optional[str], str]:
     """(why an inline Python program of the Bash `command` is refused, or None; the command for the
     shell reading: with every harmless program taken out at its own span - _without_freed_programs - or
     `command` as it is when nothing is freed). Programs are found by the shared scanner
-    (shell_targets._bash_inline_code), once per directory the call may run in, and judged in each; the
+    (Parse.inline_code, of the parse of `command`), once per directory the call may run in, and judged in each; the
     scanner hands over a span only for a program on the top level of the command - the quoted word
     behind `-c`, the body of a quoted heredoc - so a program without one is judged but never freed."""
     if depth >= _MAX_PROGRAM_DEPTH or not _inline_code.mentions_interpreter(command):
         return None, command
-    programs, text = _bash_inline_code(command, base_cwd)
+    programs, text = parse.for_text(command).inline_code(base_cwd)
     freed: list[tuple[tuple[int, int], str]] = []
     for language, code, base, source, span in programs:
         if language != _inline_code.PYTHON:
@@ -1234,33 +1290,37 @@ def _python_programs_reason(
 
 def _shell_command_reason(
     command: str, base_cwd: Optional[str], powershell: bool, gitdirs: list[Path], claude_dirs: list[Path],
-    worker: bool, deadline: float, depth: int,
+    worker: bool, deadline: float, depth: int, parse: Optional[Parse] = None,
 ) -> tuple[Optional[str], str]:
     """(why the shell `command` is refused for what it writes, or None; the command as the shell
     reading saw it - without the inline Python programs read in full): the inline Python programs
     (Bash only, _python_programs_reason), the write targets the shared scanners find, the files a copy
     lands on. `base_cwd` None: the directory the command runs in is unknown. Raises _CopySourceTooLarge
     for a copy source that cannot be read in time, and lets any other error through to the caller's
-    raw-text fallback."""
+    raw-text fallback. `parse` is the dispatcher's reading of `command`; the text left after the harmless
+    inline Python is freed is another text and is read from a parse of its own."""
+    if parse is None:
+        parse = Parse("PowerShell" if powershell else "Bash", command)
     shell_command = command
     if not powershell:
         reason, shell_command = _python_programs_reason(
-            command, base_cwd, gitdirs, claude_dirs, worker, deadline, depth,
+            command, base_cwd, gitdirs, claude_dirs, worker, deadline, depth, parse,
         )
         if reason:
             return reason, shell_command
+    shell_parse = parse.for_text(shell_command)
     if powershell:
-        found = _powershell_write_targets(command, base_cwd or os.getcwd(), _GIT_WRITES_TEMPLATE_GUARD, broad=True)
+        found = parse.write_targets(base_cwd or os.getcwd(), _GIT_WRITES_TEMPLATE_GUARD, broad=True)
         if found is None:
             raise ValueError("PowerShell command not evaluable")
         targets = [(raw, base_cwd) for raw in found]
     else:
-        targets = list(_bash_write_targets(shell_command, base_cwd, _GIT_WRITES_TEMPLATE_GUARD))
-    copy_base, copy_known = _resolve_cwd_after_leading_cd(shell_command, base_cwd)
+        targets = list(shell_parse.bash_write_targets(base_cwd, _GIT_WRITES_TEMPLATE_GUARD))
+    copy_base, copy_known = _resolve_cwd_after_leading_cd(shell_command, base_cwd, shell_parse)
     copy_targets = [
         (raw, copy_base if copy_known else None)
         for raw in _copy_effective_targets(
-            shell_command, powershell, copy_base if copy_known else None, deadline, gitdirs + claude_dirs,
+            shell_command, powershell, copy_base if copy_known else None, deadline, gitdirs + claude_dirs, parse,
         )
     ]
     for raw, base in targets:
@@ -1283,13 +1343,15 @@ def _command_line_reason(
 ) -> Optional[str]:
     """Why a command line that inline Python hands to a shell or a program is refused, or None: the
     whole reading of a Bash command (_shell_command_reason, then _invocation_reason), in the directory
-    `base_cwd` (None = unknown)."""
+    `base_cwd` (None = unknown). The text is the program's own, so it is read from a parse of its own,
+    never from the dispatcher's object."""
+    parse = Parse("Bash", command)
     reason, shell_command = _shell_command_reason(
-        command, base_cwd, False, gitdirs, claude_dirs, worker, deadline, depth,
+        command, base_cwd, False, gitdirs, claude_dirs, worker, deadline, depth, parse,
     )
     if reason:
         return reason
-    return _invocation_reason(shell_command, base_cwd)
+    return _invocation_reason(shell_command, base_cwd, parse=parse.for_text(shell_command))
 
 
 def _violation(payload: dict) -> Optional[str]:
@@ -1323,10 +1385,12 @@ def _violation(payload: dict) -> Optional[str]:
     if not isinstance(command, str) or not command.strip():
         return None
 
+    parse = parse_for(payload, command)
     shell_command = command
     try:
         reason, shell_command = _shell_command_reason(
             command, base_cwd, tool_name == "PowerShell", gitdirs, claude_dirs, worker, _copy_deadline(payload), 0,
+            parse,
         )
         if reason:
             return reason
@@ -1353,7 +1417,7 @@ def _violation(payload: dict) -> Optional[str]:
             return "mentions the VS Code tasks file (it can start code when the folder is opened) in a command that cannot be analysed"
 
     try:
-        return _invocation_reason(shell_command, base_cwd)
+        return _invocation_reason(shell_command, base_cwd, tool_name == "PowerShell", parse.for_text(shell_command))
     except Exception:  # noqa: BLE001 — see above
         if re.search(r"\bgit\b", command) and re.search(r"\bconfig\b|\s-c\s", command) and re.search(
             r"hookspath|fsmonitor|sshcommand|alias\.|include|core\.(?:editor|pager)", command, re.IGNORECASE,

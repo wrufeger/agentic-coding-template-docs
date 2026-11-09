@@ -315,7 +315,9 @@ def running_marker_path(root: Path, state_hash: str) -> Path:
     return cache_dir(root) / f"{state_hash}.running.json"
 
 
-def _write_json(path: Path, data: dict) -> bool:
+def _write_json(root: Path, path: Path, data: dict) -> bool:
+    if not actlib.local_write_ok(root, path):
+        return False  # .act-local or the cache folder is a link or leaves the project: nothing goes through it
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(data, ensure_ascii=False) + "\n", encoding="utf-8")
@@ -324,28 +326,20 @@ def _write_json(path: Path, data: dict) -> bool:
     return True
 
 
-def _read_json(path: Path) -> Optional[dict]:
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return None
-    return data if isinstance(data, dict) else None
-
-
 def write_running_marker(root: Path, state_hash: str, stale_after: float) -> bool:
     """Marks a scan of <state_hash> as in flight; `stale_after` (epoch seconds) is when a reader
     may treat it as dead -- the writer derives it from `scan_time_limit`, the reader only compares.
     False when the marker could not be written (the caller then does not spawn: a worker nobody
     can see would only be waited for by no one)."""
     return _write_json(
-        running_marker_path(root, state_hash), {"started": time.time(), "stale_after": stale_after},
+        root, running_marker_path(root, state_hash), {"started": time.time(), "stale_after": stale_after},
     )
 
 
 def read_running_marker(root: Path, state_hash: str) -> Optional[dict]:
     """{"started": float, "stale_after": float} for a scan of <state_hash> still marked as running,
     None when there is no (readable, well-formed) marker."""
-    data = _read_json(running_marker_path(root, state_hash))
+    data = actlib._read_json(running_marker_path(root, state_hash))
     if data is None:
         return None
     started = data.get("started")
@@ -356,6 +350,8 @@ def read_running_marker(root: Path, state_hash: str) -> Optional[dict]:
 
 
 def clear_running_marker(root: Path, state_hash: str) -> None:
+    if not actlib.local_write_ok(root, running_marker_path(root, state_hash)):
+        return  # nothing is removed through a link
     try:
         running_marker_path(root, state_hash).unlink()
     except OSError:
@@ -370,6 +366,8 @@ def prune_cache(root: Path) -> int:
     removed and never raises on I/O."""
     start_of_today = datetime.combine(date.today(), datetime.min.time()).timestamp()
     removed = 0
+    if not actlib.local_write_ok(root, cache_dir(root)):
+        return 0  # .act-local or the cache folder is a link or leaves the project: nothing is removed through it
     try:
         entries = list(cache_dir(root).iterdir())
     except OSError:
@@ -392,7 +390,7 @@ def write_result_cache(root: Path, state_hash: str, result: "ScanResult", files:
     can apply a short retry interval to a failed run), `cacheable` (`result.is_clean()`: no tool
     error, no missing tool -- a reader treats anything else as a miss once the retry interval is
     over), `files` (what was scanned, for a human reading the file)."""
-    return _write_json(result_cache_path(root, state_hash), {
+    return _write_json(root, result_cache_path(root, state_hash), {
         "day": date.today().isoformat(),
         "written": time.time(),
         "cacheable": result.is_clean(),
@@ -405,7 +403,7 @@ def read_result_cache(root: Path, state_hash: str) -> Optional[dict]:
     """The raw record `write_result_cache` stored for <state_hash>, shape-checked (`day` str,
     `written` number, `cacheable` bool, `result` dict), or None -- the caller decides whether it is
     still current (`result_from_dict` turns its `result` back into a `ScanResult`)."""
-    data = _read_json(result_cache_path(root, state_hash))
+    data = actlib._read_json(result_cache_path(root, state_hash))
     if data is None:
         return None
     if not isinstance(data.get("day"), str) or not isinstance(data.get("written"), (int, float)):
@@ -884,8 +882,8 @@ def _run_pnpm_audit(tool_path: str, root: Path, lock_path: Path) -> "tuple[list[
     # Output shape: pnpm audit --json prints npm's classic audit report,
     # {"advisories": {"<id>": {"module_name", "severity", "vulnerable_versions", "patched_versions",
     # "github_advisory_id", "url", "title"}}, "metadata": ...}; the id kept is the GHSA one, the same
-    # key osv-scanner reports. Not verified against a live pnpm on this machine (assumption); the
-    # npm-style "vulnerabilities" map is read too, in case a newer pnpm prints that form.
+    # key osv-scanner reports. Checked against pnpm 12 (assumption for older majors); the npm-style
+    # "vulnerabilities" map is read too, in case a newer pnpm prints that form.
     stdout, returncode, stderr, start_error = _run([tool_path, "audit", "--json"], lock_path.parent, timeout=_TOOL_TIMEOUT)
     if start_error:
         return [], start_error
@@ -944,6 +942,13 @@ def _run_pnpm_audit(tool_path: str, root: Path, lock_path: Path) -> "tuple[list[
     if not isinstance(data, dict) or not (isinstance(advisories, dict) or isinstance(vulnerabilities, dict)):
         keys = sorted(str(k) for k in data) if isinstance(data, dict) else type(data).__name__
         return [], _tool_error(returncode, f"unexpected pnpm audit JSON (keys: {keys})", _FINDINGS_EXIT_1)
+    if (not findings and returncode == 0 and isinstance(advisories, dict) and not advisories
+            and ("vulnerabilities" not in data or vulnerabilities == {})):
+        # Exit 0 with an empty advisory map is clean whatever the counters say: pnpm 12 still counts a
+        # finding that the project's audit settings ignore (`auditConfig.ignoreGhsas`) in
+        # metadata.vulnerabilities, but leaves it out of the advisories and exits 0. A report that
+        # lists nothing and exits 1, or a report with an npm-style vulnerabilities map, stays as below.
+        return [], None
     if not findings:
         metadata = data.get("metadata")
         counts = metadata.get("vulnerabilities") if isinstance(metadata, dict) else None
@@ -955,8 +960,7 @@ def _run_pnpm_audit(tool_path: str, root: Path, lock_path: Path) -> "tuple[list[
                     _FINDINGS_EXIT_1,
                 )
             if any(isinstance(v, int) and not isinstance(v, bool) for v in counts.values()):
-                # The report itself counts zero: clean, whatever the exit code (pnpm also exits with 1 when
-                # every advisory it found is ignored by the project's audit settings).
+                # The report itself counts zero: clean, whatever the exit code.
                 return [], None
     if not findings:
         return [], _silent_findings_error(returncode, _FINDINGS_EXIT_1, "pnpm audit JSON holds no advisory")

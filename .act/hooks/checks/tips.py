@@ -93,10 +93,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import re
 import subprocess
-import tempfile
 import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -105,10 +103,11 @@ from typing import Optional
 import actlib
 
 from .common import _is_harness_message
+from .state_files import write_json_atomic
 
 __all__ = [
     "session_line", "observe", "is_feedback_due",
-    "_eval_when", "_is_older_than", "_load_tips", "_read_reminders",
+    "_eval_when", "_load_tips", "_read_reminders",
     "_read_state", "_write_state", "_due_tip", "_due_reminder", "_prompt_reminder_line",
 ]
 
@@ -153,20 +152,9 @@ def _read_state(root: Path) -> dict:
 
 def _write_state(root: Path, state: dict) -> None:
     path = _state_path(root)
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        fd, tmp_name = tempfile.mkstemp(prefix=".tips-", suffix=".tmp", dir=str(path.parent))
-    except OSError:
-        return
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            handle.write(json.dumps(state, indent=2, ensure_ascii=False, sort_keys=True) + "\n")
-        actlib.replace_file(tmp_name, path)
-    except OSError:
-        try:
-            os.unlink(tmp_name)
-        except OSError:
-            pass
+    if not actlib.local_write_ok(root, path):
+        return  # .act-local is a link or leaves the project: nothing is written through it
+    write_json_atomic(path, state, prefix=".tips-", sort_keys=True)
 
 
 def _prune_sessions(state: dict, today: str) -> None:
@@ -287,10 +275,6 @@ def _path_older_verdict(root: Path, path_str: str, months: int) -> Optional[bool
     last_touched = commit_time if commit_time is not None else mtime
     age_days = (time.time() - last_touched) / 86400.0
     return age_days > months * 30  # stdlib-only approximation, documented in this module's header
-
-
-def _is_older_than(root: Path, path_str: str, months: int) -> bool:
-    return bool(_path_older_verdict(root, path_str, months))
 
 
 def _eval_when(root: Path, config: dict, condition: str) -> bool:

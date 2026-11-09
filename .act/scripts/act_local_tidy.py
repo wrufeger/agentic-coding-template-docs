@@ -70,8 +70,9 @@ KNOWN_ENTRIES: tuple[str, ...] = (
     "feedback",                 # feedback.py: state, outbox entries, sent protocol
     "learn",                    # act-teach skill: learning record per topic
     "usage",                    # hooks/checks/usage.py: event files
+    "incidents.*",              # incidents.py: the incident log (events and the delivered offset)
     "update-channel-hint",      # update.py: marker for the release-channel hint
-    "done-entries-hint",        # hooks/checks/session.py: marker for the one-time note about a leftover archive
+    "done-entries-hint",        # retired marker of an old session-start note; stays known so old files are not "unknown"
     "*.template.md",            # init.py: rescue copies of root entry files (<stem>.template.md)
     "outside-allow",            # adopt scripts: marker read by the outside-root check
     "status-poll",              # hooks/checks/status_poll.py
@@ -93,10 +94,12 @@ KNOWN_ENTRIES: tuple[str, ...] = (
     "advisories-seen.json", "advisories-ack.json",             # advisory.py: todos/warnings shown, acknowledgements
     "update-tmp",               # update.py
     "pyc",                      # hooks/dispatch.py: compiled-module cache (sys.pycache_prefix)
+    "check-failures",           # hooks/dispatch.py: failure texts of skipped checks, queued for PostToolUse
     "template-dev",             # marker: this checkout builds the template (init.py refuses to convert it)
     "identity.json", "cache.json", "last-applied.json",        # actlib.py
     "tips.json", "usage.json", "context-hint.json",            # hooks/checks/tips.py, usage.py, context_hint.py
     "ideas-seen.json", "tier-proposals.json",                  # ideas.py, doctor.py
+    "refusal-proposals.json",   # doctor.py: the day a question about a refusing check was last filed
     "outside-root-note.json",   # hooks/checks/session.py
     "session-start.txt",        # hooks/checks/session.py: the whole session-start output
     "log-state.json", "log-state.lock", "entries.lock",        # log.py, entries.py
@@ -540,8 +543,8 @@ def read_state(root: Path) -> dict:
 
 
 def write_state(root: Path, **fields: str) -> None:
-    if not _base_usable(root):
-        return
+    if not _base_usable(root) or not actlib.local_write_ok(root, state_path(root)):
+        return  # `.act-local` is no real folder, or the state file is a link: nothing is written through it
     data = read_state(root)
     data.update(fields)
     try:
@@ -817,7 +820,7 @@ def _run_daily_locked(root: Path, now: float, today: date, mode: str) -> dict:
     if is_first_run(root):
         fields["first_run"] = today.isoformat()
     write_state(root, **fields)
-    if result and (result["count"] or failures):
+    if result and (result["count"] or failures) and actlib.local_write_ok(root, result_path(root)):
         try:
             result_path(root).write_text(json.dumps(result, ensure_ascii=False) + "\n", encoding="utf-8")
         except OSError:

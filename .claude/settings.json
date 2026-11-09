@@ -6,7 +6,7 @@
           {
             "type": "command",
             "shell": "bash",
-            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" Notification; true",
+            "command": "P=\"\"; for c in python3 python 'py -3'; do $c -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; $P \"$D\" Notification; true",
             "timeout": 10,
             "async": true
           }
@@ -20,7 +20,7 @@
           {
             "type": "command",
             "shell": "bash",
-            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" PostToolUse; true",
+            "command": "P=\"\"; for c in python3 python 'py -3'; do $c -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; $P \"$D\" PostToolUse; true",
             "timeout": 10
           }
         ]
@@ -32,7 +32,7 @@
           {
             "type": "command",
             "shell": "bash",
-            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" PostToolUseFailure; true",
+            "command": "P=\"\"; for c in python3 python 'py -3'; do $c -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; $P \"$D\" PostToolUseFailure; true",
             "timeout": 10
           }
         ]
@@ -45,7 +45,7 @@
           {
             "type": "command",
             "shell": "bash",
-            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" PreToolUse",
+            "command": "P=\"\"; for c in python3 python 'py -3'; do $c -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; $P \"$D\" PreToolUse",
             "timeout": 10
           }
         ]
@@ -56,7 +56,7 @@
           {
             "type": "command",
             "shell": "bash",
-            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" PreToolUse",
+            "command": "P=\"\"; for c in python3 python 'py -3'; do $c -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; $P \"$D\" PreToolUse",
             "timeout": 10
           }
         ]
@@ -67,7 +67,7 @@
           {
             "type": "command",
             "shell": "bash",
-            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" PreToolUse",
+            "command": "P=\"\"; for c in python3 python 'py -3'; do $c -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; $P \"$D\" PreToolUse",
             "timeout": 10
           }
         ]
@@ -79,7 +79,7 @@
           {
             "type": "command",
             "shell": "bash",
-            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" SessionEnd; true",
+            "command": "P=\"\"; for c in python3 python 'py -3'; do $c -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; $P \"$D\" SessionEnd; true",
             "timeout": 10,
             "async": true
           }
@@ -92,7 +92,7 @@
           {
             "type": "command",
             "shell": "bash",
-            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then echo \"[act] Python 3.9+ not found - the template's hooks are inactive (see README)\"; exit 0; fi; if [ ! -f \"$D\" ]; then echo \"[act] .act/hooks/dispatch.py not found - the template's hooks are inactive\"; exit 0; fi; \"$P\" \"$D\" SessionStart; true",
+            "command": "P=\"\"; for c in python3 python 'py -3'; do $c -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then echo \"[act] Python 3.9+ not found - the template's hooks are inactive (see README)\"; exit 0; fi; if [ ! -f \"$D\" ]; then echo \"[act] .act/hooks/dispatch.py not found - the template's hooks are inactive\"; exit 0; fi; $P \"$D\" SessionStart; true",
             "timeout": 15
           }
         ]
@@ -104,7 +104,7 @@
           {
             "type": "command",
             "shell": "bash",
-            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" SubagentStart; true",
+            "command": "P=\"\"; for c in python3 python 'py -3'; do $c -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; $P \"$D\" SubagentStart; true",
             "timeout": 10
           }
         ]
@@ -114,7 +114,7 @@
           {
             "type": "command",
             "shell": "bash",
-            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" SubagentStart --worker-rules 1; true",
+            "command": "P=\"\"; for c in python3 python 'py -3'; do $c -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; $P \"$D\" SubagentStart --worker-rules 1; true",
             "timeout": 10
           }
         ]
@@ -124,7 +124,7 @@
           {
             "type": "command",
             "shell": "bash",
-            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" SubagentStart --worker-rules 2; true",
+            "command": "P=\"\"; for c in python3 python 'py -3'; do $c -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; $P \"$D\" SubagentStart --worker-rules 2; true",
             "timeout": 10
           }
         ]
@@ -134,7 +134,7 @@
           {
             "type": "command",
             "shell": "bash",
-            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" SubagentStart --worker-rules 3; true",
+            "command": "P=\"\"; for c in python3 python 'py -3'; do $c -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; $P \"$D\" SubagentStart --worker-rules 3; true",
             "timeout": 10
           }
         ]
@@ -144,7 +144,7 @@
           {
             "type": "command",
             "shell": "bash",
-            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" SubagentStart --worker-rules 4; true",
+            "command": "P=\"\"; for c in python3 python 'py -3'; do $c -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; $P \"$D\" SubagentStart --worker-rules 4; true",
             "timeout": 10
           }
         ]
@@ -154,7 +154,7 @@
           {
             "type": "command",
             "shell": "bash",
-            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" SubagentStart --worker-rules 5; true",
+            "command": "P=\"\"; for c in python3 python 'py -3'; do $c -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; $P \"$D\" SubagentStart --worker-rules 5; true",
             "timeout": 10
           }
         ]
@@ -164,7 +164,7 @@
           {
             "type": "command",
             "shell": "bash",
-            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" SubagentStart --worker-rules 6; true",
+            "command": "P=\"\"; for c in python3 python 'py -3'; do $c -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; $P \"$D\" SubagentStart --worker-rules 6; true",
             "timeout": 10
           }
         ]
@@ -174,7 +174,7 @@
           {
             "type": "command",
             "shell": "bash",
-            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" SubagentStart --worker-rules 7; true",
+            "command": "P=\"\"; for c in python3 python 'py -3'; do $c -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; $P \"$D\" SubagentStart --worker-rules 7; true",
             "timeout": 10
           }
         ]
@@ -184,7 +184,7 @@
           {
             "type": "command",
             "shell": "bash",
-            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" SubagentStart --worker-rules 8; true",
+            "command": "P=\"\"; for c in python3 python 'py -3'; do $c -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; $P \"$D\" SubagentStart --worker-rules 8; true",
             "timeout": 10
           }
         ]
@@ -194,7 +194,7 @@
           {
             "type": "command",
             "shell": "bash",
-            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" SubagentStart --worker-rules 9; true",
+            "command": "P=\"\"; for c in python3 python 'py -3'; do $c -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; $P \"$D\" SubagentStart --worker-rules 9; true",
             "timeout": 10
           }
         ]
@@ -204,7 +204,7 @@
           {
             "type": "command",
             "shell": "bash",
-            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" SubagentStart --worker-rules 10; true",
+            "command": "P=\"\"; for c in python3 python 'py -3'; do $c -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; $P \"$D\" SubagentStart --worker-rules 10; true",
             "timeout": 10
           }
         ]
@@ -214,7 +214,7 @@
           {
             "type": "command",
             "shell": "bash",
-            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" SubagentStart --worker-rules 11; true",
+            "command": "P=\"\"; for c in python3 python 'py -3'; do $c -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; $P \"$D\" SubagentStart --worker-rules 11; true",
             "timeout": 10
           }
         ]
@@ -224,7 +224,7 @@
           {
             "type": "command",
             "shell": "bash",
-            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" SubagentStart --worker-rules 12; true",
+            "command": "P=\"\"; for c in python3 python 'py -3'; do $c -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; $P \"$D\" SubagentStart --worker-rules 12; true",
             "timeout": 10
           }
         ]
@@ -236,7 +236,7 @@
           {
             "type": "command",
             "shell": "bash",
-            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" SubagentStop; true",
+            "command": "P=\"\"; for c in python3 python 'py -3'; do $c -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; $P \"$D\" SubagentStop; true",
             "timeout": 10
           }
         ]
@@ -248,13 +248,13 @@
           {
             "type": "command",
             "shell": "bash",
-            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" UserPromptSubmit --act-check; true",
+            "command": "P=\"\"; for c in python3 python 'py -3'; do $c -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; $P \"$D\" UserPromptSubmit --act-check; true",
             "timeout": 10
           },
           {
             "type": "command",
             "shell": "bash",
-            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" UserPromptSubmit; true",
+            "command": "P=\"\"; for c in python3 python 'py -3'; do $c -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; $P \"$D\" UserPromptSubmit; true",
             "timeout": 10,
             "async": true
           }
@@ -267,7 +267,7 @@
           {
             "type": "command",
             "shell": "bash",
-            "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\" Stop; true",
+            "command": "P=\"\"; for c in python3 python 'py -3'; do $c -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/dispatch.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; $P \"$D\" Stop; true",
             "timeout": 10
           }
         ]
@@ -276,7 +276,7 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "P=\"\"; for c in python3 python; do \"$c\" -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/statusline.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; \"$P\" \"$D\""
+    "command": "P=\"\"; for c in python3 python 'py -3'; do $c -c 'import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)' >/dev/null 2>&1 && { P=\"$c\"; break; }; done; D=\"${CLAUDE_PROJECT_DIR:-.}/.act/hooks/statusline.py\"; if [ -z \"$P\" ]; then exit 0; fi; if [ ! -f \"$D\" ]; then exit 0; fi; $P \"$D\""
   },
   "env": {
     "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR": "1",

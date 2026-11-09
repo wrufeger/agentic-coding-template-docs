@@ -64,7 +64,10 @@
 #    "scripts":    {"<script>":    {"count": n, "first_used": ..., "last_used": ...}},
 #    "checklists": {"<checklist>": {"count": n, "first_used": ..., "last_used": ...}},
 #    "checks":     {"<check>":     {"count": n, "first_used": ..., "last_used": ...,
-#                                    "kinds": {"<kind>": n, ...}}}}
+#                                    "kinds": {"<kind>": n, ...},
+#                                    "refusals": {"YYYY-MM-DD": {"<role>|main": n}}}}}
+#   (refusals: how often the check refused a call, per day and role; written by record_refusal(), days older
+#    than 30 are dropped. Such an entry carries no count: a refusal is not a use of the check.)
 #   An empty string key ("" under "tiers"/"models") means "no Tier: line found in the prompt" /
 #   "tool_input.model was absent" — kept distinct from an actual value, on purpose, so a tip or a
 #   report can tell "workers of this role never carry a tier" from "they always run 'light'".
@@ -86,6 +89,10 @@
 #   name as it appears in docs/ai/config.md's Checks table. Folded into the "checks" category's
 #   "kinds" sub-count (see schema above). Best-effort, like every write in this module: never
 #   raises, so a bookkeeping failure can never put a check's own 0/2 PreToolUse contract at risk.
+#
+# record_refusal(root, check, role) -- the dispatcher's silent count of a check's refusal (kind "refusal"):
+#   identifiers only (the check's module name, the worker's role name or `main`), never a command or a path. `doctor.py
+#   --inbox` reads refusal_counts() to ask when one check refused workers often. Best-effort like record().
 #
 # Concurrency: recording (record_event()/record()) never opens usage.json — see .act/hooks/checks/
 # usage.py's header for why (many dispatch.py processes can run at once; a shared JSON file
@@ -128,7 +135,7 @@ import sys
 import tempfile
 import time
 from dataclasses import asdict, dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -176,10 +183,26 @@ def _lock_path(root: Path) -> Path:
 # Recording — one file per occurrence, see this module's "Concurrency" section above
 # ---------------------------------------------------------------------------
 
+def _link_problem(root: Path) -> str:
+    """"" or, when .act-local or a folder below it that this module writes in is a link or junction (or the
+    real path leaves the project), one short line naming it: nothing is written, folded or removed through
+    it (actlib.local_write_ok)."""
+    for path in (_store_path(root), _lock_path(root), _events_dir(root) / "ev"):
+        if not actlib.local_write_ok(root, path):
+            return actlib.link_problem(root, path)
+    return ""
+
+
+def _linked(root: Path) -> bool:
+    return bool(_link_problem(root))
+
+
 def _write_event(root: Path, category: str, key: str, **fields: str) -> None:
     if category not in _CATEGORIES or not key:
         return
     events_dir = _events_dir(root)
+    if _linked(root):
+        return
     try:
         events_dir.mkdir(parents=True, exist_ok=True)
     except OSError:
@@ -211,6 +234,17 @@ def record_event(root: Path, category: str, key: str, **fields: str) -> None:
     _fold_event() (e.g. tier=/model= for "roles"). See this module's header for the write itself
     and why it never touches usage.json directly."""
     _write_event(root, category, key, **fields)
+
+
+def record_refusal(root: Path, check: str, role: str) -> None:
+    """Count one refusal of `check` for `role` (a worker's role name, `worker` when it has none, or `main`) on
+    today's date. Never raises."""
+    try:
+        role = role.rsplit(":", 1)[-1]  # `plugin:reviewer` is counted as `reviewer`
+        if _ROLE_WORD_RE.match(role):
+            _write_event(root, "checks", check, kind="refusal", role=role)
+    except Exception:  # noqa: BLE001 -- bookkeeping must never reach a check's verdict
+        pass
 
 
 def record(kind: str, key: str) -> None:
@@ -389,7 +423,7 @@ def measure_agent(agent_transcript: Path, agent_id: str, fallback_role: str = ""
 def record_run(root: Path, run: RunMeasure) -> None:
     """Write one measured run as an event file (folded into usage.json by consolidation). Best
     effort, never raises - same contract as the other recorders."""
-    if not run.role:
+    if not run.role or _linked(root):
         return
     events_dir = _events_dir(root)
     try:
@@ -423,7 +457,10 @@ def _read_store(root: Path) -> dict:
 
 
 # Fields of a store entry that hold a mapping, and the type their values must have.
-_ENTRY_MAPS = {"tiers": int, "models": int, "kinds": int, "runs": list, "outcomes": dict, "recent": list}
+_ENTRY_MAPS = {"tiers": int, "models": int, "kinds": int, "runs": list, "outcomes": dict, "recent": list,
+               "refusals": dict}
+_REFUSAL_DAYS_KEPT = 30  # days of refusal counts kept per check
+_ROLE_WORD_RE = re.compile(r"\A[A-Za-z][A-Za-z0-9_-]{0,40}\Z")  # a role name as the count's key: a plain word, never text
 # How many of the latest outcomes per role/tier are kept in order (roles.<name>.recent); the tier
 # proposal in doctor.py looks at exactly this window.
 _RECENT_KEEP = 30
@@ -471,6 +508,14 @@ def _sanitize_store(store: dict, path: Path) -> None:
                                 problems.append(f"{cat}.{name}.{field}.{tier_key or '?'}.{kind} is "
                                                 f"{number!r}, not a number")
                                 del counts[kind]
+                elif field == "refusals":
+                    # Per day a mapping role -> count; a day or role of another shape is dropped.
+                    for day in list(value):
+                        roles = value[day]
+                        for role in list(roles):
+                            if isinstance(roles[role], bool) or not isinstance(roles[role], int):
+                                problems.append(f"{cat}.{name}.{field}.{day}.{role} is {roles[role]!r}, not a number")
+                                del roles[role]
                 elif field == "recent":
                     # Per tier the latest outcomes in order; any other item is dropped.
                     for tier_key, items in value.items():
@@ -547,9 +592,60 @@ def _add_run(store: dict, role: str, tier: str, record: object) -> str:
     return status if run in runs else "known"
 
 
+def _fold_refusal(store: dict, check: str, event: dict) -> None:
+    """A refusal: counted under checks.<check>.refusals.<day>.<role>, nothing else (no use of the check);
+    days past _REFUSAL_DAYS_KEPT are dropped by _prune_refusals at every consolidation."""
+    role, day = event.get("role"), event.get("date")
+    if not isinstance(role, str) or not _ROLE_WORD_RE.match(role) or not isinstance(day, str) or not day:
+        return
+    bucket = store["checks"].setdefault(check, {"count": 0})
+    days = bucket.setdefault("refusals", {})
+    counts = days.setdefault(day, {})
+    counts[role] = counts.get(role, 0) + 1
+
+
+def _prune_refusals(store: dict) -> bool:
+    """Drop the refusal counts of every check older than _REFUSAL_DAYS_KEPT days (an entry left without any
+    other data goes too). True when something was dropped."""
+    cutoff = (date.today() - timedelta(days=_REFUSAL_DAYS_KEPT)).isoformat()
+    dropped = False
+    for check in list(store["checks"]):
+        entry = store["checks"][check]
+        days = entry.get("refusals") if isinstance(entry, dict) else None
+        if not isinstance(days, dict):
+            continue
+        for old in [name for name in days if name < cutoff]:
+            del days[old]
+            dropped = True
+        if not days:
+            del entry["refusals"]
+            if entry in ({"count": 0}, {}):
+                del store["checks"][check]
+    return dropped
+
+
+def refusal_counts(root: Path, days: int = 7) -> dict[str, dict[str, int]]:
+    """check -> {role: refusals} over the last `days` days (today included), from the store with the pending
+    events folded in. Only checks with at least one refusal in the window appear."""
+    store = consolidate(root)
+    first = (date.today() - timedelta(days=max(0, days - 1))).isoformat()
+    found: dict[str, dict[str, int]] = {}
+    for check, entry in (store.get("checks") or {}).items():
+        for day, roles in ((entry.get("refusals") if isinstance(entry, dict) else None) or {}).items():
+            if day >= first and isinstance(roles, dict):
+                for role, number in roles.items():
+                    if isinstance(number, int) and not isinstance(number, bool):
+                        found.setdefault(check, {})[role] = found.setdefault(check, {}).get(role, 0) + number
+    return found
+
+
 def _fold_event(store: dict, event: dict) -> None:
     cat = event.get("cat")
     key = event.get("key")
+    if cat == "checks" and event.get("kind") == "refusal":
+        if isinstance(key, str) and key:
+            _fold_refusal(store, key, event)
+        return
     if cat == _RUN_EVENT_CAT:
         if isinstance(key, str) and key:
             tier = event.get("tier")
@@ -640,6 +736,8 @@ def _fold_events_locked(root: Path, deadline: Optional[float] = None,
             _fold_event(store, event)
         folded.append(path)
     changed = bool(folded)
+    if _prune_refusals(store):
+        changed = True
     if mutate is not None:
         mutate(store)
         changed = True
@@ -662,6 +760,8 @@ def consolidate(root: Path, *, lock_timeout: float = 5.0,
     was last written, without folding or blocking further — see this module's header
     ("Concurrency") for why a plain read is an acceptable fallback here, and consolidate_and_mutate
     for the path that is not allowed to fail silently."""
+    if _linked(root):
+        return _read_store(root)  # nothing is folded, written or removed through a link
     lock = _acquire_lock(root, lock_timeout)
     if lock is None:
         return _read_store(root)
@@ -678,6 +778,8 @@ def consolidate_and_mutate(root: Path, mutate: Callable[[dict], None], *,
     point 5: cmd_outcome used to call consolidate() and then _write_store() as two separate,
     unlocked steps). Returns None if the lock could not be acquired within `lock_timeout` — the
     caller must treat that as "not recorded" (see cmd_outcome), never as silent success."""
+    if _linked(root):
+        return None  # not recorded: the caller reports it, as for a lock it could not take
     lock = _acquire_lock(root, lock_timeout)
     if lock is None:
         return None
@@ -751,6 +853,9 @@ def _format_entry(cat: str, name: str, entry: dict) -> str:
         kinds = entry.get("kinds") or {}
         if kinds:
             detail += " " + ",".join(f"{k}:{v}" for k, v in sorted(kinds.items()))
+        refused = sum(number for roles in (entry.get("refusals") or {}).values() for number in roles.values())
+        if refused:
+            detail += f" refused={refused}"
     return f"  {name}: {count}x{span}{detail}"
 
 
@@ -783,9 +888,14 @@ def cmd_outcome(root: Path, role: str, tier: str, outcome: str) -> int:
 
     store = consolidate_and_mutate(root, _mutate)
     if store is None:
-        print("usage: could not acquire the consolidation lock in time — try again",
+        problem = _link_problem(root)
+        print(f"usage: {problem}, so nothing is written through it" if problem
+              else "usage: could not acquire the consolidation lock in time — try again",
               file=sys.stderr)
         return 1
+    if outcome == "escalated":
+        import incidents  # the incident log: delivered to the inbox at the next session start
+        incidents.record(root, "escalated", "usage.py", f"{role}/{tier or '-'}")
     print(f"usage: {role}/{tier or '(no tier)'} outcome recorded: {outcome}")
     return 0
 
@@ -797,6 +907,10 @@ def cmd_unused(root: Path, key: str) -> int:
 
 
 def cmd_reset(root: Path) -> int:
+    problem = _link_problem(root)
+    if problem:
+        print(f"usage: nothing reset: {problem}, so nothing is removed through it", file=sys.stderr)
+        return 1
     removed = 0
     store_path = _store_path(root)
     if store_path.is_file():
@@ -930,7 +1044,9 @@ def cmd_backfill(root: Path, transcripts_dir: Optional[Path] = None) -> int:
             counts[_add_run(store, run.role, run.tier, run.record())] += 1
 
     if consolidate_and_mutate(root, _mutate) is None:
-        print("usage: could not acquire the consolidation lock in time - try again", file=sys.stderr)
+        problem = _link_problem(root)
+        print(f"usage: {problem}, so nothing is written through it" if problem
+              else "usage: could not acquire the consolidation lock in time - try again", file=sys.stderr)
         return 1
     print(f"usage: backfill: {seen} worker transcript(s) found, {counts['added']} run(s) added, "
           f"{counts['updated']} updated, {counts['known']} already known or beyond the newest "

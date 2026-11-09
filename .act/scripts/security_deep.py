@@ -59,6 +59,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shlex
 import shutil
 import subprocess
@@ -93,14 +94,6 @@ class Finding(NamedTuple):
     line: int
     severity: str
     message: str
-
-
-def _security_check_level(config: dict[str, str]) -> str:
-    """Same normalization as checks/danger_scan.py._security_check_level (not imported from
-    there - that module lives under .act/hooks/checks/, a separate package this standalone script
-    has no reason to depend on): falls back to "local" for a missing/unrecognized value."""
-    value = config.get("security-check", "").strip().lower()
-    return value if value in ("off", "local", "deps", "full") else "local"
 
 
 def _run_git(args: list[str], cwd: Path) -> Optional[str]:
@@ -226,14 +219,23 @@ def _run_semgrep_once(
     human-readable reason `security_deep.py` should exit EXIT_RUN_FAILED for."""
     command = [*base_cmd, "--config", _SEMGREP_CONFIG, "--metrics=off", "--json", *targets]
     try:
-        result = subprocess.run(
-            command, cwd=str(cwd), capture_output=True, text=True, encoding="utf-8", errors="replace",
-            timeout=_SEMGREP_TIMEOUT,
+        # Popen, not subprocess.run(timeout=...): semgrep runs behind a launcher or wrapper whose child keeps
+        # the output pipes open, and run() would wait for it far past the limit.
+        child = subprocess.Popen(
+            command, cwd=str(cwd), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8",
+            errors="replace", start_new_session=(os.name != "nt"),
         )
-    except subprocess.TimeoutExpired:
-        return None, f"semgrep timed out after {_SEMGREP_TIMEOUT:.0f}s"
     except OSError as exc:
         return None, f"could not run semgrep ({exc})"
+    try:
+        out, err = child.communicate(timeout=_SEMGREP_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        actlib.end_process_tree(child)
+        return None, f"semgrep timed out after {_SEMGREP_TIMEOUT:.0f}s"
+    except BaseException:  # Ctrl+C: never leave semgrep behind
+        actlib.end_process_tree(child)
+        raise
+    result = subprocess.CompletedProcess(child.args, child.returncode, out, err)
     # Semgrep itself exits 1 when it reports findings - that alone is not a run failure. But a
     # fatal run (rules not downloadable, bad config, ...) can still print JSON with an empty
     # `results` array - that must never be read as "no findings", so both the exit code and the
@@ -304,7 +306,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         return EXIT_RUN_FAILED
 
     config = actlib.read_config(root)
-    level = _security_check_level(config)
+    level = actlib.security_check_level(config)
     if level != "full" and not args.force:
         print(
             f"[act] security_deep: security-check is '{level}', not 'full' - skipping "

@@ -34,7 +34,7 @@
 #          checks/commit_pathspec.py — see that module's own header for why the first version of
 #          this stage's segmenting (a bare operator-character regex split) was wrong and got
 #          replaced (review, 2026-09-23); this check is also the one that needs
-#          _command_word_lists' separator information directly, for the pipeline pattern above.
+#          the separator information of `Parse.words` directly, for the pipeline pattern above.
 #
 # Known limits:
 #   - `-r`/`-rec`/... as a PowerShell `-Recurse` abbreviation is matched only when it stands as
@@ -62,7 +62,8 @@ import sys
 
 import actlib
 
-from .command_words import _command_word_lists, _strip_command_prefix
+from .command_parse import parse_for
+from .command_words import _strip_command_prefix
 from .common import _check_mode, _shell_command
 from .shell_targets import _command_name
 
@@ -174,7 +175,7 @@ def check_recursive_delete(payload: dict) -> int:
     _, command = shell
 
     stripped = [
-        (_strip_command_prefix(words), sep) for words, sep in _command_word_lists(command)
+        (_strip_command_prefix(words), sep) for words, sep in parse_for(payload, command).words()
     ]
     stripped = [(words, sep) for words, sep in stripped if words]
 

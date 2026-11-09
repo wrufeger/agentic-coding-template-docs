@@ -105,11 +105,8 @@
 #          it; a `$'` that is only text is told apart by the quote pass the shell checks share),
 #          a coarse raw-text fallback treats a bare "git ... commit" mention as a `-a`-style commit
 #          with no known add-paths — over-inclusive on purpose, the same stance shell_targets takes
-#          for its own tokenizing fallback. The chain is read twice — once with the previous
-#          tokenizer (shell_targets_legacy, no backtick spans) and once with the word lexer — and
-#          the commits of both readings are scanned (_git_commit_invocations): the lexer can add a
-#          commit to scan, never drop one the previous reading had, and a failure in its reading
-#          leaves the previous one standing.
+#          for its own tokenizing fallback. The chain is read once, with the word lexer (backtick
+#          spans included); a failure in that reading propagates (_git_commit_invocations).
 #
 #          A file's own diff section over 2MB is skipped (named in the "not fully checked" note),
 #          every other file in the same diff is still scanned — the 2MB line is per file, not per
@@ -191,9 +188,9 @@ from typing import Optional
 import actlib
 import feedback_privacy
 
-from .common import _check_mode, _shell_command
+from .command_parse import Parse, parse_for
+from .common import _HOOK_BUDGET, MAX_NESTING, _check_mode, _hook_deadline, _shell_command
 from .encoding_hint import _pop_pending_notes, _queue_pending_note
-from . import shell_targets_legacy as _legacy_tokens
 from .shell_targets import (
     _ASSIGNMENT_RE,
     _GIT_GLOBAL_VALUE_FLAGS,
@@ -203,15 +200,10 @@ from .shell_targets import (
     _SIMPLE_DIR_RE,
     _WRAPPER_ARG_RE,
     _WRAPPER_COMMANDS,
-    _LINE_CONTINUATION_RE,
     _cd_bases,
     _command_name,
     _is_dynamic_target,
-    _line_mode_tokens,
-    _may_use_ansi_c_quoting,
     _operands,
-    _quote_model_applies,
-    _shell_tokens,
     _to_native_path,
 )
 
@@ -227,8 +219,8 @@ __all__ = [
     "_strip_ab_prefix", "_diff_sections", "_section_file_name", "_diff_entries", "_text_lines", "_match_secret_line",
     "_joined_line_hit",
     "_scan_diff_text", "_scan_new_file", "_run_git", "_repo_toplevel", "_resolve_dir", "_resolve_alias",
-    "_git_call", "_nested_command", "_simple_commands", "_with_span_commands", "_tokenize_chain",
-    "_invocation_key", "_git_commit_invocations", "_git_commit_invocations_pass", "_scan_commit", "_pending_file", "_queue_note",
+    "_git_call", "_nested_command", "_simple_commands", "_with_span_commands",
+    "_git_commit_invocations", "_scan_commit", "_pending_file", "_queue_note",
     "_ADD_UNTRACKED_FLAGS", "_WHOLE_TREE_PATHSPEC", "_HOOK_BUDGET", "_hook_deadline", "_check_deadline",
     "_ADD_SUBCOMMANDS", "_ADD_VALUE_FLAGS", "_ADD_ALL_LETTERS", "_ADD_UNTRACKED_LETTERS",
     "_ADD_FORCE_LETTERS", "_SHORT_CLUSTER_RE", "_WHOLE_TREE_OPERANDS", "_SHORT_MAGIC_RE",
@@ -256,13 +248,12 @@ _MAX_COLLECTED = 500
 # Kept well under the hook's own ~10s timeout, shared across every subprocess call (diff, ls-files,
 # alias lookups) and file read this check makes for one PreToolUse invocation.
 _TIME_BUDGET = 4.5
-# Hook-wide cap, seconds after dispatch.py's own start (payload["_act_hook_started"]): the harness
-# kills a PreToolUse hook at 10 s, and this check, danger_scan and deps_scan run back to back in
-# that one process -- each caps its own deadline with _check_deadline() (2026-09-27 review 2, m5).
-_HOOK_BUDGET = 8.0
+# The hook-wide cap (_HOOK_BUDGET, common.py): the harness kills a PreToolUse hook at 10 s, and this
+# check, danger_scan and deps_scan run back to back in that one process -- each caps its own
+# deadline with _check_deadline() (2026-09-27 review 2, m5).
 _GIT_TIMEOUT = 3.0
 _ALIAS_TIMEOUT = 1.5
-_MAX_NESTED_DEPTH = 3
+_MAX_NESTED_DEPTH = MAX_NESTING
 _NOTES_DIRNAME = "secret-scan-notes"
 # A session_id becomes an entry's filename (see _pending_file) — validated first, same reasoning
 # as checks/encoding_hint.py's own _SAFE_SESSION_ID_RE for the same kind of harness-supplied id.
@@ -1049,17 +1040,6 @@ def _repo_toplevel(cwd: str, timeout: float) -> Optional[str]:
     return stripped or None
 
 
-def _hook_deadline(payload: dict) -> Optional[float]:
-    """The monotonic instant by which every check in this hook call must have answered --
-    dispatch.py's own start (payload["_act_hook_started"], set in its _run_checks) plus
-    _HOOK_BUDGET -- or None when the payload carries no start (a direct call from a probe, or a
-    check reused outside dispatch.py's PreToolUse run)."""
-    started = payload.get("_act_hook_started")
-    if isinstance(started, bool) or not isinstance(started, (int, float)):
-        return None
-    return float(started) + _HOOK_BUDGET
-
-
 def _check_deadline(payload: dict, budget: float) -> float:
     """now + `budget`, capped by `_hook_deadline(payload)` when there is one -- the deadline a
     check hands to its own git/file work. May already lie in the past when earlier checks used the
@@ -1291,7 +1271,7 @@ def _with_span_commands(commands: list[list[str]], depth: int = 0) -> list[list[
         if depth < _MAX_NESTED_DEPTH:
             for word in words:
                 for span in getattr(word, "subs", ()):
-                    span_tokens = _tokenize_chain(span)
+                    span_tokens = Parse("Bash", span).chain_tokens()
                     if span_tokens is not None:
                         expanded.extend(_with_span_commands(_simple_commands(span_tokens), depth + 1))
                     elif _GIT_COMMIT_FALLBACK_RE.search(span):
@@ -1300,35 +1280,7 @@ def _with_span_commands(commands: list[list[str]], depth: int = 0) -> list[list[
     return expanded
 
 
-def _tokenize_chain(command: str, legacy: bool = False) -> Optional[list]:
-    """shell_targets' own tokenizer (line mode first, whole-command fallback), None if neither
-    manages (an unclosed quote, or `$'...'` ANSI-C quoting, which that tokenizer does not know).
-    `legacy` selects the previous tokenizer, shell_targets_legacy's, instead of the word lexer."""
-    # The same quote pass the shell checks use (shell_targets._may_use_ansi_c_quoting): a `$'` that is only
-    # text (in quotes, escaped, in a comment, in a quoted heredoc body) no longer defeats the tokenizer;
-    # whatever the pass cannot tell counts as a live ANSI-C quote. With a heredoc and a backslash-newline
-    # in one command the pass does not apply and any `$'` counts, as in the shell checks.
-    if "$'" in command:
-        if not _quote_model_applies(command) or _may_use_ansi_c_quoting(_LINE_CONTINUATION_RE.sub(r"\1", command)):
-            return None
-    line_tokens = _legacy_tokens._line_mode_tokens if legacy else _line_mode_tokens
-    whole_tokens = _legacy_tokens._shell_tokens if legacy else _shell_tokens
-    try:
-        return line_tokens(command)
-    except ValueError:
-        pass
-    try:
-        return whole_tokens(command, newline_is_operator=True)
-    except ValueError:
-        return None
-
-
-def _invocation_key(invocation: dict) -> tuple:
-    """A hashable identity for one _git_commit_invocations entry, for the union's duplicate check."""
-    return (
-        invocation["cwd"], invocation["all"],
-        tuple((entry["path"], entry["forced"]) for entry in invocation["add_paths"]),
-    )
+_TOKENIZE_HERE: object = object()  # "no tokens handed in": None is a valid handed-in result
 
 
 def _git_commit_invocations(
@@ -1337,42 +1289,10 @@ def _git_commit_invocations(
     deadline: Optional[float] = None,
     alias_cache: Optional[dict] = None,
     depth: int = 0,
+    chain_tokens: object = _TOKENIZE_HERE,
 ) -> list[dict]:
-    """Every `git commit`/continued-operation call in `command`, in order — the UNION of two
-    readings of it: the previous tokenizer's (shell_targets_legacy, no backtick-span handling; its
-    entries first, in its own order) and the word lexer's (backtick spans included), each entry
-    once. The union is what keeps the lexer from ever weakening this check: whatever the previous
-    reading found to scan is still scanned. An exception in the lexer's reading — ValueError,
-    RecursionError, a bug — is swallowed and the legacy reading returned alone; one in the legacy
-    reading propagates, exactly as it did before the lexer existed. The entry shape and the walk
-    itself are _git_commit_invocations_pass's."""
-    if alias_cache is None:
-        alias_cache = {}
-    legacy = _git_commit_invocations_pass(command, base_cwd, deadline, alias_cache, depth, legacy=True)
-    try:
-        current = _git_commit_invocations_pass(command, base_cwd, deadline, alias_cache, depth, legacy=False)
-    except Exception:  # noqa: BLE001 — the legacy reading stands alone, see the docstring
-        return legacy
-    merged = list(legacy)
-    seen = {_invocation_key(entry) for entry in legacy}
-    for entry in current:
-        key = _invocation_key(entry)
-        if key not in seen:
-            seen.add(key)
-            merged.append(entry)
-    return merged
-
-
-def _git_commit_invocations_pass(
-    command: str,
-    base_cwd: str,
-    deadline: Optional[float],
-    alias_cache: dict,
-    depth: int,
-    legacy: bool,
-) -> list[dict]:
-    """One reading of `command` for _git_commit_invocations — `legacy` picks the tokenizer (the
-    previous one, without backtick spans, or the word lexer with them). Every `git commit`/continued-operation call in `command`, in order, as {"cwd", "all",
+    """Every `git commit`/continued-operation call in `command`, in order, read with the word lexer
+    (backtick spans included; an exception in it propagates), as {"cwd", "all",
     "add_paths"} — "cwd" is the commit's own directory (moved by a `cd <literal dir>` or
     `git -C dir` earlier in the same chain, a single best-effort current directory, not
     shell_targets' branch-aware set — see the module docstring), "all" is whether -a/--all (or a
@@ -1386,8 +1306,15 @@ def _git_commit_invocations_pass(
 
     Falls back to a coarse raw-text search when the chain cannot be tokenized at all: a bare
     "git ... commit" mention is treated as a `-a`-style commit with no known add-paths —
-    over-inclusive on purpose (shell_targets takes the same stance for its own fallback)."""
-    tokens = _tokenize_chain(command, legacy)
+    over-inclusive on purpose (shell_targets takes the same stance for its own fallback).
+
+    `chain_tokens` is the result of `Parse.chain_tokens` for the top-level call when the caller
+    already has it (the dispatcher's shared parse hands it to the three commit-reading checks; None
+    is a result too: the text does not tokenize). Left out, the chain is tokenized here, as are all
+    nested texts. Only this pure reading is shared -- alias lookups and their cache stay per call."""
+    if alias_cache is None:
+        alias_cache = {}
+    tokens = Parse("Bash", command).chain_tokens() if chain_tokens is _TOKENIZE_HERE else chain_tokens
     if tokens is None:
         if _GIT_COMMIT_FALLBACK_RE.search(command):
             return [{"cwd": base_cwd, "all": True, "add_paths": []}]
@@ -1398,12 +1325,12 @@ def _git_commit_invocations_pass(
     pending_all = False
     cwd = base_cwd
     commands = _simple_commands(tokens)
-    for words in commands if legacy else _with_span_commands(commands, depth):
+    for words in _with_span_commands(commands, depth):
         if depth < _MAX_NESTED_DEPTH:
             nested = _nested_command(words)
             if nested is not None:
                 invocations.extend(
-                    _git_commit_invocations_pass(nested, cwd, deadline, alias_cache, depth + 1, legacy)
+                    _git_commit_invocations(nested, cwd, deadline, alias_cache, depth + 1)
                 )
                 continue
 
@@ -1583,7 +1510,8 @@ def _pending_file(root: Path, session_id: str) -> Optional[Path]:
     _queue_pending_note) are reused as-is."""
     if not _SAFE_SESSION_ID_RE.match(session_id):
         return None
-    return root / ".act-local" / _NOTES_DIRNAME / f"{session_id}.pending.json"
+    path = root / ".act-local" / _NOTES_DIRNAME / f"{session_id}.pending.json"
+    return path if actlib.local_write_ok(root, path) else None  # behind a link out of the project: nothing queued
 
 
 def _queue_note(payload: dict, note: str) -> None:
@@ -1598,7 +1526,7 @@ def _queue_note(payload: dict, note: str) -> None:
         return
     pending_path = _pending_file(root, session_id)
     if pending_path is not None:
-        _queue_pending_note(pending_path, note)
+        _queue_pending_note(pending_path, note, payload)
 
 
 def check_secret_scan(payload: dict) -> int:
@@ -1621,7 +1549,10 @@ def check_secret_scan(payload: dict) -> int:
         # contains the literal substring "commit" itself, so the filter can only be this broad
 
     deadline = _check_deadline(payload, _TIME_BUDGET)
-    invocations = _git_commit_invocations(command, _base_cwd(payload), deadline, {})
+    invocations = _git_commit_invocations(
+        command, _base_cwd(payload), deadline, {},
+        chain_tokens=parse_for(payload, command).chain_tokens(),
+    )
     if not invocations:
         return 0
 
@@ -1675,7 +1606,7 @@ def note_secret_scan(payload: dict) -> Optional[str]:
     pending_path = _pending_file(root, session_id)
     if pending_path is None:
         return None
-    notes = _pop_pending_notes(pending_path)
+    notes = _pop_pending_notes(pending_path, payload)
     if not notes:
         return None
     return "\n".join(notes)

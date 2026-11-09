@@ -2,12 +2,11 @@
 # -*- coding: utf-8 -*-
 #
 # Purpose: Check — a worker running a git command that changes the tree or history (PreToolUse,
-#          R-role-worker): a worker only ever reads git (status, diff, log,
-#          show) — every other subcommand this module names in _GIT_WRITE_SUBCOMMANDS is a write
-#          for this check's purposes, plus `branch` when it is not a plain listing (see
-#          _BRANCH_MUTATING_FLAGS / _is_git_write_subcommand): `status`, `diff`, `log`, `show`,
-#          `rev-parse`, `ls-files`, `blame` and a plain/--list `branch` are simply never in the
-#          write set, so they "stay free" by construction rather than by a separate allow-list.
+#          R-role-worker): a worker only ever reads git (status, diff, log, show) — every subcommand
+#          in _GIT_WRITE_SUBCOMMANDS is a write for this check's purposes, plus `branch` unless it only
+#          lists (_branch_lists_only); `status`, `diff`, `log`, `show`, `rev-parse`, `ls-files` and
+#          `blame` are never in the write set. Split from checks/git_discard.py: this one asks WHO runs a
+#          mutating git command (workers only, outside the project exempt), that one WHAT is lost (anyone).
 #
 #          Command decomposition (finding every `git ...` invocation despite quoting, heredocs,
 #          `bash -c`/`pwsh -c`/`cmd /c`/`eval`/`$(...)`/backticks) is checks/command_words.py's
@@ -44,7 +43,9 @@
 #   - the outside-project exemption only recognizes a literal `-C <dir>` chain on the git
 #     invocation itself, or a literal `cd <dir>`-family command as the *whole command's own first
 #     simple command* with no later cd-like command anywhere after it
-#     (_leading_cd_outside_project) — both shapes named in the assignment's own examples. A `cd`
+#     (_leading_cd_outside_project) — both shapes named in the assignment's own examples. A `cd` inside
+#     `( ... )` counts only when every command of the line is inside that group (`(cd x && git commit)`);
+#     `(cd x) && git commit` runs the commit where the shell was (_group_closes_before_end). A `cd`
 #     buried deeper, inside a function, guarded by `if`, or naming a dynamic directory ($VAR,
 #     `` `...` ``, `$(...)`, a leading `~`) never grants the exemption: the git call is then still
 #     checked normally.
@@ -53,13 +54,14 @@
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 from typing import Optional
 
 import actlib
 
-from .command_words import _git_invocations_with_prefix, _stripped_word_lists
+from .command_parse import Parse, parse_for
 from .common import _check_mode, _is_worker, _shell_command
 from .shell_targets import (
     _GIT_GLOBAL_VALUE_FLAGS,
@@ -69,10 +71,10 @@ from .shell_targets import (
 )
 
 __all__ = [
-    "_GIT_WRITE_SUBCOMMANDS", "_BRANCH_MUTATING_FLAGS", "_CD_LIKE_NAMES", "_CD_UNKNOWN_NAMES",
+    "_GIT_WRITE_SUBCOMMANDS", "_branch_lists_only", "_CD_LIKE_NAMES", "_CD_UNKNOWN_NAMES",
     "_parse_git_invocation", "_is_git_write_subcommand", "_resolve_dir", "_is_outside_root",
     "_resolve_dash_c_chain", "_prefix_has_dir_override", "_first_operand",
-    "_leading_cd_outside_project", "_worker_git_write_message", "check_worker_git_write",
+    "_leading_cd_directory", "_leading_cd_outside_project", "_worker_git_write_message", "check_worker_git_write",
 ]
 
 # Every git subcommand that changes the tree or history for this check's purposes. "init" is
@@ -86,13 +88,37 @@ _GIT_WRITE_SUBCOMMANDS = frozenset({
     "clean", "push", "pull", "cherry-pick", "revert", "am", "apply", "rm", "mv", "init",
 })
 
-# `git branch` is a write only when one of these mutating flags is present, or a bare (non-flag)
-# operand names a branch to create — every other flag (--list, -a, -r, -v, ...) is a listing
-# modifier and stays read-only, same as no flags at all. See _is_git_write_subcommand.
-_BRANCH_MUTATING_FLAGS = frozenset({
-    "-d", "-D", "-m", "-M", "-c", "-C", "--delete", "--move", "--copy", "--set-upstream-to",
-    "--track", "--no-track", "--unset-upstream", "--edit-description",
+_BRANCH_SHORT_RE = re.compile(r"-[alrvi]+")
+_BRANCH_PLAIN = frozenset({
+    "--show-current", "--list", "--all", "--remotes", "--verbose", "--ignore-case", "--color", "--no-color",
+    "--column", "--no-column", "--abbrev", "--no-abbrev",
 })
+_BRANCH_VALUE = ("--contains", "--no-contains", "--merged", "--no-merged", "--points-at", "--sort", "--format")
+
+
+def _branch_lists_only(sub_args: list[str]) -> bool:
+    """True for a `branch` that only lists: listing switches, listing filters with their value, and bare
+    words only as patterns (after `--list`/`-l` or a filter, else they would create a branch). A value
+    never starts with `-`, so `--contains -D x` stays a delete."""
+    listing, bare, index = False, 0, 0
+    while index < len(sub_args):
+        arg = sub_args[index]
+        index += 1
+        name, equals, _ = arg.partition("=")
+        if _BRANCH_SHORT_RE.fullmatch(arg):
+            listing = listing or "l" in arg
+        elif name in _BRANCH_PLAIN:
+            listing = listing or name == "--list"
+        elif name in _BRANCH_VALUE:
+            listing = listing or name not in ("--sort", "--format")
+            if not equals and index < len(sub_args) and not sub_args[index].startswith("-"):
+                index += 1
+        elif not arg.startswith("-"):
+            bare += 1
+        else:
+            return False
+    return bare == 0 or listing
+
 
 # Directory-change command names for the outside-project exemption (see this module's header).
 # _CD_LIKE_NAMES take a literal directory operand the same way `cd` does; _CD_UNKNOWN_NAMES change
@@ -149,25 +175,13 @@ def _parse_git_invocation(
 
 
 def _is_git_write_subcommand(subcommand: str, args: list[str]) -> bool:
-    if subcommand in _GIT_WRITE_SUBCOMMANDS:
-        return True
-    if subcommand != "branch":
-        return False
-    if any(arg in _BRANCH_MUTATING_FLAGS for arg in args):
-        return True
-    # No mutating flag: a write only if some argument is a bare (non-flag) operand — a branch
-    # name to create. Every other flag (--list, -a/--all, -r/--remotes, -v, --contains, --sort,
-    # ...) is a listing modifier and stays read-only, same as no flags at all; not special-cased
-    # one by one (only --list was per the assignment's own example) since a fixed allow-list of
-    # git's many listing flags would just as easily miss one and wrongly flag a plain `git
-    # branch -a` as a write, which is far more disruptive than under-blocking one uncommon case.
-    return any(not arg.startswith("-") for arg in args)
+    return subcommand in _GIT_WRITE_SUBCOMMANDS or (subcommand == "branch" and not _branch_lists_only(args))
 
 
 def _prefix_has_dir_override(prefix: list[str]) -> bool:
     """True if a GIT_DIR=/GIT_WORK_TREE= assignment precedes `git` in the same simple command —
     directly, or as an `env VAR=... git ...` wrapper's own argument (both land in `prefix`
-    unstripped, see command_words._git_invocations_with_prefix)."""
+    unstripped, see `Parse.git_invocations_with_prefix`)."""
     return any(w.startswith("GIT_DIR=") or w.startswith("GIT_WORK_TREE=") for w in prefix)
 
 
@@ -218,27 +232,81 @@ def _first_operand(args: list[str]) -> Optional[str]:
     return None
 
 
-def _leading_cd_outside_project(command: str, base_cwd: Optional[str], root: Optional[Path]) -> bool:
+def _group_closes_before_end(parse: Parse) -> bool:
+    """True when the command's first word stands inside `( ... )` and a word follows the `)` that closes its
+    innermost group (or that group never closes, or the command does not tokenize but holds a `(`): a `cd` there
+    changes the directory of that subshell only, so the commands after the group run elsewhere and one directory
+    for the whole command is not determinable. False for a command whose first word is not inside a group, and
+    for one whose every command is inside it (`(cd x && git commit -m y)`)."""
+    if parse.tool_name == "PowerShell" or "(" not in parse.command:
+        return False  # PowerShell has no subshell (`(cd x); git commit` keeps the location); no group: no tokens needed
+    tokens = parse.chain_tokens()
+    if tokens is None:
+        return True
+    depth = 0
+    start = 0
+    for start, (text, is_op) in enumerate(tokens):
+        if not is_op:
+            break
+        depth += text == "("
+    if depth == 0:
+        return False
+    level, closed = depth, False
+    for text, is_op in tokens[start:]:
+        if is_op:
+            level += (text == "(") - (text == ")")
+            closed = closed or level < depth
+        elif closed:
+            return True
+    return not closed
+
+
+def _leading_cd_directory(
+    commands: list[list[str]], base_cwd: str, parse: Optional[Parse] = None,
+) -> tuple[bool, Optional[Path]]:
+    """How a leading `cd` decides the directory a command runs in, read from `commands` (the
+    prefix-stripped argv of every simple command, in order) -- (determinable, directory).
+    (True, None): no leading cd (nothing, or a first command that is not cd-like) and no later one.
+    (True, path): the first simple command is `cd`-like (_CD_LIKE_NAMES) with a literal operand
+    resolving to `path` (against `base_cwd`) and no later simple command changes directory again
+    (_CD_LIKE_NAMES or _CD_UNKNOWN_NAMES). (False, None): not determinable -- a later directory
+    change anywhere, a leading cd without an operand or with a dynamic or unresolvable one, and (when `parse`
+    is given) a leading cd inside `( ... )` while other commands follow the group: `(cd x) && git commit`
+    runs the commit where the shell was, not in `x` (_group_closes_before_end). Each
+    caller maps these three answers to its own verdict: git_discard.py refuses on not determinable,
+    this module's exemption is simply not granted."""
+    for later in commands[1:]:
+        # A directory-change form anywhere after the first command already makes the directory
+        # impossible to pin down: `true && cd ../other && git reset --hard` is exactly as unknown as
+        # a leading `cd` followed by a second one.
+        if _command_name(later[0]) in _CD_LIKE_NAMES | _CD_UNKNOWN_NAMES:
+            return False, None
+    if not commands or _command_name(commands[0][0]) not in _CD_LIKE_NAMES:
+        return True, None
+    if parse is not None and _group_closes_before_end(parse):
+        return False, None
+    directory = _first_operand(commands[0][1:])
+    resolved = None if directory is None else _resolve_dir(directory, base_cwd)
+    if resolved is None:
+        return False, None
+    return True, resolved
+
+
+def _leading_cd_outside_project(
+    command: str, base_cwd: Optional[str], root: Optional[Path], parse: Optional[Parse] = None,
+) -> bool:
     """True only when the whole command's very first simple command is a `cd`-family invocation
     (_CD_LIKE_NAMES) with a literal directory operand resolving outside `root`, AND no later
-    simple command changes directory again (_CD_LIKE_NAMES or _CD_UNKNOWN_NAMES) — see this
+    simple command changes directory again (_CD_LIKE_NAMES or _CD_UNKNOWN_NAMES) -- see this
     module's Known limits for why a second directory change anywhere disables the exemption
-    entirely rather than tracking which git call comes after which cd."""
+    entirely rather than tracking which git call comes after which cd. `parse` is the dispatcher's
+    reading of `command`; without it the command is read here."""
     if base_cwd is None or root is None:
         return False
-    commands = _stripped_word_lists(command)
-    if not commands:
-        return False
-    for later in commands[1:]:
-        if _command_name(later[0]) in _CD_LIKE_NAMES | _CD_UNKNOWN_NAMES:
-            return False
-    first = commands[0]
-    if _command_name(first[0]) not in _CD_LIKE_NAMES:
-        return False
-    directory = _first_operand(first[1:])
-    if directory is None:
-        return False
-    return _is_outside_root(_resolve_dir(directory, base_cwd), root)
+    if parse is None:
+        parse = Parse("Bash", command)
+    determinable, directory = _leading_cd_directory(parse.stripped(), base_cwd, parse)
+    return determinable and directory is not None and _is_outside_root(directory, root)
 
 
 def _worker_git_write_message(subcommand: str) -> str:
@@ -269,9 +337,13 @@ def check_worker_git_write(payload: dict) -> int:
 
     cwd_raw = payload.get("cwd")
     base_cwd = cwd_raw if isinstance(cwd_raw, str) and cwd_raw else None
-    leading_cd_outside = _leading_cd_outside_project(command, base_cwd, root)
+    parse = parse_for(payload, command)
+    leading_cd_outside = _leading_cd_outside_project(command, base_cwd, root, parse)
 
-    for prefix, args in _git_invocations_with_prefix(command):
+    invocations = parse.git_invocations_with_prefix()
+    if parse.tool_name == "PowerShell":
+        invocations += parse.assigned_git_invocations()  # `$r = git commit -m x`: the Bash reader sees `$r`
+    for prefix, args in invocations:
         subcommand, sub_args, dash_c_dirs, has_dir_override, alias_defined = _parse_git_invocation(args)
         if subcommand is None:
             continue

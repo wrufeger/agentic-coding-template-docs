@@ -3,9 +3,8 @@
 #
 # Purpose: Check — dependency-vulnerability scan before a commit (PreToolUse), the "deps"/"full"
 #          part of the security check (a decided concept): "Art B" of three. Runs only with
-#          `security-check: deps` or `full` in docs/ai/config.md (`danger_scan.py`'s own
-#          `_security_check_level`, reused rather than a second parser here — R-work-override: one
-#          place decides the level), and only when this commit's own diff actually touches a lock
+#          `security-check: deps` or `full` in docs/ai/config.md (`actlib.security_check_level`:
+#          one place decides the level), and only when this commit's own diff actually touches a lock
 #          file (`.act/scripts/security_scan.py`'s `LOCK_FILE_NAMES`) — a commit that never
 #          touches
 #          one costs nothing beyond the same `git commit`-detection walk
@@ -143,9 +142,9 @@ import security_scan
 
 from . import session
 from .board_refresh import _base_cwd, _targets_own_project
-from .command_words import _command_word_lists, _strip_command_prefix
+from .command_parse import parse_for
+from .command_words import _strip_command_prefix
 from .common import _is_worker, _pop_pending_notes, _queue_pending_note, _shell_command
-from .danger_scan import _security_check_level
 from .secret_scan import (
     _check_deadline,
     _git_commit_invocations,
@@ -199,9 +198,13 @@ class _Outcome:
     """What `_resolve_scan` found out for one commit's touched lock files: `status` is "result"
     (with `result` set), "running" (a scan is in flight, deny once), "dead" (a marker outlived its
     own stale limit -- cleared, fail open), "spawn_failed" (no worker could be started, fail open)
-    or "unhashable" (a file changed between being listed and being digested, fail open)."""
+    or "unhashable" (a file changed between being listed and being digested, fail open) or "linked"
+    (the running marker cannot be written because `.act-local` or its scan-cache folder is a link or
+    junction, `detail` names it; a scan cannot be handed to a worker and the hook's own time does not
+    suffice for one, so the commit is held, not let through unchecked)."""
     status: str
     result: Optional[security_scan.ScanResult] = None
+    detail: str = ""
 
 
 def _touched_lock_files(invocation: dict, deadline: float) -> "list[str]":
@@ -343,6 +346,9 @@ def _resolve_scan(root: Path, paths: "list[Path]", payload: dict) -> _Outcome:
     else:
         stale_after = now + security_scan.scan_time_limit(lock_files) + _WORKER_MARGIN_SECONDS
         if not security_scan.write_running_marker(root, state_hash, stale_after):
+            linked = actlib.link_problem(root, security_scan.running_marker_path(root, state_hash))
+            if linked:
+                return _Outcome("linked", detail=linked)
             return _Outcome("spawn_failed")  # a worker nobody can see would be waited for by no one
         if not _spawn_scan_worker(root, state_hash, paths, report=False):
             security_scan.clear_running_marker(root, state_hash)
@@ -557,7 +563,8 @@ def _note_once(payload: dict, key: str, message: str) -> None:
 def _pending_file(root: Path, session_id: str) -> Optional[Path]:
     if not _SAFE_SESSION_ID_RE.match(session_id):
         return None
-    return root / ".act-local" / _NOTES_DIRNAME / f"{session_id}.pending.json"
+    path = root / ".act-local" / _NOTES_DIRNAME / f"{session_id}.pending.json"
+    return path if actlib.local_write_ok(root, path) else None  # behind a link out of the project: nothing queued
 
 
 def _queue_note(payload: dict, note: str) -> None:
@@ -573,7 +580,7 @@ def _queue_note(payload: dict, note: str) -> None:
         return
     pending_path = _pending_file(root, session_id)
     if pending_path is not None:
-        _queue_pending_note(pending_path, note)
+        _queue_pending_note(pending_path, note, payload)
 
 
 def _format_finding(finding: security_scan.Finding, accepted: "dict[str, str]") -> str:
@@ -649,7 +656,9 @@ def _check(payload: dict, root: Path, command: str) -> int:
     if deadline - time.monotonic() < _MIN_DETECTION_SECONDS:
         _note(payload, "[act] security-check (deps): no time left in this hook call -- not checked this time")
         return 0
-    invocations = _git_commit_invocations(command, base_cwd, deadline, {})
+    invocations = _git_commit_invocations(
+        command, base_cwd, deadline, {}, chain_tokens=parse_for(payload, command).chain_tokens(),
+    )
     if not invocations:
         return 0
 
@@ -675,6 +684,14 @@ def _check(payload: dict, root: Path, command: str) -> int:
             file=sys.stderr,
         )
         return 2
+    if outcome.status == "linked":
+        names = ", ".join(_display(path, root) for path in paths)
+        print(
+            f"[act] security-check (deps): {names} cannot be scanned: {outcome.detail}, so no scan can be recorded "
+            "through it -- make it a real folder, or set `security-check` to `off` in docs/ai/config.md",
+            file=sys.stderr,
+        )
+        return 2
     if outcome.status == "dead":
         _note(payload, "[act] security-check (deps): a previous scan attempt never finished -- not checked this time")
         return 0
@@ -696,7 +713,7 @@ def check_deps_scan(payload: dict) -> int:
     it -- see the module docstring for why (reached through checks/mcp_ide.py's own shell-reuse
     path, an uncaught exception here would make an unrelated call fail *closed* instead)."""
     config = actlib.read_config()
-    level = _security_check_level(config)
+    level = actlib.security_check_level(config)
     if level not in ("deps", "full"):
         return 0
 
@@ -739,7 +756,7 @@ def note_deps_scan(payload: dict) -> Optional[str]:
     pending_path = _pending_file(root, session_id)
     if pending_path is None:
         return None
-    notes = _pop_pending_notes(pending_path)
+    notes = _pop_pending_notes(pending_path, payload)
     if not notes:
         return None
     return "\n".join(notes)
@@ -790,12 +807,12 @@ class _IntegrationCall:
     target: Optional[Path]
 
 
-def _integration_calls(command: str, base_cwd: str) -> "list[_IntegrationCall]":
+def _integration_calls(command: str, base_cwd: str, payload: Optional[dict] = None) -> "list[_IntegrationCall]":
     """Every `git merge|pull|cherry-pick` in `command`. Found through the shared command-word
     tokenizer, never by a regex over the raw string."""
     calls: "list[_IntegrationCall]" = []
     cwd: Optional[str] = base_cwd
-    for words, _separator in _command_word_lists(command):
+    for words, _separator in parse_for(payload or {}, command).words():
         stripped = _strip_command_prefix(words)
         if not stripped:
             continue
@@ -875,7 +892,7 @@ def _record_integration_heads(payload: dict, root: Path, command: str) -> None:
     path = _heads_file(root, payload.get("tool_use_id"))
     if path is None:
         return
-    calls = _integration_calls(command, _base_cwd(payload))
+    calls = _integration_calls(command, _base_cwd(payload), payload)
     if not calls:
         return
     deadline = time.monotonic() + _RECORD_TIME_BUDGET
@@ -889,9 +906,9 @@ def _record_integration_heads(payload: dict, root: Path, command: str) -> None:
         head = _run_git(["rev-parse", "-q", "--verify", "HEAD"], toplevel, min(_GIT_TIMEOUT, deadline - time.monotonic()))
         if head and head.strip():
             heads[toplevel] = head.strip()
-    if heads:
+    if heads and actlib.local_write_ok(root, path):
         _prune_heads(path.parent)
-        security_scan._write_json(path, {"heads": heads, "written": time.time()})
+        security_scan._write_json(root, path, {"heads": heads, "written": time.time()})
 
 
 def _take_recorded_heads(root: Path, tool_use_id: object) -> "dict[str, str]":
@@ -899,11 +916,12 @@ def _take_recorded_heads(root: Path, tool_use_id: object) -> "dict[str, str]":
     path = _heads_file(root, tool_use_id)
     if path is None:
         return {}
-    data = security_scan._read_json(path)
-    try:
-        path.unlink()
-    except OSError:
-        pass
+    data = actlib._read_json(path)
+    if actlib.local_write_ok(root, path):  # nothing is removed through a link
+        try:
+            path.unlink()
+        except OSError:
+            pass
     heads = data.get("heads") if data else None
     if not isinstance(heads, dict):
         return {}
@@ -1020,7 +1038,9 @@ def _report_result(root: Path, state_hash: str, result: security_scan.ScanResult
     if not findings and not unreadable:
         return False
     marker = _reported_marker(root, state_hash)
-    if marker.exists() or not _claim_reported_marker(marker):
+    # behind a link out of the project no marker is made (actlib.local_write_ok): the state is then reported
+    # without one, so it may be reported again after a later merge, never lost
+    if marker.exists() or (actlib.local_write_ok(root, marker) and not _claim_reported_marker(marker)):
         return False
     try:
         import entries  # deferred: only a run that has something to report needs it
@@ -1054,7 +1074,8 @@ def _report_result(root: Path, state_hash: str, result: security_scan.ScanResult
         )
     except Exception:  # noqa: BLE001 -- best effort: a failed report must never disturb the hook chain
         try:
-            marker.unlink()
+            if actlib.local_write_ok(root, marker):
+                marker.unlink()
         except OSError:
             pass
         return False
@@ -1142,14 +1163,14 @@ def _scan_after_integration(payload: dict) -> None:
     command = shell[1]
     if "git" not in command or not any(word in command for word in _INTEGRATION_SUBCOMMANDS):
         return
-    if _security_check_level(actlib.read_config()) not in ("deps", "full"):
+    if actlib.security_check_level(actlib.read_config()) not in ("deps", "full"):
         return
     try:
         root = actlib.repo_root().resolve()
     except (RuntimeError, OSError):
         return
     recorded = _take_recorded_heads(root, payload.get("tool_use_id"))
-    calls = _integration_calls(command, _base_cwd(payload))
+    calls = _integration_calls(command, _base_cwd(payload), payload)
     if not calls or not security_scan.available_tools():
         return
     own = [call for call in calls if call.target is not None and _targets_own_project(call.target, root)]

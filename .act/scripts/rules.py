@@ -46,6 +46,24 @@
 #     files CLAUDE.md loads (user level, project, CLAUDE.local.md) without any import below
 #     .act/rules/orchestrator/, cut into parts of at most WORKER_PART_LIMIT characters. Prints
 #     one line per part with its size and sources, then the total against the full CLAUDE.md load.
+#     Worker rules in short. The orchestrator rules (.act/rules/orchestrator/, overridden from
+#     docs/ai/local/rules/orchestrator/) concern the main session only, yet
+#     CLAUDE.md loads them into every worker start; the template's roles therefore carry `omitClaudeMd: true` (also
+#     the generated -high variants of builder and reviewer), and the SubagentStart hook hands the worker this text
+#     instead. The hook is `dispatch.py SubagentStart --worker-rules <i>`: WORKER_RULES_PARTS (12, actlib.py) fixed
+#     entries in .claude/settings.json from .act/bridges/settings.hooks.json, next to the plain SubagentStart entry
+#     for the usage and event log. It acts only if the role file of the started agent type
+#     (.claude/agents/<type>.md, else ~/.claude/agents/<type>.md) says `omitClaudeMd: true`; any other agent loads
+#     CLAUDE.md itself. Claude Code moves a hook string over 10,000 characters into a file, hence the parts (at file
+#     boundaries, a long file at `## ` headings); parts beyond the twelfth are not delivered, entry 12 names their
+#     source files in one line instead (this script and doctor.py warn). The rest of docs/ai/rules.md stays as it is,
+#     and a rule the project switched off (unchecked, or its import removed) stays off for the worker too.
+#     Limits: Claude Code before 2.1.271 ignores `omitClaudeMd`, so the worker gets the rules twice (costs
+#     tokens only); without Python 3.9+ the hook prints
+#     nothing and the mechanical checks are inactive too; on any exception the first entry prints one fixed sentence
+#     telling the worker to read CLAUDE.md, docs/ai/rules.md and the shared rule files itself, and the hook never
+#     exits non-zero; CLAUDE.md files in parent folders and .claude/rules/ are not assembled. Off: remove
+#     `omitClaudeMd: true` from a role file or set it to false (update.py adds the line only where none exists).
 #   Errors (unknown area, missing project file, unknown id, bad arguments): one line on stderr,
 #     exit 1 (2 for a bad command line), never a traceback.
 
@@ -96,6 +114,7 @@ class ProjectSet:
     path: str  # as written in the project file, e.g. ".act/coding/nuxt.md"
     enabled: bool
     line: int
+    reason: Optional[str] = None  # the optional " — reason" after the path (a set switched off on purpose)
     groups: dict[str, ProjectGroup] = field(default_factory=dict)
     # id -> line numbers of every listing, only for an id listed more than once in this block
     duplicates: dict[str, list[int]] = field(default_factory=dict)
@@ -152,8 +171,9 @@ RE_CHECKBOX = re.compile(r"^(?P<indent>\s*)-\s*\[(?P<mark>[ xX])\](?![(\[])\s*(?
 # A near-miss checkbox ("[X ]", "[-]", "[]") is reported; a Markdown link "- [Text](target)"
 # or "- [Text][ref]" never is — only a mark of at most two characters counts as a try.
 RE_CHECKBOX_LOOSE = re.compile(r"^(?P<indent>\s*)-\s*\[(?P<mark>[^\]]{0,2})\](?![(\[])\s*(?P<rest>.*)$")
-RE_USE = re.compile(r"^use:\s*(?P<path>\S+)\s*$")
 # The reason separator is an em dash; an en dash or "--" (what people type instead) counts the same.
+# A set line takes an optional reason after the path, like a group line: "use: <path> — <reason>".
+RE_USE = re.compile(r"^use:\s*(?P<path>\S+)(?:\s+(?:—|–|--)\s*(?P<reason>\S.*?))?\s*$")
 RE_GROUP_ID = re.compile(r"^`(?P<id>[^`]+)`\s*(?:(?:—|–|--)\s*(?P<reason>.+))?$")
 # "- replaces ..." — and, like an own rule, "* replaces ..." / "+ replaces ...".
 RE_REPLACES = re.compile(r"^(?:-\s*|[*+]\s+)replaces\s+`(?P<id>[^`]+)`:\s*(?P<text>.*)$")
@@ -402,10 +422,11 @@ def parse_project_file(path: Path, area: Area) -> ProjectFile:
                     continue
                 use = RE_USE.match(rest)
                 if not use:
-                    findings.append((line_no, "expected '- [ ] use: <path>'"))
+                    findings.append((line_no, "expected '- [ ] use: <path>' with an optional ' — reason'"))
                     current_set = None
                     continue
-                current_set = ProjectSet(path=normalize_set_path(use.group("path")), enabled=enabled, line=line_no)
+                current_set = ProjectSet(path=normalize_set_path(use.group("path")), enabled=enabled, line=line_no,
+                                         reason=use.group("reason"))
                 sets.append(current_set)
             else:
                 group = RE_GROUP_ID.match(rest)
@@ -1832,15 +1853,8 @@ def read_rule_paths(text: str) -> Optional[list[str]]:
     """The `paths:` patterns from a rules file's frontmatter: None when there is no frontmatter or no
     `paths:` key (the file loads at every start), else the listed patterns (block list, inline list or a
     single value; possibly empty)."""
-    lines = text.lstrip("\ufeff").splitlines()
-    if not lines or lines[0].strip() != "---":
-        return None
-    front: list[str] = []
-    for line in lines[1:]:
-        if line.strip() == "---":
-            break
-        front.append(line)
-    else:
+    front = actlib.frontmatter_lines(text)
+    if front is None:
         return None
     for index, line in enumerate(front):
         match = re.match(r"paths\s*:\s*(.*)$", line)

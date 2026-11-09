@@ -31,6 +31,7 @@ One row per script under `.act/scripts/`; the per-script sections below are each
 | `id_links_install.py` | One-time, per-machine setup of the clickable entry ids (editor support). Copies the language server and its helper to a per-user folder… | direct (optional editor support, see `topics/id-links.md`; writes only under `~/.act/id-links/`) |
 | `id_links_lsp.py` | Language server that makes entry ids such as T12, B7, Q3 or U5 clickable in Markdown files opened in an editor (VS Code, IntelliJ with an… | direct (language server over stdio, started by the editor from the copy `id_links_install.py` makes, not by hand) |
 | `ideas.py` | The per-person ideas file `docs/ai/concept/ideas-<identity>.md` — one versioned file for every person on a project, written by that person… | direct (session start and init call it; run by hand to record entries as processed) |
+| `incidents.py` | The incident log. Hooks and scripts note what went wrong without stopping anyone and that the human should see later: a protected file a… | library |
 | `info.py` | Show, in a compact block, which project this session works in and its state: project name, folder and host, the session name the project… | skill `act-info` |
 | `init.py` | Turn a checkout of this template into a project ("here, in this clone"), or dock onto an existing/empty directory ("--target"). Ten steps… | direct |
 | `integrations.py` | Find out which ways lead from this project to its repo host and issue tracker (REST access through forge.py, MCP servers) and what each one… | skill `act-integrations` (`status` alone is direct) |
@@ -59,6 +60,7 @@ One row per script under `.act/scripts/`; the per-script sections below are each
 - `actlib.py` — Shared library for every script under .act/scripts/ and .act/hooks/ — the single place that knows how to resolve template vs. project…
 - `feedback_privacy.py` — The privacy checks that decide whether a string may leave the project as part of a feedback payload (.act/scripts/feedback.py) — patterns…
 - `frontmatter.py` — One shared frontmatter parser for every "---\n...\n---\n" block under .act/ and docs/ai/local/ -- used to be two: tiers.py's…
+- `incidents.py` — The incident log. Hooks and scripts note what went wrong without stopping anyone and that the human should see later: a protected file a…
 - `settings_format.py` — Data model, parser and serializer for the settings file ("settings.md") — the portable snapshot of a project's own rule deviations (and, in…
 - `tiers.py` — Resolve a role's tier/reasoning -- never a real model name anywhere else under .act/ -- into a concrete model alias/effort pair for one…
 
@@ -464,7 +466,8 @@ options:
   --target DIR  check this project instead of the current checkout
   --json        machine-readable output
   --inbox       also write docs/ai/inbox/report-<YYYYMMDD-HHMM>-doctor.md if there are findings,
-                and one inbox question per new tier proposal
+                and one inbox question per new tier proposal and per check that refused workers
+                often
   --accept ID   accept the current template text for ID (repeatable)
   --accept-all  accept the current template text for every stale override/off
 ```
@@ -492,25 +495,25 @@ positional arguments:
                         line; `state` does the same on its first call
     list                list entries, optionally filtered by kind
     check               report a duplicate id or an entry file that isn't valid UTF-8
-    archive             archive a finished task, backlog item or inbox entry to
-                        docs/ai/work/archive/ — an inbox entry gets `status: done`, a task
-                        `finished: <timestamp>`; files it links beside itself (pasted images) move
-                        along, generic or colliding names get the entry's id in front, links are
-                        rewritten
+    archive             archive a finished task, backlog item or inbox entry, or a concept file
+                        (directly in docs/ai/concept/ or anywhere below docs/project/concepts/),
+                        by moving it to docs/ai/work/archive/ - an inbox entry gets `status:
+                        done`, a task `finished: <timestamp>`, every file `archived: <date>`;
+                        files an entry links beside itself (pasted images) move along, generic or
+                        colliding names get the entry's id in front, links are rewritten; links to
+                        a moved concept in other files follow it; `compact` folds the archive into
+                        monthly files
     compact             merge archived entries older than 7 days (and journal entries) into one
                         collection file per kind and month in docs/ai/work/archive/ (Q-2026-09.md,
                         T-, B-, U-, other-, ledger-), one section per entry with an anchor such as
                         #<id>; links in the project are rewritten, the head of each collection
-                        names the commit that holds the full text; each month's overview <YYYY-
-                        MM>.md gets one line per Q, T, B and U entry; needs the entries committed;
-                        running it twice changes nothing
-    purge               with `done-entries: delete`: delete the archived files marked `purge:
-                        after-commit` (and the pasted files only they link) in
-                        docs/ai/work/archive/ as far as Git holds them unchanged; `--all` also
-                        deletes the older archive without the mark; the README and the journal
-                        collections ledger-<YYYY-MM>.md stay; the ids stay reserved, references to
-                        a deleted entry become its bare id; a file Git does not hold yet stays
-                        until a commit does
+                        names the commit that holds the full text; concept files go into
+                        other-<YYYY-MM>.md; each month's overview <YYYY-MM>.md gets one line per
+                        Q, T, B and U entry; needs the entries committed; running it twice changes
+                        nothing
+    purge               retired: prints one line and exits 0, so an old call does not fail;
+                        archived entries stay in docs/ai/work/archive/ until `compact` folds them
+                        into their monthly file
 
 options:
   -h, --help            show this help message and exit
@@ -520,7 +523,7 @@ options:
 
 ```text
 usage: entries.py new [-h] [--id ID] [--formerly OLD_ID] [--status {open,answered}]
-                      [--for IDENTITY] [--body-file PATH]
+                      [--for IDENTITY] [--body-file PATH] [--triage]
                       {backlog,inbox,ledger,note,question,report,task,todo} title [title ...]
 
 positional arguments:
@@ -541,6 +544,8 @@ options:
   --body-file PATH      body below the heading, copied verbatim (UTF-8); a question ends with an
                         empty answer label below it, unless --status answered or the text has one
                         already
+  --triage              todo/note entry: write `triage: open` (a chat message captured by hand, to
+                        be processed right after the answered entries)
 ```
 
 ### `entries.py assign`
@@ -614,12 +619,16 @@ options:
 ```text
 usage: entries.py archive [-h] ID-OR-FILE
 
-archive a finished task, backlog item or inbox entry to docs/ai/work/archive/ — an inbox entry
-gets `status: done`, a task `finished: <timestamp>`; files it links beside itself (pasted images)
-move along, generic or colliding names get the entry's id in front, links are rewritten
+archive a finished task, backlog item or inbox entry, or a concept file (directly in
+docs/ai/concept/ or anywhere below docs/project/concepts/), by moving it to docs/ai/work/archive/
+- an inbox entry gets `status: done`, a task `finished: <timestamp>`, every file `archived:
+<date>`; files an entry links beside itself (pasted images) move along, generic or colliding names
+get the entry's id in front, links are rewritten; links to a moved concept in other files follow
+it; `compact` folds the archive into monthly files
 
 positional arguments:
-  ID-OR-FILE  an id such as Q<n> or T<n>, or the entry file's path
+  ID-OR-FILE  an id such as Q<n> or T<n>, the entry file's path, or a concept file's path (its
+              bare file name too, if it is unique in the two concept folders)
 
 options:
   -h, --help  show this help message and exit
@@ -633,8 +642,9 @@ usage: entries.py compact [-h] [--plan] [--today YYYY-MM-DD]
 merge archived entries older than 7 days (and journal entries) into one collection file per kind
 and month in docs/ai/work/archive/ (Q-2026-09.md, T-, B-, U-, other-, ledger-), one section per
 entry with an anchor such as #<id>; links in the project are rewritten, the head of each
-collection names the commit that holds the full text; each month's overview <YYYY-MM>.md gets one
-line per Q, T, B and U entry; needs the entries committed; running it twice changes nothing
+collection names the commit that holds the full text; concept files go into other-<YYYY-MM>.md;
+each month's overview <YYYY-MM>.md gets one line per Q, T, B and U entry; needs the entries
+committed; running it twice changes nothing
 
 options:
   -h, --help          show this help message and exit
@@ -645,20 +655,13 @@ options:
 ### `entries.py purge`
 
 ```text
-usage: entries.py purge [-h] [--plan] [--all]
+usage: entries.py purge [-h]
 
-with `done-entries: delete`: delete the archived files marked `purge: after-commit` (and the
-pasted files only they link) in docs/ai/work/archive/ as far as Git holds them unchanged; `--all`
-also deletes the older archive without the mark; the README and the journal collections
-ledger-<YYYY-MM>.md stay; the ids stay reserved, references to a deleted entry become its bare id;
-a file Git does not hold yet stays until a commit does
+retired: prints one line and exits 0, so an old call does not fail; archived entries stay in
+docs/ai/work/archive/ until `compact` folds them into their monthly file
 
 options:
   -h, --help  show this help message and exit
-  --plan      show what would be deleted, write nothing
-  --all       also delete the archive from before `done-entries: delete` (files without the
-              `purge: after-commit` header field), as far as Git holds it; the owner's decision,
-              never run by an assistant on its own
 ```
 
 ## `feedback.py`
@@ -764,17 +767,19 @@ options:
 Call: skill `act-check-translations`
 
 ```text
-usage: i18n_check.py [-h] [--root ROOT] [--base BASE] [--json] [--no-code]
+usage: i18n_check.py [-h] [--root ROOT] [--base BASE] [--json] [--no-code] [--no-namespace]
 
 Check translation files for missing, extra, empty and mismatching keys and for keys used in code
 but not defined.
 
 options:
-  -h, --help   show this help message and exit
-  --root ROOT  project root (default: current directory)
-  --base BASE  base locale (default: en, else the largest)
-  --json       print the report as JSON
-  --no-code    skip the used/unused key check against source code
+  -h, --help      show this help message and exit
+  --root ROOT     project root (default: current directory)
+  --base BASE     base locale (default: en, else the largest)
+  --json          print the report as JSON
+  --no-code       skip the used/unused key check against source code
+  --no-namespace  merge the files of one locale folder without a file-name prefix (Nuxt i18n
+                  reading; detected on its own from nuxt.config.* with i18n and files)
 ```
 
 ## `id_links_install.py`
@@ -850,6 +855,7 @@ Call: direct
 usage: init.py [-h] [--target TARGET] [--plan] [--non-interactive] [--no-commit] [--no-local]
                [--carry LIST] [--no-profile] [--profile] [--language-docs CODE]
                [--language-chat CODE] [--update-channel {release,latest}] [--methods LIST]
+               [--scope {minimal,standard,full}]
 
 Turn a template checkout into a project, or dock onto an existing directory (--target). Inside a
 project that is already set up, only --profile runs (see there); bringing .act/ up to date is
@@ -884,6 +890,9 @@ options:
                         latest = tip of the template's default branch; instead of asking
   --methods LIST        working methods to switch on (names from .act/methods/, comma-separated,
                         or none) instead of asking; default none
+  --scope {minimal,standard,full}
+                        the scope profile of a new project (docs/ai/config.md § Scope) instead of
+                        the detected one: full for a web project, standard for any other
 ```
 
 ## `integrations.py`
@@ -1284,8 +1293,8 @@ Call: skill `act-update` (`--plan` and `--versions` alone are direct (skill `act
 
 ```text
 usage: update.py [-h] [--source SOURCE] [--ref REF] [--channel {release,latest}] [--versions]
-                 [--all] [--allow-downgrade] [--on-local-changes {rescue,discard,abort}] [--yes]
-                 [--plan] [--no-commit] [--non-interactive] [--catch-up]
+                 [--all] [--short] [--allow-downgrade] [--on-local-changes {rescue,discard,abort}]
+                 [--yes] [--plan] [--no-commit] [--non-interactive] [--catch-up]
 
 Pull a newer state of the template into this project.
 
@@ -1304,6 +1313,9 @@ options:
                         branch tip, and what an update would take (git ls-remote only, no clone;
                         writes only the local update note under .act-local/)
   --all                 with --versions: list every release, not the five newest
+  --short               with --versions: three lines only -- installed version and update date,
+                        newest state of the source in the channel with its date, whether an update
+                        is available (what /act-version shows); with --all the full list wins
   --allow-downgrade     apply the fetched state even when it is older than the installed template
                         commit, or when the installed commit is not in the source's history
                         (default: refuse, --plan only warns)
