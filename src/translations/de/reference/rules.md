@@ -329,15 +329,17 @@ geht er mit vollem Kontext an die Expertenrolle (der ursprüngliche Auftrag, bei
 Ausgabe, bereits ausgeschlossene Ursachen).
 
 ## R-role-outcome
-<!-- source: 1c927c87309aebf7 -->
+<!-- source: 917743da586ff2c3 -->
 Jedes Worker-Ergebnis festhalten
-summary: usage.py --outcome nach jeder Abnahme, Nacharbeit oder Eskalation; speist einen Tier-Vorschlag, nie eine Live-Änderung
+summary: usage.py --outcome nach jeder Abnahme, Nacharbeit oder Eskalation, bei Nacharbeit mit Grund; speist einen Tier-Vorschlag, nie eine Live-Änderung
 
 Unmittelbar nachdem das Ergebnis eines Workers abgenommen, nachgearbeitet oder eskaliert wurde, wird `python
 .act/scripts/usage.py --outcome <role> <tier> accepted|reworked|escalated` ausgeführt (`<tier>`: das eigene Tier
-der Rolle oder die Abweichung, die der Auftrag nannte, `""`, wenn keines bekannt ist). `doctor.py --inbox` macht
-aus dem festgehaltenen Muster eine Inbox-Frage nach einem höheren Tier — der Mensch entscheidet, live ändert sich
-nichts.
+der Rolle oder die Abweichung, die der Auftrag nannte, `""`, wenn keines bekannt ist). Bei `reworked` oder `escalated` kommt der Grund hinzu:
+`--reason assignment` (der Auftrag war unklar), `edge-case` (ihm fehlte ein Grenzfall), `worker` (der Worker hat
+sich geirrt) oder `decision` (der Orchestrator hat seine eigene Entscheidung geändert). `doctor.py --inbox` macht
+aus dem festgehaltenen Muster eine Inbox-Frage nach einem höheren Tier und zählt dabei nur `worker` und Ergebnisse
+ohne Grund — der Mensch entscheidet, live ändert sich nichts.
 
 ## rules/orchestrator/00-role.md#Role assignment — which role for what
 <!-- source: 39c004a6b71c424e -->
@@ -539,7 +541,7 @@ Kostenregeln
 summary: Delegation und Auftragskopf, Warten, Ergänzen, Scripts, Commit-Schranke, Diff-Prüfung, Reset und Verwerfen
 
 ## R-cost-delegate
-<!-- source: 399dc04b19dc3c5e -->
+<!-- source: 7bddc4f452d66ba3 -->
 Delegieren, wo es sich lohnt; der Auftragskopf
 summary: delegieren, wo sich eine Übergabe lohnt; Kopfzeilen Write scope, Cap, Tests; Tier aus der Rolle; kleine Aufträge, parallele Teile, kein Testlauf neben einem Schreibenden
 
@@ -563,6 +565,10 @@ nennt nur eine Abweichung; mehr Reasoning: `builder-high`/`reviewer-high`. Die S
 fresh · ~<n> tkn cache`, Minuten Wanduhrzeit, aus `python .act/scripts/usage.py --estimates`) wird ab `standard`
 angegeben. `Depends on: <whose result>` nur, wo der Auftrag das Ergebnis eines anderen Workers liest; er startet,
 nachdem dieser Worker beendet ist. Standard-Caps, Muster-Syntax, Grenzen: `topics/checks.md`.
+
+**Einen Auftrag vorbereiten.** Vor einem `builder`-Auftrag die Tests, Proben und Prüfungen suchen, die das betroffene
+Verhalten schon festhalten, und ihre Zusicherungen im Auftrag nennen; die Grenzfälle des Entwurfs zuerst
+entscheiden oder den Menschen fragen; jedes Prüfkriterium als Befehl mit erwarteter Ausgabe angeben.
 
 Aufträge klein schneiden: Ein Bewertungsauftrag (ein Urteil je Eintrag oder je Datei) umfasst etwa 10–12
 Einheiten; Nacharbeit geht als neuer, kurzer Auftrag hinaus, nicht an einen Worker, dessen Kontext schon voll ist.

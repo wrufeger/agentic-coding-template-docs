@@ -3,7 +3,7 @@ title: Feedback
 description: Freiwilliges Feedback an den Autor des Templates - die Modi, Takt und Scope, was nie gesendet wird und wo die lokale Kopie bleibt.
 sidebar:
   order: 1
-sourceHash: 0dc3bfd07c5186eb7f1ff1e9376c5cdaa17ac3b0fee4a29ee8e38c52fa7a1369
+sourceHash: 6f116e1c8581a841af5c60d6b73c443495abe9820f61f36e1b513aa257c21ef3
 ---
 
 Du kannst dem Autor des Templates als Feedback melden, was der Arbeitsweise gutgetan hat oder fehlte. Feedback ist freiwillig, betrifft **nur die Arbeitsweise, nie dein Projekt**, und alles, was den Rechner verlässt, wird auch lokal aufbewahrt.
@@ -38,7 +38,7 @@ Mit `feedback: local` sendet das Projekt nie etwas: `feedback.py --send` (auch m
 | :--- | :--- |
 | `a` | Kennzahlen |
 | `b` | Regel- und Strukturänderungen |
-| `c` | Werkzeugnutzung: wie viele Agenten, Skills und Scripts es gibt und wie oft jeder Skill und jedes Script des Templates seit dem letzten Senden benutzt wurde (auch ein Skill, der durch Eintippen seines Slash-Befehls gestartet wurde, zählt). Deine eigenen Skills und Scripts erscheinen nur als eine `own`-Zahl je Art, nie mit Namen. Namen von MCP-Servern werden nicht gesendet. |
+| `c` | Werkzeugnutzung: wie viele Agenten, Skills und Scripts es gibt und wie oft jeder Skill und jedes Script des Templates seit dem letzten Senden benutzt wurde (auch ein Skill, der durch Eintippen seines Slash-Befehls gestartet wurde, zählt). Deine eigenen Skills und Scripts erscheinen nur als eine `own`-Zahl je Art, nie mit Namen. Ein Senden zählt außerdem die festgehaltenen Gründe für nachgearbeitete oder eskalierte Worker-Ergebnisse je Rolle und Tier des Templates seit dem letzten Senden; eine eigene Rolle oder ein eigenes Tier geht nur als `own` / `other` mit, nie mit Namen. Namen von MCP-Servern werden nicht gesendet. |
 
 Die Kennzahlen von Scope `a` zählen nur die Dateien des Projekts (`git ls-files`); ein Vendor-, IDE- oder Medienordner, den git ignoriert, geht also nicht ein; außerhalb eines git-Checkouts wird ein Ordner oder Link, der sich nicht lesen lässt, übersprungen. Ein von Hand geschriebener Befund landet immer im Ausgang, egal welcher Scope gilt.
 
@@ -56,7 +56,7 @@ Jede Zeichenkette, die das Projekt verlassen könnte, läuft zuerst durch eine D
 ## Die lokale Kopie
 
 - Jedes Senden schreibt eine vollständige Kopie seiner Nutzlast nach `.act-local/feedback/sent/` (per gitignore ausgeschlossen, verlässt nie deinen Checkout). Wartende Einträge und Buchführung liegen daneben in `.act-local/feedback/`.
-- Messwerte der Worker (`usage.py --estimates`) bleiben in `.act-local/usage.json` und sind nie Teil einer Nutzlast.
+- Messwerte der Worker (`usage.py --estimates`) bleiben in `.act-local/usage.json` und sind nie Teil einer Nutzlast; nur die Zählungen der Gründe aus Scope `c` gehen mit, als Zahlen ohne eigene Namen.
 - Das Journal des Projekts bekommt einen Eintrag pro Tag, `<date>-feedback-sent.md`, mit einer Zeile pro Senden: Uhrzeit, Art des Sendens (Sammelversand oder Direktnachricht) und bei einem Sammelversand die Anzahl der Einträge sowie Art und Titel jedes Eintrags. Der Text eines Eintrags und einer Direktnachricht wird nie festgehalten.
 
 ## Das lokale Incident-Log

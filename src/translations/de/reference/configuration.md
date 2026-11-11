@@ -328,7 +328,7 @@ Projektwurzelverzeichnis (nicht versioniert) — um live mitzuverfolgen, z. B. i
 `log-level`: `DEBUG` \| `INFO` \| `WARN` \| `ERROR`. Details: `.act/rules/topics/logging.md`.
 
 ## Feedback
-<!-- source: 79d146a9ec3d52f7 -->
+<!-- source: 06a94a77567a2a51 -->
 | Schlüssel | Wert |
 | :--- | :--- |
 | `feedback` | <feedback-mode> |
@@ -339,7 +339,7 @@ Freiwilliges Feedback an den Template-Autor über die Arbeitsweise, nie über da
 `feedback`: `off` \| `confirm` \| `automatic` \| `manual` \| `local` (dieses Projekt sendet nie etwas an den
 Template-Autor; Befunde werden stattdessen hier zu Backlog-Einträgen). `feedback-cadence` ist eine Obergrenze:
 `manual` \| `immediate` \| `hourly` \| `daily` \| `weekly` \| `adaptive`. `feedback-scope`: `a`
-Metriken, `b` Regel- und Strukturänderungen, `c` Tool-Nutzung (Zähler der seit dem letzten Senden genutzten Template-Skills/-Scripte; deine eigenen nur als ein `own`-Zähler). Die vollständige Kopie jeder gesendeten Nutzlast bleibt
+Metriken, `b` Regel- und Strukturänderungen, `c` Tool-Nutzung (Zähler der seit dem letzten Senden genutzten Template-Skills/-Scripte; deine eigenen nur als ein `own`-Zähler; festgehaltene Gründe für nachgearbeitete Worker-Ergebnisse, je Template-Rolle und Tier). Die vollständige Kopie jeder gesendeten Nutzlast bleibt
 lokal (`.act-local/feedback/sent/`, per gitignore ausgeschlossen) — das Journal bekommt zudem einen Eintrag pro Tag mit einer Zeile je Senden
 (Uhrzeit, Art, Anzahl der Einträge, Art und Titel jedes Eintrags, nie dessen Text). Eine Nachricht, die du selbst schreibst
 (`feedback: <text>`), geht immer raus, auch bei `off` (aber nie bei `local`), zusammen mit dem Template-Commit und der

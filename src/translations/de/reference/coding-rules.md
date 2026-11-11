@@ -897,13 +897,14 @@ nennt (`^5.0.0`, `npm:nuxt-nightly@5x`). Gruppen-IDs (`CR-nuxt5-<name>`) sind st
 eine Gruppe, deren Zweck nicht mehr gilt, bekommt eine neue ID und wird in diesem Kopf als `retired:` aufgeführt.
 
 ## CR-nuxt5-channel
-<!-- source: 51978dc5be3ac792 -->
+<!-- source: b2e4e26bbdd36be8 -->
 Nightly-Kanal und Versionen
 summary: `nuxt-nightly@5x` als Tag, die Lockfile als einzige Festlegung, Hauptversionen im Gleichschritt mit Nuxt, DevTools ausdrücklich
 
 - Bis zum stabilen Release `nuxt` als `"npm:nuxt-nightly@5x"` eintragen — ein Tag, nie eine Build-Nummer. Schreibt
   `npm install` eine feste Version, sie von Hand auf `@5x` zurücksetzen und erneut installieren; nur die Lockfile
-  hält den Stand fest.
+  hält den Stand fest. Entfällt,
+  sobald `nuxt/nuxt` `v5.0.0` getaggt hat (github.com/nuxt/nuxt/releases); dann `^5.0.0`.
 - Mit `npm update nuxt` vorrücken, als eigener Commit, danach die volle Prüfung aus `CR-nuxt5-checks`.
 - Direkte Abhängigkeiten, die Nuxt mitbringt, bleiben auf derselben Hauptversion wie Nuxt (z. B. `vue-router` 5,
   `@unhead/vue` 3); nach jedem Update zeigt `npm ls <package>` je Paket eine Kopie.
@@ -915,7 +916,7 @@ summary: `nuxt-nightly@5x` als Tag, die Lockfile als einzige Festlegung, Hauptve
   hat, ist einer, den du erklären kannst.
 
 ## CR-nuxt5-modules
-<!-- source: 835f2cf50feedf49 -->
+<!-- source: c2932ff7b92665fb -->
 Module unter Nuxt 5
 summary: `NUXT_B8013` heißt abgeschaltet, Pinia 4 mit seinem Peer, der i18n-Rückweg, die Nitro-v2-Brücke nur in Modulen
 
@@ -923,7 +924,9 @@ summary: `NUXT_B8013` heißt abgeschaltet, Pinia 4 mit seinem Peer, der i18n-Rü
   Feld vor dem Update prüfen, die Warnungen danach lesen.
 - Pinia 4: `@pinia/nuxt` 1 oder neuer, `@vue/devtools-api` ^8 als direkte Abhängigkeit.
 - `@nuxtjs/i18n` 10.6, solange es Nuxt 5 nicht unterstützt: `experimental.nitroViteEnvironment: false` und
-  `i18n.experimental.nitroContextDetection: false`; beides entfernen, sobald es das tut.
+  `i18n.experimental.nitroContextDetection: false`. `nitroContextDetection` entfernen, sobald ein Release
+  nuxt-modules/i18n#4066 schließt (Unterstützung für Nuxt 5 und Nitro 3); `nitroViteEnvironment` entfernen,
+  sobald `build` und die E2E-Tests auch ohne es bestehen (kein Upstream-Bericht bekannt).
 - Die Nitro-v2-Brücke (`NUXT_B9003`) nie im eigenen Code nachbauen.
 
 ## CR-nuxt5-server
@@ -973,9 +976,9 @@ summary: `import.meta.*`, `query` statt `params`, typisiertes `$fetch` und typis
   `nuxt.config.ts` (`CR-nuxt-basics`).
 
 ## CR-nuxt5-checks
-<!-- source: 798ac4a88878eb8b -->
+<!-- source: 5551a806a9ac9484 -->
 Prüfungen nach jedem Nuxt-Update
-summary: die volle Prüfkette, die Typfehlerliste verglichen statt gezählt, Warnungen, Kopien und `invalid` im Baum, ein Protokoll
+summary: die volle Prüfkette, die Typfehlerliste verglichen statt gezählt, Warnungen, Kopien und `invalid` im Baum, Workarounds gegen Upstream, ein Protokoll
 
 - Die Ausgabe des Typechecks vor dem Update sichern und danach die Fehler vergleichen — die Liste, nicht die Zahl.
 - Dann `npm run lint`, `typecheck`, `test`, `build`, `dev` (Hauptseiten antworten mit 200, keine Hydration-Warnung)
@@ -984,6 +987,8 @@ summary: die volle Prüfkette, die Typfehlerliste verglichen statt gezählt, War
   `python .act/scripts/security_scan.py --deps` ausführen.
 - `npm ls --all 2>&1 | grep invalid`: eine veraltete Auflösung mit `npm update <package>` beheben; bereits bekannte
   Einträge stehen im Upgrade-Log, nur neue melden.
+- Jeden Workaround dieses Satzes gegen das Upstream-Issue oder Release prüfen, das er nennt; den entfernen, dessen
+  Bedingung erfüllt ist, und das im Upgrade-Log vermerken.
 - Jeden Bruch in einem Upgrade-Log des Projekts festhalten (z. B. `docs/project/nuxt-5-upgrade.md`): das Symptom
   kurz zitiert, die Ursache geprüft oder als **assumption** markiert, die Behebung, die Stelle. Eine allgemeine
   Lehre wird eine eigene Regel in `docs/project/coding_rules.md` und geht per `act-feedback` ans Template.

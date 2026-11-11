@@ -37,7 +37,7 @@ With `feedback: local` the project never sends anything: `feedback.py --send` (a
 | :--- | :--- |
 | `a` | metrics |
 | `b` | rule and structure changes |
-| `c` | tool usage: how many agents, skills and scripts exist, and how often each of the template's own skills and scripts was used since the last sending (a skill started by typing its slash command counts too). Your own skills and scripts appear only as one `own` count per kind, never by name. No MCP server names are sent. |
+| `c` | tool usage: how many agents, skills and scripts exist, and how often each of the template's own skills and scripts was used since the last sending (a skill started by typing its slash command counts too). Your own skills and scripts appear only as one `own` count per kind, never by name. A send also counts the recorded reasons for reworked or escalated worker results per template role and tier since the last send; a role or tier of your own goes only as `own` / `other`, never by name. No MCP server names are sent. |
 
 The metrics of scope `a` count only the project's files (`git ls-files`), so a vendor, IDE or media folder that git ignores adds nothing; outside a git checkout, a directory or link that cannot be read is skipped. A finding written by hand always goes into the outbox, whatever the scope.
 
@@ -55,7 +55,7 @@ Every string that could leave the project runs through a privacy check first: cr
 ## The local copy
 
 - Every send writes a full copy of its payload to `.act-local/feedback/sent/` (gitignored, never leaves your checkout). Pending entries and bookkeeping live next to it in `.act-local/feedback/`.
-- Worker measurements (`usage.py --estimates`) stay in `.act-local/usage.json` and are never part of a payload.
+- Worker measurements (`usage.py --estimates`) stay in `.act-local/usage.json` and are never part of a payload; only the reason counts of scope `c` go along, as counts without names of your own.
 - The project's journal gets one entry per day, `<date>-feedback-sent.md`, with one line per send: the time, the kind of send (batch or direct message) and, for a batch, the number of entries and each entry's kind and title. The text of an entry and of a direct message is never recorded.
 
 ## The local incident log
