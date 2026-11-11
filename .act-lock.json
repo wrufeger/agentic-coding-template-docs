@@ -37,10 +37,10 @@
   },
   "template": {
     "version": "2.5.0",
-    "commit": "541a36c084b31c833214f0007e0dd6bdd002af71",
+    "commit": "f65a72602a2c6c1fd6a7970565138065899bd015",
     "source": "D:/dev/rufeger/agentic-coding-template",
     "ref": "main",
-    "manifest_sha256": "7589cd89a93b93508c52074cb37437cd610b6d9a73e413b4bf06bd4e3cebc4cf",
+    "manifest_sha256": "3c8af3eb6bdb311f480f79f0534bf10f83f794dcabaddcfb333e3e71c9c9582b",
     "source_fingerprint": ""
   },
   "copies": {
@@ -62,11 +62,11 @@
     },
     ".claude/skills/act-commit/SKILL.md": {
       "source": ".act/skills/act-commit/SKILL.md",
-      "sha256": "c4bb7959148ca469098c4f42ef7cbffc195c24f7eadc6107bf95dd55fc1f48f0"
+      "sha256": "fe44b11019b7915bdb7a958becd3aa2f0f2f01be9b0e0bccae2ce507daf49481"
     },
     ".claude/skills/act-deps/SKILL.md": {
       "source": ".act/skills/act-deps/SKILL.md",
-      "sha256": "d26499e0138c9ef21f41fe7fc042fdd7e476b18738dd031df09e3c3c5f55be11"
+      "sha256": "65712af89e7fb00dfc7c4ea6b030a2994d30c8e0fc2e5ff33e6c8b6928ca4e6a"
     },
     ".claude/skills/act-design-assets/SKILL.md": {
       "source": ".act/skills/act-design-assets/SKILL.md",
@@ -74,11 +74,11 @@
     },
     ".claude/skills/act-design-build/SKILL.md": {
       "source": ".act/skills/act-design-build/SKILL.md",
-      "sha256": "7543e8194f5a15100510f99a135782c6500e7a09cb40850fe0b9a55beb682ac4"
+      "sha256": "7bd20c5faa4d655eb9ce6dfe2560570340933cb6944569db619d8c7eac3aa454"
     },
     ".claude/skills/act-design-ideas/SKILL.md": {
       "source": ".act/skills/act-design-ideas/SKILL.md",
-      "sha256": "0a3c998ddf885a408e8c2807d31d279985d198a3530b070ccbd431d0e55528ba"
+      "sha256": "8ba4f04a7f57df9db4d5b7f150d6f8625b20abc4bd2d38980c6ff4a60aeb561c"
     },
     ".claude/skills/act-doctor/SKILL.md": {
       "source": ".act/skills/act-doctor/SKILL.md",
@@ -94,7 +94,7 @@
     },
     ".claude/skills/act-idea/SKILL.md": {
       "source": ".act/skills/act-idea/SKILL.md",
-      "sha256": "a1e0633c491302cba3342e8d8e44eb0b498632b2f4c1d7971061b620d6c2fbd0"
+      "sha256": "4a9d3fc0cf0181e995ef0da46ef13936ebfa81a5fcba2c3f1a101ca7e9a066d0"
     },
     ".claude/skills/act-integrations/SKILL.md": {
       "source": ".act/skills/act-integrations/SKILL.md",
@@ -114,7 +114,7 @@
     },
     ".claude/skills/act-pr/SKILL.md": {
       "source": ".act/skills/act-pr/SKILL.md",
-      "sha256": "1eabe399463f2ab606f703884207103c4ae5741873ce97a0982bf8a49d79f33c"
+      "sha256": "4e9e953ff172fbf38512a5b8bd8c10623f706b9471c4242c2c47d09a94cea0b0"
     },
     ".claude/skills/act-prepare/SKILL.md": {
       "source": ".act/skills/act-prepare/SKILL.md",
@@ -126,7 +126,7 @@
     },
     ".claude/skills/act-release/SKILL.md": {
       "source": ".act/skills/act-release/SKILL.md",
-      "sha256": "a59f3db8249e12b375ebb951b7571a812da45e7f36fcd08cee0729c7ae5ca032"
+      "sha256": "edb493b5a6ba46444a42a50f07b347656a3018a2eff277cd6c037d89d7d63ee9"
     },
     ".claude/skills/act-setup/SKILL.md": {
       "source": ".act/skills/act-setup/SKILL.md",
@@ -218,7 +218,7 @@
     },
     ".claude/skills/act-seo/references/live-run.md": {
       "source": ".act/skills/act-seo/references/live-run.md",
-      "sha256": "834ffcb903a178f6c4d2eb7dd2dbbdc8250eb0825593e58b59324cdd3058dc6e"
+      "sha256": "9b1c3eb9abfdf0fc3f601413cee3a8fa8a89cf5360200b4d22fb6790c5845f77"
     },
     ".claude/skills/act-adopt/references/content-entries.md": {
       "source": ".act/skills/act-adopt/references/content-entries.md",

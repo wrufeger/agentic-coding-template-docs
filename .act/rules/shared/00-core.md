@@ -13,7 +13,8 @@ summary: proof before 'done'; reachable feedback loops first; unverified results
 or a screenshot of the running application (`run` in `docs/ai/config.md`), a commit hash, or an
 outside call. Before a check is handed to the human, every feedback loop within reach has run. An
 unbacked result is "not verified", not "done" — say so plainly, and question a flawed plan rather than
-agreeing to be agreeable.
+agreeing to be agreeable. A commit hash named as evidence is checked mechanically by
+`commit-hashes`.
 
 ## `R-work-override` — The project overrides the template
 
@@ -55,24 +56,27 @@ diagnosis, not on the first plausible explanation.
 summary: cut unbounded output (head/tail/grep or a throwaway file); read only failures; large files in excerpts
 
 Output of unknown length is cut with `head`/`tail`/`grep`, or written to a file in the task's
-throwaway folder (`R-work-throwaway`) and read from there — a worker whose assignment names no such
-folder cuts instead; it never goes whole into the context. Of build and test output read only the
+throwaway folder (`R-work-throwaway`; with no task `.act-local/tmp/<YYYYMMDD>-<slug>/`) and read from
+there — a worker whose assignment names no such folder cuts instead; it never goes whole into the
+context. Of build and test output read only the
 failures; read a large file in excerpts (`offset`/`limit`). Every line in the context is read again
 with each following step.
 
 ## `R-work-throwaway` — Throwaway material has one place and goes away
 
-summary: throwaway material only when needed, only under .act-local/tmp/<task-id>-<slug>/, removed by its maker
+summary: throwaway material only when needed, under .act-local/tmp/<task-id>-<slug>/ or <YYYYMMDD>-<slug>/, removed by its maker
 
 Throwaway material — probes, throwaway projects, clones, output and scratch files — is made only when
-the work needs it, and only under `.act-local/tmp/<task-id>-<slug>/`: never in the system temp
+the work needs it, and only under `.act-local/tmp/<task-id>-<slug>/`, or `.act-local/tmp/<YYYYMMDD>-<slug>/`
+for work with no task (a skill run, a doctor report, feedback intake): never in the system temp
 directory and never directly under `.act-local/`. Whoever makes it removes it
-once it has served; a worker's result says it did, or what is left and why, and an assignment that
-needs the folder names it in its `Write scope:`. A probe never sets an access right its owner could
+once it has served; a worker's result says it did, or what is left and why; an assignment
+needs no scope entry for it: `.act-local/tmp/` is open to every worker. A probe never sets an access right its owner could
 not take back alone, and takes back every right it set in a `finally`. The orchestrator removes a
 task's folders when it commits the task (`act-commit`); `act-local-tidy` clears what is left after 7
-days unless the name starts with an open task's id or `act-local-keep` lists it. Details:
-`topics/checks.md`.
+days unless the name starts with an open task's id or `act-local-keep` lists it. A main-session write
+to the system temp directory or directly under `.act-local/` gets a note (checked mechanically by
+`throwaway-place`). Details: `topics/checks.md`.
 
 ## `R-role-worker` — What a worker may and may not do
 
@@ -86,7 +90,7 @@ runs (`R-work-process-error`), come back with its result. If the human addresses
 answers only "please ask the orchestrator" and carries on; asked for status, it answers at once with
 facts: done, open, unexpected. Git is read-only (`status`, `diff`, `log`, `show`); whatever changes
 the working tree or history stays with the orchestrator. A file outside the assignment's
-`Write scope:` is never written — not with the tool a check would refuse, and not through an
+`Write scope:` (the throwaway place `.act-local/tmp/` aside) is never written — not with the tool a check would refuse, and not through an
 interpreter, script or other detour, whether or not a check refused it; the result names the file and
 the change it needs. Any other write a check refused is not made another way either; the refusal goes
 into the result. Path-bound rules (`.claude/rules/`, `paths:`) load only when a matching file is read

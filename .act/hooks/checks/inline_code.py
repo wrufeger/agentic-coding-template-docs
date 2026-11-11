@@ -1,82 +1,42 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
-# Purpose: Reads inline interpreter code for checks/write_scope.py (check 1c): the program text a
-#          worker's shell command hands to `python`/`node` (`python - <<'EOF' ... EOF`, `python -c
-#          "..."`, `node -e "..."`, a here-string or a literal piped into `python -`) is searched for
-#          a write call and for path literals, so a worker with a restricted write scope cannot write
-#          outside it from inside such a program as long as the path stands in the code as a literal.
-#          This module knows nothing about shells: shell_targets.py / powershell_targets.py find the
-#          interpreter call, the code text and the directory the call runs in; this module answers
-#          two questions about them -
+# Purpose: Reads inline interpreter code for the write checks (worker write scope, template write guard,
+#          outside-root, git-metadata guard): the program text a shell command hands to `python`/`node`
+#          (`python - <<'EOF' ... EOF`, `python -c "..."`, `node -e "..."`, a here-string or a literal piped
+#          into `python -`). This module knows nothing about shells: shell_targets.py / powershell_targets.py
+#          find the interpreter call, the code text and the directory the call runs in; this module answers
 #
 #              code_source(language, args)   -> where the code comes from (an option value, stdin, none)
-#              write_paths(language, code)   -> the path literals of the code, or [] without a write call
+#              write_targets(language, code) -> the paths a write call of the code names
 #
-# What counts as a write call (regex level, run over the code with comments removed and every string
-# literal blanked, so a call named inside a string or a comment is not one):
-#   - Python: `open(` / `io.open(` / `codecs.open(` / `.open(` with a literal mode made only of
-#     `rwaxbt+` that holds `w`, `a`, `x` or `+` (positional, or `mode=`); `.write_text(`,
-#     `.write_bytes(`, `.touch(`, `.mkdir(`, `.unlink(`, `.rmdir(`, `.rename(`, `.symlink_to(`,
-#     `.hardlink_to(`; `shutil.copy|copy2|copyfile|copytree|move|rmtree`; `os.remove|unlink|rename|
-#     replace|makedirs|mkdir|rmdir|removedirs|symlink|link|truncate|open`.
-#   - Node: `writeFile`, `writeFileSync`, `appendFile`, `appendFileSync`, `createWriteStream`,
-#     `copyFile`, `copyFileSync`, `cp`, `cpSync`, `rename`, `renameSync`, `unlink`, `unlinkSync`, `rm`,
-#     `rmSync`, `rmdir`, `rmdirSync`, `mkdir`, `mkdirSync`, `symlink`, `symlinkSync`, `truncate`,
-#     `truncateSync`, as a call (`fs.writeFileSync(`, `fs.promises.writeFile(`, a destructured one).
-#   Deliberately not one, to keep read-only one-liners free: a bare `.write(` (`sys.stdout.write`),
-#   `.replace(` (`str.replace`), `print(..., file=...)`.
+# A check refuses only what the command text shows to be wrong, so write_targets reports only paths the text
+# shows - and nothing else: a string that is merely mentioned (an import line, a comment, a path the code reads)
+# is no target, and neither is a path that comes from a name bound twice, a loop variable, a parameter,
+# `sys.argv`, a join or f-string with such a part or a call's result; code that cannot be read as Python gives
+# no target. An unknown target passes.
 #
-# What counts as a path literal: a string literal (Python `'..'`, `".."`, triple-quoted, prefixes
-# r/b/u/f in any combination; Node `'..'`, `".."`, template literals) that, once the escapes of a
-# non-raw literal are decoded the way its language does (`\\` -> `\`, `\xhh`, `\uXXXX`, `\N{name}`,
-# octal; a raw Python literal stays as written), contains `/` or `\`, or is a bare file name with an
-# extension (`name.ext`, the extension 1-8 letters or digits and not all digits, so `1.0` is none),
-# and is not a URL (`scheme://`), not empty, holds no control character (a `\n`/`\r`/`\t` escape makes
-# it text, not a path), is not made of separators alone (`'/'`, `'\\'` split or join names), and holds
-# none of `*?[]^|()<>` (glob and regular-expression text is not judged). An interpolated literal (Python f-string `{...}`, Node
-# `${...}`) is judged by its static prefix up to the last separator before the first interpolation;
-# without a separator there it is no path.
+# Python is read with `ast` (read_python_program, below): write calls are `open` with a writing mode (a mode the
+# reading cannot see counts as writing), `os.remove|unlink|rmdir|removedirs|mkdir|makedirs|truncate|chmod|chown|
+# utime|open|symlink|link|rename|replace`, `shutil.copy|copy2|copyfile|copymode|copystat|copytree|move|rmtree|
+# chown`, and on any receiver the methods `write_text`, `write_bytes`, `touch`, `mkdir`, `unlink`, `rmdir`,
+# `chmod`, `lchmod`, `rename`, `symlink_to`, `hardlink_to`, `link_to`; the path is what the text shows: a string
+# literal, `Path(...)` / `os.path.join(...)` of such parts, a name bound once to such a value and used unchanged,
+# `Path('<literal>').glob('<literal>')` on a relative folder and `glob.glob` of a literal pattern (_Env).
+# The text of an `exec`/`eval` written out is read again.
 #
-# Windows tools with `/` switches: a literal that is only a switch (`/deny`, `/c`, `/grant:r`, `/MIR`,
-# `/R:3`: one segment, at most 16 letters or digits, an optional `:value`) is no path in exactly one
-# place - among the arguments of a call that starts a program, when the tool that knows the switch (the
-# table per tool is _TOOL_SWITCHES; `icacls`, `cmd`, ... also as a `System32` path) is the literal in
-# the tool's position of that very call: the first element of the list `subprocess.run`, `call`,
-# `check_call`, `check_output` or `Popen` gets, the first argument of Node `spawn`, `spawnSync`,
-# `execFile` or `execFileSync` with the list as the second, the program argument of `os.exec*` /
-# `os.spawn*`. The tool's name is no path there either. A literal in that position that is a whole
-# command line starting with the tool (`os.system('icacls d /deny x')`, `subprocess.run('...')`, Node
-# `exec`/`execSync`) is cut into words, the tool and its switches dropped and every other word judged
-# on its own - but only a line of one command: a `;`, `&`, `|`, `<`, `>`, `(`, `)`, `^`, `%`, `$`, backtick
-# or line break in it keeps the literal whole. For `cmd` only the switches up to `/c` or `/k` drop: what
-# follows is another program's command line and is judged as usual. Nothing else makes a switch: not a `'cmd'` elsewhere in the program (`print('cmd')`,
-# `t = 'cmd'`), not the enclosing statement, block or any other call (`shutil.copytree('cmd', '/c')`),
-# not a list built from parts; a switch the tool does not know and one that names a file
-# (`/LOG:out.txt`) stay paths. The cost: a switch-like literal in the tool's own list is never judged
-# as a file in the root of a drive.
+# Node is read at regex level (comments dropped, every string literal blanked): `writeFile[Sync]`,
+# `appendFile[Sync]`, `createWriteStream`, `copyFile[Sync]`, `cp[Sync]`, `rename[Sync]`, `unlink[Sync]`,
+# `rm[Sync]`, `rmdir[Sync]`, `mkdir[Sync]`, `symlink[Sync]`, `truncate[Sync]` as a call; the path is a string
+# literal, a name declared once as `const NAME = "literal"` or `path.join(...)` of such parts.
 #
-# A write call whose path the text does not show is not resolved and not guessed at: the code is refused
-# (UNKNOWN_WRITE, an unplaced target that every check which reads write targets turns into a refusal). What the text
-# shows is a short allow-list (_Env for Python, _node_write_targets for Node): a string literal, `Path(...)` /
-# `os.path.join(...)` / `path.join(...)` of such parts, a name bound exactly once to such a value and used unchanged
-# (nothing in the program rebinds names, _REBINDING_NAMES), and `Path('<literal>').glob('<literal>')` / `.rglob(...)`
-# on a relative folder without `..`, and `glob.glob` / `glob.iglob` of a literal pattern (somewhere under that folder, _Under).
-# A name bound twice, a loop variable, a parameter, `sys.argv`, a join or f-string with such a part, a call's result
-# is not shown. So is Python
-# code that cannot be read as Python while the literal reading sees a write call in it. The way out is the same
-# everywhere: write the path out in the code, or write the file with a file tool.
+# A literal counts as a path when it holds `/` or `\` or is a bare file name with an extension (`name.ext`, not
+# all digits) and is no URL, holds no control character, is not made of separators alone (_resolved_is_path).
 #
-# Known limits (a path missed here is simply not checked): a bare name without an extension (`open('out', 'w')`), which includes a dotfile such as
-# `.envrc` (a leading dot is no extension); a script file run by path; writes
-# through `subprocess`/`os.system`/`child_process`; a write call that is not in the list (`.write(`,
-# `Path.replace`, `fs.openSync`, `from shutil import rmtree` used bare); a string the lexer reads
-# wrongly (a string nested in an f-string replacement field that reuses its own quote; a JavaScript
-# regular-expression literal is told from a division by the token in front of it, so one after `)`,
-# `]` or `}` reads as a division and a `//` in it starts a comment that hides the rest of its line);
-# code that imports a name under another one; any
-# other interpreter (perl, ruby, php, deno, bun). Best effort: it catches the common form, not every
-# form.
+# Known limits (a path missed here is simply not checked): a bare name without an extension (`open('out',
+# 'w')`); a script file run by path; writes through `subprocess`/`os.system`/`child_process`; a write call that
+# is not in the lists above (`.write(`, `Path.replace`, `fs.openSync`); code that imports a name under another
+# one; any other interpreter (perl, ruby, php, deno, bun). Best effort: it catches the common form.
 
 from __future__ import annotations
 
@@ -91,11 +51,9 @@ import unicodedata
 from pathlib import PurePosixPath, PureWindowsPath
 from typing import NamedTuple, Optional
 
-from .common import _unplaced_target
-
 __all__ = [
     "PYTHON", "NODE", "SOURCE_CODE", "SOURCE_STDIN", "SOURCE_NONE",
-    "interpreter_language", "code_source", "code_source_at", "write_paths", "write_targets",
+    "interpreter_language", "code_source", "code_source_at", "write_targets", "WHOLE_FOLDER",
     "mentions_interpreter", "report_skipped", "ReaderFailure",
     "CALL_RUN", "CALL_WRITE", "CALL_CODE", "ProgramCall", "PythonProgram", "read_python_program",
 ]
@@ -125,13 +83,10 @@ _NODE_EVAL_OPTIONS = frozenset({"-e", "--eval", "-p", "--print", "-pe", "-ep"})
 # runs the `-e` text before it opens its prompt.)
 _NODE_NO_CODE_OPTIONS = frozenset({"-v", "--version", "-h", "--help", "-c", "--check"})
 
-_NOT_JUDGED_CHARS = frozenset("*?[]^|()<>")
 _URL_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://")
 _BARE_FILE_RE = re.compile(r"^[^\s/\\]+\.([A-Za-z0-9]{1,8})$")
 _PY_MODE_RE = re.compile(r"""^(['"])([rwaxbt+]+)\1$""")
-_PY_PREFIX_CHARS = "rRbBuUfF"
 _ARG_SCAN_LIMIT = 300  # characters of one call's arguments read for a mode; bounds the work per call
-_OPEN_CALL_LIMIT = 200  # open( calls examined; more than that is taken as a write (absurd code, fail closed)
 
 
 class _Literal(NamedTuple):
@@ -309,86 +264,6 @@ def report_skipped(where: str, error: BaseException) -> None:
     print(f"[act] inline interpreter code not read ({where}): {type(error).__name__}: {error}", file=sys.stderr)
 
 
-def _blank(body: str, quote: str) -> str:
-    """A string literal as it stays in the skeleton the write calls are searched in: its quotes, and its
-    text only where it can be an open() mode (`rwaxbt+`)."""
-    keep = _PY_MODE_RE.match(quote + body + quote) is not None
-    return quote + (body if keep else "_") + quote
-
-
-def _python_scan(code: str) -> tuple[list[_Literal], str]:
-    """(string literals in source order, skeleton): the skeleton is the code with comments dropped and
-    every string literal blanked (see _blank)."""
-    literals: list[_Literal] = []
-    out: list[str] = []
-    size = len(code)
-    index = 0
-    while index < size:
-        char = code[index]
-        if char == "#":
-            end = code.find("\n", index)
-            index = size if end < 0 else end
-            continue
-        if char not in "'\"":
-            out.append(char)
-            index += 1
-            continue
-        start = index
-        while start > 0 and index - start < 3 and code[start - 1] in _PY_PREFIX_CHARS:
-            start -= 1
-        prefix = code[start:index]
-        if start > 0 and (code[start - 1].isalnum() or code[start - 1] == "_"):
-            prefix = ""  # the letters belong to a longer name: no string prefix
-        if prefix:
-            del out[len(out) - len(prefix):]
-        triple = code.startswith(char * 3, index)
-        width = 3 if triple else 1
-        cursor = index + width
-        closed = False
-        while cursor < size:
-            current = code[cursor]
-            if current == "\\":
-                cursor += 2
-                continue
-            if triple:
-                if code.startswith(char * 3, cursor):
-                    closed = True
-                    break
-            elif current == char:
-                closed = True
-                break
-            elif current == "\n":
-                break
-            cursor += 1
-        raw_body = code[index + width:min(cursor, size)]
-        body = raw_body
-        index = min(cursor + width, size) if closed else min(cursor, size)
-        lowered = prefix.lower()
-        interpolated = False
-        if "f" in lowered:
-            field = _python_field_start(body)
-            if field is not None:
-                body, interpolated = body[:field], True
-            body = body.replace("{{", "{").replace("}}", "}")
-        value = body if "r" in lowered else _decode_escapes(body, False, "b" not in lowered)
-        literals.append(_Literal(value, interpolated))
-        out.append(_blank(raw_body, char))
-    return literals, "".join(out)
-
-
-def _python_field_start(body: str) -> Optional[int]:
-    """Index of the first replacement field `{` of an f-string body (`{{` is a literal brace), else None."""
-    index = 0
-    while index < len(body):
-        if body.startswith("{{", index):
-            index += 2
-        elif body[index] == "{":
-            return index
-        else:
-            index += 1
-    return None
-
-
 def _skip_js_string(code: str, index: int) -> int:
     """Index just after the JavaScript string (any of the three quotes) that opens at `code[index]`; a
     string that is not closed ends at the end of its line (quotes ' and \") or of the text."""
@@ -456,7 +331,7 @@ def _skip_js_regex(code: str, index: int) -> Optional[int]:
 
 
 def _javascript_scan(code: str) -> tuple[list[_Literal], str]:
-    """The JavaScript counterpart of _python_scan: `//` and `/* */` comments dropped, strings and
+    """The JavaScript reader: `//` and `/* */` comments dropped, strings and
     template literals collected (a template's static part before its first `${` when it has one),
     regular-expression literals blanked (their `//` or quote is no comment or string)."""
     literals: list[_Literal] = []
@@ -518,14 +393,6 @@ def _javascript_scan(code: str) -> tuple[list[_Literal], str]:
     return literals, "".join(out)
 
 
-# Python write calls that need no argument reading.
-_PY_CALL_RE = re.compile(
-    r"\.\s*(?:write_text|write_bytes|touch|mkdir|unlink|rmdir|rename|symlink_to|hardlink_to)\s*\("
-    r"|(?<![\w.])shutil\s*\.\s*(?:copy|copy2|copyfile|copytree|move|rmtree)\s*\("
-    r"|(?<![\w.])os\s*\.\s*(?:remove|unlink|rename|replace|makedirs|mkdir|rmdir|removedirs|symlink|link"
-    r"|truncate|open)\s*\("
-)
-_PY_OPEN_RE = re.compile(r"(?<![\w])open\s*\(")
 _NODE_WRITE_RE = re.compile(
     r"(?<![\w$])(?:writeFile|writeFileSync|appendFile|appendFileSync|createWriteStream|copyFile|copyFileSync"
     r"|cp|cpSync|rename|renameSync|unlink|unlinkSync|rm|rmSync|rmdir|rmdirSync|mkdir|mkdirSync|symlink"
@@ -533,140 +400,12 @@ _NODE_WRITE_RE = re.compile(
 )
 
 
-def _call_arguments(skeleton: str, start: int) -> list[str]:
-    """The top-level arguments of the call whose `(` ends just before `skeleton[start]`: split at commas
-    outside any bracket, up to the closing parenthesis (or `_ARG_SCAN_LIMIT` characters)."""
-    arguments: list[str] = []
-    depth = 0
-    current: list[str] = []
-    for char in skeleton[start:start + _ARG_SCAN_LIMIT]:
-        if char in "([{":
-            depth += 1
-        elif char in ")]}":
-            if depth == 0:
-                break
-            depth -= 1
-        elif char == "," and depth == 0:
-            arguments.append("".join(current).strip())
-            current = []
-            continue
-        current.append(char)
-    arguments.append("".join(current).strip())
-    return arguments
-
-
-def _writes_mode(argument: str) -> bool:
-    match = _PY_MODE_RE.match(argument)
-    return match is not None and any(char in "wax+" for char in match.group(2))
-
-
-def _open_call_writes(skeleton: str, match: "re.Match[str]") -> bool:
-    """True if the `open(` call at `match` has a literal mode argument that writes: `mode=<mode>`, the
-    second positional argument, or - for a method (`Path(...).open('w')`, `p.open('w')`) - the first."""
-    method = skeleton[:match.start()].rstrip().endswith(".")
-    for position, argument in enumerate(_call_arguments(skeleton, match.end())):
-        keyword = re.match(r"mode\s*=\s*(.+)$", argument)
-        if keyword:
-            if _writes_mode(keyword.group(1).strip()):
-                return True
-        elif (position == 1 or (method and position == 0)) and _writes_mode(argument):
-            return True
-    return False
-
-
-def _skeleton_has_write_call(language: str, skeleton: str) -> bool:
-    if language == NODE:
-        return _NODE_WRITE_RE.search(skeleton) is not None
-    if _PY_CALL_RE.search(skeleton):
-        return True
-    for count, match in enumerate(_PY_OPEN_RE.finditer(skeleton)):
-        if count >= _OPEN_CALL_LIMIT or _open_call_writes(skeleton, match):
-            return True
-    return False
-
-
-def _path_candidate(literal: _Literal) -> Optional[str]:
-    """The path a literal stands for (see the header for the rules), or None if it is not judged."""
-    value = literal.value
-    if literal.interpolated:
-        cut = max(value.rfind("/"), value.rfind("\\"))
-        if cut < 0:
-            return None
-        value = value[:cut + 1]
-    if not value or any(ord(char) < 32 for char in value) or not value.strip("/\\"):
-        return None
-    if _URL_RE.match(value) or any(char in _NOT_JUDGED_CHARS for char in value):
-        return None
-    if "/" in value or "\\" in value:
-        return value
-    bare = _BARE_FILE_RE.match(value)
-    if bare and not bare.group(1).isdigit():
-        return value
-    return None
-
-
-def _scan(language: str, code: str) -> tuple[list[_Literal], str]:
-    return _python_scan(code) if language == PYTHON else _javascript_scan(code)
-
-
-# Windows command-line tools whose switches start with a slash (`icacls d /deny x`, `robocopy a b /MIR`,
-# `cmd /c ...`), and the switches of each that this reads as switches - only in a call that starts the
-# tool (see the header and _without_switches). A switch that names a file (`/LOG:out.txt`,
-# `/EXCLUDE:list`) is left out of the table on purpose: it is judged like any path.
-_TOOL_SWITCHES = {
-    "icacls": "deny grant remove inheritance t c q l reset save restore setowner findsid verify substitute "
-              "setintegritylevel",
-    "cacls": "t m s e c g r p d",
-    "robocopy": "mir e s purge r w mt copy copyall dcopy xd xf xo xc xn xx nfl ndl njh njs np ns nc l z b zb "
-                "mov move lev create fft dst tee v ts fp bytes eta sec secfix timfix sl sj j",
-    "xcopy": "e s i y -y q h r k c d f l t v w z o x p u n g b j",
-    "takeown": "f r a d s u p skipsl",
-    "attrib": "s d l",
-    "cmd": "c k s q d a u t e f v x y r",
-}
-_SWITCH_NAMES = {tool: frozenset(("? " + names).split()) for tool, names in _TOOL_SWITCHES.items()}
-_SWITCH_TOOLS = "(" + "|".join(_TOOL_SWITCHES) + r")(?:\.exe)?"
-_SYSTEM32 = r"(?:[A-Za-z]:[\\/]Windows[\\/]System32[\\/])?"
-_SWITCH_TOOL_RE = re.compile(_SYSTEM32 + _SWITCH_TOOLS, re.IGNORECASE)
-_SWITCH_RE = re.compile(r"/(-?[A-Za-z?][A-Za-z0-9?]{0,15})(?::[^\s/\\]*)?")
-_COMMAND_LINE_RE = re.compile(r'\s*"?' + _SYSTEM32 + _SWITCH_TOOLS + r'"?\s', re.IGNORECASE)
-# A command line that holds more than one command or anything a shell expands or redirects is not cut into
-# words: its later parts are another program's arguments, so its literal stays whole.
-_LINE_OPERATOR_RE = re.compile(r"[;&|<>()^%$`\n\r]")
-_COMMAND_WORD_RE = re.compile(r'"[^"]*"|\S+')
-# The calls that start a program - the only place a literal counts as a switch. The group name says
-# where the tool stands: `argv` - the tool and its arguments are one list, the call's first argument
-# (`subprocess.run(['icacls', d, '/deny'])`; a string there is a whole command line), or the tool is the
-# first argument and the list of its arguments the second (Node `spawnSync('icacls', [d, '/deny'])`);
-# `line` - the first argument is a whole command line; `exec` / `spawn` - the tool is the first (for
-# `spawn` the second) argument, its arguments the list behind it (`execv`, `spawnv`) or the call's own
-# further arguments (`execl`, `spawnl`), the first of them its name once more.
-_PY_START_CALL_RE = re.compile(
-    r"(?<![\w.])(?:subprocess\s*\.\s*(?P<argv>run|call|check_call|check_output|Popen)"
-    r"|os\s*\.\s*(?:(?P<line>system)|(?P<exec>exec[lv]p?e?)|(?P<spawn>spawn[lv]p?e?)))\s*\("
-)
-_JS_START_CALL_RE = re.compile(
-    r"(?<![\w$])(?:(?P<argv>spawn|spawnSync|execFile|execFileSync)|(?P<line>exec|execSync))\s*\("
-)
 _QUOTE_CHARS = {PYTHON: "'\"", NODE: "'\"`"}
-
-
-def _tool_of(text: str) -> Optional[str]:
-    """The tool (a key of _TOOL_SWITCHES) that `text` names on its own (`icacls`, `icacls.exe`, a System32
-    path to it), else None."""
-    match = _SWITCH_TOOL_RE.fullmatch(text.strip())
-    return match.group(1).lower() if match else None
-
-
-def _is_switch_of(tool: str, text: str) -> bool:
-    """True if `text` is one switch that `tool` knows (`/deny`, `/grant:r`, `/R:3`)."""
-    match = _SWITCH_RE.fullmatch(text)
-    return match is not None and match.group(1).lower() in _SWITCH_NAMES[tool]
 
 
 def _literal_spans(language: str, skeleton: str) -> list[tuple[int, int]]:
     """(start, end) of every quote pair of the skeleton, in order: the n-th pair is the n-th literal of
-    the program, as _python_scan / _javascript_scan keep every literal as one pair."""
+    the program, as _javascript_scan keeps every literal as one pair."""
     quotes = _QUOTE_CHARS[language]
     spans: list[tuple[int, int]] = []
     index = 0
@@ -708,112 +447,6 @@ def _argument_spans(skeleton: str, start: int) -> list[tuple[int, int]]:
     return spans
 
 
-def _without_switches(language: str, literals: list[_Literal], skeleton: str) -> list[_Literal]:
-    """`literals` without what a call that starts a program makes of them (see the header): where the
-    literal in the tool's position of such a call names a tool of _TOOL_SWITCHES, that literal and every
-    argument literal of the call that is a switch the tool knows drop out (`subprocess.run(['icacls', d,
-    '/deny', 'x'])`, `spawnSync('icacls', [d, '/deny'])`, `os.execlp('icacls', 'icacls', d, '/deny')`);
-    a literal in that position that is a whole command line (`os.system('icacls d /deny x')`) is replaced
-    by its words without the tool and its switches. Every other literal stays, and so does everything
-    when the literals cannot be matched to the skeleton."""
-    spans = _literal_spans(language, skeleton)
-    if len(spans) != len(literals):
-        return literals
-    by_span = {span: index for index, span in enumerate(spans)}
-
-    def trimmed(span: tuple[int, int]) -> tuple[int, int]:
-        start, end = span
-        while start < end and skeleton[start].isspace():
-            start += 1
-        while end > start and skeleton[end - 1].isspace():
-            end -= 1
-        return start, end
-
-    def literal_in(span: tuple[int, int]) -> Optional[int]:
-        """The index of the literal that is all of `span` but whitespace, else None."""
-        index = by_span.get(trimmed(span))
-        return None if index is None or literals[index].interpolated else index
-
-    def elements_in(span: tuple[int, int]) -> list[tuple[int, int]]:
-        """The element spans of the list or tuple that is all of `span` but whitespace, else []."""
-        start, end = trimmed(span)
-        if end - start < 2 or skeleton[start] not in "[(" or skeleton[end - 1] not in "])":
-            return []
-        elements = _argument_spans(skeleton, start + 1)
-        return elements if elements[-1][1] == end - 1 else []
-
-    dropped: set[int] = set()
-    replaced: dict[int, list[_Literal]] = {}
-    pattern = _PY_START_CALL_RE if language == PYTHON else _JS_START_CALL_RE
-    for match in pattern.finditer(skeleton):
-        arguments = _argument_spans(skeleton, match.end())
-        kind = match.lastgroup
-        tool_at = 1 if kind == "spawn" else 0
-        if kind is None or tool_at >= len(arguments):
-            continue
-        line_form = kind == "line"
-        words: list[tuple[int, int]] = []
-        if kind == "argv" and language == PYTHON:
-            words = elements_in(arguments[0])
-            tool_index = literal_in(words[0]) if words else literal_in(arguments[0])
-            line_form = not words
-            words = words[1:]
-        else:
-            tool_index = literal_in(arguments[tool_at])
-            if kind == "argv" and len(arguments) > 1:
-                words = elements_in(arguments[1])
-            elif kind in ("exec", "spawn"):
-                if match.group(kind)[len(kind)] == "l":
-                    words = arguments[tool_at + 1:]
-                elif len(arguments) > tool_at + 1:
-                    words = elements_in(arguments[tool_at + 1])
-        if tool_index is None:
-            continue
-        value = literals[tool_index].value
-        if line_form:
-            line = _COMMAND_LINE_RE.match(value)
-            if line is not None and _LINE_OPERATOR_RE.search(value) is None:
-                tool = line.group(1).lower()
-                kept: list[_Literal] = []
-                own_words = True
-                for part in _COMMAND_WORD_RE.findall(value):
-                    word = part.strip('"')
-                    if not word:
-                        continue
-                    if own_words and (_tool_of(word) == tool or _is_switch_of(tool, word)):
-                        if tool == "cmd" and word.lower().split(":")[0] in ("/c", "/k"):
-                            own_words = False
-                        continue
-                    kept.append(_Literal(word, False))
-                replaced[tool_index] = kept
-            continue
-        tool = _tool_of(value)
-        if tool is None:
-            continue
-        dropped.add(tool_index)
-        for position, span in enumerate(words):
-            index = literal_in(span)
-            if index is None:
-                if tool == "cmd":
-                    break
-                continue
-            word = literals[index].value
-            if _is_switch_of(tool, word) or (position == 0 and kind != "argv" and _tool_of(word) == tool):
-                dropped.add(index)
-                if tool == "cmd" and word.lower().split(":")[0] in ("/c", "/k"):
-                    break
-            elif tool == "cmd":
-                break
-    result: list[_Literal] = []
-    for index, literal in enumerate(literals):
-        if index not in dropped:
-            result.extend(replaced.get(index, [literal]))
-    return result
-
-# The target a write call stands for when the text of the code does not show its path (a name that is not bound
-# once to a literal, a join with a variable part, an f-string with such a field, a call's result): no part of it
-# is resolved, the call that holds it is refused.
-UNKNOWN_WRITE = _unplaced_target("inline interpreter code writes to a path its text does not show")
 _NODE_TWO_PATHS_RE = re.compile(r"(?:copyFile|cp|rename|symlink)")
 _NODE_IDENTIFIER_RE = re.compile(r"[A-Za-z_$][\w$]*")
 _NODE_JOIN_RE = re.compile(r"(?<![\w$.])path\s*\.\s*join\s*\(")
@@ -843,14 +476,14 @@ def _node_const_ok(skeleton: str, name: str) -> bool:
     return declarations == 1 and assigns == 1 and not any(re.search(pattern, skeleton) for pattern in hidden)
 
 
-def _node_write_targets(literals: list[_Literal], skeleton: str) -> tuple[list[str], bool]:
-    """(the paths the write calls of Node code name when the text shows them, whether one does not): a path is a
+def _node_write_targets(literals: list[_Literal], skeleton: str) -> list[str]:
+    """The paths the write calls of Node code name when the text shows them: a path is a
     string literal, a name declared once as `const NAME = "literal"` (and not hidden or assigned again), or
     `path.join(...)` of such parts; the first two paths of a copy, move or link. Code that holds `eval`, `Function`
     or `vm` shows no name."""
     spans = _literal_spans(NODE, skeleton)
     if len(spans) != len(literals):
-        return [], _NODE_WRITE_RE.search(skeleton) is not None
+        return []
     by_span = {span: index for index, span in enumerate(spans)}
     names: dict[str, str] = {}
     if _NODE_REBINDING_RE.search(skeleton) is None:
@@ -883,61 +516,31 @@ def _node_write_targets(literals: list[_Literal], skeleton: str) -> tuple[list[s
         return None if None in values else os.path.join(*[value for value in values if value is not None])
 
     found: list[str] = []
-    unknown = False
     for match in _NODE_WRITE_RE.finditer(skeleton):
         count = 2 if _NODE_TWO_PATHS_RE.match(match.group()) else 1
-        arguments = _argument_spans(skeleton, match.end())
-        values = [path_of(span) for span in arguments[:count]]
-        if len(arguments) < count or None in values:
-            unknown = True
+        values = [path_of(span) for span in _argument_spans(skeleton, match.end())[:count]]
         found.extend(value for value in values if value is not None and _resolved_is_path(value))
-    return found, unknown
+    return found
 
 
-def write_paths(language: str, code: str) -> list[str]:
-    """The paths a check judges as possible write targets of `code`: the path literals when it contains a write
-    call (the switches of a Windows tool the code starts are no paths, _without_switches), the paths the write
-    calls name (write_targets, for Python also where the call is no write call of the literal reading: a
-    metadata change) and UNKNOWN_WRITE when a write call's path is not shown by the text."""
-    literals, skeleton = _scan(language, code)
-    found: dict[str, None] = {}
-    if _skeleton_has_write_call(language, skeleton):
-        for literal in _without_switches(language, literals, skeleton):
-            candidate = _path_candidate(literal)
-            if candidate is not None:
-                found[candidate] = None
-    if language == PYTHON:
-        # Also a program without a call of the list above: `os.chmod`, `os.chown`, `os.utime`, `shutil.copymode`,
-        # `copystat`, `chown` and `Path.chmod` write file metadata, which the program reading names as a write.
-        found.update(dict.fromkeys(write_targets(language, code)))
-    else:
-        named, unknown = _node_write_targets(literals, skeleton)
-        found.update(dict.fromkeys(named))
-        if unknown:
-            found[UNKNOWN_WRITE] = None
-    return list(found)
-
-
-def write_targets(language: str, code: str) -> list[str]:
+def write_targets(language: str, code: str, depth: int = 0) -> list[str]:
     """The paths a write call of `code` names as literals - what a check judges that must not refuse a program
-    for a path it only mentions (the guard of the template's own files, the outside-root check) - and
-    UNKNOWN_WRITE when a write call names a path the text does not show, or the program cannot be read as Python
-    and the literal reading sees a write call in it. Python: the write calls the program reading reports
+    for a path it only mentions. Only what the text shows: a path that comes from a name bound twice, a join
+    with a variable, a call's result or an f-string with a field is no target, and code that cannot be read
+    gives none - an unknown target passes. Python: the write calls the program reading reports
     (read_python_program: `open(<path>, 'w')`, `Path(<path>).write_text(...)`, `os.remove`, `shutil.copy` to its
-    destination ...), the path being what the text shows (the allow-list in the header). Node: write_paths."""
+    destination ...) and those of an `exec`/`eval` text written out (up to three levels). Node:
+    _node_write_targets."""
     if language != PYTHON:
-        return write_paths(language, code)
+        return _node_write_targets(*_javascript_scan(code))
     found: dict[str, None] = {}
     program = read_python_program(code)
-    if program is None:
-        if _skeleton_has_write_call(PYTHON, _scan(PYTHON, code)[1]):
-            found[UNKNOWN_WRITE] = None
-        return list(found)
-    for call in program.calls:
+    for call in program.calls if program is not None else ():
         if call.kind == CALL_WRITE:
             found.update((value, None) for value in call.values if _resolved_is_path(value))
-            if call.unknown_path:
-                found[UNKNOWN_WRITE] = None
+        elif call.kind == CALL_CODE and depth < 3:
+            for text in call.values:
+                found.update(dict.fromkeys(write_targets(PYTHON, text, depth + 1)))
     return list(found)
 
 
@@ -967,7 +570,7 @@ def _resolved_is_path(value: str) -> bool:
 # nothing of it runs, and every call of the families below is reported with the LITERAL values that go
 # into it (a command line or Python text only when it is written out; the path of a write call as the allow-list
 # in the header of this file shows it). A value the reading cannot see is not reported, and a CALL_WRITE call with
-# such a path says so (ProgramCall.unknown_path): the write checks refuse it, write_targets. A program that does not
+# such a path says so (ProgramCall.unknown_path); the write checks let it pass (an unknown target is no refusal). A program that does not
 # parse as Python, is larger than _PROGRAM_SIZE_LIMIT or nests deeper than the interpreter can walk is not read at
 # all (None back).
 #
@@ -1261,7 +864,8 @@ _JOIN_MODULES = {"os": ["path", "join"], "os.path": ["join"], "posixpath": ["joi
 #     one of them, and a path or glob pattern built from it is judged once for each (at most _LOOP_COMBINATIONS);
 #   - `<such a path>.with_suffix('<literal>')`, and `<file of a glob>.with_suffix(...)`: somewhere under the folder;
 #   - the path parameter of a function the program uses only as `onerror=` / `onexc=` of `shutil.rmtree` calls whose
-#     targets are shown: somewhere under those targets (when they are relative and hold no `..`).
+#     targets are shown: somewhere under those targets (when they hold no `..`), and only when the function uses its
+#     first parameter for nothing but `first(path)`.
 _REBINDING_NAMES = frozenset({
     "exec", "eval", "compile", "globals", "locals", "vars", "setattr", "getattr", "delattr", "__import__",
     "_getframe", "currentframe", "f_globals", "f_locals", "__dict__", "__setattr__", "__builtins__", "runpy",
@@ -1276,6 +880,7 @@ _PROTECTED_PROBES = (
     ".devcontainer/devcontainer.json", ".envrc",
 )
 _ANY_FILE = "(any file here)"
+WHOLE_FOLDER = "(whole folder)"  # the folder a recursive delete removes as a whole: the guards judge it as a folder
 _LOOP_COMBINATIONS = 64  # a path built from loop variables is judged once for each combination, up to this many
 
 
@@ -1285,19 +890,26 @@ class _Under(NamedTuple):
     base: str
     pattern: str
     recursive: bool
+    whole: bool = False  # the folder itself goes too (a recursive delete), not only files below it
 
 
 def _under_paths(under: _Under) -> list[str]:
     """The paths a check judges for `under`: a file in the folder and, for each protected place at or below the
     folder that the glob can reach (a deep pattern reaches every one, a single-segment one those its pattern
     matches), one in that place - `.act/` from the project root, `hooks` and `config` from `.git`. Below any other
-    folder the glob stays inside that folder: only the folder is judged."""
+    folder the glob stays inside that folder: only the folder is judged. An absolute folder may be the project root
+    itself, so its `.act/` is judged too (not the git places: those are matched by text anywhere and would refuse
+    every absolute folder). A folder that goes as a whole (`whole`) is also named as that, so a guard that knows the
+    project root can refuse the root and each of its ancestors, which hold `.act/` without the path showing it."""
     base = os.path.normpath(under.base.replace("\\", "/")).replace("\\", "/")
     prefix = "./" if base == "." else f"{base}/"
     deep = under.recursive or "**" in under.pattern or "/" in under.pattern or "\\" in under.pattern
     found = [prefix + _ANY_FILE]
-    for probe in _PROTECTED_PROBES:
-        if base == ".":
+    absolute = _absolute_without_parent(base)
+    if under.whole:
+        found.append(prefix + WHOLE_FOLDER)
+    for probe in (_PROTECTED_PROBES[:1] if absolute else _PROTECTED_PROBES):
+        if base == "." or absolute:
             rel = probe
         elif probe.startswith(base.lower() + "/"):
             rel = probe[len(base) + 1:]
@@ -1311,6 +923,16 @@ def _under_paths(under: _Under) -> list[str]:
 def _relative_without_parent(text: str) -> bool:
     """True for a path that is relative (no root, drive or `~`) and climbs nowhere (no `..` segment)."""
     if not text or text[0] in "/\\~" or re.match(r"[A-Za-z]:", text) or "$" in text:
+        return False
+    return ".." not in re.split(r"[\\/]+", text)
+
+
+def _absolute_without_parent(text: str) -> bool:
+    """True for a path that starts at a drive or a root (not `~`, not a `\\\\server` or `//server` share) and climbs
+    nowhere (no `..` segment): where it lies is for the checks that resolve it against the project root."""
+    if not text or text[:2] in ("//", "\\\\") or "$" in text or "~" in text:
+        return False
+    if not (text[0] in "/\\" or re.match(r"[A-Za-z]:[\\/]", text)):
         return False
     return ".." not in re.split(r"[\\/]+", text)
 
@@ -1614,8 +1236,9 @@ class _Env:
 
     def _handler_targets(self, name: str) -> "Optional[list[str | _Under]]":
         """`path` of `def handler(function, path, excinfo)` when the program uses `handler` only as `onerror=` /
-        `onexc=` of `shutil.rmtree` calls: it lies under what those calls delete, which must be shown and relative
-        with no `..`. Any other use of the function (a call, a name, a decorator) leaves `path` unknown."""
+        `onexc=` of `shutil.rmtree` calls: it lies under what those calls delete, which must be shown, with no `..`.
+        Any other use of the function (a call, a name, a decorator), or a first parameter that the handler uses
+        for anything but `function(path)`, leaves `path` unknown."""
         if self.handlers is None:
             self.handlers = {}  # a handler whose target needs a handler is unknown
             self.handlers = self._find_handlers()
@@ -1625,6 +1248,17 @@ class _Env:
         """True if `func` is `shutil.rmtree` / `rmtree` and the program binds `shutil` (or `rmtree`) only by importing it."""
         root = func.id if isinstance(func, ast.Name) else _dotted_root(func)[0]
         return root is not None and self.imports.get(root, 0) > 0 and self._imported_only(root)
+
+    def _only_calls_first(self, first: str, second: str) -> bool:
+        """True when every load of the name `first` in the program is the callee of a call `first(second)`: one
+        positional argument, the name `second`, no keyword; it is not stored, passed on or called otherwise."""
+        callees: set[int] = set()
+        for node in ast.walk(self.tree):
+            if (isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == first
+                    and len(node.args) == 1 and not node.keywords and isinstance(node.args[0], ast.Name)
+                    and node.args[0].id == second and isinstance(node.args[0].ctx, ast.Load)):
+                callees.add(id(node.func))
+        return all(id(node) in callees for node in ast.walk(self.tree) if isinstance(node, ast.Name) and node.id == first)
 
     def _find_handlers(self) -> dict[str, list]:
         calls: dict[str, list[ast.Call]] = {}
@@ -1645,7 +1279,9 @@ class _Env:
             if definition is None or definition.decorator_list or len(self.bound.get(function, ())) != 1:
                 continue
             positional = definition.args.posonlyargs + definition.args.args
-            if len(positional) < 2 or len(self.bound.get(positional[1].arg, ())) != 1:
+            if len(positional) < 2 or any(len(self.bound.get(item.arg, ())) != 1 for item in positional[:2]):
+                continue
+            if not self._only_calls_first(positional[0].arg, positional[1].arg):
                 continue
             under: list = []
             for rmtree in rmtrees:
@@ -1656,8 +1292,8 @@ class _Env:
                 for target in targets:
                     if isinstance(target, _Under):
                         under.append(target)
-                    elif _relative_without_parent(target):
-                        under.append(_Under(target, "*", True))
+                    elif _relative_without_parent(target) or _absolute_without_parent(target):
+                        under.append(_Under(target, "*", True, True))
                     else:
                         under = []
                         break
@@ -1727,6 +1363,8 @@ def _read_call(call: ast.Call, aliases: _Aliases, env: "_Env") -> Optional[Progr
                 values.extend(_under_paths(item))
             else:
                 values.append(item)
+                if (module, function) == ("shutil", "rmtree"):
+                    values.append(item.rstrip("/\\") + "/" + WHOLE_FOLDER)  # the folder goes as a whole
     return ProgramCall(name, CALL_WRITE, tuple(values), None, True, line, None in paths)
 
 
