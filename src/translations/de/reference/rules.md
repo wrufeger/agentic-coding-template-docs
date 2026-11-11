@@ -13,14 +13,15 @@ Regeln, die jede Rolle lädt. Die IDs (`R-<area>-<name>`) sind stabil und werden
 `topics/checks.md`.
 
 ## R-work-evidence
-<!-- source: 88c9610fc61e9664 -->
+<!-- source: 72ba26cc959d384d -->
 Erledigt nur mit Beleg
 summary: Beleg vor „erledigt“; erreichbare Rückkopplung zuerst; nicht Überprüftes benennen
 
 „Erledigt“ gilt nur, wenn ein Beleg das Ergebnis zeigt: ein Testlauf, ein CI-Lauf, ein Log-Auszug oder ein
 Screenshot der laufenden Anwendung (`run` in `docs/ai/config.md`), ein Commit-Hash oder ein externer Aufruf. Bevor
 eine Prüfung an den Menschen übergeben wird, ist jede erreichbare Rückkopplung gelaufen. Ein Ergebnis ohne Beleg ist „nicht überprüft“, nicht „erledigt“ — das wird offen
-gesagt, und ein fehlerhafter Plan wird hinterfragt, statt ihm zuliebe zuzustimmen.
+gesagt, und ein fehlerhafter Plan wird hinterfragt, statt ihm zuliebe zuzustimmen. Ein Commit-Hash, der als Beleg
+genannt wird, wird mechanisch durch `commit-hashes` geprüft.
 
 ## R-work-override
 <!-- source: ef16f6a606296019 -->
@@ -61,33 +62,35 @@ gespeicherten Daten UTF-8 bleiben. Auf einen Workaround wird erst festgelegt, na
 Prüfung die Diagnose bestätigt hat, nicht schon bei der ersten plausiblen Erklärung.
 
 ## R-work-bounded-output
-<!-- source: c61bec784a8d4f45 -->
+<!-- source: 6ced5225d652b274 -->
 Ausgabe unbekannter Länge aus dem Kontext heraushalten
 summary: unbegrenzte Ausgabe beschneiden (head/tail/grep oder Wegwerf-Datei); nur Fehlschläge lesen; große Dateien in Ausschnitten
 
 Ausgabe unbekannter Länge wird mit `head`/`tail`/`grep` beschnitten oder in eine Datei im Wegwerf-Ordner der
-Aufgabe (`R-work-throwaway`) geschrieben und von dort gelesen — ein Worker, dessen Auftrag keinen solchen Ordner
-nennt, beschneidet stattdessen; sie gelangt nie vollständig in den Kontext. Von Build- und Testausgabe werden nur
+Aufgabe (`R-work-throwaway`; ohne Aufgabe `.act-local/tmp/<YYYYMMDD>-<slug>/`) geschrieben und von dort gelesen — ein
+Worker, dessen Auftrag keinen solchen Ordner nennt, beschneidet stattdessen; sie gelangt nie vollständig in den Kontext. Von Build- und Testausgabe werden nur
 die Fehlschläge gelesen; eine große Datei wird in Ausschnitten gelesen (`offset`/`limit`). Jede Zeile im Kontext
 wird mit jedem folgenden Schritt erneut gelesen.
 
 ## R-work-throwaway
-<!-- source: bb0fcfdcbf758b63 -->
+<!-- source: 640d563c15a067c0 -->
 Wegwerfmaterial hat einen Ort und verschwindet wieder
-summary: Wegwerfmaterial nur bei Bedarf, nur unter .act-local/tmp/<task-id>-<slug>/, von dem entfernt, der es angelegt hat
+summary: Wegwerfmaterial nur bei Bedarf, unter .act-local/tmp/<task-id>-<slug>/ oder <YYYYMMDD>-<slug>/, von dem entfernt, der es angelegt hat
 
 Wegwerfmaterial — Proben, Wegwerfprojekte, Klone, Ausgabe- und Arbeitsdateien — wird nur angelegt, wenn die Arbeit
-es braucht, und nur unter `.act-local/tmp/<task-id>-<slug>/`: nie im System-Temp-Verzeichnis und nie direkt unter
-`.act-local/`. Wer es anlegt, entfernt es wieder, sobald es seinen Zweck erfüllt hat; das Ergebnis eines Workers
-sagt, dass er es getan hat oder was übrig ist und warum, und ein Auftrag, der den Ordner braucht, nennt ihn in
-seinem `Write scope:`. Eine Probe setzt nie ein Zugriffsrecht, das ihr Eigentümer nicht allein zurücknehmen könnte,
+es braucht, und nur unter `.act-local/tmp/<task-id>-<slug>/` oder, für Arbeit ohne Aufgabe (ein Skill-Lauf, ein
+Doctor-Bericht, die Aufnahme von Feedback), unter `.act-local/tmp/<YYYYMMDD>-<slug>/`: nie im System-Temp-Verzeichnis
+und nie direkt unter `.act-local/`. Wer es anlegt, entfernt es wieder, sobald es seinen Zweck erfüllt hat; das
+Ergebnis eines Workers sagt, dass er es getan hat oder was übrig ist und warum; ein Auftrag braucht dafür keinen
+Eintrag im Scope: `.act-local/tmp/` steht jedem Worker offen. Eine Probe setzt nie ein Zugriffsrecht, das ihr Eigentümer nicht allein zurücknehmen könnte,
 und nimmt jedes Recht, das sie gesetzt hat, in einem `finally` zurück. Der Orchestrator entfernt die Ordner einer
 Aufgabe, wenn er die Aufgabe committet (`act-commit`); `act-local-tidy` räumt, was nach 7 Tagen übrig ist, außer
-der Name beginnt mit der ID einer offenen Aufgabe oder `act-local-keep` führt ihn auf. Einzelheiten:
-`topics/checks.md`.
+der Name beginnt mit der ID einer offenen Aufgabe oder `act-local-keep` führt ihn auf. Ein Schreibzugriff der
+Hauptsitzung ins System-Temp-Verzeichnis oder direkt unter `.act-local/` bekommt einen Hinweis (mechanisch geprüft
+durch `throwaway-place`). Einzelheiten: `topics/checks.md`.
 
 ## R-role-worker
-<!-- source: 3d4a948092e5453c -->
+<!-- source: 217c1518a851c301 -->
 Was ein Worker darf und was nicht
 summary: begrenzter Auftrag, Beleg, keine Commits, kein docs/ai/, Git nur lesend, nichts außerhalb des Write Scope, keine Sub-Worker
 
@@ -98,7 +101,8 @@ sein Ergebnis) und fragt den Menschen nie direkt: Offene Fragen und jeden Fehler
 auffällt (`R-work-process-error`), gibt er mit seinem Ergebnis zurück. Spricht der Mensch ihn direkt an, antwortet
 er nur „bitte den Orchestrator fragen“ und arbeitet weiter; nach dem Stand gefragt, antwortet er sofort mit Fakten:
 erledigt, offen, unerwartet. Git ist nur lesend (`status`, `diff`, `log`, `show`); was Arbeitsbaum oder Verlauf
-ändert, bleibt beim Orchestrator. Eine Datei außerhalb des `Write scope:` des Auftrags wird nie geschrieben —
+ändert, bleibt beim Orchestrator. Eine Datei außerhalb des `Write scope:` des Auftrags (der Wegwerf-Ort
+`.act-local/tmp/` ausgenommen) wird nie geschrieben —
 weder mit dem Tool, das eine Prüfung abweisen würde, noch über einen Interpreter, ein Script oder einen anderen
 Umweg, gleich ob eine Prüfung es abgelehnt hat; das Ergebnis nennt die Datei und die nötige Änderung. Jeden anderen
 Schreibzugriff, den eine Prüfung abgelehnt hat, führt er ebenfalls nicht auf anderem Weg aus; die Ablehnung kommt
@@ -535,7 +539,7 @@ Kostenregeln
 summary: Delegation und Auftragskopf, Warten, Ergänzen, Scripts, Commit-Schranke, Diff-Prüfung, Reset und Verwerfen
 
 ## R-cost-delegate
-<!-- source: 29873fac77616c7b -->
+<!-- source: 399dc04b19dc3c5e -->
 Delegieren, wo es sich lohnt; der Auftragskopf
 summary: delegieren, wo sich eine Übergabe lohnt; Kopfzeilen Write scope, Cap, Tests; Tier aus der Rolle; kleine Aufträge, parallele Teile, kein Testlauf neben einem Schreibenden
 
@@ -551,8 +555,8 @@ eigenen Agenten des Werkzeugs (`Explore`, `general-purpose`, `Plan`; `claude-cod
 selbst).
 
 **Auftragskopf.** Pflicht, jede Angabe am Zeilenanfang (nur `Cap:` darf auch nach `·`/`|`/`;`/`,` stehen):
-`Write scope: <glob>[, <glob> ...]` (relativ zum Projektstamm; `none` = nur lesend; Wegwerfmaterial braucht
-`.act-local/tmp/<task-id>-<slug>/**`), `Cap: <n>` (Werkzeugaufrufe; ein Hinweis am Cap, Abweisung ab dem
+`Write scope: <glob>[, <glob> ...]` (relativ zum Projektstamm; `none` = nur lesend; Wegwerfmaterial unter
+`.act-local/tmp/` ist für jeden Worker frei), `Cap: <n>` (Werkzeugaufrufe; ein Hinweis am Cap, Abweisung ab dem
 1,5-Fachen) und, wo etwas läuft, `Tests: <glob>[, <glob> ...]` (der Baum, den es liest). Mechanisch geprüft durch
 `worker-write-scope`, `worker-cap` und `worker-scope-overlap`. Das Tier folgt aus der Rolle; eine `Tier:`-Zeile
 nennt nur eine Abweichung; mehr Reasoning: `builder-high`/`reviewer-high`. Die Schätzung (`~<n> min · ~<n> tkn
@@ -572,7 +576,7 @@ Material lesen, bekommen, was der Orchestrator gefunden hat, einmal in `.act-loc
 Auftrag genannt.
 
 Kein Test- oder Probenlauf (die ganze Suite, die Proben eines Workers, ein Review, das etwas ausführt) läuft gegen
-einen Baum, in den gerade ein Worker schreibt: Die ganze Suite läuft einmal, nachdem die Reviews abgenommen sind,
+einen Baum, in den gerade ein Worker schreibt: Die Prüfungen des Commits laufen einmal, nachdem die Reviews abgenommen sind,
 während einer Nacharbeit nur deren eigene Tests, und ein Lauf, der noch läuft, wenn die Nacharbeit beginnt oder
 ein anderer Worker dort zu schreiben anfängt, wird gestoppt und auf dem neuen Stand neu gestartet. Parallele
 Builder, die testen müssen, während andere bauen, testen je eine isolierte Kopie (Klon oder Worktree).
@@ -612,14 +616,17 @@ Wiederkehrende Zähl- oder Statusarbeit (Dateizahlen, Zustandsprüfungen) wird b
 danach nur noch ausgeführt, nie erneut delegiert.
 
 ## R-code-commit
-<!-- source: 759c7fd2b3a43f8f -->
+<!-- source: 332e6be880204724 -->
 Committen ist allein Sache des Orchestrators
-summary: Commits nur per Pfadangabe, nach Lint/Typecheck/Tests, wo konfiguriert; ein CONDITIONAL-Urteil wird in die Inbox abgelegt
+summary: Commits nur per Pfadangabe; gestufte Prüfungen, vollständige Suite vor einem Push; CONDITIONAL wird in die Inbox abgelegt
 
 Nur abgenommene Arbeit wird committet, ohne eigene Aufforderung, was auch immer der Standard des Werkzeugs sagt.
-Gestaged wird per Pfadangabe — nie `git add -A`, `git add .` oder `git commit -a`. Lint, Typecheck und Tests
-laufen zuerst, wo das Projekt sie eingerichtet hat (die eigene Prüfung einer IDE zählt als Beleg, nicht als
-konfigurierter Lint) und keine Regel sie aussetzt. Der `reviewer` läuft einmal je Aufgabe vor der Abnahme, nicht
+Gestaged wird per Pfadangabe — nie `git add -A`, `git add .` oder `git commit -a`. Die Prüfungen laufen in
+Stufen, jede dort, wo das Projekt sie eingerichtet hat (die eigene Prüfung einer IDE zählt als Beleg, nicht als
+konfigurierter Lint) und keine Regel sie aussetzt: innerhalb eines Schritts nur die betroffenen Tests; vor jedem
+Commit Lint, Typecheck und der Test-Befehl; die vollständige oder E2E-Suite (der vierte `commands`-Eintrag, falls
+gesetzt) einmal vor einem Push und nach einem Framework- oder Abhängigkeits-Update. Ein roter Test wird allein
+wiederholt, nie die ganze Suite. Der `reviewer` läuft einmal je Aufgabe vor der Abnahme, nicht
 nach jedem Schritt, und endet mit `ALLOW`, `CONDITIONAL` oder `BLOCK` (`act-commit`); bei einer trivialen
 Änderung (Tippfehler, nur Doku) überspringt der Orchestrator ihn und sagt das. Bei `CONDITIONAL` committet er,
 legt die Bedingung im selben Schritt als `todo` oder `question` in die Inbox und nennt deren ID in der

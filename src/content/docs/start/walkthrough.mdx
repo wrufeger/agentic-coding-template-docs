@@ -141,8 +141,8 @@ after the screen was locked. The assistant therefore files a todo `U4` for you, 
 ## 7. The commit
 
 Only the orchestrator commits (`R-code-commit`), and without being asked. The `act-commit` skill checks that the
-evidence is in, runs the project's lint and the full test suite once on the accepted state (builder and reviewer ran only
-the tests their `Tests:` line named), closes the finished task and question (they move into the archive under
+evidence is in, runs the project's lint, typecheck and test command once on the accepted state (builder and reviewer ran only
+the tests their `Tests:` line named; a full or end-to-end suite, an optional fourth `commands` entry, waits for the push), closes the finished task and question (they move into the archive under
 `docs/ai/work/archive/`, nothing leaves `docs/` before it stands in its monthly file, and their ids stay reserved), stages by pathspec (never `git add -A`) and writes the journal entry. The message follows the project's
 commit format (`commit-format` in [Formats](/agentic-coding-template-docs/reference/configuration/#formats); the
 default `auto` keeps the repo's own style), and with the default changelog setting it also adds a line under

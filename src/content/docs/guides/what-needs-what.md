@@ -12,8 +12,9 @@ asks for three things, and each has a rule behind it:
   options (`act-idea`) and a decision, then it is built. Skipping this for something small is allowed, but the
   assistant says so out loud so you can object.
 - **Evidence** - `R-work-evidence`: "done" holds only with a test run, a CI run, a log excerpt or screenshot, a
-  commit hash or an outside call. Without it a result is "not verified". Before a commit, `R-code-commit` runs lint,
-  typecheck and tests, but only where the project has them set up.
+  commit hash or an outside call. Without it a result is "not verified". `R-code-commit` runs checks in tiers, where the project has them set up: affected tests within a step; lint,
+  typecheck and tests before each commit; the full or E2E suite (an optional fourth `commands` entry) once before a push and after a framework or
+  dependency update.
 - **A review** - `R-code-commit`: the `reviewer` runs once per task before acceptance, not after every step, and ends
   with `ALLOW`, `CONDITIONAL` or `BLOCK`. For a trivial change (a typo, docs only) the assistant skips it and says so.
 
@@ -33,7 +34,7 @@ How to read it:
   blocks by severity: for an error on a path ordinary work reaches, a missing part of the assignment, a security
   hole a model can produce without intent or a weakened check whose reason the author does not name, not for a
   constructed edge case, which is filed as a backlog case.
-  The full test suite runs once on the accepted state, before the commit.
+  Lint, typecheck and tests run once on the accepted state, before the commit; a full or E2E suite runs once before a push.
 - The table follows the template's defaults. Every rule can be switched off or replaced in the project
   (`R-work-override`, [Layers and overrides](/agentic-coding-template-docs/concepts/layers/)); the rule texts are
   in the [rules reference](/agentic-coding-template-docs/reference/rules/).

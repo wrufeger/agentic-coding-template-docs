@@ -3,7 +3,7 @@ title: Update
 description: Einen neueren Stand des Templates mit act-update in ein Projekt holen.
 sidebar:
   order: 3
-sourceHash: add56e49e9f3f99aac431dc624a77429348f422a7607ff18fad87f09ee14c2f7
+sourceHash: 7a94417461e2c9d96921408d887240c54d19bc53807285d8969dfd6fdfc2d733
 ---
 
 `act-update` holt einen neueren Stand des Templates in dein Projekt: Du siehst den Diff, du stimmst zu, und
@@ -83,8 +83,8 @@ Update-Notiz, `act-update` selbst bleibt unverändert.
 2. **Lokale Änderungen.** Prüft, ob du `.act/` seit dem letzten Update bearbeitet hast. `--on-local-changes
    rescue|discard|abort` beantwortet das vorab; `rescue` verschiebt deine Änderungen zuerst nach `docs/ai/local/`.
 3. **Diff** von alt nach neu, mit Regel- und Coding-Regel-IDs einzeln.
-4. **Zustimmung.** Nichts wird ersetzt, bevor du zustimmst. `--yes` überspringt die Rückfrage, wenn du schon
-   zugestimmt hast.
+4. **Zustimmung.** Nichts wird ersetzt, bevor zugestimmt wird. Vor der Rückfrage steht jede fällige Migration mit ihrer Wirkung, eine Zeile je Migration (`--plan` zeigt dasselbe). `--yes` überspringt die Rückfrage, wenn schon
+   zugestimmt wurde.
 5. **`.act/` ersetzen**, als Ganzes.
 6. **Die Kopien auffrischen** außerhalb von `.act/`: unveränderte Skill-Kopien und Rollen-Brücken werden ersetzt,
    von dir bearbeitete Kopien bleiben erhalten und werden gemeldet. Kopien, die `profile` oder `exclude` ([Scope](/agentic-coding-template-docs/de/reference/configuration/#scope)) auslassen, werden nicht geschrieben; eine schon vorhandene unbearbeitete Kopie wird entfernt, eine bearbeitete bleibt, beides wird gemeldet. Eigene Skills und Rollen unter `docs/ai/local/` bekommen ihre Kopien
@@ -131,7 +131,7 @@ Update und `abort` bei lokalen Änderungen in `.act/`.
 
 Die Prüfung `act-local-tidy` läuft beim Sitzungsstart einmal am Tag im Hintergrund. Sie entfernt Einträge unter `tmp/`
 und unbekannte Einträge direkt unter `.act-local/`, die älter als 7 Tage sind (außer ihr Name beginnt mit der Id einer
-offenen Aufgabe oder `act-local-keep` in `docs/ai/config.md` § Checks nennt sie), alle bis auf die neuesten 5
+offenen Aufgabe oder `act-local-keep` in `docs/ai/config.md` § Checks nennt sie; Wegwerfmaterial liegt in `tmp/<task-id>-<slug>/`, bei Arbeit ohne Aufgabe in `tmp/<YYYYMMDD>-<slug>/`), alle bis auf die neuesten 5
 Backups von `update` und kompilierte Moduldateien (`.pyc`) unter `.act-local/pyc/`, die zu einer anderen Python-Version als der laufenden gehören und älter als 7 Tage sind (Links werden nicht verfolgt, Dateien der laufenden Version nie angetastet). Der erste Lauf meldet nur, was er entfernen würde; entfernt wird ab dem Tag nach einem
 Sitzungsstart, der diese Meldung gezeigt hat. `act-local-tidy: warn` meldet nur, `off` überspringt sie.
 `python .act/scripts/act_local_tidy.py` listet, was gehen würde.
@@ -161,6 +161,9 @@ danach eine neue Sitzung starten.
 - **`CHANGELOG.md`:** `act-doctor` warnt, blockiert nie, vor `[Unreleased]`-Einträgen über 250 Zeichen. Sie kürzen oder
   `changelog-length: off` in `docs/ai/config.md`
   § [Checks](/agentic-coding-template-docs/de/reference/configuration/#checks) setzen.
+- **Neue Prüfungen** (`cd-git`, `commit-hashes`, `throwaway-place`, `model-switch`, `protected-watch`) sind standardmäßig an;
+  `cd-git` (nur mit `claude-code` in `tools`) verweigert einen Bash-Aufruf, der `cd` und `git` verbindet, und nennt `git -C <Ordner>`. Schalter:
+  [Checks](/agentic-coding-template-docs/de/reference/configuration/#checks).
 - Optional: Um die Standardbehandlung des Changelogs zu ändern, die Zeile `changelog` unter § Formats ergänzen
   ([Formats](/agentic-coding-template-docs/de/reference/configuration/#formats)); `config.py` kann eine fehlende Zeile
   nicht setzen, `.act/skeleton/config.md` zeigt ihre Form.

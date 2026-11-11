@@ -82,7 +82,7 @@ behind another remote helper gets no update note at session start, while `act-up
 2. **Local changes.** Checks whether you edited `.act/` since the last update. `--on-local-changes
    rescue|discard|abort` answers up front; `rescue` moves your edits to `docs/ai/local/` first.
 3. **Diff** from old to new, with rule and coding-rule IDs individually.
-4. **Consent.** Nothing is replaced before you agree. `--yes` skips the prompt once you already agreed.
+4. **Consent.** Nothing is replaced before you agree. Before the prompt, each due migration is shown with its effect, one line each (`--plan` shows the same). `--yes` skips the prompt once you already agreed.
 5. **Replace `.act/`** as a whole.
 6. **Refresh the copies** outside `.act/`: unchanged skill copies and role bridges are replaced, copies you edited
    are kept and reported. Copies that `profile` or `exclude` ([Scope](/agentic-coding-template-docs/reference/configuration/#scope)) leave out are not written; an unedited copy already there is removed, an edited one is kept, and both are reported. Own skills and roles under `docs/ai/local/` get their
@@ -128,7 +128,7 @@ on local changes in `.act/`.
 
 The session-start check `act-local-tidy` runs once a day in the background. It removes `tmp/` entries and unknown
 entries directly under `.act-local/` older than 7 days (unless the name starts with an open task's id or
-`act-local-keep` in `docs/ai/config.md` § Checks lists it), all but the newest 5 backups of `update`, and compiled-module files (`.pyc`) under `.act-local/pyc/` that belong to another Python version than the running one and are older than 7 days (links are not followed, files of the running version are never touched). The first run
+`act-local-keep` in `docs/ai/config.md` § Checks lists it; throwaway material lives in `tmp/<task-id>-<slug>/`, or `tmp/<YYYYMMDD>-<slug>/` for work with no task), all but the newest 5 backups of `update`, and compiled-module files (`.pyc`) under `.act-local/pyc/` that belong to another Python version than the running one and are older than 7 days (links are not followed, files of the running version are never touched). The first run
 only reports what it would remove; removal starts the day after a session start has shown that report. `act-local-tidy:
 warn` only reports, `off` skips it. `python .act/scripts/act_local_tidy.py` lists what would go.
 
@@ -157,6 +157,9 @@ a new session.
 - **`CHANGELOG.md`:** `act-doctor` warns, never blocks, about `[Unreleased]` entries over 250 characters. Shorten
   them, or set `changelog-length: off` in `docs/ai/config.md`
   § [Checks](/agentic-coding-template-docs/reference/configuration/#checks).
+- **New checks** (`cd-git`, `commit-hashes`, `throwaway-place`, `model-switch`, `protected-watch`) are on by default; `cd-git`
+  (only with `claude-code` in `tools`) refuses a Bash call that combines `cd` and `git` and names `git -C <folder>`. Switches:
+  [Checks](/agentic-coding-template-docs/reference/configuration/#checks).
 - Optional: to change the default changelog handling, add the `changelog` row to § Formats
   ([Formats](/agentic-coding-template-docs/reference/configuration/#formats)); `config.py` cannot set a missing row,
   `.act/skeleton/config.md` shows its shape.

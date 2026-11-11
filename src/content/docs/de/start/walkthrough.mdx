@@ -3,7 +3,7 @@ title: Von der Idee zum Commit
 description: Ein echter Durchlauf vom ersten Satz bis zum Commit - Idee, Frage in der Inbox, Antwort, Aufgabe, builder und reviewer, Commit - mit dem Board dazwischen.
 sidebar:
   order: 2
-sourceHash: 5088031ebb99fe5749c802673daead687a1e2b28b6ccb037241a6480e476c094
+sourceHash: 053a1508d089e1ffdf46cf40509c6e9f853baa1791f0211e4cceea44306a6628
 ---
 
 import Diagram from '../../../../components/Diagram.astro';
@@ -146,8 +146,8 @@ für dich an und nennt es im Commit.
 ## 7. Der Commit
 
 Nur der Orchestrator committet (`R-code-commit`), und ohne dass du es verlangst. Der Skill `act-commit` prüft, dass
-der Beleg vorliegt, lässt Lint und die ganze Testsuite einmal auf dem abgenommenen Stand laufen (Builder und Reviewer haben nur die Tests ihrer
-`Tests:`-Zeile ausgeführt), schließt die fertige Aufgabe und die Frage
+der Beleg vorliegt, lässt Lint, Typecheck und den Testbefehl einmal auf dem abgenommenen Stand laufen (Builder und Reviewer haben nur die Tests ihrer
+`Tests:`-Zeile ausgeführt; eine volle oder End-to-End-Suite, ein optionaler vierter `commands`-Eintrag, wartet auf den Push), schließt die fertige Aufgabe und die Frage
 (sie wandern ins Archiv unter `docs/ai/work/archive/`, nichts verlässt `docs/`, bevor es in seiner Monatsdatei steht, und ihre IDs bleiben reserviert), nimmt die Dateien per
 Pfadangabe auf (nie `git add -A`) und schreibt den Journal-Eintrag. Die Nachricht folgt dem Commit-Format des
 Projekts (`commit-format` unter [Formats](/agentic-coding-template-docs/de/reference/configuration/#formats); der

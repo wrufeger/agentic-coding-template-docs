@@ -12,7 +12,7 @@ scripts/check-translations.mjs; see README "Editing the site". -->
 Dies ist die Standard-`config.md` des Templates; Platzhalter in spitzen Klammern füllt `init` aus.
 
 ## Project
-<!-- source: 8bb73a7ccca1dfb7 -->
+<!-- source: 6a9b167091ef978a -->
 | Schlüssel | Wert |
 | :--- | :--- |
 | `name` | <name> |
@@ -31,8 +31,9 @@ Assistent unter `docs/` schreibt, und des dortigen Gerüsts; `.act/` bleibt in b
 (`R-work-language`). Eine config.md mit dem älteren einzelnen Schlüssel `language` funktioniert weiterhin — der Wert
 gilt für beide.
 
-`commands` ist Lint, Typecheck, Test, in dieser Reihenfolge; `(not set)` heißt, dass für diesen Platz kein Befehl
-eingerichtet ist und die zugehörige Prüfung übersprungen wird (`R-code-commit`).
+`commands` ist Lint, Typecheck, Test, in dieser Reihenfolge, optional gefolgt von einem vierten Eintrag für die
+vollständige oder E2E-Suite (läuft einmal vor einem Push; ohne ihn nimmt der Test-Befehl diesen Platz ein); `(not set)`
+heißt, dass für diesen Platz kein Befehl eingerichtet ist und die zugehörige Prüfung übersprungen wird (`R-code-commit`).
 
 `run` ist der Befehl, der die Anwendung startet; `(not set)` heißt, dass keiner hinterlegt ist, ebenso bei einer config.md ohne die Zeile.
 
@@ -272,7 +273,7 @@ Datei; `act-release` hält die Notizen im Tag und im Release-Eintrag) \| `off`. 
 `with-toc` \| `minimal` (von `init` gelesen, wenn es die README schreibt, und von `act-audit-docs`).
 
 ## Checks
-<!-- source: 31d756fdf3260f9e -->
+<!-- source: 0267edcf0589e4f3 -->
 Jede der folgenden Prüfungen läuft vor der Aktion, die sie nennt; `block` verweigert die Aktion, `warn` erlaubt sie
 mit einem Hinweis, `off` überspringt die Prüfung ganz. Eine Prüfung, die nur hinweist (markiert mit „never
 refuses“), behandelt `block` wie `warn`.
@@ -305,6 +306,10 @@ refuses“), behandelt `block` wie `warn`.
 | `status-poll` | block | wiederholte Statusabfragen an einen laufenden Worker ohne echte Arbeit dazwischen — ab der zweiten in Folge verweigert (`R-cost-wait`) |
 | `encoding-hint` | block | Schreiben in eine Datei, die nicht UTF-8 ist — der erste Schreibzugriff je Sitzung und Datei wird einmal mit einem Hinweis gestoppt, die Wiederholung geht durch; `warn` weist erst nach dem Schreiben hin (`R-code-encoding`) |
 | `model-switch` | warn | bei `SubagentStop` und `Stop`: Ein Worker oder die Sitzung, die auf einem anderen Modell weiterläuft (ein `stop_reason: refusal`, ein geändertes Modell im Transkript), wird dem Orchestrator mit seinem nächsten Tool-Aufruf mitgeteilt, mit Rolle und Modellen, und der Orchestrator sagt es dem Menschen im Chat; der Hook selbst zeigt dem Menschen nichts (Claude Code hält ein `systemMessage` dieser Ereignisse fest, zeigt es aber nie an); verweigert nie, `block` zählt als `warn`, `off` überspringt es (`R-safe-block`, Details in `topics/safeguards.md`) |
+| `throwaway-place` | warn | nur die Hauptsitzung: ein Befehl oder Dateischreibzugriff, der Wegwerf-Ausgabe ins temporäre Systemverzeichnis oder direkt unter `.act-local/` legt, bekommt einen Hinweis, der `.act-local/tmp/<task-id>-<slug>/` oder `.act-local/tmp/<YYYYMMDD>-<slug>/` nennt; verweigert nie, `off` schaltet ihn ab (`R-work-throwaway`) |
+| `commit-hashes` | warn | nur `git commit`, verweigert nie: ein Commit-Hash in Backticks (7 bis 40 Hex-Zeichen, mit einer Ziffer und einem Buchstaben) in der Commit-Nachricht oder in einer Zeile, die zu einer gestagten Journal-Datei (`docs/ai/work/ledger/`) hinzukommt und den kein Repository kennt (`git cat-file -e <hash>^{commit}`), wird in einem Hinweis genannt; `block` zählt als `warn`, `off` überspringt es (`R-work-evidence`, Einzelheiten in `topics/checks.md`) |
+| `commit-hashes-repos` | none | weitere Repositories, in denen `commit-hashes` nachsieht: `none` oder eine kommagetrennte Liste von Pfaden, jeder relativ zum Projektstamm oder absolut, z. B. `../agentic-coding-template`; ein Journal kann Commits eines anderen Repositories nennen; ein Pipe-Zeichen im Wert bekommt einen Backslash davor |
+| `cd-git` | block | ein Bash-Aufruf mit `cd`/`pushd` und `git` in einer Kette wird verweigert und `git -C <folder> <command>` in einem eigenen Aufruf genannt, weil Claude Code bei dieser Kombination jedes Mal den Eigentümer um Freigabe bittet; läuft nur, wenn `tools` `claude-code` enthält; ein `cd` in den Ordner, in dem der Aufruf ohnehin läuft, zählt nicht; `warn` nennt den Weg und lässt den Aufruf durch, `off` überspringt es (Einzelheiten in `topics/checks.md`) |
 | `update-branch-hint` | warn | Update oder Einstellungsimport auf einem anderen Branch als dem Default-Branch: ein Hinweis, dass die anderen es erst mit dem Merge bekommen — verweigert nie, `block` zählt als `warn`, `off` lässt den Hinweis weg |
 | `update-check` | block | beim Sitzungsstart: ein Hinweis, wenn `.act/` ohne `update.py` hereingeholt wurde, und — höchstens einmal am Tag geprüft — ein Hinweis, dass das Template weitergezogen ist, bei jedem Start wiederholt und auf dem Board und in der Statuszeile gezeigt, bis das Update eingespielt ist; verweigert nie, `off` überspringt beides |
 | `docs-order` | warn | nur `act-doctor`, verweigert nie: ein Ordner unter `docs/project/` mit fünf oder mehr Einträgen und ohne `README.md`, eine Datei, die seine `README.md` nicht nennt, eine Indexzeile ohne Datei, ein toter relativer Link, ein Konzept, dessen Fragen alle beantwortet sind; `block` zählt als `warn`, `off` überspringt es (`R-docs-order`) |

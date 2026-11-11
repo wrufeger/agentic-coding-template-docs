@@ -3,7 +3,7 @@ title: Inbox, Aufgaben und Journal
 description: Was in docs/ai/ liegt - Inbox, Aufgaben, Backlog, Journal, Archiv, Ideen, das Board und die Statuszeile.
 sidebar:
   order: 3
-sourceHash: aff702b625140bead35d1e2967f7a6660fe4278ffa94882f9af4f4cc48cd7ee1
+sourceHash: 65dad97e8d5b432e3655f7913dec3ec757c1e5922d164bf25d4096af46d091c0
 ---
 
 `docs/ai/` ist das gemeinsame Arbeitsgedächtnis von dir und dem Assistenten. Alles darin ist eine einfache Datei, eine Datei pro Eintrag, versioniert mit dem Projekt. Übersichten wie das Board werden aus diesen Dateien erzeugt und nie von Hand gepflegt.
@@ -72,7 +72,7 @@ Die **Statuszeile** von Claude Code zeigt eine Zeile unter dem Chat, zum Beispie
 
 ## Wegwerfmaterial
 
-Proben, Wegwerfprojekte, Klone und Arbeitsdateien entstehen nur, wenn die Arbeit sie braucht, und nur unter `.act-local/tmp/<task-id>-<slug>/`: nie im temporären Verzeichnis des Systems und nie direkt unter `.act-local/` (`R-work-throwaway`). Wer sie anlegt, entfernt sie nach Gebrauch; ein Worker sagt das in seinem Ergebnis. Eine Probe setzt nie ein Zugriffsrecht, das ihr Eigentümer nicht allein zurücknehmen könnte, und nimmt jedes gesetzte Recht wieder zurück. Beim Commit einer Aufgabe entfernt `act-commit` deren Ordner (`act_local_tidy.py --task <id>`). Den Rest räumt `act-local-tidy` beim Sitzungsstart nach 7 Tagen auf, es sei denn, der Name beginnt mit der Id einer offenen Aufgabe oder `act-local-keep` führt ihn auf, siehe [Konfiguration](/agentic-coding-template-docs/de/concepts/configuration/).
+Proben, Wegwerfprojekte, Klone und Arbeitsdateien entstehen nur, wenn die Arbeit sie braucht, und nur unter `.act-local/tmp/<task-id>-<slug>/` (`.act-local/tmp/<YYYYMMDD>-<slug>/` für Arbeit ohne Aufgabe, etwa einen Skill-Lauf oder einen Doctor-Bericht): nie im temporären Verzeichnis des Systems und nie direkt unter `.act-local/` (`R-work-throwaway`). Wer sie anlegt, entfernt sie nach Gebrauch; ein Worker sagt das in seinem Ergebnis, und `.act-local/tmp/` steht jedem Worker offen, gleich welchen `Write scope:` er hat. Eine Probe setzt nie ein Zugriffsrecht, das ihr Eigentümer nicht allein zurücknehmen könnte, und nimmt jedes gesetzte Recht wieder zurück. Beim Commit einer Aufgabe entfernt `act-commit` deren Ordner (`act_local_tidy.py --task <id>`). Den Rest räumt `act-local-tidy` beim Sitzungsstart nach 7 Tagen auf, es sei denn, der Name beginnt mit der Id einer offenen Aufgabe oder `act-local-keep` führt ihn auf, siehe [Konfiguration](/agentic-coding-template-docs/de/concepts/configuration/).
 
 ## Solo- und Team-Modus
 
