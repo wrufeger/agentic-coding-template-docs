@@ -3,7 +3,7 @@ title: So funktioniert die Konfiguration
 description: docs/ai/config.md steuert den Arbeitsablauf - seine Gruppen und was block, warn und off für Prüfungen bedeuten.
 sidebar:
   order: 4
-sourceHash: ae997ea538398eecad67d6580a1f8cf17c7ead5d80053fbd81f36f7c4edce662
+sourceHash: 9c8d069a3a2dae7f36b36deb4ee44c351c1375f99e4ee34b65058bff3b2b22aa
 ---
 
 `docs/ai/config.md` ist die Datei, die steuert, wie am Projekt gearbeitet wird. Sie besteht aus Markdown-Tabellen, ein Abschnitt pro Thema. `init` trägt die Werte ein, die es erfragt oder erkannt hat; du änderst sie jederzeit. Nichts braucht einen Neuaufbau: Der Hook beim Sitzungsstart liest die Datei und meldet, was sich seit dem letzten Abgleich geändert hat. Jeder Schlüssel mit seinen erlaubten Werten steht in der [Konfigurationsreferenz](/agentic-coding-template-docs/de/reference/configuration/); diese Seite erklärt, wofür die Gruppen da sind. `/act-config` zeigt und setzt diese Werte ohne Modellrunde, siehe [Die Datei ändern](#die-datei-ändern).
@@ -54,7 +54,7 @@ Eine Prüfung herunterzustufen ist deine Entscheidung. Prüfungen wie `secret-sc
 
 `cd-git` (Standard `block`; `warn` oder `off`; läuft nur, wenn `tools` `claude-code` enthält) lehnt einen Bash-Aufruf ab, der `cd` oder `pushd` mit `git` verkettet, weil Claude Code für diese Kombination jedes Mal um Freigabe fragt, und nennt stattdessen `git -C <folder> <command>` in einem eigenen Aufruf. `warn` nennt den Weg und lässt den Aufruf durch.
 
-`commit-hashes` (Standard `warn`, `off` schaltet es ab; es verweigert nie) vermerkt einen Commit-Hash in Backticks, den kein Repository kennt, in einer Commit-Nachricht oder in einer Zeile, die einer gestagten Journal-Datei hinzugefügt wird. `commit-hashes-repos` nennt weitere Repositories, in denen gesucht wird (`none` oder kommagetrennte Pfade wie `../agentic-coding-template`), für ein Journal, das Commits eines anderen Repositories nennt ([`R-work-evidence`](/agentic-coding-template-docs/de/reference/rules/#r-work-evidence)).
+`commit-hashes` (Standard `warn`, `off` schaltet es ab; es verweigert nie) vermerkt einen Commit-Hash in Backticks, den kein Repository kennt, in einer Commit-Nachricht oder in einer Zeile, die einer gestagten Journal-Datei hinzugefügt wird. Ein Vorlagen-Commit, den `.act-lock.json` verzeichnet, gilt als bekannt; der Wechsel des Basis-Commits, den ein Update ins Journal schreibt, bringt also keinen Hinweis. `commit-hashes-repos` nennt weitere Repositories, in denen gesucht wird (`none` oder kommagetrennte Pfade wie `../agentic-coding-template`), für ein Journal, das Commits eines anderen Repositories nennt ([`R-work-evidence`](/agentic-coding-template-docs/de/reference/rules/#r-work-evidence)).
 
 `throwaway-place` (Standard `warn`, `off` schaltet es ab; es verweigert nie) vermerkt, nur in der Hauptsitzung, einen Befehl oder Dateischreibzugriff, der Wegwerf-Ausgaben ins temporäre Verzeichnis des Systems oder direkt unter `.act-local/` legt, und nennt stattdessen `.act-local/tmp/<task-id>-<slug>/` oder `.act-local/tmp/<YYYYMMDD>-<slug>/` ([`R-work-throwaway`](/agentic-coding-template-docs/de/reference/rules/#r-work-throwaway)). Alle drei Zeilen stehen in der [Konfigurationsreferenz](/agentic-coding-template-docs/de/reference/configuration/#checks).
 
