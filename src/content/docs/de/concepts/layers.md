@@ -3,7 +3,7 @@ title: Schichten und Overrides
 description: Wie Template-Schicht und Projekt-Schicht zusammenpassen und wie du eine Regel änderst, ohne sie beim Update zu verlieren.
 sidebar:
   order: 1
-sourceHash: 69723e9c9678a3a1ce900f86ef2cb1cf79d5f5b8a418b1f3d8e64c4dcb8ffca1
+sourceHash: bf35e65c270a72d0c3a0eb630d1c690a15ca5162fb3fe45690a74cf7421c398e
 ---
 
 ## Zwei Schichten
@@ -54,7 +54,7 @@ korrigierst. Dieselben Abschnitte für Overrides und eigene Regeln gelten auch h
 ## Einstellungen
 
 `docs/ai/config.md` steuert Arbeitsablauf, Prüfungen, Rollen und Sprachen. Die Tabelle `## Roles` darin
-überschreibt Tier, Reasoning oder Modell einer einzelnen Rolle. Siehe die
+überschreibt Tier, Reasoning, Modell (Claude Code) oder Copilot-Modelle einer einzelnen Rolle. Siehe die
 [Konfigurationsreferenz](/agentic-coding-template-docs/de/reference/configuration/), die
 [Regelreferenz](/agentic-coding-template-docs/de/reference/rules/) und die
 [Referenz der Coding-Regeln](/agentic-coding-template-docs/de/reference/coding-rules/).

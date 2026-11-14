@@ -3,7 +3,7 @@ title: Rollen und Worker
 description: Der Orchestrator, die Worker-Rollen, Tiers, Caps, Write Scope und was ein Worker nicht darf.
 sidebar:
   order: 2
-sourceHash: edc0df7e9d331bde1b0fb4cbb89be3e9abd09daf9119ba2c3ca6e7ec35315d57
+sourceHash: 3e6e893a98b20d01e2ff0cd7c0c40e86afd8c625e241871b60988c7c6061444e
 ---
 
 ## Orchestrator und Worker
@@ -28,14 +28,14 @@ einzusetzen. Er gibt Arbeit nur ab, wo es sich lohnt: unabhängige Teile, die pa
 | `expert-solver` | Eskalation nach zwei gescheiterten Versuchen. |
 
 Modell, Tier, Reasoning und Werkzeuge jeder Rolle: [Rollen-Referenz](/agentic-coding-template-docs/de/reference/roles/).
-Eine Rolle läuft nur in Claude Code als Sub-Agent; andere Werkzeuge bekommen die Regeln und Skills als Anweisungen. In Claude Code wissen `builder` und `explorer` außerdem, dass pfadgebundene Regeln unter `.claude/rules/` nur laden, wenn eine passende Datei über ein Datei-Werkzeug gelesen oder geschrieben wird, nicht durch eine Suche oder einen Shell-Befehl; sie lesen die passende Regeldatei zuerst.
+Eine Rolle läuft in Claude Code als Sub-Agent und, mit `copilot` in `tools`, in Copilot als Custom Agent (`.github/agents/<role>.agent.md`); andere Werkzeuge bekommen die Regeln und Skills als Anweisungen. In Claude Code wissen `builder` und `explorer` außerdem, dass pfadgebundene Regeln unter `.claude/rules/` nur laden, wenn eine passende Datei über ein Datei-Werkzeug gelesen oder geschrieben wird, nicht durch eine Suche oder einen Shell-Befehl; sie lesen die passende Regeldatei zuerst.
 
 ## Tiers
 
 Ein Tier sagt, wie viel Modellkapazität ein Auftrag bekommt: `light` für Lesen und Zählen, `standard` für
 Umsetzung, `elevated` für Review und Sicherheitsurteile, `high` als `elevated` mit einem weiteren Reasoning-Schritt
 und `expert` nur für eine Eskalation. `.act/tiers.json` ist die eine Stelle, die Tiers auf konkrete Modelle
-abbildet, heute nur für Claude Code. Um eine einzelne Rolle zu ändern, füllst du eine Zeile in `## Roles` von
+abbildet, heute für Claude Code und Copilot. Um eine einzelne Rolle zu ändern, füllst du eine Zeile in `## Roles` von
 `docs/ai/config.md`.
 
 ## Caps und Write Scope
@@ -55,7 +55,7 @@ Ein Worker lädt `CLAUDE.md` nicht: Die Rollen der Vorlage tragen `omitClaudeMd:
 - Nie committen und nie nach `docs/ai/` schreiben.
 - Dich nie direkt fragen: offene Fragen gehen mit dem Ergebnis an den Orchestrator zurück.
 - Einen Schreibzugriff, den eine Prüfung abgelehnt hat, nie auf anderem Weg machen (Interpreter, Script, anderes Werkzeug); die Ablehnung mit dem Ergebnis melden.
-- Nie die Dateien ändern, die `R-safe-git-metadata` schützt (Git-Hooks, Claude-Einstellungen, Agents und Skills, `.mcp.json`, `.envrc`, Editor-Tasks). Neben `git-metadata-guard` vergleicht die Prüfung `protected-watch` sie nach jedem Tool-Aufruf mit einem Snapshot: Eine Änderung in einem Aufruf des Workers wird sofort zurückgesetzt, die geänderte Fassung bleibt unter `.act-local/protected-watch/kept/`, und du und der Orchestrator werden benachrichtigt. Siehe die [Seite zu den Prüfungen](/agentic-coding-template-docs/de/reference/topics/#checks).
+- Nie die Dateien ändern, die `R-safe-git-metadata` schützt (Git-Hooks, Claude-Einstellungen, Agents und Skills, Copilot-Rollendateien unter `.github/agents/`, `.mcp.json`, `.envrc`, Editor-Tasks). Neben `git-metadata-guard` vergleicht die Prüfung `protected-watch` sie nach jedem Tool-Aufruf mit einem Snapshot: Eine Änderung in einem Aufruf des Workers wird sofort zurückgesetzt, die geänderte Fassung bleibt unter `.act-local/protected-watch/kept/`, und du und der Orchestrator werden benachrichtigt. Siehe die [Seite zu den Prüfungen](/agentic-coding-template-docs/de/reference/topics/#checks).
 - Git ist nur lesend (`status`, `diff`, `log`, `show` sowie `stash list` und `stash show`).
 - Nie einen weiteren Worker starten. Sollte eine Aufgabe geteilt werden, sagt er das, und der Orchestrator entscheidet.
 - Ein Ergebnis samt Beleg in höchstens 40 Zeilen liefern, keine Rohdaten.

@@ -17,7 +17,7 @@ Every worker role has a **tier** (how much model capacity) and a **reasoning** l
 | `high` | a task that needs more reasoning than `elevated` | 80 |
 | `expert` | escalation after two failed attempts on one task | 80 |
 
-For Claude Code, `.act/tiers.json` maps `light` to Haiku, `standard` to Sonnet, `elevated` and `high` to Opus (`high` with the reasoning bumped one step) and `expert` to the top model. Other tools have no mapping yet; for them the generated files keep whatever model they have.
+For Claude Code, `.act/tiers.json` maps `light` to Haiku, `standard` to Sonnet, `elevated` and `high` to Opus (`high` with the reasoning bumped one step) and `expert` to the top model. For Copilot, the `copilot` table in the same file gives each tier an ordered list of models, and the first one your plan offers wins: `light` claude-haiku-5.5, then claude-haiku-4.5; `standard` claude-sonnet-5.5; `elevated` and `high` claude-opus-5.5, then claude-sonnet-5.5 (`high` again with the reasoning bumped one step); `expert` claude-fable-5.2, then claude-opus-5.5. The reasoning goes into the `reasoning-effort` field. Other tools have no mapping yet; for them the generated files keep whatever model they have.
 
 The reasoning scale is `none`, `low`, `medium`, `high`, `xhigh`, `max`.
 
@@ -36,19 +36,19 @@ The [roles reference](/agentic-coding-template-docs/reference/roles/) is generat
 
 ## The -high variants
 
-Next to `.claude/agents/<role>.md`, the template generates `.claude/agents/<role>-high.md` for `builder` and `reviewer`: the same role with the reasoning one step further up the scale. The assistant names the `-high` variant for a single assignment that needs more thought, without raising the role for good. The other template roles have no variant, and neither does a role already at the top of the scale (`expert-solver`); an update removes variants generated earlier for them. A project's own role keeps its variant. An assignment that named a removed variant names the role itself, or `builder-high` or `reviewer-high`.
+Next to `.claude/agents/<role>.md` (with Copilot also `.github/agents/<role>.agent.md`), the template generates `.claude/agents/<role>-high.md` (`.github/agents/<role>-high.agent.md`) for `builder` and `reviewer`: the same role with the reasoning one step further up the scale. The assistant names the `-high` variant for a single assignment that needs more thought, without raising the role for good. The other template roles have no variant, and neither does a role already at the top of the scale (`expert-solver`); an update removes variants generated earlier for them. A project's own role keeps its variant. An assignment that named a removed variant names the role itself, or `builder-high` or `reviewer-high`.
 
 ## Overriding a role
 
 The Roles table at the end of `docs/ai/config.md` is empty by default. Fill a row to change one role:
 
 ```markdown
-| Role | Tier | Reasoning | Model |
-| :--- | :--- | :--- | :--- |
-| builder | elevated | high | |
+| Role | Tier | Reasoning | Model | Copilot |
+| :--- | :--- | :--- | :--- | :--- |
+| builder | elevated | high | | |
 ```
 
-`Tier` and `Reasoning` override the template's values; a filled `Model` sets the model outright and wins over `Tier`. A project's own role (see [Own rules, skills and roles](/agentic-coding-template-docs/guides/own-skills-and-rules/)) is named there the same way. The generated files are refreshed at session start and on every update; only their `model` and `effort` lines are touched, never your own additions in the role's text.
+`Tier` and `Reasoning` override the template's values; a filled `Model` sets the model outright and wins over `Tier`, but applies to Claude Code only. `Copilot` takes a comma-separated priority list of Copilot model IDs for the role's file under `.github/agents/`; the first one your plan offers is used, and a filled cell wins over `Tier` there. A table with four columns stays valid; after changing the `Copilot` column run `python .act/scripts/update.py --catch-up --yes`. A project's own role (see [Own rules, skills and roles](/agentic-coding-template-docs/guides/own-skills-and-rules/)) is named there the same way. The generated files are refreshed at session start and on every update; only their `model` and `effort` lines (for Copilot `model`, `models` and `reasoning-effort`) are touched, never your own additions in the role's text.
 
 ## Reasoning per skill
 

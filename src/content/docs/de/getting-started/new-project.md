@@ -3,7 +3,7 @@ title: Neues Projekt
 description: Ein neues Projekt aus dem Template einrichten, mit dem Assistenten oder von Hand.
 sidebar:
   order: 1
-sourceHash: 50758a4b82b30739bd331aaa927f54b4d86354eab008efbe69a78aebaed1f092
+sourceHash: ddfcdaea308bfb66254e4e8b1e8d0c4256a88a284dc2e9270f1f32e3d642c4ac
 ---
 
 ## Das Template holen
@@ -25,7 +25,10 @@ Erstelle ein neues Projekt in ../shop-api.
 Übernimm mein bestehendes Projekt in ~/dev/shop — es hat schon eine CLAUDE.md und eigene Doku.
 ```
 
-Jede Sprache funktioniert. Es gibt drei Wege:
+Jede Sprache funktioniert. Mit `copilot` in `tools` zeigt `act-setup` außerdem eine kurze Tabelle Rolle und Modell,
+gelesen aus `.github/agents/`; gleiche sie in Copilot mit `/model` ab, trage eine Abweichung in die Spalte `Copilot`
+von `docs/ai/config.md` § Roles ein (fehlt die Spalte im Tabellenkopf, ergänze sie) und führe dann
+`python .act/scripts/update.py --catch-up --yes` aus. Es gibt drei Wege:
 
 1. **Genau hier.** Der Klon wird zum Projekt. Der Remote `origin` wird entfernt, wenn er auf das
    Template-Repository zeigt, und das Projekt startet auf einem frischen `main` ohne die Historie des Templates.
@@ -39,9 +42,10 @@ Jede Sprache funktioniert. Es gibt drei Wege:
    [Bestehendes Projekt](/agentic-coding-template-docs/de/getting-started/existing-project/).
 
 Läuft das Template in einem Projekt schon, startet `/act-adopt` dort das nächste Projekt oder übernimmt von dort aus ein
-anderes und kann dessen eigene Skills, Regeln, Ausnahmen, Overrides und Topics mitnehmen (`--carry`); siehe
+anderes und kann dessen eigene Skills, Regeln, Ausnahmen, Overrides, Topics und Agents mitnehmen (`--carry`); siehe
 [Bestehendes Projekt](/agentic-coding-template-docs/de/getting-started/existing-project/#starten). Danach schlägt der
-Assistent `act-update` im neuen Projekt vor, denn es hat das `.act/` des Projekts bekommen, aus dem es kam.
+Assistent `act-update` im neuen Projekt vor, denn es hat das `.act/` des Projekts bekommen, aus dem es kam. Seine Template-Quelle stammt nur dann aus der Lock-Datei jenes Projekts, wenn sie eine Remote-Adresse ist;
+sonst gilt die veröffentlichte Template-Adresse.
 
 Vor dem Lauf fragt der Assistent einmal, ob eine Arbeitsmethode an sein soll (`test-first`, `spec-first`,
 `simple-changes`; Standard keine), und gibt die Antwort als `--methods` weiter. Die Zeile `methods` in `docs/ai/config.md`
@@ -65,7 +69,7 @@ python .act/scripts/init.py --non-interactive         # no questions: defaults, 
 ```
 
 Nützliche Optionen: `--language-docs <code>` (Sprache von `docs/`, Standard `en`), `--language-chat <code|auto>`,
-`--update-channel <release|latest>` (was `act-update` verfolgt, siehe [Update](/agentic-coding-template-docs/de/getting-started/update/#update-channel); `init` fragt, wenn du es weglässt), `--methods <Namen|none>` (Arbeitsmethoden, die an sein sollen; `init` fragt, wenn du es weglässt), `--carry <Liste>` (mit `--target`, aus einem Projekt gestartet: was von dort mitkommt, Standard alles), `--no-commit`. Alle Optionen stehen in der [Scripts-Referenz](/agentic-coding-template-docs/de/reference/scripts/).
+`--update-channel <release|latest>` (was `act-update` verfolgt, siehe [Update](/agentic-coding-template-docs/de/getting-started/update/#update-channel); `init` fragt, wenn du es weglässt), `--methods <Namen|none>` (Arbeitsmethoden, die an sein sollen; `init` fragt, wenn du es weglässt), `--carry <Liste>` (mit `--target`, aus einem Projekt gestartet: was von dort mitkommt: skills, rules, exceptions, overrides, topics, agents; Standard alles), `--no-commit`. Alle Optionen stehen in der [Scripts-Referenz](/agentic-coding-template-docs/de/reference/scripts/).
 
 Bei einem **bestehenden Projekt** überschreibt `init.py --target <dir>` nie eine Datei. Es ergänzt `.act/` und alles,
 was fehlt, hängt seine eigenen Blöcke an `.gitignore`/`.gitattributes` an, führt seine Hook-Einträge in
@@ -93,7 +97,7 @@ Zehn feste Schritte, jeder ausgegeben als `[n/10]`:
    einem leeren Abschnitt `## [Unreleased]` an, außer `changelog` in § Formats steht auf `release-notes-only` oder `off`
    oder das Projekt führt schon ein Changelog unter anderem Namen; eine vorhandene Datei wird nie überschrieben.
 9. Schreibt `.act-lock.json` (die festgehaltene Quelle und Version des Templates) und `.act/MANIFEST.json`.
-10. Macht den ersten Commit. Er nimmt nur die Pfade mit, die dieser Lauf geschrieben hat; anderes, das im Ziel schon gestaged ist, bleibt gestaged und wird in der Ausgabe genannt.
+10. Macht den ersten Commit. Er nimmt nur die Pfade mit, die dieser Lauf geschrieben hat; anderes, das im Ziel schon gestaged ist, bleibt gestaged und wird in der Ausgabe genannt. Ein Pfad, den die `.gitignore` des Ziels ignoriert (eine Allowlist wie `*`, `!docs/`), bleibt aus dem Commit heraus, der ihn nennt; eine ignorierte `CHANGELOG.md` wird nicht angelegt.
 
 `init.py` überschreibt nie eine Datei, die das Projekt schon hat. Eine Frage ohne Eingabe nimmt ihren angezeigten Standardwert. Eine `language-docs` außer Englisch lässt das
 Gerüst auf Englisch. `act-setup` übersetzt es im selben Lauf; nach einem einfachen `init.py` bittet eine Inbox-Notiz den

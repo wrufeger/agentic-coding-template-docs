@@ -13,15 +13,18 @@ Regeln, die jede Rolle lädt. Die IDs (`R-<area>-<name>`) sind stabil und werden
 `topics/checks.md`.
 
 ## R-work-evidence
-<!-- source: 72ba26cc959d384d -->
+<!-- source: 4b35aa8d2aced872 -->
 Erledigt nur mit Beleg
 summary: Beleg vor „erledigt“; erreichbare Rückkopplung zuerst; nicht Überprüftes benennen
 
 „Erledigt“ gilt nur, wenn ein Beleg das Ergebnis zeigt: ein Testlauf, ein CI-Lauf, ein Log-Auszug oder ein
 Screenshot der laufenden Anwendung (`run` in `docs/ai/config.md`), ein Commit-Hash oder ein externer Aufruf. Bevor
 eine Prüfung an den Menschen übergeben wird, ist jede erreichbare Rückkopplung gelaufen. Ein Ergebnis ohne Beleg ist „nicht überprüft“, nicht „erledigt“ — das wird offen
-gesagt, und ein fehlerhafter Plan wird hinterfragt, statt ihm zuliebe zuzustimmen. Ein Commit-Hash, der als Beleg
-genannt wird, wird mechanisch durch `commit-hashes` geprüft.
+gesagt, und ein fehlerhafter Plan wird hinterfragt, statt ihm zuliebe zuzustimmen. Ein sauberes Ergebnis (kein
+Treffer, kein Fehler, grün) ist erst dann ein Beleg, wenn dieselbe Prüfung einen Fall gefangen hat, den es
+nachweislich gibt — einen eingepflanzten Treffer für eine Suche, einen Test, der vor dem Fix rot ist; ohne das wird es
+als unbewiesen gemeldet, nicht als nicht vorhanden. Ein Commit-Hash, der als Beleg genannt wird, wird mechanisch
+durch `commit-hashes` geprüft.
 
 ## R-work-override
 <!-- source: ef16f6a606296019 -->
@@ -62,15 +65,18 @@ gespeicherten Daten UTF-8 bleiben. Auf einen Workaround wird erst festgelegt, na
 Prüfung die Diagnose bestätigt hat, nicht schon bei der ersten plausiblen Erklärung.
 
 ## R-work-bounded-output
-<!-- source: 6ced5225d652b274 -->
+<!-- source: 07afe8e7dc2c16f7 -->
 Ausgabe unbekannter Länge aus dem Kontext heraushalten
-summary: unbegrenzte Ausgabe beschneiden (head/tail/grep oder Wegwerf-Datei); nur Fehlschläge lesen; große Dateien in Ausschnitten
+summary: unbegrenzte Ausgabe beschneiden (head/tail/grep oder Wegwerf-Datei); nur Fehlschläge lesen; große Dateien in Ausschnitten; keine Bilder im Orchestrator
 
 Ausgabe unbekannter Länge wird mit `head`/`tail`/`grep` beschnitten oder in eine Datei im Wegwerf-Ordner der
 Aufgabe (`R-work-throwaway`; ohne Aufgabe `.act-local/tmp/<YYYYMMDD>-<slug>/`) geschrieben und von dort gelesen — ein
 Worker, dessen Auftrag keinen solchen Ordner nennt, beschneidet stattdessen; sie gelangt nie vollständig in den Kontext. Von Build- und Testausgabe werden nur
 die Fehlschläge gelesen; eine große Datei wird in Ausschnitten gelesen (`offset`/`limit`). Jede Zeile im Kontext
-wird mit jedem folgenden Schritt erneut gelesen.
+wird mit jedem folgenden Schritt erneut gelesen. Der Orchestrator liest kein Bild und keinen Screenshot in den eigenen
+Kontext: Ein Worker gibt es als Text zurück — `quick-check` für Zahlen, Statuszeilen und Dialoge, `explorer` für
+wörtlichen Text; ein Worker liest Bilder selbst. Ausnahme: Das Bild ist selbst der Gegenstand (Design,
+Barrierefreiheit), oder der Mensch verlangt es.
 
 ## R-work-throwaway
 <!-- source: 640d563c15a067c0 -->
@@ -184,7 +190,7 @@ Kein rekursives Löschen durch einen Shell-Befehl. Aufgeräumt wird mit den eige
 `shutil.rmtree`) oder Datei für Datei.
 
 ## R-safe-git-metadata
-<!-- source: 4770c4df813ca3f0 -->
+<!-- source: 49df0b16812a2a3e -->
 Keine Schreibzugriffe auf Hooks, Repository-Konfiguration oder Claude-Einstellungen
 summary: kein Schreiben in .git/hooks oder .git/config, kein Git-Config-Schlüssel, der Code ausführt, keine folderOpen-Task; Worker nicht in .claude-Einstellungen
 
@@ -193,7 +199,8 @@ noch mit einem Shell-Befehl noch mit einem Git-Konfigurationsschlüssel im Repos
 (`core.hooksPath`, `core.fsmonitor`, `core.sshCommand`, ein `!`-Alias …): Er läuft beim nächsten Git-Befehl, an
 jeder anderen Prüfung vorbei. Ein Worker schreibt außerdem nie Claude-Einstellungen (`.claude/settings*.json`),
 Agents, Skills oder Commands unter `.claude` (Projekt oder `~/.claude`; der Orchestrator ändert sie auf Wunsch des
-Menschen), und keine Dateien, die beim Öffnen des Ordners Code starten (Editor-Tasks, Dev Container, `.envrc`,
+Menschen) oder Copilot-Rollendateien unter `.github/agents/` des Projekts, und keine Dateien, die beim Öffnen des
+Ordners Code starten (Editor-Tasks, Dev Container, `.envrc`,
 MCP-Konfiguration); niemand fügt eine `folderOpen`-Task hinzu. Eine solche Datei schreibt der Mensch selbst.
 Mechanisch geprüft durch `git-metadata-guard`; nach jedem Aufruf vergleicht `protected-watch` diese Dateien mit
 einem Schnappschuss, setzt zurück, was ein Worker geändert hat, und meldet, was der Orchestrator geändert hat.

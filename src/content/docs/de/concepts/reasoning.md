@@ -3,7 +3,7 @@ title: Tiers und Reasoning
 description: Wie Rollen eine Modellkapazität (Tier) und eine Reasoning-Stufe bekommen, die -high-Varianten, Overrides und Caps.
 sidebar:
   order: 5
-sourceHash: 43882c9ca22908ce835ee5b5fbc50392b131ba4e062a59d33a3b75e672f67cc6
+sourceHash: f9ef4b2d0e30bf9bab287fd8d2794523437cae9c60171e656dc7424830481c7d
 ---
 
 Jede Worker-Rolle hat einen **Tier** (wie viel Modellkapazität) und eine **Reasoning**-Stufe (wie viel sie vor der Antwort nachdenkt). Beides steht in einer werkzeugneutralen Skala in der Definition der Rolle. Ein echter Modellname erscheint nur in `.act/tiers.json` und wird angewendet, wenn die Datei der Rolle für dein Werkzeug erzeugt wird.
@@ -18,7 +18,7 @@ Jede Worker-Rolle hat einen **Tier** (wie viel Modellkapazität) und eine **Reas
 | `high` | eine Aufgabe, die mehr Reasoning braucht als `elevated` | 80 |
 | `expert` | Eskalation nach zwei gescheiterten Versuchen an einer Aufgabe | 80 |
 
-Für Claude Code ordnet `.act/tiers.json` `light` Haiku zu, `standard` Sonnet, `elevated` und `high` Opus (`high` mit einer Stufe mehr Reasoning) und `expert` dem Spitzenmodell. Andere Werkzeuge haben noch keine Zuordnung; bei ihnen behalten die erzeugten Dateien das Modell, das sie schon haben.
+Für Claude Code ordnet `.act/tiers.json` `light` Haiku zu, `standard` Sonnet, `elevated` und `high` Opus (`high` mit einer Stufe mehr Reasoning) und `expert` dem Spitzenmodell. Für Copilot gibt die Tabelle `copilot` in derselben Datei jedem Tier eine geordnete Modellliste, und das erste Modell, das dein Abo anbietet, gewinnt: `light` claude-haiku-5.5, dann claude-haiku-4.5; `standard` claude-sonnet-5.5; `elevated` und `high` claude-opus-5.5, dann claude-sonnet-5.5 (`high` wieder mit einer Stufe mehr Reasoning); `expert` claude-fable-5.2, dann claude-opus-5.5. Das Reasoning kommt ins Feld `reasoning-effort`. Andere Werkzeuge haben noch keine Zuordnung; bei ihnen behalten die erzeugten Dateien das Modell, das sie schon haben.
 
 Die Reasoning-Skala lautet `none`, `low`, `medium`, `high`, `xhigh`, `max`.
 
@@ -37,19 +37,19 @@ Die [Rollenreferenz](/agentic-coding-template-docs/de/reference/roles/) wird aus
 
 ## Die -high-Varianten
 
-Neben `.claude/agents/<role>.md` erzeugt das Template für `builder` und `reviewer` `.claude/agents/<role>-high.md`: dieselbe Rolle mit dem Reasoning eine Stufe weiter oben auf der Skala. Der Assistent nennt die `-high`-Variante für einen einzelnen Auftrag, der mehr Nachdenken braucht, ohne die Rolle dauerhaft anzuheben. Die anderen Rollen der Vorlage haben keine Variante, ebenso wenig eine Rolle, die schon an der Spitze der Skala steht (`expert-solver`); ein Update entfernt früher erzeugte Varianten dieser Rollen. Eine eigene Rolle des Projekts behält ihre Variante. Ein Auftrag, der eine entfernte Variante nannte, nennt die Rolle selbst oder `builder-high` bzw. `reviewer-high`.
+Neben `.claude/agents/<role>.md` (mit Copilot auch `.github/agents/<role>.agent.md`) erzeugt das Template für `builder` und `reviewer` `.claude/agents/<role>-high.md` (`.github/agents/<role>-high.agent.md`): dieselbe Rolle mit dem Reasoning eine Stufe weiter oben auf der Skala. Der Assistent nennt die `-high`-Variante für einen einzelnen Auftrag, der mehr Nachdenken braucht, ohne die Rolle dauerhaft anzuheben. Die anderen Rollen der Vorlage haben keine Variante, ebenso wenig eine Rolle, die schon an der Spitze der Skala steht (`expert-solver`); ein Update entfernt früher erzeugte Varianten dieser Rollen. Eine eigene Rolle des Projekts behält ihre Variante. Ein Auftrag, der eine entfernte Variante nannte, nennt die Rolle selbst oder `builder-high` bzw. `reviewer-high`.
 
 ## Eine Rolle überschreiben
 
 Die Tabelle Roles am Ende von `docs/ai/config.md` ist standardmäßig leer. Fülle eine Zeile, um eine Rolle zu ändern:
 
 ```markdown
-| Role | Tier | Reasoning | Model |
-| :--- | :--- | :--- | :--- |
-| builder | elevated | high | |
+| Role | Tier | Reasoning | Model | Copilot |
+| :--- | :--- | :--- | :--- | :--- |
+| builder | elevated | high | | |
 ```
 
-`Tier` und `Reasoning` überschreiben die Werte des Templates; ein gefülltes `Model` legt das Modell direkt fest und gewinnt gegenüber `Tier`. Die eigene Rolle eines Projekts (siehe [Eigene Regeln, Skills und Rollen](/agentic-coding-template-docs/de/guides/own-skills-and-rules/)) wird dort auf dieselbe Weise benannt. Die erzeugten Dateien werden beim Sitzungsstart und bei jedem Update aufgefrischt; angefasst werden nur ihre Zeilen `model` und `effort`, nie deine eigenen Ergänzungen im Text der Rolle.
+`Tier` und `Reasoning` überschreiben die Werte des Templates; ein gefülltes `Model` legt das Modell direkt fest und gewinnt gegenüber `Tier`, gilt aber nur für Claude Code. `Copilot` nimmt eine kommagetrennte Prioritätsliste von Copilot-Modell-IDs für die Datei der Rolle unter `.github/agents/`; das erste Modell, das dein Abo anbietet, wird genommen, und eine gefüllte Zelle gewinnt dort gegenüber `Tier`. Eine Tabelle mit vier Spalten bleibt gültig; nach einer Änderung der Spalte `Copilot` führst du `python .act/scripts/update.py --catch-up --yes` aus. Die eigene Rolle eines Projekts (siehe [Eigene Regeln, Skills und Rollen](/agentic-coding-template-docs/de/guides/own-skills-and-rules/)) wird dort auf dieselbe Weise benannt. Die erzeugten Dateien werden beim Sitzungsstart und bei jedem Update aufgefrischt; angefasst werden nur ihre Zeilen `model` und `effort` (bei Copilot `model`, `models` und `reasoning-effort`), nie deine eigenen Ergänzungen im Text der Rolle.
 
 ## Reasoning pro Skill
 

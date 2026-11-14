@@ -15,6 +15,7 @@ Commit or finish open work first (`git status` should be clean). Updating needs 
 `.act-lock.json` (`template.source`); `--source` and `--ref` pick another source or a tag. The source recorded there
 comes first: a git remote named `template` is used only if the lock names no source, and the script says which one it
 took. If the fetch fails, the message names the source, where it came from, and the way out (`--source`, `--ref`).
+A source that is itself a set-up project is refused; `update.py` names `--source <template address>`, so run it once with that.
 A project on a template version older than v2.2.0 is no longer updated: `update.py` stops before it changes anything
 and names [`act-adopt`](/agentic-coding-template-docs/getting-started/existing-project/) (run from a current template
 checkout or project, with this folder as `<dir>`), which carries the project's docs and own rules over.
@@ -23,6 +24,10 @@ checkout or project, with this folder as `<dir>`), which carries the project's d
 python .act/scripts/update.py --plan      # show the diff and describe the later steps, write nothing but the update note
 python .act/scripts/update.py             # the real run, asks for consent
 ```
+
+`--plan` names the fetched commit and keeps it for an hour. A real run within that hour (same source and channel, no
+`--ref`) applies exactly that commit and says so when the source has moved on since; a rewritten source is refused. A
+source that is a plain folder has no commit, so it gets no plan file.
 
 ## Update channel
 
@@ -110,10 +115,14 @@ behind another remote helper gets no update note at session start, while `act-up
    refreshed; with `session-start-refresh` at `warn` or `off` in `docs/ai/config.md` § Checks they are only
    reported ("would refresh … not written"). Then `doctor.py` checks for
    drift; findings land in `docs/ai/inbox/`, never as a silent fix. Among them: an override under `docs/ai/local/` whose counterpart under `.act/` is gone (the template renamed or removed it, so the override has no effect), with the most similar name under `.act/`; rule overrides, roles and your own skills are left out, and so is an own script or coding set unless one name is the start of the other or differs only in its extension. A new tier proposal is filed there as a question of its own, and only once a role has 30 recorded outcomes at a tier and at least 60 % of the last 30 were reworked or escalated. The question is short and recommends option a), looking at the cases first; its numbers are in a separate inbox report, `report-<date>-<time>-tier-numbers-<role>-<tier>.md`. The commit takes the report and the questions, and the summary names both.
-10. **Lock and commit.** `.act-lock.json` is rewritten and a commit is made, unless you pass `--no-commit`.
+10. **Lock and commit.** `.act-lock.json` is rewritten and a commit is made, unless you pass `--no-commit`. A path that `.gitignore` ignores (for example with an allowlist such as `*`, `!docs/`) stays out of the commit, which names it.
 
 The summary also says how much the next session start will remove from `.act-local/` (the check `act-local-tidy`, see
 below).
+
+In a Copilot project (`copilot` in `tools`), compare the models in `.github/agents/` with `/model` after the update and put
+differences into the `Copilot` column of `docs/ai/config.md` § Roles, then run
+`python .act/scripts/update.py --catch-up --yes`.
 
 If the template has no newer state, `--plan` and the real run both say "nothing to update". A bridge file whose content
 would not change is not rewritten. A large update no longer fails on Windows with `WinError 206`.

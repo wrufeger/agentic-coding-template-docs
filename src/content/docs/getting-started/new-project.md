@@ -24,7 +24,10 @@ Set up a new project in ../shop-api.
 Take over my existing project in ~/dev/shop — it already has a CLAUDE.md and its own docs.
 ```
 
-Any language works. There are three ways:
+Any language works. With `copilot` in `tools`, `act-setup` also shows a short table of role and model, read from
+`.github/agents/`; compare it with `/model` in Copilot, put a difference into the `Copilot` column of
+`docs/ai/config.md` § Roles (add the column to the table head if it is missing), then run
+`python .act/scripts/update.py --catch-up --yes`. There are three ways:
 
 1. **Right here.** The clone becomes the project. The `origin` remote is removed if it points at the template repository, and the project starts on a
    fresh `main` with no history of the template. Later template updates come only through
@@ -36,9 +39,10 @@ Any language works. There are three ways:
    without committing it. The steps are on [Existing project](/agentic-coding-template-docs/getting-started/existing-project/).
 
 Once a project runs the template, `/act-adopt` there starts the next project or adopts another one from it, and can
-carry its own skills, rules, exceptions, overrides and topics over (`--carry`); see
+carry its own skills, rules, exceptions, overrides, topics and agents over (`--carry`); see
 [Existing project](/agentic-coding-template-docs/getting-started/existing-project/#start-it). Afterwards the assistant
-suggests `act-update` in the new project, since it got the `.act/` of the project it came from.
+suggests `act-update` in the new project, since it got the `.act/` of the project it came from. Its template source comes from the lock of that project only if
+it is a remote address; otherwise the published template address is used.
 
 Before it runs, the assistant asks once whether a working method should be on (`test-first`, `spec-first`,
 `simple-changes`; none is the default) and passes the answer as `--methods`. The `methods` row in `docs/ai/config.md`
@@ -62,7 +66,7 @@ python .act/scripts/init.py --non-interactive         # no questions: defaults, 
 ```
 
 Useful options: `--language-docs <code>` (language of `docs/`, default `en`), `--language-chat <code|auto>`,
-`--update-channel <release|latest>` (what `act-update` follows, see [Update](/agentic-coding-template-docs/getting-started/update/#update-channel); `init` asks if you leave it out), `--methods <names|none>` (working methods to switch on; `init` asks if you leave it out), `--carry <list>` (with `--target`, run from a project: what to take over from it, default all), `--no-commit`. All options are in the [scripts reference](/agentic-coding-template-docs/reference/scripts/).
+`--update-channel <release|latest>` (what `act-update` follows, see [Update](/agentic-coding-template-docs/getting-started/update/#update-channel); `init` asks if you leave it out), `--methods <names|none>` (working methods to switch on; `init` asks if you leave it out), `--carry <list>` (with `--target`, run from a project: what to take over from it: skills, rules, exceptions, overrides, topics, agents; default all), `--no-commit`. All options are in the [scripts reference](/agentic-coding-template-docs/reference/scripts/).
 
 For an **existing project**, `init.py --target <dir>` never overwrites a file. It adds `.act/` and whatever is
 missing, appends its own blocks to `.gitignore`/`.gitattributes`, merges its hook entries into
@@ -89,7 +93,7 @@ Ten fixed steps, each printed as `[n/10]`:
    `## [Unreleased]` section, unless `changelog` in § Formats is `release-notes-only` or `off` or the project already
    keeps a changelog under another name; an existing file is never overwritten.
 9. Writes `.act-lock.json` (the recorded template source and version) and `.act/MANIFEST.json`.
-10. Makes the first commit. It takes only the paths this run wrote; anything else already staged in the target stays staged and is named in the output.
+10. Makes the first commit. It takes only the paths this run wrote; anything else already staged in the target stays staged and is named in the output. A path the target's `.gitignore` ignores (an allowlist such as `*`, `!docs/`) stays out of the commit, which names it; an ignored `CHANGELOG.md` is not created.
 
 `init.py` never overwrites a file the project already has. A question that gets no input takes its shown default. A `language-docs` other than English leaves the
 scaffold in English. `act-setup` translates it in the same run; after a plain `init.py` an inbox note asks the

@@ -393,10 +393,13 @@ Sitzung). Tipps stammen aus `.act/tips.md` und verschwinden, sobald du die Funkt
 in `docs/ai/local/reminders.md` sind von diesem Schlüssel nicht betroffen.
 
 ## Roles
-<!-- source: b47e2c80c025928b -->
-| Rolle | Tier | Reasoning | Modell |
-| :--- | :--- | :--- | :--- |
+<!-- source: 7457cd01de90f066 -->
+| Rolle | Tier | Reasoning | Modell | Copilot |
+| :--- | :--- | :--- | :--- | :--- |
 
 Standardmäßig leer: jede Rolle läuft mit dem Tier/Reasoning, das das Template mitliefert. Eine Zeile füllen, um
 Tier und/oder Reasoning einer Rolle zu überschreiben, oder `Model` direkt setzen — ein gefülltes `Model` hat Vorrang vor `Tier`.
+`Model` gilt nur für Claude Code. `Copilot` (mit `tools: copilot`) nimmt eine durch Kommas getrennte Vorrangliste von
+Copilot-Modell-IDs für die Datei der Rolle unter `.github/agents/`; genommen wird das erste, das dein Abo anbietet, und
+eine gefüllte Zelle hat dort Vorrang vor `Tier`. Eine Tabelle mit vier Spalten bleibt gültig.
 Der Name eines Skills in der Spalte `Role` (z. B. `act-prepare`) überschreibt das eigene `reasoning` dieses Skills für dieses Projekt; dort zählt nur `Reasoning`.

@@ -10,7 +10,7 @@ this file directly for anything those two miss — it stays a plain table, not a
 
 | File | Contents | Data as of | When to read |
 | :--- | :--- | :--- | :--- |
-| `docs/project/coding_rules.md` | Which rule sets/groups are on for this stack | 2026-10-04 | before writing or reviewing code |
+| `docs/project/` | The project's documentation as it is now; its `README.md` has one line per file and subfolder (`R-docs-order`). Holds `coding_rules.md` (which rule sets are on for this stack) and `german-glossary.md` (wording rules for the German pages) | 2026-11-14 | before writing or reviewing code; before writing a German page; to find a document, read `docs/project/README.md` |
 | `docs/ai/config.md` | Project configuration — steers the assistant | 2026-10-04 | before any task; re-read after a change |
 | `docs/ai/board.md` | Board — generated overview of what is open (not versioned by default, see `board` in `config.md`) | 2026-10-04 | at session start, for the current picture |
 | `docs/ai/rules.md` | Orchestrator-only rule digest, loaded at session start | 2026-10-04 | orchestrator, every session (automatic) |

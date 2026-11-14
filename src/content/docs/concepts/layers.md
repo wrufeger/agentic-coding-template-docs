@@ -52,7 +52,7 @@ for overrides and own rules apply. Sets exist for, among others, Python, TypeScr
 ## Settings
 
 `docs/ai/config.md` steers workflow, checks, roles, and languages. Its `## Roles` table overrides the tier,
-reasoning, or model of one role. See the [configuration reference](/agentic-coding-template-docs/reference/configuration/),
+reasoning, model (Claude Code), or Copilot models of one role. See the [configuration reference](/agentic-coding-template-docs/reference/configuration/),
 the [rules reference](/agentic-coding-template-docs/reference/rules/), and the
 [coding rules reference](/agentic-coding-template-docs/reference/coding-rules/).
 

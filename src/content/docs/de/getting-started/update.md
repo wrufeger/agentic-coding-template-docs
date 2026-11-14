@@ -3,7 +3,7 @@ title: Update
 description: Einen neueren Stand des Templates mit act-update in ein Projekt holen.
 sidebar:
   order: 3
-sourceHash: 7a94417461e2c9d96921408d887240c54d19bc53807285d8969dfd6fdfc2d733
+sourceHash: 72b6fe76462b5916955fa8265c0b5e36326381b4c5135339d3389bf42a70f67a
 ---
 
 `act-update` holt einen neueren Stand des Templates in dein Projekt: Du siehst den Diff, du stimmst zu, und
@@ -17,6 +17,7 @@ Committe oder beende offene Arbeit zuerst (`git status` sollte sauber sein). Das
 eingetragene Quelle hat Vorrang: ein Git-Remote namens `template` wird nur genommen, wenn die Lock-Datei keine Quelle
 nennt, und das Script sagt, welche es genommen hat. Schlägt der Abruf fehl, nennt die Meldung die Quelle, woher sie
 stammt, und den Ausweg (`--source`, `--ref`).
+Eine Quelle, die selbst ein eingerichtetes Projekt ist, wird abgelehnt; `update.py` nennt `--source <Template-Adresse>`, lass es dann einmal damit laufen.
 Ein Projekt auf einer Template-Version älter als v2.2.0 wird nicht mehr aktualisiert: `update.py` bricht ab, bevor es
 etwas ändert, und nennt [`act-adopt`](/agentic-coding-template-docs/de/getting-started/existing-project/) (aus einem
 aktuellen Template-Checkout oder Projekt gestartet, mit diesem Ordner als `<dir>`), das die Doku und eigenen Regeln des
@@ -26,6 +27,11 @@ Projekts übernimmt.
 python .act/scripts/update.py --plan      # show the diff and describe the later steps, write nothing but the update note
 python .act/scripts/update.py             # the real run, asks for consent
 ```
+
+`--plan` nennt den geholten Commit und hält ihn eine Stunde. Ein echter Lauf in dieser Stunde (gleiche Quelle und
+gleicher Channel, kein `--ref`) spielt genau diesen Commit ein und sagt es, wenn die Quelle inzwischen weitergezogen
+ist; eine umgeschriebene Quelle wird abgelehnt. Eine Quelle, die ein einfacher Ordner ist, hat keinen Commit und
+bekommt deshalb keine Plan-Datei.
 
 ## Update-Channel
 
@@ -113,10 +119,15 @@ Update-Notiz, `act-update` selbst bleibt unverändert.
    `docs/ai/rules.md`) aufgefrischt; steht `session-start-refresh` in `docs/ai/config.md` § Checks auf `warn` oder
    `off`, werden sie nur gemeldet („would refresh … not written“). Danach prüft `doctor.py` auf Abweichungen; Befunde landen in `docs/ai/inbox/`, nie als stille Korrektur. Darunter: ein Override unter `docs/ai/local/`, dessen Gegenstück unter `.act/` fehlt (das Template hat es umbenannt oder entfernt, der Override wirkt also nicht), mit dem ähnlichsten Namen unter `.act/`; Regel-Overrides, Rollen und eigene Skills bleiben außen vor, ebenso ein eigenes Script oder ein eigener Coding-Satz, es sei denn, ein Name ist der Anfang des anderen oder unterscheidet sich nur in der Endung. Ein neuer Tier-Vorschlag wird dort als eigene Frage angelegt, und erst, wenn eine Rolle auf einem Tier 30 erfasste Ergebnisse hat und mindestens 60 % der letzten 30 nachgearbeitet oder eskaliert wurden. Die Frage ist kurz und empfiehlt Option a), zuerst die Fälle anzusehen; ihre Zahlen stehen in einem eigenen Inbox-Bericht, `report-<Datum>-<Uhrzeit>-tier-numbers-<Rolle>-<Tier>.md`. Der Commit nimmt den Bericht und die Fragen mit, und die Zusammenfassung nennt beide.
 10. **Lock und Commit.** `.act-lock.json` wird neu geschrieben und ein Commit angelegt, außer du gibst
-    `--no-commit` an.
+    `--no-commit` an. Ein Pfad, den `.gitignore` ignoriert (etwa mit einer Allowlist wie `*`, `!docs/`), bleibt aus dem
+    Commit, der ihn nennt.
 
 Die Zusammenfassung sagt auch, wie viel der nächste Sitzungsstart aus `.act-local/` entfernen wird (die Prüfung
 `act-local-tidy`, siehe unten).
+
+In einem Copilot-Projekt (`copilot` in `tools`) gleichst du nach dem Update die Modelle in `.github/agents/` mit `/model`
+ab, trägst Abweichungen in die Spalte `Copilot` von `docs/ai/config.md` § Roles ein und führst dann
+`python .act/scripts/update.py --catch-up --yes` aus.
 
 Hat das Template keinen neueren Stand, melden `--plan` und der echte Lauf „nothing to update“. Eine Brückendatei, deren
 Inhalt gleich bliebe, wird nicht neu geschrieben. Ein großes Update scheitert unter Windows nicht mehr mit `WinError 206`.

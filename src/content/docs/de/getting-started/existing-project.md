@@ -3,7 +3,7 @@ title: Bestehendes Projekt
 description: Ein Projekt mit eigener Doku oder eigenem KI-Setup mit act-adopt übernehmen.
 sidebar:
   order: 2
-sourceHash: e847096c942ce12e6a1cf7e29b1520313723acffecdc34c899115d549dc37e2a
+sourceHash: 253a679678c33a8253dc6b3a4cc93d9c4dd038a533214fbdcddd21ee9db9b928
 ---
 
 Ein Projekt, das schon Doku, eine `CLAUDE.md` oder ein älteres KI-Setup hat, läuft über `act-adopt`, nicht allein
@@ -39,7 +39,7 @@ Script committet etwas.
 
 ### Mitnehmen aus dem startenden Projekt
 
-Aus einem Projekt heraus listet der Assistent, was mitkommen könnte, und fragt einmal je Kategorie, Standard ja. Die
+Aus einem Projekt heraus listet der Assistent, was mitkommen könnte, und fragt einmal je Kategorie, Standard ja (auch für `agents` vorgeschlagen). Die
 Antworten werden zu `--carry` von `init.py --target` (neues Projekt) oder `adopt.py --apply` (Übernahme):
 
 | Kategorie | Nimmt mit |
@@ -49,6 +49,7 @@ Antworten werden zu `--carry` von `init.py --target` (neues Projekt) oder `adopt
 | `exceptions` | Abgeschaltete Regelgruppen und Regelsätze, mit ihrem Grund. |
 | `overrides` | `replaces`-Zeilen und die übrigen Dateien unter `docs/ai/local/`. |
 | `topics` | Eigene Topic-Regeln und Overrides von Template-Topics (`docs/ai/local/rules/topics/`). |
+| `agents` | Eigene Rollen (`docs/ai/local/agents/`) und eigene Zeilen in den Rollen-Bridges. |
 
 Alles ja lässt `--carry` weg, alles nein ist `--carry none` (`--no-local` tut dasselbe); `--carry` ohne `--target`
 wird abgelehnt. Nur committeter Inhalt reist mit, nie `.env*`, Symlinks oder unversionierte Dateien. Was das neue
@@ -74,7 +75,9 @@ Template-Checkout gibt es nichts mitzunehmen.
    führt `init.py` aus. Die Doku-Sprache stellst du hier mit `--language-docs` ein, den
    [Update-Channel](/agentic-coding-template-docs/de/getting-started/update/#update-channel) mit `--update-channel release|latest` (Standard `release`; er wird an `init.py` weitergegeben). Zeilen ohne Ziel
    brauchen `--confirm-no-targets`, nur mit deinem Ja.
-5. **Einstellungen.** `adopt_config.py` überträgt Werte aus einer alten `AI-CONFIG.md` nach `docs/ai/config.md`.
+5. **Einstellungen.** `adopt_config.py` überträgt Werte aus einer alten `AI-CONFIG.md` nach `docs/ai/config.md`. Mit
+   `copilot` in `tools` zeigt der Assistent danach eine kurze Tabelle Rolle und Modell, gelesen aus `.github/agents/`; gleiche sie in Copilot mit `/model` ab, trage eine Abweichung in die Spalte `Copilot` von `docs/ai/config.md`
+   § Roles ein (fehlt die Spalte im Tabellenkopf, ergänze sie) und führe dann `python .act/scripts/update.py --catch-up --yes` aus.
 6. **Inhalte füllen.** Offene Aufgaben, Backlog-Punkte und Fragen werden zu Einträgen; Regeltext wird zu
    Overrides, eigenen Regeln oder Vorschlägen. Eine vorhandene Richtliniendatei wird danach sortiert, wohin jeder Teil gehört, und Teil für Teil vorgeschlagen, nie ganz in „Own rules“ übernommen; eigene Regeln bleiben Einzeiler. Text wird aus den alten Dateien ausgeschnitten, nie neu
    getippt. Ein Vorschlag in `docs/ai/proposals/` bekommt einen Frontmatter-Kopf (`author`, `date`, `target`); ältere Vorschläge in der schlichten Form werden weiter gelesen.
@@ -130,4 +133,4 @@ auf `confirm` (jede Nachricht wird gezeigt und erst nach deinem Ja gesendet); `l
 Lehnst du den Umbau ab, brich nach der Sichtung ab und führe `python .act/scripts/init.py --target <dir>` aus. Es
 überschreibt nie eine Datei, ergänzt `.act/` und alles, was fehlt, und lässt eine bestehende `CLAUDE.md`
 unverändert, der dann noch der Import der Regeln fehlt. Aus einem Projekt gestartet, übernimmt es dessen eigene
-Skills, Regeln, Ausnahmen, Overrides und Topics, sofern `--carry` nicht weniger nennt.
+Skills, Regeln, Ausnahmen, Overrides, Topics und Agents, sofern `--carry` nicht weniger nennt.

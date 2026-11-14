@@ -35,7 +35,7 @@ before it runs anything. Nothing changes before you approve a table once, and no
 
 ### Carrying over from the project you run it from
 
-From a project, the assistant lists what could come along and asks once per category, default yes. The answers become
+From a project, the assistant lists what could come along and asks once per category, default yes (suggested yes for `agents` too). The answers become
 `--carry` of `init.py --target` (new project) or `adopt.py --apply` (adoption):
 
 | Category | Carries |
@@ -45,6 +45,7 @@ From a project, the assistant lists what could come along and asks once per cate
 | `exceptions` | Rule groups and rule sets you switched off, with their reason. |
 | `overrides` | `replaces` lines and the other files under `docs/ai/local/`. |
 | `topics` | Own topic rules and overrides of template topics (`docs/ai/local/rules/topics/`). |
+| `agents` | Your own roles (`docs/ai/local/agents/`) and your own lines in the role bridges. |
 
 All yes leaves `--carry` out, all no is `--carry none` (`--no-local` does the same); `--carry` without `--target` is
 refused. Only committed content travels, never `.env*`, symlinks or untracked files. What the new project cannot take
@@ -68,7 +69,9 @@ refused. Only committed content travels, never `.env*`, symlinks or untracked fi
    `init.py`. Set the docs language here with `--language-docs`, and the
    [update channel](/agentic-coding-template-docs/getting-started/update/#update-channel) with `--update-channel release|latest` (default `release`; it is passed on to `init.py`). Rows without a target need
    `--confirm-no-targets`, only with your yes.
-5. **Settings.** `adopt_config.py` carries values from an old `AI-CONFIG.md` into `docs/ai/config.md`.
+5. **Settings.** `adopt_config.py` carries values from an old `AI-CONFIG.md` into `docs/ai/config.md`. With `copilot`
+   in `tools` the assistant then shows a short table of role and model, read from `.github/agents/`; compare it with `/model` in Copilot, put a difference into the `Copilot` column of `docs/ai/config.md` § Roles
+   (add the column to the table head if it is missing), then run `python .act/scripts/update.py --catch-up --yes`.
 6. **Fill the content.** Open tasks, backlog items, and questions become entries; rule text becomes overrides,
    own rules, or proposals. An existing guideline file is sorted by where each part belongs and proposed part by part, never taken whole into "Own rules"; own rules stay one-liners. Text is cut from the old files, never retyped. A proposal in `docs/ai/proposals/` gets a frontmatter header (`author`, `date`, `target`); older proposals in the plain form are still read.
 7. **Finish.** `adopt.py --finish` bridges adopted files, removes what was meant to go, runs `doctor.py`, and writes
@@ -120,4 +123,4 @@ With a `language-docs` other than English, `act-adopt` translates the scaffold i
 If you decline the rebuild, stop after the sight and run `python .act/scripts/init.py --target <dir>`. It never
 overwrites a file, adds `.act/` and whatever is missing, and leaves an existing `CLAUDE.md` as it is, which
 then still lacks the import of the rules. Run from a project, it takes over that project's own skills, rules,
-exceptions, overrides and topics unless `--carry` names fewer.
+exceptions, overrides, topics and agents unless `--carry` names fewer.

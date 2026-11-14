@@ -1121,7 +1121,7 @@ neu vergeben; eine Gruppe, deren Zweck nicht mehr gilt, bekommt eine neue ID und
 `retired:` aufgeführt.
 
 ## CR-powershell-edition
-<!-- source: e6088452a0be58fa -->
+<!-- source: 78b8aba824a18f20 -->
 Die Edition pinnen, das Encoding ausdrücklich halten
 summary: Windows PowerShell 5.1 gegenüber PowerShell 7, ein Ziel pro Skript, ausdrückliches Encoding, keine Bash-Syntax
 
@@ -1136,6 +1136,19 @@ summary: Windows PowerShell 5.1 gegenüber PowerShell 7, ein Ziel pro Skript, au
 - Keine Bash-Syntax einmischen: kein `&&`/`||` zwischen Befehlen (nur PowerShell 7 kennt sie), kein
   `export VAR=...` (`$env:VAR = ...` verwenden), kein `rm -rf` (`Remove-Item -Recurse` auf einem geprüften
   Pfad verwenden).
+- Windows-Fallen (die PowerShell-Punkte geprüft in 5.1 und 7.6, der Fehler mit CRLF-Shebang in Bash unter WSL):
+  - `sc` ist in 5.1 der Alias von `Set-Content` (in 7 löst es zum Programm auf); das Dienstwerkzeug als `sc.exe`
+    aufrufen.
+  - `Set-Content`/`Add-Content` beenden den Text mit CRLF, auch wenn er LF enthält. Ein Shell-Skript braucht
+    `-NoNewline` und durchgehend LF (oder `[IO.File]::WriteAllText` mit `UTF8Encoding $false`); ein Shebang mit
+    CRLF scheitert unter Linux mit „required file not found“ oder `bad interpreter`.
+  - Eine UTF-8-Datei ohne BOM, die 5.1 mit `Get-Content` liest, wird als ANSI-Codepage genommen und macht aus `─`
+    `â”€`: beim Lesen `-Encoding UTF8` mitgeben.
+  - CSV für Excel in einem Gebietsschema mit Dezimalkomma: `-UseCulture` oder `-Delimiter ';'`; 5.1 `Export-Csv`
+    schreibt standardmäßig ASCII (Nicht-ASCII wird zu `?`), `-Encoding UTF8` schreibt dort ein BOM, das Excel
+    braucht; in 7 `-Encoding utf8BOM` verwenden.
+  - Ein abgefangener oder umgeleiteter Fehlerstrom von `pwsh` 7 enthält ANSI-Escape-Sequenzen; in diesem Prozess
+    `$PSStyle.OutputRendering = 'PlainText'` setzen, um sie zu entfernen (5.1 hat keine).
 - Pfade: mit `Join-Path` und `$PSScriptRoot` bauen, nie durch Zusammenfügen von `\`; Pfade quoten, die
   Leerzeichen enthalten können; `-LiteralPath` verwenden, wenn ein Name `[` oder `]` enthalten kann.
 

@@ -26,14 +26,14 @@ directly. Naming a role in the chat (`reviewer`, `explorer`) is an instruction t
 | `expert-solver` | Escalation after two failed attempts. |
 
 Model, tier, reasoning, and tools for each role: [Roles reference](/agentic-coding-template-docs/reference/roles/).
-A role runs as a sub-agent only in Claude Code; other tools get the rules and skills as instructions. In Claude Code, `builder` and `explorer` also know that path-bound rules under `.claude/rules/` load only when a matching file is read or written through a file tool, not through a search or a shell command; they read the matching rule file first.
+A role runs as a sub-agent in Claude Code and, with `copilot` in `tools`, as a custom agent in Copilot (`.github/agents/<role>.agent.md`); other tools get the rules and skills as instructions. In Claude Code, `builder` and `explorer` also know that path-bound rules under `.claude/rules/` load only when a matching file is read or written through a file tool, not through a search or a shell command; they read the matching rule file first.
 
 ## Tiers
 
 A tier says how much model capacity an assignment gets: `light` for reads and counts, `standard` for implementation,
 `elevated` for review and security judgment, `high` as `elevated` with one more reasoning step, and `expert` only
-for an escalation. `.act/tiers.json` is the one place that maps tiers to concrete models, today only for Claude
-Code. To change one role, fill a row in `## Roles` of `docs/ai/config.md`.
+for an escalation. `.act/tiers.json` is the one place that maps tiers to concrete models, today for Claude
+Code and Copilot. To change one role, fill a row in `## Roles` of `docs/ai/config.md`.
 
 ## Caps and write scope
 
@@ -53,7 +53,7 @@ A worker does not load `CLAUDE.md`: the template's roles carry `omitClaudeMd: tr
 - Never commit, and never write to `docs/ai/`.
 - Never ask you directly: open questions go back to the orchestrator with the result.
 - Never make a write that a check refused another way (interpreter, script, other tool); report the refusal with the result.
-- Never change the files `R-safe-git-metadata` protects (git hooks, Claude settings, agents and skills, `.mcp.json`, `.envrc`, editor tasks). Besides `git-metadata-guard`, the check `protected-watch` compares them with a snapshot after every tool call: a change made in a worker's call is put back at once, the changed version is kept under `.act-local/protected-watch/kept/`, and you and the orchestrator are told. See the [checks page](/agentic-coding-template-docs/reference/topics/#checks).
+- Never change the files `R-safe-git-metadata` protects (git hooks, Claude settings, agents and skills, Copilot role files under `.github/agents/`, `.mcp.json`, `.envrc`, editor tasks). Besides `git-metadata-guard`, the check `protected-watch` compares them with a snapshot after every tool call: a change made in a worker's call is put back at once, the changed version is kept under `.act-local/protected-watch/kept/`, and you and the orchestrator are told. See the [checks page](/agentic-coding-template-docs/reference/topics/#checks).
 - Git is read-only (`status`, `diff`, `log`, `show`, and `stash list` and `stash show`).
 - Never start another worker. If a task should be split, it says so and the orchestrator decides.
 - Return a result plus evidence in at most 40 lines, no raw dumps.

@@ -3,7 +3,7 @@ title: Einführung
 description: Was das Template ist, für wen sie gedacht ist und wie sie in einem Bild funktioniert.
 sidebar:
   order: 1
-sourceHash: c620e9e0be02c84ae2358081413ca219b1e0034c731afb2f03ecdebb6b0e5a48
+sourceHash: 94a115d45da6e01a3dda48dccf217b1785baa77cdc5643b1ecfabbef99688671
 ---
 
 Das Agentic-Coding-Template, kurz *act*, ist ein Satz von Dateien, den du in ein Projekt legst, damit dein
@@ -63,7 +63,7 @@ Templates kommt nach `docs/ai/local/<gleicher Pfad>` und gewinnt. Details: [Schi
 | Werkzeug | Liest | Was es bekommt |
 | :--- | :--- | :--- |
 | Claude Code | `CLAUDE.md`, `.claude/` | Alles: Regeln per Import, Skills per Name, Sub-Agenten-Rollen mit Modell- und Effort-Stufe, Hooks, eine Statuszeile, das Board beim Sitzungsstart. |
-| Codex, GitHub Copilot, Cursor | `AGENTS.md`, `.agents/skills/` | Regeln und Skills als Anweisungen. Keine Hooks, also wird nichts mechanisch durchgesetzt, und keine Sub-Agenten-Rollen. |
+| Codex, GitHub Copilot, Cursor | `AGENTS.md`, `.agents/skills/`; Copilot auch `.github/agents/` | Regeln und Skills als Anweisungen. Keine Hooks, also wird nichts mechanisch durchgesetzt. Mit `copilot` in `tools` bekommt Copilot zusätzlich die Rollen als Dateien unter `.github/agents/`; Codex und Cursor haben keine Sub-Agenten-Rollen. |
 | Gemini CLI | `GEMINI.md`, `.agents/skills/` | Die Skills. Ein Projekt hat noch keine `GEMINI.md`, also richte Gemini CLI in den Einstellungen auf `AGENTS.md`. |
 | Jeder andere Assistent | keine | Sag ihm, er soll `docs/ai/rules.md` lesen. Jeder Skill ist eine schlichte `SKILL.md`. |
 
