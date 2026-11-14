@@ -7,7 +7,8 @@
 //
 // The last processed template commit is kept in .act-lock.json; the report works from the difference
 // between it and the new commit (git history of the source). Without history it falls back to the
-// reference diff. Ends with the translation report. Exit 0 unless a step failed (then 1, naming the step).
+// reference diff. Ends with the open entries of docs/ai/inbox/ (the doctor report of an update with its
+// findings) and the translation report. Exit 0 unless a step failed (then 1, naming the step).
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -250,10 +251,48 @@ if (apply) {
   }
 }
 
+// Open entries in this project's inbox: update.py's doctor report lands there with its findings, and older
+// entries stay unseen unless listed. Everything but status done is listed; a report shows its finding lines.
+console.log('\n== open inbox entries (docs/ai/inbox/) ==');
+const inboxDir = path.join(root, 'docs', 'ai', 'inbox');
+const openEntries = [];
+for (const name of fs.existsSync(inboxDir) ? fs.readdirSync(inboxDir).sort() : []) {
+  if (!name.endsWith('.md') || name.toLowerCase() === 'readme.md') continue;
+  let text;
+  try {
+    text = fs.readFileSync(path.join(inboxDir, name), 'utf8').replace(/^﻿/, '');
+  } catch (e) {
+    openEntries.push(name);
+    console.log(`  ${name}  (not readable: ${e.code || e.message})`);
+    continue;
+  }
+  const head = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  const field = (key) => {
+    const m = head && head[1].match(new RegExp(`^${key}[ \\t]*:[ \\t]*["']?([^\\s"'#]+)`, 'im'));
+    return m ? m[1].toLowerCase() : undefined;
+  };
+  const status = field('status') || 'open';
+  if (status === 'done') continue;
+  const kind = field('kind') || 'todo';
+  const body = (head ? text.slice(head[0].length) : text).replace(/^(```|~~~)[\s\S]*?^\1/gm, '');
+  const title = (body.match(/^# (.+)$/m) || [, '(no title)'])[1].trim();
+  openEntries.push(name);
+  console.log(`  ${name}  [${kind}, ${status}]  ${title}`);
+  if (kind !== 'report') continue;
+  const findings = text.split(/\r?\n/).filter((l) => /^- /.test(l));
+  for (const l of findings.slice(0, 10)) console.log(`      ${l}`);
+  if (findings.length > 10) console.log(`      ... ${findings.length - 10} more in the file`);
+}
+if (!openEntries.length) console.log('  (none)');
+
 console.log('\n== translation report ==');
 const tr = run('node', ['scripts/check-translations.mjs']);
 process.stdout.write(tr.stdout || '');
 process.stderr.write(tr.stderr || '');
 const stale = tr.status === 0 ? 'no stale German pages' : 'German pages need attention (see report)';
-console.log(`\nsync: ${apply ? 'applied' : 'plan only'}; ${moved ? 'template moved' : 'no template change reported'}; ${stale}.`);
+const n = openEntries.length;
+const inboxNote = n ? `${n} open inbox ${n === 1 ? 'entry' : 'entries'} (see above)` : 'no open inbox entries';
+console.log(
+  `\nsync: ${apply ? 'applied' : 'plan only'}; ${moved ? 'template moved' : 'no template change reported'}; ${stale}; ${inboxNote}.`,
+);
 process.exit(0);
