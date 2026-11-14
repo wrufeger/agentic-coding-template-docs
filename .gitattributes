@@ -22,3 +22,5 @@
 
 # Docs repo: LF everywhere
 * text=auto eol=lf
+
+/.github/agents/** text eol=lf

@@ -8,7 +8,8 @@
 #          landed on it, 'template' is deleted outright so nobody can merge it back into 'main',
 #          once the first commit has landed), check git identity, write the per-checkout workspace identity, thin the
 #          bridges down to the chosen tools, materialize skeleton + bridges (plus skill copies and
-#          role bridges, see copy_targets()/agent_bridge_targets(); in-place, a root CLAUDE.md/
+#          role bridges -- .claude/agents/ for Claude Code, .github/agents/ for Copilot, see
+#          copy_targets()/agent_bridge_targets(); in-place, a root CLAUDE.md/
 #          AGENTS.md still carrying the template's own bootstrap marker is replaced by its project
 #          bridge here too, see _bootstrap_entry_files/TEMPLATE_BOOTSTRAP_MARKER -- --target never
 #          has one to replace), append .gitattributes/.gitignore, retire the template's own
@@ -25,7 +26,7 @@
 #   python .act/scripts/init.py                      # set up the current checkout in place
 #   python .act/scripts/init.py --target <path>       # create/dock in another directory instead
 #                                                      # (never the project itself or a folder inside it)
-#   python .act/scripts/init.py --target <path> --carry skills,rules,exceptions,overrides,topics
+#   python .act/scripts/init.py --target <path> --carry skills,rules,exceptions,overrides,topics,agents
 #                                                      # what to take over from the source project (default all; none)
 #   python .act/scripts/init.py --plan                # show the ten steps, change nothing
 #   python .act/scripts/init.py --non-interactive      # never prompt; take defaults, log to inbox
@@ -48,7 +49,7 @@ import subprocess
 import sys
 from datetime import date
 from pathlib import Path
-from typing import Callable, NamedTuple, Optional, TypedDict, Union
+from typing import Any, Callable, NamedTuple, Optional, TypedDict, Union
 
 import act_profile
 import actlib
@@ -251,31 +252,81 @@ def _commits_ahead_of(root: Path, ref: str) -> Optional[int]:
         return None
 
 
-def _checkout_template_ref(checkout_root: Path) -> tuple[str, str]:
-    """(source address, commit) of the template that the checkout `init.py` is running from stands for.
+_REMOTE_ADDRESS = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://|^[^@/\s]+@[^:/\s]+:")
+
+
+def _is_remote_address(value: str) -> bool:
+    """Whether `value` is a remote git address (a URL with a scheme, or `user@host:path`); anything
+    else -- a drive path, an absolute or relative folder -- is a local folder."""
+    return bool(_REMOTE_ADDRESS.match(value))
+
+
+def _published_template_source(root: Path) -> str:
+    """The template's published address from the `source=` line of root's .act/VERSION, normalized to
+    a fetchable address: one without a scheme and without `user@host:` becomes `https://<value>.git`.
+    Empty when there is no such line."""
+    try:
+        lines = (root / ".act" / "VERSION").read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return ""
+    for line in lines:
+        key, _, value = line.partition("=")
+        if key.strip() == "source" and value.strip():
+            address = value.strip()
+            if _is_remote_address(address):
+                return address
+            return f"https://{address}" if address.endswith(".git") else f"https://{address}.git"
+    return ""
+
+
+def _template_ref_of_project(checkout_root: Path, lock_path: Path) -> tuple[str, str, str]:
+    """(source, commit, note) for a checkout that is itself a set-up project (it has an .act-lock.json).
+    The project's own "origin" and HEAD never belong to the template. The source is the lock's
+    `template.source` if that is a remote address; if it is empty or a local folder, the published
+    address from the .act/VERSION that was used for the setup. The commit is the lock's, else "".
+    `note` says so when the VERSION fallback was taken, else it is empty."""
+    recorded = commit = ""
+    try:
+        lock = json.loads(lock_path.read_text(encoding="utf-8-sig"))
+        template = lock.get("template") if isinstance(lock, dict) else None
+        if isinstance(template, dict):
+            if isinstance(template.get("source"), str):
+                recorded = template["source"].strip()
+            if isinstance(template.get("commit"), str):
+                commit = template["commit"].strip()
+    except (OSError, ValueError):
+        pass  # unreadable lock: treated like one with no source
+    if recorded and _is_remote_address(recorded):
+        return recorded, commit, ""
+    published = _published_template_source(checkout_root)
+    why = "names a local folder" if recorded else "names no source"
+    note = f"template source: {published or '(none)'} (from .act/VERSION; the source project's lock {why})"
+    return published, commit, note
+
+
+def _checkout_template_ref_with_note(checkout_root: Path) -> tuple[str, str, str]:
+    """(source address, commit, note) of the template that the checkout `init.py` is running from stands
+    for; `note` is a result line or "" (see `_checkout_template_ref`).
     Normally the checkout *is* the template: its own "origin" remote URL if it has one, else its absolute
     local path, and its HEAD (an incident with a renamed remote showed why the address is taken here).
-    The exception is a checkout that is itself a set-up project (it has an .act-lock.json with a template
-    source): its "origin" is the project's own repository and its HEAD a commit of that repository, neither
-    of which belongs to the template. Source and commit then both come from the lock, as a pair, so the new
-    project's first update neither fetches the source project nor sees a commit foreign to the template."""
+    The exception is a checkout that is itself a set-up project (it has an .act-lock.json): its "origin"
+    is the project's own repository and its HEAD a commit of that repository, neither of which belongs
+    to the template (`_template_ref_of_project`)."""
     lock_path = checkout_root / ".act-lock.json"
     if lock_path.is_file():
-        try:
-            lock = json.loads(lock_path.read_text(encoding="utf-8-sig"))
-            template = lock.get("template") if isinstance(lock, dict) else None
-            recorded = template.get("source") if isinstance(template, dict) else None
-            if isinstance(recorded, str) and recorded.strip():
-                commit = template.get("commit")
-                return recorded.strip(), commit.strip() if isinstance(commit, str) else ""
-        except (OSError, ValueError):
-            pass  # unreadable lock: fall back to the checkout itself below
+        return _template_ref_of_project(checkout_root, lock_path)
     if not (checkout_root / ".git").exists():
         # a plain folder without git of its own: a repository further up is not its origin or HEAD
-        return str(checkout_root.resolve()), ""
+        return str(checkout_root.resolve()), "", ""
     origin = _get_remote_url(checkout_root, "origin")
     head = _git(["rev-parse", "HEAD"], cwd=checkout_root, check=False).stdout.strip()
-    return (origin if origin else str(checkout_root.resolve())), head
+    return (origin if origin else str(checkout_root.resolve())), head, ""
+
+
+def _checkout_template_ref(checkout_root: Path) -> tuple[str, str]:
+    """(source address, commit) of the template that the checkout stands for."""
+    source, commit, _note = _checkout_template_ref_with_note(checkout_root)
+    return source, commit
 
 
 def _read_version_file(root: Path) -> tuple[str, str]:
@@ -922,14 +973,15 @@ def step_git_target(root: Path, plan: bool, source_act: Path) -> tuple[str, str,
     refs/heads/main' works on Git versions before 2.28 too (no '-b main' needed), unlike 'git init
     -b main'/'git branch -m main', and is safe before the first commit: it only moves the unborn
     HEAD, nothing is renamed or rewritten."""
-    template_source, template_commit = _checkout_template_ref(source_act.parent)
+    template_source, template_commit, ref_note = _checkout_template_ref_with_note(source_act.parent)
+    suffix = f"; {ref_note}" if ref_note else ""
     if (root / ".git").exists():
-        return "target already has a repository, left unchanged", template_source, template_commit
+        return "target already has a repository, left unchanged" + suffix, template_source, template_commit
     if plan:
-        return "would run 'git init' in target (branch 'main')", template_source, template_commit
+        return "would run 'git init' in target (branch 'main')" + suffix, template_source, template_commit
     _git(["init"], cwd=root)
     _git(["symbolic-ref", "HEAD", "refs/heads/main"], cwd=root)
-    return "ran 'git init' in target (branch 'main')", template_source, template_commit
+    return "ran 'git init' in target (branch 'main')" + suffix, template_source, template_commit
 
 
 # ---------------------------------------------------------------------------
@@ -1481,8 +1533,9 @@ def _skill_target_active(tool_gate: Optional[Union[str, tuple[str, ...]]], tools
     `tools` (docs/ai/config.md § Project): None is always active, a single tool id must be
     present, a tuple of ids needs at least one of them present. Both sides go through
     actlib.normalize_tool() first, so a `tools` value written in a variant spelling
-    (.act/tiers.json's now-retired "codex-cli"/"copilot-cli"/"gemini-cli", say) still matches this
-    module's own canonical gate ids instead of silently producing no .agents/skills/ at all."""
+    ("codex-cli"/"copilot-cli"/"gemini-cli", the names .act/tiers.json used to carry, say) still
+    matches this module's own canonical gate ids instead of silently producing no .agents/skills/ at
+    all."""
     normalized_tools = {actlib.normalize_tool(t) for t in tools}
     if tool_gate is None:
         return True
@@ -1548,7 +1601,7 @@ def copy_targets(root: Path, tools: list[str], apply_cut: bool = True) -> dict[s
 
 def skill_copy_bytes(
     root: Path, dest_rel: str, src: Path, tiers_data: Optional[dict] = None,
-    overrides: Optional[dict[str, dict[str, str]]] = None,
+    overrides: Optional[dict[str, dict[str, Any]]] = None,
 ) -> bytes:
     """The bytes written for one skill-copy destination: `src` verbatim, except a skill's SKILL.md
     under a skills folder whose tool gate is a single tool id (".claude/skills"), which gets that
@@ -1572,12 +1625,35 @@ def skill_copy_bytes(
     return data if new_text == text else new_text.encode("utf-8")
 
 
+CLAUDE_AGENTS_DIR = ".claude/agents"
+COPILOT_AGENTS_DIR = ".github/agents"
+
+
+def bridge_target_parts(dest_rel: str) -> tuple[str, str]:
+    """(tool, name) of a role-bridge destination as agent_bridge_targets() keys it: `tool` is
+    "copilot" for a file under .github/agents/ and "claude-code" for any other; `name` is the file
+    name without its `.agent.md` (Copilot) or `.md` ending -- `Path.stem` alone would leave
+    `.agent` on a Copilot file. For a "-high" variant's destination the name still ends in
+    "-high"."""
+    path = Path(dest_rel)
+    if path.parent.as_posix() == COPILOT_AGENTS_DIR:
+        name = path.name
+        if name.endswith(tiers.COPILOT_AGENT_SUFFIX):
+            name = name[: -len(tiers.COPILOT_AGENT_SUFFIX)]
+        elif name.endswith(".md"):
+            name = name[: -len(".md")]
+        return "copilot", name
+    return "claude-code", path.stem
+
+
 def agent_bridge_targets(root: Path, tools: list[str], apply_cut: bool = True) -> dict[str, Path]:
     """Every role-bridge destination -> its .act/bridges/agents/ source, for the given tools.
     Enumerates .act/agents/<name>.md role files dynamically (README.md is documentation, not a
     role) and only includes a role once its bridge under .act/bridges/agents/ exists too — a role
-    with no bridge yet has nothing written. Only "claude-code" has a bridge format today; a tool
-    without one is simply never a target.
+    with no bridge yet has nothing written. "claude-code" gets `.claude/agents/<name>.md`,
+    "copilot" `.github/agents/<name>.agent.md` (same roles, same source; a tool spelled
+    "copilot-cli" counts); a tool without a bridge format is simply never a target. With both
+    tools the one dict holds both folders.
 
     Unlike copy_targets(), the destination file is never replaced once written (see
     step_materialize below and update.py's step 6): init creates it once, update only adds bridges
@@ -1605,7 +1681,11 @@ def agent_bridge_targets(root: Path, tools: list[str], apply_cut: bool = True) -
     agents_dir = root / ".act" / "agents"
     bridges_dir = root / ".act" / "bridges" / "agents"
     targets: dict[str, Path] = {}
-    if "claude-code" not in tools:
+    wanted = {actlib.normalize_tool(t) for t in tools}
+    folders = [(folder, ending) for tool, folder, ending in (
+        ("claude-code", CLAUDE_AGENTS_DIR, ".md"), ("copilot", COPILOT_AGENTS_DIR, tiers.COPILOT_AGENT_SUFFIX),
+    ) if tool in wanted]
+    if not folders:
         return targets
     cut_roles = act_profile.read_cut(root).roles if apply_cut else frozenset()
     template_role_names: set[str] = set()
@@ -1618,10 +1698,12 @@ def agent_bridge_targets(root: Path, tools: list[str], apply_cut: bool = True) -
                 continue
             bridge_src = bridges_dir / role_path.name
             if bridge_src.is_file():
-                targets[f".claude/agents/{role_path.name}"] = bridge_src
+                for folder, ending in folders:
+                    targets[f"{folder}/{role_path.stem}{ending}"] = bridge_src
 
     # Case-insensitive, and reserved for a template role's generated "-high" variant name too
-    # (agent_bridge_variant_targets() below writes ".claude/agents/<role>-high.md" for those) —
+    # (agent_bridge_variant_targets() below writes ".claude/agents/<role>-high.md" for those, and
+    # ".github/agents/<role>-high.agent.md" for Copilot) —
     # otherwise a docs/ai/local/agents/<role>-high.md would slip through as an "own role" here
     # and end up aliased onto what should be the template variant's bridge target instead
     # (confirmed 2026-09-22 in review).
@@ -1635,13 +1717,14 @@ def agent_bridge_targets(root: Path, tools: list[str], apply_cut: bool = True) -
                 continue
             if role_path.stem.lower() in reserved_role_names:
                 continue  # the role's docs/ai/local/ override, or a reserved "-high" name, not an own role's bridge source
-            targets[f".claude/agents/{role_path.name}"] = role_path
+            for folder, ending in folders:
+                targets[f"{folder}/{role_path.stem}{ending}"] = role_path
     return targets
 
 
 # Frontmatter key of a role bridge that only the scripts read: it says the role gets a "-high"
-# variant and is never copied into the generated .claude/agents/ file (Claude Code would see an
-# unknown field there).
+# variant and is never copied into a generated agent file (the tool would see an unknown field
+# there).
 HIGH_VARIANT_KEY = "high-variant"
 
 
@@ -1681,16 +1764,20 @@ def agent_bridge_variant_targets(root: Path, tools: list[str], apply_cut: bool =
     `model:` and no `tier:` already has nothing to bump); a template role's bridge must also declare
     `high-variant: true` in its frontmatter (bridge_wants_variant() below; a project's own role needs
     no declaration); skipped outright for `tier: expert` or a
-    `reasoning` already at the top of the tool's reasoning scale — one step further does not exist there."""
+    `reasoning` already at the top of the tool's reasoning scale — one step further does not exist there.
+    Every base target has its variant under its own tool's folder and scale: `.claude/agents/<role>-high.md`
+    and `.github/agents/<role>-high.agent.md`."""
     base_targets = agent_bridge_targets(root, tools, apply_cut)
     if not base_targets:
         return {}
     tiers_data = tiers.load_tiers(root)
     overrides = tiers.read_role_overrides(root)
-    scale = (tiers_data.get("claude-code") or {}).get("reasoning_scale") or []
+    scales = {tool: (tiers.tool_table(tiers_data, tool) or {}).get("reasoning_scale") or []
+              for tool in ("claude-code", "copilot")}
     targets: dict[str, Path] = {}
     for dest_rel, bridge_src in base_targets.items():
-        role = Path(dest_rel).stem
+        tool, role = bridge_target_parts(dest_rel)
+        scale = scales[tool]
         tmpl_fields, _, _ = tiers.split_frontmatter(bridge_src.read_text(encoding="utf-8"))
         if "tier" not in tmpl_fields or not bridge_wants_variant(root, bridge_src, tmpl_fields):
             continue
@@ -1703,11 +1790,15 @@ def agent_bridge_variant_targets(root: Path, tools: list[str], apply_cut: bool =
         override = overrides.get(role, {})
         effective_tier = override.get("tier", template_tier)
         effective_reasoning = override.get("reasoning", template_reasoning)
-        if "model" not in override and effective_tier == "expert":
+        own_model = "copilot" if tool == "copilot" else "model"
+        if own_model not in override and effective_tier == "expert":
             continue
         if scale and effective_reasoning == scale[-1]:
             continue
-        targets[f".claude/agents/{role}-high.md"] = bridge_src
+        if tool == "copilot":
+            targets[f"{COPILOT_AGENTS_DIR}/{role}-high{tiers.COPILOT_AGENT_SUFFIX}"] = bridge_src
+        else:
+            targets[f"{CLAUDE_AGENTS_DIR}/{role}-high.md"] = bridge_src
     return targets
 
 
@@ -1719,7 +1810,7 @@ def _write_new_file(dest: Path, text: str) -> None:
 
 def write_agent_bridge_file(
     role: str, bridge_src: Path, dest: Path, plan: bool, root: Path,
-    tiers_data: dict, overrides: dict[str, dict[str, str]], variant: bool,
+    tiers_data: dict, overrides: dict[str, dict[str, Any]], variant: bool,
     notes: Optional[list[str]] = None,
 ) -> tuple[str, bool]:
     """Like _write_copy_file, but for a role bridge (base or "-high" variant): resolves the
@@ -1737,10 +1828,17 @@ def write_agent_bridge_file(
     already has once one exists. `notes`, if given, collects one message (deduplicated) whenever
     tiers.json/config.md leave `model`/`effort` unresolvable for a *reportable* reason (see
     resolve_tier()); the older-bridge/unresearched-tool cases stay silent, same as before.
-    Returns (message, created)."""
+
+    The format follows the destination: a file under .github/agents/ is a Copilot agent file
+    (_write_copilot_agent_file(): `model`/`models`/`model-policy`/`reasoning-effort` from the tier
+    list or the role's `Copilot` cell, mapped `tools`, `include-custom-instructions: true`); it is
+    not written when `<name>.md` (no `.agent`) already stands next to it, since Copilot would see two
+    agents with one ID. Returns (message, created)."""
     label = _relative_label(dest, root)
     if dest.is_file():
         return f"{label}: already present, left unchanged", False
+    if bridge_target_parts(_relative_label(dest, root))[0] == "copilot":
+        return _write_copilot_agent_file(role, bridge_src, dest, plan, root, tiers_data, overrides, variant, notes)
     if plan:
         return f"{label}: would create", False
     bridge_text = _without_bridge_only_keys(bridge_src.read_text(encoding="utf-8"))
@@ -1776,6 +1874,41 @@ def write_agent_bridge_file(
         text = tiers.render_frontmatter(fields, order, body)
     _write_new_file(dest, text)
     return f"{label}: created", True
+
+
+def _write_copilot_agent_file(
+    role: str, bridge_src: Path, dest: Path, plan: bool, root: Path,
+    tiers_data: dict, overrides: dict[str, dict[str, Any]], variant: bool,
+    notes: Optional[list[str]] = None,
+) -> tuple[str, bool]:
+    """The Copilot branch of write_agent_bridge_file() (`dest` does not exist yet): the agent file
+    under .github/agents/ from the role bridge via tiers.render_generated_copilot_bridge(). A bridge
+    without `tier` (an older or own one) gets no model keys unless the role's `Copilot` cell names
+    models. Nothing is written when `<name>.md` already stands there. `notes` collects what
+    tiers.describe_unresolved_tier() says about a tier that does not resolve."""
+    label = _relative_label(dest, root)
+    other = dest.with_name(dest.name[: -len(tiers.COPILOT_AGENT_SUFFIX)] + ".md")
+    if other.is_file():
+        return f"{label}: already present as {other.name}, left unchanged", False
+    if plan:
+        return f"{label}: would create", False
+    bridge_text = _without_bridge_only_keys(bridge_src.read_text(encoding="utf-8"))
+    tmpl_fields, _, _ = tiers.split_frontmatter(bridge_text)
+    models, effort = [], None
+    if "tier" in tmpl_fields or (overrides.get(role) or {}).get("copilot"):
+        models, effort, problem, eff_tier, eff_reasoning = tiers.effective_copilot_models(
+            root, role, tmpl_fields.get("tier", ""), tmpl_fields.get("reasoning", ""),
+            tiers_data, overrides, variant,
+        )
+        if not models and problem and notes is not None:
+            message = tiers.describe_unresolved_tier(role, "copilot", eff_tier, eff_reasoning, problem)
+            if message not in notes:
+                notes.append(message)
+    text = tiers.render_generated_copilot_bridge(bridge_text, models, effort, role if variant else None)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    _write_new_file(dest, text)
+    return (f"{label}: created" if models or "tier" not in tmpl_fields
+            else f"{label}: created (tier/reasoning left unresolved)"), True
 
 
 def _copy_source_label(root: Path, src: Path) -> str:
@@ -1943,16 +2076,19 @@ def _merge_settings_hooks(
 # inbox, never silently dropped. `--no-local` opts out.
 # ---------------------------------------------------------------------------
 
-CARRY_CATEGORIES = ("skills", "rules", "exceptions", "overrides", "topics")
+CARRY_CATEGORIES = ("skills", "rules", "exceptions", "overrides", "topics", "agents")
 # What each category takes along from the source project:
 #   skills      own skills: docs/ai/local/skills/<name>/ where .act/skills/<name> does not exist
 #   rules       the "## Own rules" section of docs/ai/rules.md and docs/project/coding_rules.md
 #   exceptions  rule groups switched off (checkbox unchecked) in those two files, with their reason
 #   overrides   the "## Overrides" `replaces` lines of those two files, and every other file under
-#               docs/ai/local/ (rule, role, script and checklist overrides or own ones, and an override of
-#               a template skill) except own skills and rules/topics/
+#               docs/ai/local/ (rule, script and checklist overrides or own ones, and an override of
+#               a template skill) except own skills, rules/topics/ and agents/
 #   topics      docs/ai/local/rules/topics/ (own topic rules and overrides of template topics)
-# The names follow `settings_export.py` where they fit (skills, topics); its agents/scripts/checklists
+#   agents      everything under docs/ai/local/agents/ (own roles and overrides of template roles) and the
+#               source's own lines in its role bridges (.claude/agents/<role>.md and <role>-high.md: the
+#               body after the bridge line), appended to the same bridge of the new project
+# The names follow `settings_export.py` where they fit (skills, topics, agents); its scripts/checklists
 # fall under "overrides" here, its rules/coding areas split into "rules" and "exceptions".
 
 
@@ -1996,6 +2132,8 @@ def _local_file_category(source_root: Path, rel_to_local: Path) -> str:
         return "skills"
     if len(parts) > 2 and parts[0] == "rules" and parts[1] == "topics":
         return "topics"
+    if parts and parts[0] == "agents":
+        return "agents"
     return "overrides"
 
 
@@ -2398,6 +2536,82 @@ def _carry_over_local_dir(
     return summary, (copied if not plan else [])
 
 
+def _bridge_split(text: str, role: str) -> Optional[list[str]]:
+    """The lines of a role bridge after its bridge line (`Apply the rules from `.act/agents/<role>.md`
+    before the ones below.`), without leading and trailing blank lines; None if there is no bridge line."""
+    marker = f"Apply the rules from `.act/agents/{role}.md` before the ones below."
+    lines = text.replace("\r\n", "\n").split("\n")
+    for index, line in enumerate(lines):
+        if line.strip() == marker:
+            rest = lines[index + 1:]
+            while rest and not rest[0].strip():
+                rest.pop(0)
+            while rest and not rest[-1].strip():
+                rest.pop()
+            return rest
+    return None
+
+
+def _carry_role_bridges(root: Path, source_root: Path, plan: bool) -> tuple[Optional[str], list[Path]]:
+    """The source project's own lines in its role bridges, carried to the end of the same bridge of the
+    new project. For each template role, `.claude/agents/<role>.md` and `<role>-high.md` of the source,
+    and the Copilot files `.github/agents/<role>.agent.md` and `<role>-high.agent.md`
+    (as committed, like docs/ai/local/): its body after the bridge line, minus the template's own body
+    text after that line if the source still starts with it. Frontmatter is never copied. A target
+    bridge that does not exist is skipped; a source bridge without the bridge line is named and
+    nothing is copied for it. Returns (summary part, target files written)."""
+    bridges_dir = root / ".act" / "bridges" / "agents"
+    agents_dir = root / ".act" / "agents"
+    if not agents_dir.is_dir():
+        return None, []
+    carried: list[str] = []
+    no_line: list[str] = []
+    paths: list[Path] = []
+    for role_path in sorted(agents_dir.glob("*.md")):
+        role = role_path.stem
+        if role.lower() == "readme":
+            continue
+        template_file = bridges_dir / role_path.name
+        template_rest: list[str] = []
+        if template_file.is_file():
+            template_rest = _bridge_split(template_file.read_text(encoding="utf-8"), role) or []
+        candidates = [(f"{CLAUDE_AGENTS_DIR}/{name}", name) for name in (f"{role}.md", f"{role}-high.md")]
+        candidates += [(f"{COPILOT_AGENTS_DIR}/{name}", name) for name in (
+            f"{role}{tiers.COPILOT_AGENT_SUFFIX}", f"{role}-high{tiers.COPILOT_AGENT_SUFFIX}")]
+        for rel, name in candidates:
+            dest = root / rel
+            if not plan and not dest.is_file():
+                continue
+            blob = _git_head_blob_bytes(source_root, rel)
+            if blob is None:
+                continue
+            rest = _bridge_split(blob.decode("utf-8", errors="replace"), role)
+            if rest is None:
+                no_line.append(name)
+                continue
+            if template_rest and rest[:len(template_rest)] == template_rest:
+                rest = rest[len(template_rest):]
+                while rest and not rest[0].strip():
+                    rest.pop(0)
+            if not rest:
+                continue
+            if not plan:
+                current = dest.read_bytes().decode("utf-8")
+                if current.replace("\r\n", "\n").rstrip("\n").endswith("\n".join(rest)):
+                    continue
+                eol = "\r\n" if "\r\n" in current else "\n"
+                dest.write_bytes((current.rstrip("\r\n") + eol * 2 + eol.join(rest) + eol).encode("utf-8"))
+                paths.append(dest)
+            carried.append(name)
+    parts: list[str] = []
+    if carried:
+        parts.append(f"agent bridges: {'would carry' if plan else 'carried'} own lines into {len(carried)} "
+                     f"bridge(s) ({', '.join(carried)})")
+    if no_line:
+        parts.append(f"agent bridges without the bridge line, nothing copied: {', '.join(no_line)}")
+    return ("; ".join(parts) if parts else None), paths
+
+
 def step_source_project(
     root: Path, plan: bool, source_checkout: Path, carry: frozenset[str],
     dest_was_preexisting: dict[str, bool], notes: list[str],
@@ -2424,6 +2638,11 @@ def step_source_project(
     local_summary, copied = _carry_over_local_dir(root, source_checkout, plan, notes, carry)
     if local_summary:
         summaries.append(local_summary)
+    if "agents" in carry:
+        bridge_summary, bridge_paths = _carry_role_bridges(root, source_checkout, plan)
+        if bridge_summary:
+            summaries.append(bridge_summary)
+        copied = [*copied, *bridge_paths]
     if not summaries:
         return "source project: nothing to take over", []
     return "source project: " + "; ".join(summaries), copied
@@ -2632,6 +2851,10 @@ def step_source_and_profile(
         local_summary, _copied = _carry_over_local_dir(root, source_checkout, True, preview_notes, carry)
         if local_summary:
             combined_lines.append(f"[source project] {local_summary}")
+        if "agents" in carry:
+            bridge_summary, _paths = _carry_role_bridges(root, source_checkout, True)
+            if bridge_summary:
+                combined_lines.append(f"[source project] {bridge_summary}")
 
     profile_display = _profile_display_path()
     profile_source = None
@@ -2802,7 +3025,7 @@ def step_materialize(
                     touched.append(dest)
 
     tiers_data = tiers.load_tiers(root)
-    overrides = tiers.read_role_overrides(root)
+    overrides = tiers.read_role_overrides(root, notes)
 
     for dest_rel, src in copy_targets(root, cfg["tools"]).items():
         dest = root / dest_rel
@@ -2817,7 +3040,7 @@ def step_materialize(
             copies[dest_rel] = {"source": _copy_source_label(root, src), "sha256": actlib.lock_hash(dest.read_bytes())}
 
     for dest_rel, src in agent_bridge_targets(root, cfg["tools"]).items():
-        role = Path(dest_rel).stem
+        role = bridge_target_parts(dest_rel)[1]
         message, created = write_agent_bridge_file(
             role, src, root / dest_rel, plan, root, tiers_data, overrides, False, notes,
         )
@@ -2826,7 +3049,7 @@ def step_materialize(
             touched.append(root / dest_rel)
 
     for dest_rel, src in agent_bridge_variant_targets(root, cfg["tools"]).items():
-        role = Path(dest_rel).stem[: -len("-high")]
+        role = bridge_target_parts(dest_rel)[1][: -len("-high")]
         message, created = write_agent_bridge_file(
             role, src, root / dest_rel, plan, root, tiers_data, overrides, True, notes,
         )
@@ -3186,6 +3409,8 @@ def step_project_changelog(root: Path, plan: bool, template_one_goes: bool = Fal
     found = changelog_like_files(root, ignore="CHANGELOG.md" if goes else "")
     if found:
         return None, f"CHANGELOG.md not created: the project already has {found[0]} as its changelog"
+    if (root / ".git").exists() and _git_ignores_changelog(root):
+        return None, "CHANGELOG.md not created: git ignores it (allow it in .gitignore, then create it by hand)"
     if plan:
         return None, "CHANGELOG.md would be created (## [Unreleased])"
     _write_new_file(target, changelog_starter(root))
@@ -3474,33 +3699,150 @@ def _tracked_but_missing(root: Path) -> set[str]:
     return {entry for entry in result.stdout.split("\0") if entry}
 
 
+_PATH_CHUNK_CHARS = 8000  # one git call's path arguments stay well below the Windows command-line limit
+
+
+def _path_chunks(rels: list[str]) -> list[list[str]]:
+    """Split `rels` into groups whose joined length stays within _PATH_CHUNK_CHARS (a single longer
+    path gets a group of its own): a long path list as arguments fails on Windows (about 32,000
+    characters), so read-only queries run once per group."""
+    groups: list[list[str]] = []
+    current: list[str] = []
+    size = 0
+    for rel in rels:
+        if current and size + len(rel) + 1 > _PATH_CHUNK_CHARS:
+            groups.append(current)
+            current, size = [], 0
+        current.append(rel)
+        size += len(rel) + 1
+    if current:
+        groups.append(current)
+    return groups
+
+
+def _git_ignored(root: Path, rels: list[str]) -> set[str]:
+    """The subset of `rels` that git ignores (`git check-ignore -z --stdin`, paths on stdin; no
+    `--no-index`, so a tracked path is never reported). Exit 1 = none ignored; any exit other than 0
+    or 1 raises."""
+    result = subprocess.run(
+        ["git", "check-ignore", "-z", "--stdin"], cwd=root, capture_output=True, text=True, encoding="utf-8",
+        errors="surrogateescape",  # exact round trip of a legacy-encoded name
+        input="".join(f"{rel}\0" for rel in rels),
+    )
+    if result.returncode == 1:
+        return set()
+    if result.returncode != 0:
+        raise RuntimeError(f"git check-ignore failed with exit {result.returncode}: {result.stderr.strip()}")
+    return {entry for entry in result.stdout.split("\0") if entry}
+
+
+def _left_out_note(left_out: list[str]) -> str:
+    """The result-line suffix naming the paths left out because git ignores them (at most ten)."""
+    if not left_out:
+        return ""
+    shown = ", ".join(left_out[:10])
+    more = f", … and {len(left_out) - 10} more" if len(left_out) > 10 else ""
+    return f"; left out {len(left_out)} path(s) git ignores: {shown}{more}"
+
+
+def _ls_names(root: Path, group: list[str], *flags: str) -> list[str]:
+    """Names `git ls-files -z <flags> -- <group>` lists (literal pathspecs: `[`, `*`, `?` are plain
+    characters; a directory in `group` matches everything under it)."""
+    out = _git(["--literal-pathspecs", "-c", "core.quotepath=false", "ls-files", "-z", *flags, "--", *group], cwd=root)
+    return [name for name in out.stdout.split("\0") if name]
+
+
+def _never_worth_naming(rel: str) -> bool:
+    """Bytecode caches are always ignored and never worth a mention."""
+    return "__pycache__" in rel.split("/") or rel.endswith(".pyc")
+
+
+def _git_ignores_changelog(root: Path) -> bool:
+    """True when `git check-ignore -q` says git ignores CHANGELOG.md; any other exit, git missing or a
+    timeout: False."""
+    try:
+        result = subprocess.run(["git", "check-ignore", "-q", "--", "CHANGELOG.md"], cwd=root,
+                                capture_output=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return result.returncode == 0
+
+
 def step_commit(root: Path, plan: bool, no_commit: bool, paths: list[Path],
                 message: str = INIT_COMMIT_MESSAGE, removed: Optional[set[str]] = None) -> str:
-    """`removed`: tracked files this run deleted itself (a clone that keeps its history, e.g. a
-    detached HEAD, still tracks the template's own files that steps 6 and 8 remove) -- staged with
-    the rest so the deletion lands in the commit instead of staying behind as an unstaged change."""
+    """Commit what the run wrote, by path only, every git call with `--literal-pathspecs`. Candidates:
+    the named paths that exist, plus `removed` (tracked files this run deleted itself -- a clone that
+    keeps its history, e.g. a detached HEAD, still tracks the template's own files that steps 6 and 8
+    remove -- so the deletion lands in the commit instead of staying behind as an unstaged change).
+    Per candidate, in a folder with a `.git` of its own:
+    - a file or directory git tracks is staged with `git add -u` (its changes and deletions, even where
+      a pattern ignores it; a directory with tracked files under it counts as one path);
+    - under a directory, new files git does not ignore are added by exact name; new files git ignores
+      are left out and named in the result, never forced in (`git add` refuses an ignored path, exit 1),
+      except bytecode caches;
+    - a named untracked file that git ignores is left out and named the same way, else added.
+    The commit pathspec holds only the paths staged this way; `plan` only reads and counts the same.
+    Without a `.git` of its own nothing is classified (no left-out note). Whatever else the index
+    holds stays staged and is only named."""
     if no_commit:
         # Returns before any `git add`, so nothing is staged either -- say so plainly instead of
         # the previous, inaccurate "staged/unstaged".
         return "would leave uncommitted (--no-commit, nothing staged)" if plan else "left uncommitted (--no-commit, nothing staged)"
-    rels = sorted(
-        {str(p.relative_to(root)).replace(os.sep, "/") for p in paths if p.exists()} | (removed or set())
-    )
-    if not rels:
+    named = {str(p.relative_to(root)).replace(os.sep, "/"): p for p in paths if p.exists()}
+    candidates = sorted(set(named) | (removed or set()))
+    if not candidates:
         return "nothing to commit"
+    own_repo = (root / ".git").exists()
+    left_note = ""
+    add_tracked: list[str] = []
+    add_new: list[str] = []
+    rels = candidates
+    if own_repo:
+        tracked_names: set[str] = set()
+        for group in _path_chunks(candidates):
+            tracked_names |= set(_ls_names(root, group))
+        tracked_dirs = {"/".join(parts[:i]) for parts in (n.split("/") for n in tracked_names)
+                        for i in range(1, len(parts))}
+        add_tracked = [rel for rel in candidates if rel in tracked_names or rel in tracked_dirs]
+        # else: a removed path git does not track has nothing to commit
+        untracked = [rel for rel in candidates if rel in named and rel not in add_tracked]
+        dirs = [rel for rel in untracked if named[rel].is_dir()]
+        loose = [rel for rel in untracked if rel not in dirs]
+        scan = sorted(set(dirs) | {rel for rel in add_tracked if rel in named and named[rel].is_dir()})
+        prefixes = tuple(f"{d}/" for d in scan)  # `ls-files -o` can also match a sibling such as `.act-local` for `.act`
+        new_files: set[str] = set()
+        ignored_new: set[str] = set()
+        for group in _path_chunks(scan):
+            new_files |= {n for n in _ls_names(root, group, "-o", "--exclude-standard") if n.startswith(prefixes)}
+            ignored_new |= {n for n in _ls_names(root, group, "-o", "-i", "--exclude-standard")
+                            if n.startswith(prefixes) and not _never_worth_naming(n)}
+        ignored_loose = _git_ignored(root, loose) if loose else set()
+        add_loose = [rel for rel in loose if rel not in ignored_loose]
+        add_new = sorted(new_files | set(add_loose))
+        # An untracked directory counts as one path once a new file under it is added.
+        rels = sorted(set(add_tracked) | set(add_loose) | {d for d in dirs if any(n.startswith(f"{d}/") for n in new_files)})
+        left_note = _left_out_note(sorted(ignored_new | ignored_loose))
+    if not rels:
+        return f"nothing to commit{left_note}"
     if plan:
-        return f"would commit {len(rels)} path(s): {', '.join(rels)}"
-    actlib.git_pathspec_stdin(["--literal-pathspecs", "add"], rels, cwd=root)
+        return f"would commit {len(rels)} path(s): {', '.join(rels)}{left_note}"
+    if own_repo:
+        if add_tracked:
+            actlib.git_pathspec_stdin(["--literal-pathspecs", "add", "-u"], add_tracked, cwd=root)
+        if add_new:
+            actlib.git_pathspec_stdin(["--literal-pathspecs", "add"], add_new, cwd=root)
+    else:
+        actlib.git_pathspec_stdin(["--literal-pathspecs", "add"], rels, cwd=root)
     diff = _git(["diff", "--cached", "--no-renames", "--name-only", "-z"], cwd=root)
     staged = [name for name in diff.stdout.split("\0") if name]
     # The index may hold more than this run staged (the target repo's own work in progress). The
     # commit is limited to the run's own paths; foreign entries stay staged and are only named.
     own = [name for name in staged if any(name == rel or name.startswith(rel.rstrip("/") + "/") for rel in rels)]
     foreign = [name for name in staged if name not in own]
-    note = ""
+    note = left_note
     if foreign:
         shown = ", ".join(foreign[:5]) + (f" (+{len(foreign) - 5} more)" if len(foreign) > 5 else "")
-        note = f"; left {len(foreign)} foreign staged path(s) staged: {shown}"
+        note += f"; left {len(foreign)} foreign staged path(s) staged: {shown}"
     if not own:
         return "nothing staged, no commit made" + note
     actlib.git_pathspec_stdin(["--literal-pathspecs", "commit", "-m", message], rels, cwd=root)
@@ -3772,8 +4114,9 @@ def _parse_args(argv: list[str]) -> tuple[argparse.Namespace, Optional[str], fro
                         help="--target only: what to carry over from the source project, comma-separated "
                              "(default all): skills (own skills), rules (## Own rules), exceptions (rule "
                              "groups switched off, with reason), overrides (`replaces` lines and the other "
-                             "docs/ai/local/ files: rule, role, script, checklist overrides), topics "
-                             "(docs/ai/local/rules/topics/); none = nothing")
+                             "docs/ai/local/ files: rule, script, checklist overrides), topics "
+                             "(docs/ai/local/rules/topics/), agents (own roles in docs/ai/local/agents/ "
+                             "and own lines in the role bridges); none = nothing")
     parser.add_argument("--no-profile", action="store_true",
                         help="don't offer the owner profile at %%APPDATA%%\\act\\settings.md / "
                              "~/.config/act/settings.md (on by default)")
@@ -4080,6 +4423,8 @@ def _step_own_files_in_place(root: Path, plan: bool, interactive: bool, cfg: Pro
     # it, so it is not committed here -- but it would otherwise sit there untracked without a word.
     # A file the clone already tracks (detached-HEAD route) is in history anyway, so it is not named.
     own_set = {p.relative_to(root).as_posix() for p in own_root_files}
+    # the Copilot agent files step 6 wrote under .github/agents/ are the project's bridges, committed with them
+    own_set |= set(agent_bridge_targets(root, cfg["tools"])) | set(agent_bridge_variant_targets(root, cfg["tools"]))
     tracked_now = set(_git(["ls-files", "-z", "--", ".github"], cwd=root, check=False).stdout.split("\0"))
     unmarked = sorted(
         p.relative_to(root).as_posix() for p in (root / ".github").rglob("*")

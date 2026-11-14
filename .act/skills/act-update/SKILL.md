@@ -25,11 +25,16 @@ already past the newest release keeps its state.
 3. **Consent before step 5** (`.act/` is replaced): rerun without `--plan`, or with `--yes` only once the human
    agreed. If the project edited `.act/` since the last update, ask what to do and pass
    `--on-local-changes rescue|discard|abort` (`rescue` moves the edits to `docs/ai/local/`).
+   The consent covers the commit the plan showed (`[1/10]` names it): the real run, within an hour, applies that
+   commit and says so when the source moved on since.
 4. A project from before the changelog file is offered `CHANGELOG.md` by migration `007-changelog-file` (the plan
    lists it). Tell the human before step 3 that the row `changelog` = `off` under § Formats in `docs/ai/config.md`
    declines it; `config.py` cannot set a missing row, `.act/skeleton/config.md` shows its shape.
 5. The script's findings land in `docs/ai/inbox/`, never as a silent fix; the commit is made unless `--no-commit`.
    Add a journal line with the base-commit change and the finding count (`R-work-record-now`).
+   In a Copilot project (`copilot` in `tools`) the update also writes `.github/agents/<role>.agent.md`, and
+   `update.py --catch-up --yes` refreshes them after a change in `docs/ai/config.md` § Roles; an own file there named
+   like a role but without `model:`/`models:` stays unchanged and becomes an inbox question.
 6. A template bug noticed along the way: an `act-feedback` entry right away (its immediate trigger).
 
 ## `.act/` pulled in some other way

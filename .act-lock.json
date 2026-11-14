@@ -23,7 +23,8 @@
       "# a checkout with core.autocrlf=true would otherwise write them with CRLF.",
       "/.claude/skills/** text eol=lf",
       "/.agents/skills/** text eol=lf",
-      "/.claude/agents/** text eol=lf"
+      "/.claude/agents/** text eol=lf",
+      "/.github/agents/** text eol=lf"
     ],
     ".gitignore": [
       "# act tooling — local, per-machine state; never versioned",
@@ -37,10 +38,10 @@
   },
   "template": {
     "version": "2.5.0",
-    "commit": "7a31ead95c79aa89f49b093882fc812e0d11d06c",
+    "commit": "c282ff3f7e1a80bab92995cff17e1b34325e8e83",
     "source": "D:/dev/rufeger/agentic-coding-template",
     "ref": "main",
-    "manifest_sha256": "92af5697973f082798012ad3417b00d2de15190327bf57ef4f11acfc8674b0ea",
+    "manifest_sha256": "ce1059244dacb22a5d51e99abadf82338fb75ad1130369e153020b0bdc1c87b8",
     "source_fingerprint": ""
   },
   "copies": {
@@ -130,7 +131,7 @@
     },
     ".claude/skills/act-setup/SKILL.md": {
       "source": ".act/skills/act-setup/SKILL.md",
-      "sha256": "cdbc78c345331def65d78f204e9f6abac9fef397c008e508623f4fad9450b054"
+      "sha256": "aadf14e141e10fd7cbe3ef0c8c2bdbab08b385438f2c98e338524a7e50fc8898"
     },
     ".claude/skills/act-slides/SKILL.md": {
       "source": ".act/skills/act-slides/SKILL.md",
@@ -238,7 +239,7 @@
     },
     ".claude/skills/act-adopt/SKILL.md": {
       "source": ".act/skills/act-adopt/SKILL.md",
-      "sha256": "db52c8f58aafb130af8c455586355d2723a602b2686d8cbaf9f7ccdd9734c418"
+      "sha256": "9091fe4cb17fbf2da14a41aafec7aef2923aeea75c5f5a30f17c482daf6c7d6c"
     },
     ".claude/skills/act-adopt/references/commit-groups.md": {
       "source": ".act/skills/act-adopt/references/commit-groups.md",
