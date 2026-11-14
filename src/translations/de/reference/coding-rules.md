@@ -1356,18 +1356,18 @@ summary: Server Components nur mit unterstützendem Framework, Grenze mit "use c
   seiner Grenze mocken (`msw`), nicht die eigenen Module der Komponente.
 
 ## rust
-<!-- source: 522b647c0d45c1ca -->
+<!-- source: c90331cc554e9e6c -->
 Coding-Regeln — Rust
-summary: Fehlerbehandlung, Ownership und unsafe, Edition und Toolchain, Tests
+summary: Fehlerbehandlung, Zahlen, Ownership und unsafe, Async, Edition und Toolchain, Tests
 
 Regeln für Rust-Projekte, die mit Cargo gebaut werden. Gruppen-IDs (`CR-rust-<name>`) sind stabil und werden
 nie neu vergeben; eine Gruppe, deren Zweck nicht mehr gilt, bekommt eine neue ID und wird in diesem Kopf als
 `retired:` aufgeführt.
 
 ## CR-rust-basics
-<!-- source: 19dd3c6efdc43d2f -->
-Fehlerbehandlung, Ownership, unsafe
-summary: kein unwrap/expect in Bibliothekscode, kein clone gegen den Borrow Checker, unsafe nur mit SAFETY-Kommentar
+<!-- source: 1cf141b065699913 -->
+Fehlerbehandlung, Zahlen, Ownership, unsafe
+summary: kein unwrap/expect in Bibliotheken, geprüfte Umwandlungen und Überläufe, kein unnötiges clone, SAFETY-Kommentare
 
 - Bibliothekscode löst bei einem behebbaren Zustand nie einen `panic` aus: kein `unwrap()`/`expect()`, keine
   Indizierung, die bei externer Eingabe außerhalb der Grenzen liegen kann, kein `panic!` für falsche
@@ -1388,11 +1388,41 @@ summary: kein unwrap/expect in Bibliothekscode, kein clone gegen den Borrow Chec
 - Ein `Result` oder einen `#[must_use]`-Wert nie ohne genannten Grund mit `let _ =` ignorieren.
 - Warnungen nicht pauschal unterdrücken (`#![allow(warnings)]`); ein `#[allow(clippy::...)]` nennt die
   Lint-Regel und den Grund.
+- Ein verengendes oder vorzeichenwechselndes `as` schneidet still ab oder bricht still um: `TryFrom`/
+  `try_into()` verwenden und den Fehler behandeln, zum Erweitern `From`/`into()`; `as` nur bei belegtem
+  Wertebereich, mit Kommentar. Die passende Clippy-Lint-Regel (`cast_possible_truncation`) steht in
+  `pedantic`, `-D warnings` fängt es also nicht.
+- Arithmetik auf Werten von außen (Eingaben, Dateien, Netzwerk, Größen, Offsets) behandelt Überläufe
+  ausdrücklich: `checked_*` mit einem Fehler, oder `saturating_*`/`wrapping_*`, wo das gewollt ist;
+  Release-Builds brechen still um, solange das Profil nicht `overflow-checks = true` setzt.
+
+## CR-rust-async
+<!-- source: f5fe52948026accd -->
+Async-Code
+summary: kein Blockieren in Tasks, Runtime des Projekts, abbruchsicheres select!, begrenzte Channels, async fn in Traits
+
+- In async-Code nie einen Task blockieren: kein `std::fs`/`std::net`, kein blockierender HTTP-Client, kein
+  `std::thread::sleep` und keine lange CPU-Arbeit in einer `async fn`; die async-Variante verwenden
+  (`tokio::fs`, `tokio::time::sleep`) oder den Blocking-Pool (`spawn_blocking`). Kein Standard-Lint fängt das.
+- Die Runtime und ihre `features` sind eine Entscheidung des Projekts: aus `Cargo.toml` lesen (`tokio`,
+  `async-std`, `smol` …), für diese Runtime schreiben, keine zweite hinzufügen, kein neues Feature ungefragt
+  aktivieren.
+- `select!` in einer Schleife verwirft in jedem Durchlauf die Futures der Zweige, die nicht gewonnen haben:
+  dort nur Futures verwenden, die als abbruchsicher dokumentiert sind, oder das Future einmal vor der
+  Schleife anlegen, pinnen und per `&mut` pollen; sonst gehen halb gelesene Daten verloren.
+- Channels zwischen Tasks sind begrenzt (`tokio::sync::mpsc::channel(n)`, nicht `mpsc::channel()` aus std),
+  damit ein langsamer Verbraucher den Erzeuger bremst; unbegrenzt nur, wo der Erzeuger von sich aus
+  begrenzt ist, mit einem Kommentar, warum.
+- Ab `rust-version` 1.75 `async fn` direkt im Trait schreiben statt über `async_trait`, außer der Trait wird
+  als `dyn Trait` verwendet; in einem öffentlichen Trait (dort warnt der rustc-Lint `async_fn_in_trait`) oder
+  wo Aufrufer ein `Send`-Future brauchen, `fn name(&self) -> impl Future<Output = T> + Send` deklarieren.
+  `async_trait` behalten, wo das Projekt es für `dyn` braucht. Unter 1.75 gilt dieser Punkt nicht
+  (`R-code-version`).
 
 ## CR-rust-edition-toolchain
-<!-- source: e490f14418d307c6 -->
+<!-- source: e6f9376b00cf39ce -->
 Edition, Formatierung, Lint
-summary: Edition aus Cargo.toml, rust-version, cargo fmt, clippy mit abgelehnten Warnungen
+summary: Edition und rust-version aus Cargo.toml, Lints des Projekts, zur MSRV passende Abhängigkeiten, fmt, clippy
 
 - Die Edition (`edition = "2021"` oder `"2024"`) und die Mindestversion von Rust (`rust-version`) aus
   `Cargo.toml` lesen und Code schreiben, der unter ihnen kompiliert: Die Edition 2024 braucht Rust 1.85 oder
@@ -1405,6 +1435,11 @@ summary: Edition aus Cargo.toml, rust-version, cargo fmt, clippy mit abgelehnten
 - `Cargo.lock` für Binaries und, nach dem aktuellen Rat von Cargo, auch für Bibliotheken committen;
   Abhängigkeiten gering halten und die Standardbibliothek bevorzugen, wo sie genügt. Nur die Crate-Features
   aktivieren, die verwendet werden.
+- Der Lint-Konfiguration des Projekts folgen (`[lints]`/`[workspace.lints]` in `Cargo.toml`, `clippy.toml`,
+  `#![deny(...)]` auf Crate-Ebene); sie nie ungefragt lockern oder erweitern (`R-code-checks-intact`). Eine
+  neue Abhängigkeit kommt in einer Version, deren eigene `rust-version` zu der des Projekts passt:
+  `resolver = "3"` (Standard ab Edition 2024) wählt solche Versionen; sonst selbst prüfen, und die
+  `rust-version` des Projekts nie anheben, um eine Abhängigkeit passend zu machen.
 
 ## CR-rust-tests
 <!-- source: 6f119387be6a0088 -->
