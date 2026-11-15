@@ -38,10 +38,10 @@
   },
   "template": {
     "version": "2.5.0",
-    "commit": "fe344f6417b283c0b0dad2924c70544c2fa5be86",
+    "commit": "a41cde7c8e7f96a2d5c36fbe653a05ec26d7a805",
     "source": "D:/dev/rufeger/agentic-coding-template",
     "ref": "main",
-    "manifest_sha256": "6194180646614c89bd2a14692400c6654f1aac90f9152c60007f079511ed7c97",
+    "manifest_sha256": "2ac7f19bd9ad2ae5018754be7e83b7e8466ab1c34a18555c33f53353b814d895",
     "source_fingerprint": ""
   },
   "copies": {
