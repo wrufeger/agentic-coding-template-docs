@@ -281,17 +281,29 @@ Regeln gelten für die **tatsächlich installierte** Version einer Sprache, eine
 Bibliothek. Vor einer versionsabhängigen Regel wird die Version aus den Projektdateien geprüft.
 
 ## R-code-checks-intact
-<!-- source: f8d6b793782f4b8a -->
+<!-- source: b60d65c976d5e0f6 -->
 Den Code korrigieren, nicht die Prüfung
-summary: den Code korrigieren, nie eine fehlschlagende Prüfung löschen, überspringen, aufweichen oder stummschalten; eine falsche Prüfung wird in einem eigenen Schritt geändert
+summary: den Code korrigieren, nie eine Prüfung schwächen; ein roter Test nur mit Zustimmung geändert; kein Commit, solange rot; Zeitüberschreitungen einmal wiederholt; zwei gescheiterte Fixes eskalieren
 
 Ein fehlschlagender Test, Lint- oder Typ-Check wird im geprüften Code zum Bestehen gebracht, nie dadurch, dass
 die Prüfung geschwächt wird: kein gelöschter oder übersprungener Test (`skip`, `xfail`, `.only`, `@Disabled` …),
 keine aufgeweichte Zusicherung (Assertion), kein aufgeweichter Erwartungswert, keine aufgeweichte Toleranz oder
 Zeitgrenze, keine Unterdrückung (`# noqa`, `@ts-ignore`, `eslint-disable` …),
 keine Datei, Regel oder Schwelle, die in der Konfiguration einer Prüfung herausgenommen oder gesenkt wird —
-es sei denn, der Auftrag verlangt genau das. Eine Prüfung, die selbst falsch ist, wird im Bericht mit dem Grund
-benannt und in einem eigenen Schritt geändert, nie innerhalb der Korrektur, die sie grün haben musste.
+es sei denn, der Auftrag verlangt genau das. Ein Test ist hier jeder Test und jede Probe, die das Projekt unter
+seinen Prüfungen führt, keine Wegwerf-Probe. Eine Prüfung, die selbst falsch ist, wird im Bericht mit dem Grund
+benannt und in einem eigenen Schritt geändert, nie innerhalb der Korrektur, die sie grün haben musste. Ist ein Test
+einmal rot gelaufen, wird er nur mit der Zustimmung des Menschen für diesen Fall geändert oder dort, wo ein Auftrag,
+der vor dem ersten roten Lauf geschrieben wurde, diese Änderung nannte; eine Änderung, die erst nach dem roten Lauf
+genannt wird, braucht die Zustimmung, und ein Worker ohne beides gibt die Änderung mit seinem Ergebnis zurück. Ein
+neuer Test, der noch nicht aus dem Grund fehlschlägt, für den er geschrieben wurde (ein Tippfehler, ein fehlender
+Import), ist noch in Arbeit. Solange ein Prüflauf dafür rot ist, wird nichts committet oder gepusht, auch nicht mit
+einem Fehler, der als bekannt oder als ohne Bezug zur Änderung bezeichnet wird. Ein Fehler ist nur in einem Test
+erwartet, der von Beginn an als Negativtest geschrieben wurde und ihn zusichert. Eine erste Zeitüberschreitung oder
+ein erster Abbruch ist kein Ergebnis — weder bestanden noch rot noch übersprungen: der Lauf wird einmal
+wiederholt, allein, wenn er neben anderen lief; eine zweite ist ein Fehlschlag wie eine rote Prüfung. Nach zwei
+erfolglosen Fix-Versuchen geht der Fehler mit beiden Versuchen und ihrer Ausgabe an die Expertenrolle
+(`R-role-escalate`); bleibt er auch dann rot, wird er zu einer Inbox-Frage an den Menschen (`R-human-ask`).
 
 ## R-docs-order
 <!-- source: 27974ee23a41d1a2 -->
@@ -629,9 +641,9 @@ Wiederkehrende Zähl- oder Statusarbeit (Dateizahlen, Zustandsprüfungen) wird b
 danach nur noch ausgeführt, nie erneut delegiert.
 
 ## R-code-commit
-<!-- source: 332e6be880204724 -->
+<!-- source: 1ba5416753a4fe8a -->
 Committen ist allein Sache des Orchestrators
-summary: Commits nur per Pfadangabe; gestufte Prüfungen, vollständige Suite vor einem Push; CONDITIONAL wird in die Inbox abgelegt
+summary: Commits nur per Pfadangabe; gestufte Prüfungen, vollständige Suite vor einem Push, nichts committet, solange etwas rot ist; CONDITIONAL wird in die Inbox abgelegt
 
 Nur abgenommene Arbeit wird committet, ohne eigene Aufforderung, was auch immer der Standard des Werkzeugs sagt.
 Gestaged wird per Pfadangabe — nie `git add -A`, `git add .` oder `git commit -a`. Die Prüfungen laufen in
@@ -639,7 +651,8 @@ Stufen, jede dort, wo das Projekt sie eingerichtet hat (die eigene Prüfung eine
 konfigurierter Lint) und keine Regel sie aussetzt: innerhalb eines Schritts nur die betroffenen Tests; vor jedem
 Commit Lint, Typecheck und der Test-Befehl; die vollständige oder E2E-Suite (der vierte `commands`-Eintrag, falls
 gesetzt) einmal vor einem Push und nach einem Framework- oder Abhängigkeits-Update. Ein roter Test wird allein
-wiederholt, nie die ganze Suite. Der `reviewer` läuft einmal je Aufgabe vor der Abnahme, nicht
+wiederholt, nie die ganze Suite; solange einer rot bleibt, wird nichts committet oder gepusht
+(`R-code-checks-intact`). Der `reviewer` läuft einmal je Aufgabe vor der Abnahme, nicht
 nach jedem Schritt, und endet mit `ALLOW`, `CONDITIONAL` oder `BLOCK` (`act-commit`); bei einer trivialen
 Änderung (Tippfehler, nur Doku) überspringt der Orchestrator ihn und sagt das. Bei `CONDITIONAL` committet er,
 legt die Bedingung im selben Schritt als `todo` oder `question` in die Inbox und nennt deren ID in der

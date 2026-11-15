@@ -3,7 +3,7 @@ title: "Konzept, Test, Review: was braucht was"
 description: Eine Entscheidungstabelle - braucht eine Änderung zuerst ein Konzept, einen Test oder anderen Beleg, ein Review - mit der Regel hinter jeder Antwort.
 sidebar:
   order: 6
-sourceHash: 335adf8a0e07ba42e59521b103d0af08c22b0cff1a540bd24f00dc44440cf3e7
+sourceHash: 628a064721d1108bf1feef40c6eec8189076c9d8b5764b128e13abece6b9abc4
 ---
 
 Nicht jede Änderung geht den ganzen [Von der Idee zum Commit](/agentic-coding-template-docs/de/start/walkthrough/). Das Template
@@ -16,7 +16,7 @@ verlangt drei Dinge, und hinter jedem steht eine Regel:
   Screenshot, einem Commit-Hash oder einem Aufruf nach außen. Ohne ihn ist ein Ergebnis „nicht verifiziert“. `R-code-commit` lässt Prüfungen in Stufen laufen,
   wo das Projekt sie eingerichtet hat: betroffene Tests innerhalb eines Schritts; Lint, Typecheck und Tests vor jedem Commit;
   die volle oder E2E-Suite (ein optionaler vierter `commands`-Eintrag) einmal vor einem Push und nach einem Update von
-  Framework oder Abhängigkeiten.
+  Framework oder Abhängigkeiten. Solange eine Prüfung rot bleibt, wird nichts committet oder gepusht.
 - **Ein Review** - `R-code-commit`: Der `reviewer` läuft einmal je Aufgabe vor der Abnahme, nicht nach jedem Schritt,
   und schließt mit `ALLOW`, `CONDITIONAL` oder `BLOCK`. Bei einer trivialen Änderung (ein Tippfehler, nur Doku)
   überspringt der Assistent es und sagt es.

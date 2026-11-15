@@ -3,7 +3,7 @@ title: Rollen und Worker
 description: Der Orchestrator, die Worker-Rollen, Tiers, Caps, Write Scope und was ein Worker nicht darf.
 sidebar:
   order: 2
-sourceHash: 3e6e893a98b20d01e2ff0cd7c0c40e86afd8c625e241871b60988c7c6061444e
+sourceHash: 6091d48566127fec20d421a898945a8846140cc0d8e828f2afe476521f3c7e43
 ---
 
 ## Orchestrator und Worker
@@ -60,12 +60,12 @@ Ein Worker lädt `CLAUDE.md` nicht: Die Rollen der Vorlage tragen `omitClaudeMd:
 - Nie einen weiteren Worker starten. Sollte eine Aufgabe geteilt werden, sagt er das, und der Orchestrator entscheidet.
 - Ein Ergebnis samt Beleg in höchstens 40 Zeilen liefern, keine Rohdaten.
 - Jede Annahme als Annahme kennzeichnen; der Orchestrator bestätigt sie, fragt dich oder hält sie fest, nie nur im Bericht.
-- Eine fehlschlagende Prüfung im Code beheben, nie durch Löschen, Überspringen oder Lockern der Prüfung; der `reviewer` sperrt das, wenn kein Grund genannt ist.
+- Eine fehlschlagende Prüfung im Code beheben, nie durch Löschen, Überspringen oder Lockern der Prüfung; der `reviewer` sperrt das, wenn kein Grund genannt ist. Ein Test, der rot gelaufen ist, wird nur mit deiner Zustimmung für den Fall geändert (oder wo der Auftrag die Änderung vor dem ersten roten Lauf nannte); sonst die Änderung mit dem Ergebnis zurückgeben. Eine erste Zeitüberschreitung oder ein erster Abbruch wird einmal allein wiederholt; eine zweite zählt als Fehlschlag. Solange eine Prüfung rot ist, committet und pusht der Orchestrator nichts.
 
 ## Scheitern und Kosten
 
 Ein Worker, der dieselbe Aufgabe zweimal nicht schafft, bekommt keinen dritten identischen Versuch: Der
 Orchestrator schärft den Auftrag einmal nach oder übergibt ihn mit dem vollständigen Fehlerkontext an
-`expert-solver`; der wird nur nach diesen zwei Fehlschlägen gerufen (`R-role-escalate`). Nach dem Annehmen, Nacharbeiten oder Eskalieren eines Ergebnisses hält er den Ausgang mit
+`expert-solver`; der wird nur nach diesen zwei Fehlschlägen gerufen (`R-role-escalate`). Eine Prüfung, die nach zwei erfolglosen Fix-Versuchen und der Expertenrolle noch rot ist, wird zu einer Inbox-Frage an dich. Nach dem Annehmen, Nacharbeiten oder Eskalieren eines Ergebnisses hält er den Ausgang mit
 `usage.py --outcome` fest; eine Nacharbeit oder Eskalation trägt ihren Grund (`--reason assignment|edge-case|worker|decision`), und nur Ergebnisse ohne Grund oder mit `worker` zählen für das folgende Fenster, denn `assignment`, `edge-case` und `decision` gehen auf den Orchestrator zurück; `doctor.py --inbox` betrachtet die letzten 30 Ergebnisse einer Rolle bei einem Tier und legt, sobald 30 vorliegen und mindestens 60 % nachgearbeitet oder eskaliert wurden, einen Vorschlag für ein höheres Tier als kurze Inbox-Frage an (die Empfehlung steht vorn: erst die Fälle ansehen), die Zahlen in einem eigenen Inbox-Report; ein angelegter Vorschlag kommt auch am selben Tag nicht wieder, bis 30 weitere Ergebnisse vorliegen, und du
 entscheidest (Einzelheiten: [Tiers und Reasoning](/agentic-coding-template-docs/de/concepts/reasoning/#caps)). Wenn ein Worker endet, liest der Nutzungszähler außerdem sein Transkript und hält Dauer, Schritte und Token (`fresh` und `cache`) je Rolle und Tier in `.act-local/usage.json` fest, jeweils die letzten 50 Läufe; Pausen von mehr als 30 Minuten zwischen zwei Einträgen zählen als Leerlauf und bleiben aus den Minuten heraus. `usage.py --estimates` zeigt Median und 80. Perzentil je Rolle und Tier; `usage.py --backfill` liest die vorhandenen Transkripte eines Projekts einmal ein. Die Messwerte bleiben lokal und gehen nie mit dem Feedback hinaus (nur die Zählungen der Gründe gehen bei Scope `c` mit); nur Claude Code. Der Orchestrator fragt außerdem einen laufenden Worker nicht wiederholt ab. Eine Ergänzung von dir, die zu einem laufenden Auftrag passt, geht sofort an diesen Worker, oder der Worker wird gestoppt und neu beauftragt, wenn ein neuer Lauf günstiger ist als zwei. Ein größerer Write Scope oder ein höherer Cap heißt immer neu beauftragen, weil beide nur einmal beim Start des Workers gelesen werden.

@@ -14,7 +14,7 @@ asks for three things, and each has a rule behind it:
 - **Evidence** - `R-work-evidence`: "done" holds only with a test run, a CI run, a log excerpt or screenshot, a
   commit hash or an outside call. Without it a result is "not verified". `R-code-commit` runs checks in tiers, where the project has them set up: affected tests within a step; lint,
   typecheck and tests before each commit; the full or E2E suite (an optional fourth `commands` entry) once before a push and after a framework or
-  dependency update.
+  dependency update. While a check stays red, nothing is committed or pushed.
 - **A review** - `R-code-commit`: the `reviewer` runs once per task before acceptance, not after every step, and ends
   with `ALLOW`, `CONDITIONAL` or `BLOCK`. For a trivial change (a typo, docs only) the assistant skips it and says so.
 
