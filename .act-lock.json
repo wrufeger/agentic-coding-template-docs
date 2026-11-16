@@ -143,7 +143,7 @@
     },
     ".claude/skills/act-update/SKILL.md": {
       "source": "docs/ai/local/skills/act-update/SKILL.md",
-      "sha256": "e3e490e5027c97893d95a77b024d35f6a12968eecfd612c8e37cf8ab31414f93"
+      "sha256": "c7a5712c5341051e6449aed34787a2479d08b77457053f41724fc51dbdbfc9dc"
     },
     ".claude/skills/act-check-translations/SKILL.md": {
       "source": ".act/skills/act-check-translations/SKILL.md",
@@ -333,5 +333,8 @@
       "R-safe-git-reset",
       "R-safe-git-discard"
     ]
+  },
+  "overrides": {
+    "skill:act-update": "bc20d0d92c2a48909cce47e101070fb7990ade9d53e955a303fa6427dafcedbe"
   }
 }

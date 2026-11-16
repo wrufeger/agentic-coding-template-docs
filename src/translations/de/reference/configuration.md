@@ -273,7 +273,7 @@ Datei; `act-release` hält die Notizen im Tag und im Release-Eintrag) \| `off`. 
 `with-toc` \| `minimal` (von `init` gelesen, wenn es die README schreibt, und von `act-audit-docs`).
 
 ## Checks
-<!-- source: 1c7c7229e9bc8ff0 -->
+<!-- source: 3ec80bc303d4255b -->
 Jede der folgenden Prüfungen läuft vor der Aktion, die sie nennt; `block` verweigert die Aktion, `warn` erlaubt sie
 mit einem Hinweis, `off` überspringt die Prüfung ganz. Eine Prüfung, die nur hinweist (markiert mit „never
 refuses“), behandelt `block` wie `warn`.
@@ -314,7 +314,8 @@ refuses“), behandelt `block` wie `warn`.
 | `update-check` | block | beim Sitzungsstart: ein Hinweis, wenn `.act/` ohne `update.py` hereingeholt wurde, und — höchstens einmal am Tag geprüft — ein Hinweis, dass das Template weitergezogen ist, bei jedem Start wiederholt und auf dem Board und in der Statuszeile gezeigt, bis das Update eingespielt ist; verweigert nie, `off` überspringt beides |
 | `docs-order` | warn | nur `act-doctor`, verweigert nie: ein Ordner unter `docs/project/` mit fünf oder mehr Einträgen und ohne `README.md`, eine Datei, die seine `README.md` nicht nennt, eine Indexzeile ohne Datei, ein toter relativer Link, ein Konzept, dessen Fragen alle beantwortet sind; `block` zählt als `warn`, `off` überspringt es (`R-docs-order`) |
 | `changelog-length` | warn | nur `act-doctor`, verweigert nie: ein Eintrag unter `[Unreleased]` in `CHANGELOG.md`, der länger als 250 Zeichen ist (seine Zeilen aneinandergehängt), genannt mit seinen ersten Wörtern; `block` zählt als `warn`, `off` überspringt es |
-| `own-rules-budget` | 6000 | nur `act-doctor`, verweigert nie: die Zeichen, die die Abschnitte „Own rules“ von `docs/ai/rules.md` und `docs/project/coding_rules.md` zusammen haben dürfen, bevor eine Warnung die Größe und bis zu fünf Zeilen nennt, die wie Verlauf klingen (ein Datum, eine Eintrags-ID, „früher … seit …“); `off` oder `0` überspringt es |
+| `own-rules-budget` | 6000 | nur `act-doctor`, verweigert nie: die Zeichen, die die Abschnitte „Own rules“ von `docs/ai/rules.md` und `docs/project/coding_rules.md` zusammen haben dürfen, bevor eine Warnung die Größe und bis zu fünf Zeilen nennt, die wie Verlauf klingen (ein Datum, eine Eintrags-ID, „früher … seit …“) und rät, was davon dem Template nützen würde, als Feedback zu senden; `off` oder `0` überspringt es |
+| `own-rules-review` | warn | nur `act-doctor` und `act-update`, verweigert nie: ein lokaler Skill, der einen Template-Skill gleichen Namens überschreibt, ohne `doctor.py --accept skill:<name>`, und nach einem Update eine gebündelte Inbox-Frage, die die neuen und geänderten Regeln und Skills des Updates den eigenen Regeln, Overrides und Skills des Projekts gegenüberstellt; `block` zählt als `warn`, `off` überspringt beides |
 
 ## Logging
 <!-- source: 9fb49fc66248da1d -->

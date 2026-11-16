@@ -24,7 +24,7 @@ only on your explicit instruction. A skill or agent you add with `act-load-setti
 create by hand there gets its tool copies at the next session start (default `session-start-refresh: block`) or update.
 Working methods follow the same path (`docs/ai/local/methods/<name>.md`). The formats for commit message, changelog, release notes and README are the one exception: a file `docs/project/formats/<name>.md` replaces the template's file of that name completely (`act-export-settings --with-formats` carries it to another project, `act-load-settings` writes it back), see [Configuration](/agentic-coding-template-docs/concepts/configuration/).
 
-An override whose counterpart under `.act/` has been renamed or removed by the template silently has no effect any more. `act-doctor` reports such a file under `docs/ai/local/` with the most similar name under `.act/` (rule overrides, roles and your own skills are left out); `update.py` shows the line in the report of its doctor run.
+An override whose counterpart under `.act/` has been renamed or removed by the template silently has no effect any more. `act-doctor` reports such a file under `docs/ai/local/` with the most similar name under `.act/` (rule overrides, roles and your own skills are left out); a local skill with the name of a template skill is a finding too, until you keep it with `python .act/scripts/doctor.py --accept skill:<name>` (`own-rules-review`); `update.py` shows the line in the report of its doctor run.
 
 ## Switching rules on and off
 

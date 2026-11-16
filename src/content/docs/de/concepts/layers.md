@@ -3,7 +3,7 @@ title: Schichten und Overrides
 description: Wie Template-Schicht und Projekt-Schicht zusammenpassen und wie du eine Regel änderst, ohne sie beim Update zu verlieren.
 sidebar:
   order: 1
-sourceHash: bf35e65c270a72d0c3a0eb630d1c690a15ca5162fb3fe45690a74cf7421c398e
+sourceHash: c18ecccd2006d9cc8dc315dbd29496d4b4c436539513b740a29e5e035d44a700
 ---
 
 ## Zwei Schichten
@@ -26,7 +26,7 @@ Agent, den du mit `act-load-settings` hinzufügst, landet ebenfalls dort; einer,
 bekommt seine Werkzeugkopien beim nächsten Sitzungsstart (Standard `session-start-refresh: block`) oder Update.
 Arbeitsmethoden gehen denselben Weg (`docs/ai/local/methods/<name>.md`). Die Formate für Commit-Nachricht, Changelog, Release Notes und README sind die eine Ausnahme: Eine Datei `docs/project/formats/<name>.md` ersetzt die gleichnamige Datei des Templates vollständig (`act-export-settings --with-formats` trägt sie in ein anderes Projekt, `act-load-settings` schreibt sie zurück), siehe [Konfiguration](/agentic-coding-template-docs/de/concepts/configuration/).
 
-Ein Override, dessen Gegenstück unter `.act/` das Template umbenannt oder entfernt hat, wirkt stillschweigend nicht mehr. `act-doctor` meldet eine solche Datei unter `docs/ai/local/` mit dem ähnlichsten Namen unter `.act/` (Regel-Overrides, Rollen und eigene Skills bleiben außen vor); `update.py` zeigt die Zeile im Bericht seines Doctor-Laufs.
+Ein Override, dessen Gegenstück unter `.act/` das Template umbenannt oder entfernt hat, wirkt stillschweigend nicht mehr. `act-doctor` meldet eine solche Datei unter `docs/ai/local/` mit dem ähnlichsten Namen unter `.act/` (Regel-Overrides, Rollen und eigene Skills bleiben außen vor); ein lokaler Skill mit dem Namen eines Template-Skills ist ebenfalls ein Befund, bis du ihn mit `python .act/scripts/doctor.py --accept skill:<name>` behältst (`own-rules-review`); `update.py` zeigt die Zeile im Bericht seines Doctor-Laufs.
 
 ## Regeln an- und ausschalten
 

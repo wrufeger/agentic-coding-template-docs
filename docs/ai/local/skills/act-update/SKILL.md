@@ -1,55 +1,52 @@
 ---
 name: act-update
-description: Pull a newer template state into the project - review the diff, give consent, then let update.py replace .act/, refresh copies, run migrations, and hand off to the doctor. Use to check for or apply a template update.
+description: Use to check for or apply a newer template version, or when asked which template version is installed or newest ("update the template", "act-update"). Brings in the new version only after you have seen the diff and agreed. Not for checking local drift - use act-doctor.
 ---
 
 # Update the template
 
-Thin wrapper around `python .act/scripts/update.py` — the script runs ten steps, always in the same order (full
-option list in the script's own header comment). No merge, no conflicts to resolve by hand: steps
-1-3 only fetch, diff, and report; nothing from the fetched state runs before consent.
+Wrapper around `python .act/scripts/update.py` (options and the ten steps: `--help` and its header). Nothing
+fetched runs before consent. Asked which version is installed or newest, run `update.py --versions --short` (the
+`/act-version` shortcut) — never answer from memory.
+
+## Channel
+
+`update-channel` in `docs/ai/config.md`: `release` (default) is the newest stable tag, `latest` the tip of the
+source's default branch; `--channel` overrides it for one run, `--ref <tag-or-commit>` beats both. A project
+already past the newest release keeps its state.
 
 ## Steps
 
-1. `python .act/scripts/update.py --plan` — shows the `.act/` diff (rule/coding IDs individually)
-   and describes steps 5-10, writes nothing. Share the summary with the human.
-2. Clean working tree first (`git status`) — an unfinished task closes via `act-commit` before an
-   update starts.
-3. **Consent before step 5**, where `.act/` gets replaced: rerun the command without `--plan`, or
-   pass `--yes` only once the human already agreed. If the project edited `.act/` itself since the
-   last update, `--on-local-changes rescue|discard|abort` picks the answer up front (`rescue`
-   moves the edits to `docs/ai/local/` first) instead of a prompt mid-run.
-4. The script itself refreshes template-owned skill copies (unchanged → replaced, project-edited →
-   kept and reported), runs any due migrations, and hands off to `doctor.py` — its findings land in
-   `docs/ai/inbox/`, never as a silent fix.
-5. `.act-lock.json` is rewritten and a commit made automatically, unless `--no-commit` was given —
-   then commit by hand after review.
-6. A journal line with the base-commit change and the finding count (`R-work-record-now`).
-7. A template bug noticed along the way (wrong or missing file, dead rule or mechanism, two rules
-   that contradict each other): an `act-feedback` entry right away, per `act-feedback` § immediate
-   trigger — that trigger overrides the usual feedback cadence.
-
-## On a branch other than the default
-
-The mechanism itself warns and does not refuse (`update-branch-hint` in `docs/ai/config.md` §
-Checks); teams still prefer one person pulling the update and opening a PR over two people pulling
-it on separate branches the same day.
+1. Clean working tree first; an unfinished task closes via `act-commit`. A project older than `v2.2.0` is refused
+   with a message naming the way: set it up again with `act-adopt`.
+2. `python .act/scripts/update.py --plan` and share its summary with the human. It changes nothing. Show the
+   migration lines (one `<id>: <effect>` line each under `[8/10]`) as they stand before asking for consent;
+   never describe a migration from its name.
+3. **Consent before step 5** (`.act/` is replaced): rerun without `--plan`, or with `--yes` only once the human
+   agreed. If the project edited `.act/` since the last update, ask what to do and pass
+   `--on-local-changes rescue|discard|abort` (`rescue` moves the edits to `docs/ai/local/`).
+   The consent covers the commit the plan showed (`[1/10]` names it): the real run, within an hour, applies that
+   commit and says so when the source moved on since.
+4. A project from before the changelog file is offered `CHANGELOG.md` by migration `007-changelog-file` (the plan
+   lists it). Tell the human before step 3 that the row `changelog` = `off` under § Formats in `docs/ai/config.md`
+   declines it; `config.py` cannot set a missing row, `.act/skeleton/config.md` shows its shape.
+5. The script's findings land in `docs/ai/inbox/`, never as a silent fix; the commit is made unless `--no-commit`.
+   Add a journal line with the base-commit change and the finding count (`R-work-record-now`).
+   In a Copilot project (`copilot` in `tools`) the update also writes `.github/agents/<role>.agent.md`, and
+   `update.py --catch-up --yes` refreshes them after a change in `docs/ai/config.md` § Roles; an own file there named
+   like a role but without `model:`/`models:` stays unchanged and becomes an inbox question.
+6. Unless `own-rules-review` (`docs/ai/config.md` § Checks) is `off`: if the plan of step 2 listed added or
+   changed rules (ids with `+` or `~` under `rules:` and `coding:`) or skills (paths under `skills:`), run
+   `act-doctor`'s content
+   check (§ Content) on exactly those. All hits go into **one** inbox question for this update: one sub-item per
+   hit, quoting both texts (cut to the matching lines), options drop · keep (name the difference) · adapt.
+   Nothing is deleted or switched off (`R-work-override`). No such rule or skill in the plan: skip the step.
+7. A template bug noticed along the way: an `act-feedback` entry right away (its immediate trigger).
 
 ## `.act/` pulled in some other way
 
-There is no "template" git remote to update from — its address lives only in `.act-lock.json`'s
-`template.source` (set by `init.py`, never a remote in the project itself). If `.act/` ever got
-replaced by something other than this script (a plain `git pull` of the shared history some older
-projects still keep, or a manual copy), a normal run notices it on its own — step 3 finds no diff,
-then it resumes instead of reporting "nothing to update", no rescue question. `--catch-up` does the
-same without a fetch, for when there is nothing new to pull first; it refuses if `.act/` no longer
-matches its own `MANIFEST.json` (a genuine hand edit, not this case). `dispatch.py` also flags this
-state at session start ("pulled in without update.py") — see `update-check` in `docs/ai/config.md`
-§ Checks, which also runs a throttled, best-effort daily check for whether the template moved on.
-
-## When not
-
-A task is mid-flight with uncommitted changes: finish it first (`act-commit`), then update.
+If `.act/` was replaced by a plain `git pull` or a manual copy, a normal run notices it and resumes;
+`--catch-up` does the same without a fetch and refuses when `.act/` no longer matches its `MANIFEST.json`.
 
 ## This project: after the update
 

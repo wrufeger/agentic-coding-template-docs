@@ -744,7 +744,7 @@ das vor dem Satz eingerichtet wurde), vor Arbeit an Nuxt-Code `.act/coding/nuxt5
 Eigentümers.
 
 ## CR-nuxt-basics
-<!-- source: 89b759182ba04d8d -->
+<!-- source: f347f10bc49ee737 -->
 Bewährte Nuxt-Standards
 summary: Verzeichnisstruktur, Datenabruf, typisierte Handler, Runtime-Konfiguration, Fallstricke
 
@@ -824,6 +824,10 @@ summary: Verzeichnisstruktur, Datenabruf, typisierte Handler, Runtime-Konfigurat
     dort in einen Pfad umgeschrieben und beendet nichts). Danach `http://localhost:<port>/` anfragen (ein Server kann
     nur auf `::1` lauschen): die Anfrage muss abgelehnt werden. Anderswo `lsof -iTCP:<port> -sTCP:LISTEN` und `kill <pid>`.
     Ein Server auf dem Port des Eigentümers gehört ihm: erst fragen.
+  - **Sicherheit:** `workspaceDir` in `nuxt.config.ts` auf den Projektordner selbst setzen und den aufgelösten Wert
+    prüfen, ohne den Server zu starten, indem man die Config lädt. Grund: Ist der Dev-Server aus dem Netz erreichbar,
+    kann eine verirrte Lock- oder Workspace-Datei in einem übergeordneten Ordner diesen Ordner darüber lesbar machen
+    (Advisory `GHSA-mjrq-cffv-q4qc`, Nuxt 3 und 4 mit `@nuxt/schema` ab 3.5.0 bis unter 4.6.4, behoben in 4.6.4).
 
 ## CR-nuxt-root-folders
 <!-- source: f338f1501a84673b -->
@@ -842,7 +846,7 @@ summary: /types, /constants, /server und shared/utils/ im Repo-Root, jeweils der
   automatisch; Nuxt 3 tut das nur mit `future.compatibilityVersion: 4`, sonst aus `#shared/utils/…` importieren.
 
 ## CR-nuxt-ssr
-<!-- source: 339eadf2e9cfaa64 -->
+<!-- source: 2c575bc65b2bdaa9 -->
 Den SSR-Modus bewusst wählen
 summary: vor der Annahme von SSR fragen, die Hydration-Kosten kennen, nach SSR-Arbeit auf Mismatches prüfen
 
@@ -860,6 +864,8 @@ summary: vor der Annahme von SSR fragen, die Hydration-Kosten kennen, nach SSR-A
   `onMounted`/`import.meta.client` legen; request-bezogenen Zustand über `useState` teilen, nie über ein
   `ref` auf Modulebene; ungültige HTML-Verschachtelung beheben (z. B. ein Block-Element in einem `<p>`);
   `<ClientOnly>` nur als letztes Mittel einsetzen.
+- Ein HTML-Kommentar zwischen den Zweigen einer `v-if`-/`v-else-if`-/`v-else`-Kette bricht die Hydration im Dev, und
+  weder Lint noch der Typecheck bemerken es; den Kommentar vor die ganze Kette oder in einen Zweig setzen.
 - Das Ergebnis von `useFetch`/`useAsyncData` in ein eigenes `ref` zu kopieren ist ebenfalls eine häufige
   Ursache für Hydration-Mismatches — Grund und Behebung stehen in `CR-nuxt-basics`, hier nicht wiederholt.
 - Mit `ssr: false` lädt `@nuxt/icon` (auch über `@nuxt/ui`) Icons zur Laufzeit von der öffentlichen Iconify-API,
@@ -918,9 +924,9 @@ nennt (`^5.0.0`, `npm:nuxt-nightly@5x`). Gruppen-IDs (`CR-nuxt5-<name>`) sind st
 eine Gruppe, deren Zweck nicht mehr gilt, bekommt eine neue ID und wird in diesem Kopf als `retired:` aufgeführt.
 
 ## CR-nuxt5-channel
-<!-- source: 57eacb98825d7b75 -->
+<!-- source: 9bb5ffe5b6c1e4d8 -->
 Nightly-Kanal und Versionen
-summary: `nuxt-nightly@5x` als Tag, die Lockfile als einzige Festlegung, pnpm löst den Tag neu auf, der `vue`-Bereich der Nightly, Hauptversionen im Gleichschritt mit Nuxt, DevTools ausdrücklich
+summary: `nuxt-nightly@5x` als Tag, die Lockfile als einzige Festlegung, pnpm löst den Tag neu auf, der `vue`-Bereich der Nightly, Hauptversionen im Gleichschritt mit Nuxt, DevTools ausdrücklich, ein Paket ohne Nuxt bewegt
 
 - Bis zum stabilen Release `nuxt` als `"npm:nuxt-nightly@5x"` eintragen — ein Tag, nie eine Build-Nummer. Schreibt
   `npm install` (`pnpm install`) eine feste Version, sie von Hand auf `@5x` zurücksetzen und erneut installieren
@@ -941,6 +947,13 @@ summary: `nuxt-nightly@5x` als Tag, die Lockfile als einzige Festlegung, pnpm l�
   oder aktualisieren (eigener Commit, volle Prüfkette) und danach mit `pnpm why nuxt` bestätigen, dass das
   aufgelöste Nuxt unverändert ist. Entfällt, sobald Nuxt 5 ein stabiles Release hat und das Projekt den Nightly-Tag
   verlässt.
+- Um ein einzelnes Paket (einen Sicherheitsfix) ohne Nuxt zu bewegen, mit pnpm: `nuxt` in `package.json` für den Lauf
+  auf die genaue Version setzen, die die Lockfile hält, das Paket aktualisieren, `package.json` wiederherstellen, dann
+  den Specifier von `nuxt` in der Lockfile auf den Kanal-Tag zurücksetzen. Danach muss `pnpm install --frozen-lockfile`
+  bestehen, und der Lockfile-Diff zeigt nur neue Einträge, keine geänderten oder entfernten; sonst von vorn als
+  bewusstes Nuxt-Update. Ein mitgewanderter Nightly-CLI wird in der Lockfile zurückgenommen. Dieselben Schritte heben
+  die in `CR-nuxt5-checks` genannten Modulkopien auf die behobene Version, ohne die Nightly zu bewegen. Entfällt mit der
+  pnpm-Zeile oben.
 - Eine Nightly kann ihren eigenen `vue`-Bereich anheben; ein `vue`-Eintrag des Projekts, der auf dem alten Minimum
   bleibt, hält eine zweite Vue-Kopie. Nach jedem Vorrücken den Bereich der Nightly lesen (`npm view
   <nightly>@<version> dependencies.vue`, `pnpm view` ebenso), den eigenen Eintrag darauf anheben, danach zeigt
@@ -974,9 +987,9 @@ summary: `NUXT_B8013` heißt abgeschaltet, Pinia 4 mit seinem Peer, der i18n-Rü
 - Die Nitro-v2-Brücke (`NUXT_B9003`) nie im eigenen Code nachbauen.
 
 ## CR-nuxt5-server
-<!-- source: e278ba52550af75a -->
+<!-- source: c4592a38670f525c -->
 Nitro 3 und h3 v2
-summary: ausdrückliche Imports aus `nuxt/server`, `event.req` als Web-Request, typisierte Bodies, `status`/`statusText`, kein Komma in Kommentaren an Export-Zeilen, Header und CSP
+summary: ausdrückliche Imports aus `nuxt/server`, `event.req` als Web-Request, typisierte Bodies, `status`/`statusText`, kein Komma in Kommentaren an Export-Zeilen, Header und CSP, keine Datei gelöscht unter dem Dev-Server des Eigentümers
 
 - In `server/` `defineEventHandler`, `readBody`, `getQuery`, `createError` … aus `nuxt/server` importieren und
   Plugins mit `definePlugin` aus `nitro` definieren; `server/utils/` bleibt auto-importiert.
@@ -1009,12 +1022,16 @@ summary: ausdrückliche Imports aus `nuxt/server`, `event.req` als Web-Request, 
 - Nach dem Umbenennen oder Entfernen eines Exports in `server/utils/` den eigenen Testserver neu starten (sein
   Port, wie `R-safe-dev-server` es sagt), bevor Tests gegen ihn zählen; den Server des Eigentümers erst nach
   Rückfrage. Kein Übergangs-Alias für den alten Namen. Nie `NUXT_IGNORE_LOCK` oder `NUXT_LOCK=0` setzen.
+- Eine Datei aus einem auto-importierten Ordner zu löschen, während der Dev-Server des Eigentümers läuft, lässt jede
+  Seite bis zu einem Neustart mit 500 antworten: Der laufende Modulgraph hält den alten Import. Da der Assistent diesen
+  Server nie neu startet, die Datei leeren und stehen lassen, sie nach dem nächsten Neustart des Eigentümers löschen
+  oder vorher fragen. Ein Testserver, der je Lauf frisch startet, ist nicht betroffen.
 - Jede Runtime-Abhängigkeit kommt in `package.json`, auch eine, die transitiv schon da ist.
 
 ## CR-nuxt5-app
-<!-- source: 96e0fa5fc4c6aefc -->
+<!-- source: 703c2003441a9129 -->
 Seiten, Routing, Datenabruf, Head
-summary: `import.meta.*`, `query` statt `params`, typisiertes `$fetch` und typisierte Routenziele, Unhead 3, kein `baseUrl`
+summary: `import.meta.*`, `query` statt `params`, typisiertes `$fetch` und typisierte Routenziele, Unhead 3 und sein og-Hinweis, kein `baseUrl`
 
 - `import.meta.*` statt `process.*` (`import.meta.client`, `import.meta.dev` …).
 - `query` statt `params` in den Optionen von `$fetch`/`useFetch`.
@@ -1026,18 +1043,25 @@ summary: `import.meta.*`, `query` statt `params`, typisiertes `$fetch` und typis
   `router.push`, `NuxtLink` und ein `to` von Nuxt UI; ein schlichter Pfad bekommt kein Locale-Präfix und endet in
   einer 404. Aus demselben Grund `definePageMeta({ redirect })` relativ zum aktuellen Pfad bauen.
 - Unhead 3: kein `hid`/`vmid`, mit `key` deduplizieren; ein Dev-Hinweis zu `og:*` oder zur Description ist ein
-  Befund.
+  Befund, außer im bekannten Fall unten.
+- Unhead 3 meldet `og-missing-title` auf einer Seite, die andere `og:`-Meta-Tags trägt (oft app-weit gesetzt), aber kein
+  `og:title` (geprüft in Unhead 3.4.3, das Validate-Plugin in `dist/plugins.mjs`). Auf einer Seite, die bewusst kein
+  `og:title` hat (private Seite, Fehlerseite), dort auch die anderen `og:`-Tags weglassen; wo das nicht geht, den
+  Hinweis als bekannten Fehlalarm behandeln und nach jedem Unhead-Update neu prüfen. `rules: { 'og-missing-title':
+  'off' }` am Validate-Plugin schaltet ihn für jede Seite ab und verdeckt damit echte Fälle.
 - Jede Seite setzt ihren Titel, eine öffentliche Seite auch ihre Description; die Fallbacks (Titel-Template,
   `og:site_name`, Standard-Description) kommen in `app.vue` **und** `error.vue`, da Nuxt `error.vue` anstelle von
   `app.vue` rendert. Ein fehlender Head-Wert wird weggelassen, nie als `undefined` übergeben —
-  `useSeoMeta({ description: undefined })` entfernt den Fallback.
+  `useSeoMeta({ description: undefined })` entfernt den Fallback (der `og:title`-Fall oben wird also durch Weglassen von
+  Tags gelöst, nicht durch `undefined`).
+- `workspaceDir` festlegen, wie es die Sicherheitszeile in `CR-nuxt-basics` sagt; das gilt auch für Nuxt 5.
 - Kein `compilerOptions.baseUrl` in `tsconfig.json` — Nuxt ignoriert es; Aliase kommen nur in
   `nuxt.config.ts` (`CR-nuxt-basics`).
 
 ## CR-nuxt5-checks
-<!-- source: d1824b1355a6f774 -->
+<!-- source: b11046521c527b14 -->
 Prüfungen nach jedem Nuxt-Update
-summary: die volle Prüfkette, die Typfehlerliste verglichen statt gezählt, Warnungen, Kopien und `invalid` im Baum, Workarounds gegen Upstream, ein Build vor Commits an auto-importierten Ordnern oder `nuxt.config`, ein Protokoll
+summary: die volle Prüfkette, die Typfehlerliste verglichen statt gezählt, Warnungen (eine bekannte Listener-Warnung), Kopien (wie man zählt, der erwartete `@nuxt/schema`-Treffer) und `invalid` im Baum, Workarounds gegen Upstream, ein Build vor Commits an auto-importierten Ordnern oder `nuxt.config`, ein Protokoll
 
 - Die Ausgabe des Typechecks vor dem Update sichern und danach die Fehler vergleichen — die Liste, nicht die Zahl.
 - Dann `npm run lint`, `typecheck`, `test`, `build`, `dev` (Hauptseiten antworten mit 200, keine Hydration-Warnung),
@@ -1051,6 +1075,18 @@ summary: die volle Prüfkette, die Typfehlerliste verglichen statt gezählt, War
   während dessen Dev-Server läuft (`R-safe-dev-server`).
 - Die Warnungen lesen (`NUXT_B8013`, `NUXT_B9003`, `[unhead]`), auf doppelte Kopien prüfen,
   `python .act/scripts/security_scan.py --deps` ausführen.
+- Kopien eines Pakets zählen mit `npm ls <package>` / `pnpm why <package>`; Ordner unter `node_modules/.pnpm`, die von
+  früheren Installationen übrig sind, bleiben, bis pnpm sie bereinigt (`modulesCacheMaxAge`), und sind keine Kopien.
+- Unter der Nightly ziehen gängige Module noch `@nuxt/kit` 4.x und damit ein `@nuxt/schema` 4.x: Der Abhängigkeits-Scan
+  meldet das `workspaceDir`-Advisory (`CR-nuxt-basics`) auf dieser Kopie, nicht auf der Nightly, der Treffer ist also
+  erwartet. Die Kopie heben, wie `CR-nuxt5-channel` es für ein einzelnes Paket beschreibt. Entfällt, sobald die gängigen
+  Module von einem Nuxt-5-Kit abhängen.
+- Eine `MaxListenersExceededWarning` zu `close`-Listenern auf der Server-Response im `nuxt dev` der Nightly ist
+  Toolchain-Rauschen: Die Listener kommen vom CLI, von Vite, der Server-Schicht und Stream-Helfern (mit TTY auch von der
+  Oberfläche des CLI), ihre Zahl hängt von der Art der Anfrage ab, nicht von der Laufzeit, und fällt wieder auf null,
+  sobald die Response schließt; Anwendungscode erreicht die Response nicht. Eine einfache CLI-Ausgabe ohne die
+  Oberfläche vermeidet sie. Nur untersuchen, wenn sie auch im Produktions-Build erscheint oder mit der Lebensdauer
+  eines Streams wächst. Entfällt, sobald die Warnung im `nuxt dev` einer aktuellen Nightly nicht mehr erscheint.
 - `npm ls --all 2>&1 | grep invalid`: eine veraltete Auflösung mit `npm update <package>` beheben (mit pnpm: `pnpm
   why <package>`, `pnpm update <package>`, unter der pnpm-Zeile von `CR-nuxt5-channel`); bereits bekannte Einträge
   stehen im Upgrade-Log, nur neue melden.
@@ -1454,18 +1490,18 @@ summary: standardmäßig cargo test, Unit-Tests neben dem Code, Integrationstest
   `thread::sleep` warten; stattdessen auf die tatsächliche Bedingung warten.
 
 ## sql
-<!-- source: d78785b1cb6b6a1e -->
+<!-- source: ac687b8d124e59c3 -->
 Coding-Regeln — SQL
-summary: Abfragesicherheit, Transaktionen, Indizes, Benennung, Migrationen
+summary: Abfragesicherheit, Transaktionen, Indizes, Benennung, Migrationen, MySQL/MariaDB-Fallstricke
 
 Regeln für Schemaänderungen und Datenbankzugriff aus Anwendungscode. Gruppen-IDs (`CR-sql-<name>`) sind
 stabil und werden nie neu vergeben; eine Gruppe, deren Zweck nicht mehr gilt, bekommt eine neue ID und wird
 in diesem Kopf als `retired:` aufgeführt.
 
 ## CR-sql-basics
-<!-- source: 3bc1f5f759d33efc -->
+<!-- source: ec2bffeb0b8564d9 -->
 Abfragesicherheit und Schemadisziplin
-summary: parametrisierte Abfragen, Transaktionen, UTC, Indizes, keine versteckte Logik, Locking
+summary: parametrisierte Abfragen, Transaktionen ohne Netzwerkaufrufe, UTC, Indizes, keine versteckte Logik, Locking
 
 - Ausschließlich parametrisierte Abfragen verwenden — nie eine Abfrage bauen, indem Werte in den SQL-String
   konkateniert werden, in jeder Sprache und mit jedem Treiber.
@@ -1473,7 +1509,13 @@ summary: parametrisierte Abfragen, Transaktionen, UTC, Indizes, keine versteckte
   bricht, statt unbemerkt zu verändern, was eine Abfrage zurückgibt.
 - Mehrschrittige Schreibvorgänge in einer Transaktion bündeln; Teilfehler nicht nachträglich von Hand
   abgleichen.
-- Zeitstempel in UTC speichern; erst in der Darstellungsschicht in eine Zeitzone umrechnen.
+- Keinen Netzwerkaufruf innerhalb einer Transaktion machen, die Zeilen-Locks hält: Die Locks dauern so lange wie die
+  langsamste entfernte Antwort. Externe Werte vor dem Öffnen der Transaktion auflösen (nach den Berechtigungsprüfungen),
+  die Zahl der Abrufe je Request begrenzen und sie parallel ausführen; Helfer, die in der Transaktion aufgerufen werden,
+  bekommen nur aufgelöste Werte. Eine wiederholte Transaktion verschlimmert es, da der Callback und jeder Aufruf darin
+  erneut läuft. Im Review fragen: wo beginnt und endet die Transaktion, wie viele Aufrufe nach außen, wie lange höchstens.
+- Zeitstempel in UTC speichern; erst in der Darstellungsschicht in eine Zeitzone umrechnen (auf MySQL/MariaDB `CONVERT_TZ`
+  beachten, siehe `CR-sql-mariadb`).
 - Jede Fremdschlüsselspalte mit einem Index versehen — ohne Index werden Joins und kaskadierende Löschungen
   mit wachsender Tabelle langsamer.
 - Anwendungslogik aus Stored Procedures und Triggern heraushalten; Logik, die im Anwendungscode nicht
@@ -1500,6 +1542,32 @@ summary: versionierte Benennung, idempotent, umkehrbar, ein Werkzeug
   einen bereits migrierten Stand darf nicht fehlschlagen.
 - Zu jeder Migration eine Down-Migration mitliefern, wo das Migrationswerkzeug das unterstützt.
 - Ein Migrationswerkzeug konsequent verwenden (z. B. Flyway, Prisma Migrate, Alembic); nicht mischen.
+
+## CR-sql-mariadb
+<!-- source: 2a7c72032b8db0f0 -->
+Fallstricke bei MySQL und MariaDB (InnoDB)
+summary: Gap-Locks bei Bereichsschreibzugriffen, Fehler 1020 unter Snapshot-Isolation, ENUM-Änderungen an versionierten Tabellen, `CONVERT_TZ` ohne Zonentabellen
+
+- InnoDB (Standard-Isolationsstufe `REPEATABLE READ`): Ein `UPDATE` oder `DELETE` über einen Bereich auf einer Tabelle,
+  in die andere einfügen, nimmt Gap-Locks und kann mit einem gleichzeitigen `INSERT` in einen Deadlock laufen. Die Ids
+  zuerst ohne Lock lesen, dann mit `WHERE id IN (…)` ändern. Es zeigt sich nur bei vielen Zeilen und mehreren
+  gleichzeitigen Schreibenden, ein kleiner Test findet es also nicht.
+- MariaDB 11.6.2 und neuer (`innodb_snapshot_isolation` ist standardmäßig an): Fehler 1020 („record has changed since
+  last read“) bricht einen sperrenden Lesezugriff und ein `UPDATE`/`DELETE` einer Zeile ab, die nach dem Snapshot der
+  Transaktion geändert wurde. Er bricht auch die Fremdschlüsselprüfung eines `INSERT` ab, sobald die Transaktion etwas
+  ohne Lock gelesen hat und eine andere Transaktion die Elternzeile seither geändert hat, in einer beliebigen Spalte.
+  1020 rollt die ganze Transaktion zurück: nur die ganze Transaktion wiederholen, mit wachsenden, zufälligen Wartezeiten,
+  dann mit einem klaren Fehler aufgeben; Wirkungen außerhalb der Datenbank werden nicht zurückgerollt. Die Elternzeile
+  vor dem ersten Lesen ohne Lock zu sperren (`FOR UPDATE`) vermeidet den Fremdschlüssel-Fall. Absicherung: jede
+  Transaktion durch einen Retry-Helfer laufen lassen oder mit einem Markerkommentar versehen, der sagt, warum sie keinen
+  braucht, und einen schnellen Unit-Test Transaktionen mit keinem von beiden finden lassen.
+- MariaDB, systemversionierte Tabelle: Einen Wert aus einem `ENUM` zu entfernen schlägt bei Historienzeilen fehl,
+  auch bei eben ersetzten. Den Wert im Typ lassen, die aktuellen Zeilen umziehen, den alten Wert in der Anwendung
+  ablehnen und den Default mit `ALTER COLUMN … SET DEFAULT` ändern. Die Migration gegen eine Datenbank testen, die
+  solche Historienzeilen hat.
+- MySQL/MariaDB: `CONVERT_TZ` mit Zonennamen liefert ohne jeden Fehler `NULL`, wenn die Zeitzonentabellen nicht geladen
+  sind (üblich bei verwalteten oder Container-Datenbanken). Den Offset als Zahl übergeben oder die Umrechnung im
+  Anwendungscode machen.
 
 ## tailwind
 <!-- source: 64187d320bfffffa -->

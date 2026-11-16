@@ -3,7 +3,7 @@ title: Update
 description: Einen neueren Stand des Templates mit act-update in ein Projekt holen.
 sidebar:
   order: 3
-sourceHash: 72b6fe76462b5916955fa8265c0b5e36326381b4c5135339d3389bf42a70f67a
+sourceHash: 3c135abeb920c4a82d5cbf76abc6474fc84819b9ec0c58a4647f371034e1bb10
 ---
 
 `act-update` holt einen neueren Stand des Templates in dein Projekt: Du siehst den Diff, du stimmst zu, und
@@ -117,7 +117,7 @@ Update-Notiz, `act-update` selbst bleibt unverändert.
 8. **Migrationen.** Führt alle fälligen aus. Jede schreibt eine betroffene Datei einmal um und lässt sie danach in Ruhe. Drei legen einem bestehenden Projekt einmal eine fehlende Datei an: `docs/ai/local/resources.md` (die Leseliste), `docs/project/README.md` (der Index der Projektdoku) und über `007-changelog-file` die `CHANGELOG.md` im Projektstamm. Eine vorhandene Datei bleibt unberührt, eine gelöschte kommt nicht zurück. `007-changelog-file` überschreibt oder legt eine `CHANGELOG.md` nie neu an; keine bekommt ein Projekt, das seinen Changelog unter anderem Namen führt (`changelog.md`, `CHANGES.md`, `HISTORY.md`, `NEWS.md`) oder unter § Formats `changelog: release-notes-only` oder `off` hat. `008-done-entries-keep` entfernt die abgeschaffte Zeile `done-entries` samt Erklärung aus `docs/ai/config.md` (siehe [Erledigte Einträge](#erledigte-einträge)); der Plan nennt, was es herausschneiden würde.
 9. **Brücken und Doctor.** Zuerst werden unbearbeitete erzeugte Brücken (`CLAUDE.md`, `AGENTS.md`,
    `docs/ai/rules.md`) aufgefrischt; steht `session-start-refresh` in `docs/ai/config.md` § Checks auf `warn` oder
-   `off`, werden sie nur gemeldet („would refresh … not written“). Danach prüft `doctor.py` auf Abweichungen; Befunde landen in `docs/ai/inbox/`, nie als stille Korrektur. Darunter: ein Override unter `docs/ai/local/`, dessen Gegenstück unter `.act/` fehlt (das Template hat es umbenannt oder entfernt, der Override wirkt also nicht), mit dem ähnlichsten Namen unter `.act/`; Regel-Overrides, Rollen und eigene Skills bleiben außen vor, ebenso ein eigenes Script oder ein eigener Coding-Satz, es sei denn, ein Name ist der Anfang des anderen oder unterscheidet sich nur in der Endung. Ein neuer Tier-Vorschlag wird dort als eigene Frage angelegt, und erst, wenn eine Rolle auf einem Tier 30 erfasste Ergebnisse hat und mindestens 60 % der letzten 30 nachgearbeitet oder eskaliert wurden. Die Frage ist kurz und empfiehlt Option a), zuerst die Fälle anzusehen; ihre Zahlen stehen in einem eigenen Inbox-Bericht, `report-<Datum>-<Uhrzeit>-tier-numbers-<Rolle>-<Tier>.md`. Der Commit nimmt den Bericht und die Fragen mit, und die Zusammenfassung nennt beide.
+   `off`, werden sie nur gemeldet („would refresh … not written“). Danach prüft `doctor.py` auf Abweichungen; Befunde landen in `docs/ai/inbox/`, nie als stille Korrektur. Darunter: ein Override unter `docs/ai/local/`, dessen Gegenstück unter `.act/` fehlt (das Template hat es umbenannt oder entfernt, der Override wirkt also nicht), mit dem ähnlichsten Namen unter `.act/`; Regel-Overrides, Rollen und eigene Skills bleiben außen vor, ebenso ein eigenes Script oder ein eigener Coding-Satz, es sei denn, ein Name ist der Anfang des anderen oder unterscheidet sich nur in der Endung. Ein lokaler Skill, der einen Template-Skill gleichen Namens überschreibt, ist ebenfalls ein Befund, bis du ihn mit `python .act/scripts/doctor.py --accept skill:<name>` behältst oder löschst (`own-rules-review`). Ein neuer Tier-Vorschlag wird dort als eigene Frage angelegt, und erst, wenn eine Rolle auf einem Tier 30 erfasste Ergebnisse hat und mindestens 60 % der letzten 30 nachgearbeitet oder eskaliert wurden. Die Frage ist kurz und empfiehlt Option a), zuerst die Fälle anzusehen; ihre Zahlen stehen in einem eigenen Inbox-Bericht, `report-<Datum>-<Uhrzeit>-tier-numbers-<Rolle>-<Tier>.md`. Der Commit nimmt den Bericht und die Fragen mit, und die Zusammenfassung nennt beide.
 10. **Lock und Commit.** `.act-lock.json` wird neu geschrieben und ein Commit angelegt, außer du gibst
     `--no-commit` an. Ein Pfad, den `.gitignore` ignoriert (etwa mit einer Allowlist wie `*`, `!docs/`), bleibt aus dem
     Commit, der ihn nennt.
@@ -128,6 +128,10 @@ Die Zusammenfassung sagt auch, wie viel der nächste Sitzungsstart aus `.act-loc
 In einem Copilot-Projekt (`copilot` in `tools`) gleichst du nach dem Update die Modelle in `.github/agents/` mit `/model`
 ab, trägst Abweichungen in die Spalte `Copilot` von `docs/ai/config.md` § Roles ein und führst dann
 `python .act/scripts/update.py --catch-up --yes` aus.
+
+Solange `own-rules-review` nicht `off` ist, stellt `act-update` danach die neuen und geänderten Regeln und Skills des Updates deinen eigenen Regeln, Overrides und Skills gegenüber und stellt, wo es Überschneidungen findet, eine Inbox-Frage: verwerfen, behalten oder anpassen; nichts wird gelöscht.
+
+Ist `.act-local` ein Link aus dem Projekt hinaus, wird ein Worker-Start mit einer Zeile `Write scope:` oder `Tests:` jetzt abgelehnt: mach daraus einen gewöhnlichen Ordner oder setze `worker-write-scope` und `worker-scope-overlap` auf `warn`.
 
 Hat das Template keinen neueren Stand, melden `--plan` und der echte Lauf „nothing to update“. Eine Brückendatei, deren
 Inhalt gleich bliebe, wird nicht neu geschrieben. Ein großes Update scheitert unter Windows nicht mehr mit `WinError 206`.

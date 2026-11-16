@@ -114,7 +114,7 @@ behind another remote helper gets no update note at session start, while `act-up
 9. **Bridges and doctor.** First unedited generated bridges (`CLAUDE.md`, `AGENTS.md`, `docs/ai/rules.md`) are
    refreshed; with `session-start-refresh` at `warn` or `off` in `docs/ai/config.md` § Checks they are only
    reported ("would refresh … not written"). Then `doctor.py` checks for
-   drift; findings land in `docs/ai/inbox/`, never as a silent fix. Among them: an override under `docs/ai/local/` whose counterpart under `.act/` is gone (the template renamed or removed it, so the override has no effect), with the most similar name under `.act/`; rule overrides, roles and your own skills are left out, and so is an own script or coding set unless one name is the start of the other or differs only in its extension. A new tier proposal is filed there as a question of its own, and only once a role has 30 recorded outcomes at a tier and at least 60 % of the last 30 were reworked or escalated. The question is short and recommends option a), looking at the cases first; its numbers are in a separate inbox report, `report-<date>-<time>-tier-numbers-<role>-<tier>.md`. The commit takes the report and the questions, and the summary names both.
+   drift; findings land in `docs/ai/inbox/`, never as a silent fix. Among them: an override under `docs/ai/local/` whose counterpart under `.act/` is gone (the template renamed or removed it, so the override has no effect), with the most similar name under `.act/`; rule overrides, roles and your own skills are left out, and so is an own script or coding set unless one name is the start of the other or differs only in its extension. A local skill that overrides a template skill of the same name is a finding too, until you keep it with `python .act/scripts/doctor.py --accept skill:<name>` or delete it (`own-rules-review`). A new tier proposal is filed there as a question of its own, and only once a role has 30 recorded outcomes at a tier and at least 60 % of the last 30 were reworked or escalated. The question is short and recommends option a), looking at the cases first; its numbers are in a separate inbox report, `report-<date>-<time>-tier-numbers-<role>-<tier>.md`. The commit takes the report and the questions, and the summary names both.
 10. **Lock and commit.** `.act-lock.json` is rewritten and a commit is made, unless you pass `--no-commit`. A path that `.gitignore` ignores (for example with an allowlist such as `*`, `!docs/`) stays out of the commit, which names it.
 
 The summary also says how much the next session start will remove from `.act-local/` (the check `act-local-tidy`, see
@@ -123,6 +123,10 @@ below).
 In a Copilot project (`copilot` in `tools`), compare the models in `.github/agents/` with `/model` after the update and put
 differences into the `Copilot` column of `docs/ai/config.md` § Roles, then run
 `python .act/scripts/update.py --catch-up --yes`.
+
+Unless `own-rules-review` is `off`, `act-update` then sets the new and changed rules and skills of the update against your own rules, overrides and skills and, where it finds overlaps, asks one inbox question: drop, keep or adapt; nothing is deleted.
+
+If `.act-local` is a link out of the project, a worker start with a `Write scope:` or `Tests:` line is now refused: make it a plain folder, or set `worker-write-scope` and `worker-scope-overlap` to `warn`.
 
 If the template has no newer state, `--plan` and the real run both say "nothing to update". A bridge file whose content
 would not change is not rewritten. A large update no longer fails on Windows with `WinError 206`.

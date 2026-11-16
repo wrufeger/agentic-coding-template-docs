@@ -182,12 +182,13 @@ eine andere Integration bekommt standardmäßig ein Konto nur mit Lesezugriff un
 Produktionsdaten nur mit der datierten Freigabe des Menschen (`R-safe-approval`).
 
 ## R-safe-no-shell-delete
-<!-- source: 4981cdc0af0fad78 -->
+<!-- source: fc1d15d23ee36b4b -->
 Kein rekursives Löschen per Shell
-summary: rekursives Löschen mit Mitteln der Sprache, nicht per Shell-Befehl
+summary: rekursives Löschen mit Mitteln der Sprache, nicht per Shell-Befehl; keine ungeschützte Variable im Ziel eines Löschbefehls
 
 Kein rekursives Löschen durch einen Shell-Befehl. Aufgeräumt wird mit den eigenen Mitteln der Sprache (z. B.
-`shutil.rmtree`) oder Datei für Datei.
+`shutil.rmtree`) oder Datei für Datei. Kein Löschbefehl, rekursiv oder nicht, nimmt einen ungeschützten Variablenwert in
+seinem Ziel: `"${D:?}"` oder ein fester Pfad.
 
 ## R-safe-git-metadata
 <!-- source: 49df0b16812a2a3e -->
@@ -208,15 +209,17 @@ Details (erfasste Schlüssel und Formen, Grenze): `topics/checks.md`, vollständ
 `.act/hooks/checks/git_metadata_guard.py`.
 
 ## R-safe-dev-server
-<!-- source: 7be8967bbcef4521 -->
+<!-- source: 0997c5c0148b4073 -->
 Der Dev-Server des Eigentümers gehört ihm
-summary: Testserver auf eigenen Ports; der Server des Eigentümers wird nie beendet, neu gestartet oder verschoben; keine Prozesse nach Namen beenden
+summary: Testserver auf eigenen Ports; der Server des Eigentümers wird nie beendet, neu gestartet oder verschoben; keine Prozesse nach Namen beenden; Browser-Sitzungen nach Gebrauch geschlossen
 
 Ein Server, den der Assistent für Tests, eine Browser-Prüfung oder einen Screenshot startet (ein `webServer`
 von Playwright, `npm run dev`, `vite`, `php -S` …), läuft nie auf einem Default-Port des Projekts; die gehören dem
 Eigentümer (gesetzt durch `run` in `docs/ai/config.md` oder die Framework-Config, sonst der Default des
 Frameworks; Frontend und API haben je einen). Der Testserver nimmt den Port aus `docs/project/testing.md`, sonst
-seinen Default plus 100, und wird nach der Arbeit beendet; eine Test-Config, die selbst einen Server auf einem
+seinen Default plus 100, und wird nach der Arbeit beendet. Ein Browser, den er für eine solche Prüfung öffnet (eine
+Playwright-Sitzung, ein Screenshot), überlebt seinen Gebrauch nicht: Er wird geschlossen, sobald die Prüfung ihr Ergebnis
+hat, spätestens mit der Aufgabe. Eine Test-Config, die selbst einen Server auf einem
 Default-Port startet, sobald dort nichts antwortet, verstößt ebenso gegen diese Regel. Einen Server, den der
 Eigentümer schon laufen hat, darf der Assistent mitbenutzen, aber nie beenden, neu starten oder auf einen anderen
 Port verschieben; braucht eine Aktion genau das, erst fragen und warten. Vor dem Beenden eines Prozesses per Port
@@ -560,7 +563,7 @@ Kostenregeln
 summary: Delegation und Auftragskopf, Warten, Ergänzen, Scripts, Commit-Schranke, Diff-Prüfung, Reset und Verwerfen
 
 ## R-cost-delegate
-<!-- source: 7bddc4f452d66ba3 -->
+<!-- source: 499276b5a61eb397 -->
 Delegieren, wo es sich lohnt; der Auftragskopf
 summary: delegieren, wo sich eine Übergabe lohnt; Kopfzeilen Write scope, Cap, Tests; Tier aus der Rolle; kleine Aufträge, parallele Teile, kein Testlauf neben einem Schreibenden
 
@@ -598,7 +601,8 @@ schreiben, aufeinander aufbauen oder jeder Teil denselben großen Stoff erneut l
 Dateien berühren, bekommen zuerst einen gemeinsamen Auftrag (ein Write Scope, ein höherer Cap, ein Review, Commits
 per Pfad); nacheinander nur, wenn das einen Kontext überlasten würde, mit genanntem Grund. Worker, die dasselbe
 Material lesen, bekommen, was der Orchestrator gefunden hat, einmal in `.act-local/notes/brief-<slug>.md`, in jedem
-Auftrag genannt.
+Auftrag genannt. Genaue Texte (UI-Text, Meldungen, Abnahmekriterien) stehen wörtlich im Auftrag oder werden über ihre
+Stelle in der Aufgabendatei benannt, nie umschrieben.
 
 Kein Test- oder Probenlauf (die ganze Suite, die Proben eines Workers, ein Review, das etwas ausführt) läuft gegen
 einen Baum, in den gerade ein Worker schreibt: Die Prüfungen des Commits laufen einmal, nachdem die Reviews abgenommen sind,
@@ -607,7 +611,11 @@ ein anderer Worker dort zu schreiben anfängt, wird gestoppt und auf dem neuen S
 Builder, die testen müssen, während andere bauen, testen je eine isolierte Kopie (Klon oder Worktree).
 `worker-scope-overlap` weist einen Start ab, dessen `Tests:` auf den `Write scope:` eines laufenden Workers trifft
 oder umgekehrt; ein eigener Schreib- oder Testlauf des Orchestrators dort bekommt nur einen Hinweis, den Rest hat
-er selbst einzuhalten.
+er selbst einzuhalten. Ein Projekt, das `worker-scope-overlap` auf `warn` setzt und jedem Builder in
+`docs/project/testing.md` einen eigenen Testplatz gibt (Port, Datenbank, Build-Ordner), darf sie stattdessen in einem
+Baum halten, mit getrennten `Write scope:`-Zeilen: Ein Lauf, der an der unfertigen Datei eines anderen Builders
+scheitert, wird einmal wiederholt und gemeldet, ein zweites Scheitern ist rot; die vollen Prüfungen folgen nach dem
+letzten Builder.
 
 ## R-cost-wait
 <!-- source: 2f9b4647eaf8d21a -->
