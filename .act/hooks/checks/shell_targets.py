@@ -16,7 +16,17 @@
 #          backtick, whatever quotes the span itself contains (bash finds the end that way); the
 #          span stays part of its word (whitespace and operators inside it do not split the word) and
 #          its content is attached to that word (_Word.subs) to be scanned as a command of its own.
-#          A backtick inside single quotes or escaped is plain text. Steps (_scan_command):
+#          A backtick inside single quotes or escaped is plain text. The lexer reads ANSI-C quoting too: an
+#          unquoted, unescaped `$'` opens a run that ends at the next `'` no backslash takes along, its
+#          escapes are decoded the way bash does (\a \b \e \E \f \n \r \t \v \\ \' \" \?, octal \nnn,
+#          \xHH, \uHHHH, \UHHHHHHHH, \cX; an unknown escape keeps its backslash; the value ends at a NUL),
+#          and the part counts as quoted text (no glob, no expansion; marked "'" in _Word.live). A `$'`
+#          inside single or double quotes, escaped, in a comment or in a heredoc body is plain text, and so is
+#          the quote after a `$$` (the process id is one unit: `$$'x'` is the PID and `x`, `$$$'x'` the PID and
+#          an ANSI-C run; _is_pid_pair), which is why lexer words hold no live `$` before quoted text except
+#          after a `$$`. An unescaped `$$` is a pair before every character, unquoted and inside double
+#          quotes: `$$[`, `$${` and `"$${x'}"` start no expansion at the second `$`. Steps
+#          (_scan_command):
 #   1. backslash-newline continuations are joined where bash joins them (_join_line_continuations):
 #      not in a comment, not in single quotes, not in the body of a heredoc with a quoted delimiter;
 #      a `$(...)` inside double quotes is read as a text of its own there;
@@ -29,13 +39,14 @@
 #      `bash -c ... <<EOF`) is a script and is scanned whole as a command text of its own
 #      (_heredoc_shell_flags), quoted delimiter or not;
 #   3. conservative fallback when a line does not tokenize on its own (an unclosed quote, typically
-#      a string spanning lines) or the command may use ANSI-C quoting `$'...'`, which this lexer does
-#      not know (a `$'` that is only text — in quotes, escaped, in a comment, in a quoted heredoc body —
-#      does not count, see the known limits): the whole command is tokenized in one go (newline as an
+#      a string spanning lines, or an unclosed `$'...'`) or the command holds a `$'` that the pass over
+#      the whole command (_QuoteScan) cannot place (see the known limits; a `$'` it can place is read by
+#      the lexer and needs no fallback): the whole command is tokenized in one go (newline as an
 #      operator, a multi-line string becomes one token, no heredoc skipping except that the bodies of
-#      quoted-delimiter heredocs are cut out first); if that fails too, or for `$'...'` in any case,
-#      every word after a `>`-style operator in the raw text also counts as a target
-#      (_raw_redirect_targets) — over-blocking is the accepted price there — and the tokens each
+#      quoted-delimiter heredocs are cut out first, and not even those when a `$'` could not be placed);
+#      if that fails too, or when a `$'` could not be placed, every word after a `>`-style operator in the
+#      raw text also counts as a target (_raw_redirect_targets) — over-blocking is the accepted price
+#      there, and such a target knows no `cd` — and the tokens each
 #      attempt had read before the word that broke it (an earlier line, a command before the
 #      unclosed quote) are scanned as well (_TokenizeError.partial);
 #   4. the token stream is walked command by command (_scan_tokens): redirections, the write
@@ -65,8 +76,9 @@
 #     program stands, _SPAN_TEXT);
 #   - programs that write on their own are read by their arguments (_simple_command_targets): `git clone`
 #     (its destination, the folder named by the URL when none is given), `git init`, `worktree add`,
-#     `submodule add`, `archive -o`, `bundle create`, `format-patch -o`, `diff|log|show --output`; `robocopy` (destination, source with
-#     /MOV, log files); `perl`/`ruby -i` and `gawk -i inplace` (the files); `sort -o` (its output file) and the
+#     `submodule add`, `archive -o`, `bundle create`, `format-patch -o|--output`, `--output` of `diff`, `log`,
+#     `show`, `diff-tree`, `diff-index`, `diff-files`, `whatchanged` and `stash show`; `robocopy` (destination,
+#     source with /MOV, log files); `perl`/`ruby -i` and `gawk -i inplace` (the files); `sort -o` (its output file) and the
 #     output operand of `uniq`; `chmod`/`chown`/`chgrp` (the files, not the mode or owner word); and `xargs`,
 #     whose input words are operands of the command it runs: the
 #     literal output of the previous stage (`echo`, `printf`, a heredoc) is read, any other input is one
@@ -87,7 +99,10 @@
 #   - only the directory changes listed in _scan_tokens are followed (`cd`, `pushd` and the `popd` back to
 #     it, while the stack is certain); anything else there makes the base unknown rather than guessed. A
 #     folder name with blanks or parentheses counts as literal (_LITERAL_DIR_RE: only quoting can put them
-#     there);
+#     there). Compound keywords for a `&` behind a `{ }`, loop, `if` or `case` are read by position, not by
+#     grammar (_compound_marks): a quoted keyword, a `case` pattern spelled like one or the `}` of a function
+#     body counts as a keyword too; a closer therefore only adds a base, and a stray opener leaves the old
+#     reading of that `&`;
 #   - not recognized as writers at all: `patch`, a `tar`/`unzip` extraction into the
 #     implicit current directory (no explicit `-C`/`-d`), `find -delete` with no leading path
 #     operand, `git apply`/`stash`/`reset --hard`/`clean`. `tar -x -C <dir>`, `unzip -d <dir>` and
@@ -126,8 +141,11 @@
 #     before) - the program is `ssh` or the one of a system directory, a word in front is only a
 #     reserved word or the bare name of a wrapper that runs its argument list itself (_SSH_ARGV_WRAPPERS,
 #     a duration after `timeout`; never `parallel`, `xargs` or a wrapper's option), every word up to the destination is plain text (no `$`, backtick, `{`, `*`, `?`, `[`,
-#     `~`), every option is one of `-4 -6 -a -C -n -q -T -t -v -x` (also combined) or `-p <port>`,
-#     `-l <name>`, `-i <file>` (so never `-o`, `-F`, `-E`, `-J`, `-W`, `-L`, `-R`, `-D`), the
+#     `~`; except the value of `-i`, a plain word or `~/` and plain characters, and an allowed `-o` word,
+#     which is judged only by its key's value pattern), every option is one of
+#     `-4 -6 -a -C -n -q -T -t -v -x` (also combined) or `-p <port>`, `-l <name>`, `-i <file>`, `-o Key=Value`
+#     with a key of _SSH_SAFE_OPTION_VALUES and a value of its pattern (so never another `-o`, `-F`, `-E`,
+#     `-J`, `-W`, `-L`, `-R`, `-D`), the
 #     destination is `[user@]host` and not this machine (`localhost` and its variants, `127/8` and
 #     `0/8` in any spelling, the IPv6 loopback, `ip6-*`, this computer's own name: _is_local_ssh_host),
 #     the first word after it begins with a plain character other than `-` (ssh reads options after
@@ -161,15 +179,28 @@
 #     -rf d `` runs `rm -rf d`, the name being whatever the span's output is — unknowable here, the
 #     span's own content is still scanned. Resolved toward over-blocking only when some other,
 #     determinable part of the command names a target;
-#   - ANSI-C quoting `$'...'` is told from a `$'` that is only text by a pass over the whole command
-#     (_QuoteScan) that follows bash's quoting. Wherever
-#     that pass does not model something it gives up and counts the `$'` as live, so the answer errs
-#     toward the raw-redirect search: arithmetic `((`/`$((`/`$[`, a `${...}` beyond a plain name, a
-#     `$(...)` in a command that also has a `case`, a comment holding any quote/expansion character,
-#     a backtick span holding `$'`, an unterminated quote or span, a heredoc line that cannot be
-#     placed, nesting beyond 32 levels. Bodies of heredocs with a quoted delimiter are cut out before
-#     the whole-command fallback (bash never runs them); a body terminated only by a line the
-#     tokenizer accepts but bash does not (` EOF` with a blank in front) stays in;
+#   - ANSI-C quoting `$'...'` is read by the lexer (_read_word) and by every other reading in this file that
+#     has a quote model of its own (_QuoteScan, the joining of line continuations, the heredoc delimiter
+#     word, the arithmetic and `((` tracking, the walk over `$(...)`/`${...}` inside double quotes, the
+#     raw target word): the run ends at a quote no backslash takes along, and every one of them reads a `$$`
+#     as a pair first (the quote after it is a plain one). A `$'` that is only text is
+#     told from a live one by a pass over the whole command (_QuoteScan) that follows bash's quoting.
+#     Wherever that pass does not model something it gives up, and the command then keeps the whole-command
+#     fallback (step 3): arithmetic `((`/`$((`/`$[`, a `${...}` beyond a plain name, a `$(...)` in a command
+#     that also has a `case`, a comment holding any quote/expansion character, a backtick span holding
+#     `$'`, an unterminated quote or span, a heredoc line that cannot be placed, a `$'` in the body of a
+#     heredoc with an unquoted delimiter, nesting beyond 32 levels; its verdict may then be stricter than
+#     that of the same command with plain quotes (heredoc bodies are not skipped). Bodies of heredocs with
+#     a quoted delimiter are cut out before the whole-command fallback (bash never runs them); a body
+#     terminated only by a line the tokenizer accepts but bash does not (` EOF` with a blank in front)
+#     stays in. A `\x`/octal escape above 0x7F reads as the character of that code point, not as a byte,
+#     and `\u`/`\U` as the Unicode character (bash makes bytes of them in the locale's encoding);
+#   - an unquoted `${x:-'b'}` behind a closed `"a"` in nested text (the text of `sh -c`, `eval`, a
+#     heredoc fed to a shell, a `$(...)` inside double quotes) matches the test for a single quote in the
+#     word of a parameter expansion inside double quotes (_PARAM_WORD_QUOTE_RE: the closing quote of
+#     `"a"` is taken for an opening one), so it is reported as one more write nobody can place (check 1c
+#     does not stop an in-scope write for it, check 1 refuses when the text names .act/, a read
+#     included); the write itself is read as usual;
 #   - text nested deeper than _MAX_SCAN_DEPTH (`eval` inside `eval` ..., `$(...)` and backtick spans
 #     count too) is not read any further: it is reported as one target that names no knowable path
 #     (`$(` plus the remainder) next to its raw redirections, which check 1c denies and check 1 denies
@@ -239,10 +270,10 @@ _FD_DUP_WORD_RE = re.compile(r"^(?:\d+-?|-)$")
 # Backslash-newline (an odd number of backslashes before the newline) is a line continuation.
 _LINE_CONTINUATION_RE = re.compile(r"(?<!\\)((?:\\\\)*)\\\n")
 # What _join_line_continuations stops at: a backslash, a quote, a possible comment, a possible heredoc
-# operator, a newline. Everything between is copied as it is.
-_JOIN_SPECIAL_RE = re.compile(r"[\\'\"#<\n]")
+# operator, a newline, a dollar sign (where an ANSI-C `$'...'` may start). Everything between is copied as it is.
+_JOIN_SPECIAL_RE = re.compile(r"[\\'\"#<\n$]")
 # Inside a `$(...)` the parentheses count too: the substitution ends at the `)` that closes it.
-_JOIN_NESTED_SPECIAL_RE = re.compile(r"[\\'\"#<\n()]")
+_JOIN_NESTED_SPECIAL_RE = re.compile(r"[\\'\"#<\n()$]")
 # How deep `$(`/`${`/`$[` constructs may nest inside one word before the walk gives up with a
 # ValueError. An explicit bound, so the walk never depends on Python raising RecursionError (which
 # would not be a ValueError and would escape every caller that handles a tokenizing failure).
@@ -341,6 +372,20 @@ def _heredoc_delimiter_at(text: str, start: int) -> tuple[Optional[tuple[str, bo
             parts.append(text[index + 1])
             quoted = True
             index += 2
+        elif char == "$" and text.startswith("$$", index):
+            # `$$` is one unit (the process id), no expansion happens on the delimiter word, so both dollar signs
+            # are literal: in `<<$$'E'` the quote is a plain one and the delimiter is `$$E`.
+            parts.append("$$")
+            index += 2
+        elif char == "$" and text.startswith("$'", index):
+            # ANSI-C quoting in the delimiter (`<<$'EOF'`): the dollar sign is no part of it, the decoded run is,
+            # and the heredoc counts as quoted.
+            end = _ansi_c_end(text, index + 2)
+            if end < 0:
+                return None, start + 2
+            parts.append(_ansi_c_decode(text[index + 2:end]))
+            quoted = True
+            index = end + 1
         elif char == "$":
             # No expansion happens on the delimiter word, so an unquoted `$` is a literal part of it.
             parts.append(char)
@@ -449,6 +494,24 @@ def _join_scan(command: str, index: int, level: int) -> tuple[str, int, bool]:
             out.append("".join(piece))
             last = out[-1][-1]
             index = cursor
+        elif char == "$":
+            if _is_pid_pair(command, position):
+                # `$$` is the process id: a quote after it is a plain one, so no ANSI-C run starts here.
+                out.append("$$")
+                last = "$"
+                index = position + 2
+            elif command.startswith("$'", position):
+                # ANSI-C quoting: a backslash inside it takes the next character along, so the run ends at a
+                # quote no backslash escapes; a backslash-newline in it stays, as in single quotes.
+                end = _ansi_c_end(command, position + 2)
+                end = size if end < 0 else end + 1
+                out.append(command[position:end])
+                last = command[end - 1]
+                index = end
+            else:
+                out.append("$")
+                last = "$"
+                index = position + 1
         elif char == "#":
             if last == "" or last in _JOIN_WORD_END:
                 end = command.find("\n", position)
@@ -967,6 +1030,8 @@ def _collect_dq_nested(text: str, index: int, subs: list[str], depth: int = 0) -
         elif char == "`":
             content, index, _closed = _backtick_span(text, index + 1, in_double=True)
             subs.append(content)
+        elif _is_pid_pair(text, index):
+            index += 2  # the process id, before every character: `"$${x'}"` holds no `${...}`
         elif char == "$" and index + 1 < len(text) and text[index + 1] in _EXPANSION_CLOSERS:
             index = _collect_dq_expansion(text, index + 1, subs, depth + 1)
         else:
@@ -1029,6 +1094,9 @@ def _collect_dq_expansion(text: str, index: int, subs: list[str], depth: int = 0
     A `#` that starts a word inside `$(...)` is a comment to the end of the line: a quote character in it
     opens nothing.
 
+    An ANSI-C run `$'...'` in a command substitution or a parameter expansion is skipped whole as well, with
+    its own end (a quote no backslash takes along).
+
     Nested `"..."` runs are followed (_collect_dq_nested) and nested expansions of the same kind
     (`$(( ))`) and of another kind (`${x:-$(...)}`) are followed too. A `$(...)` command is not
     itself added here — the construct stays in the word verbatim, so the `"$("` re-scan in
@@ -1054,7 +1122,13 @@ def _collect_dq_expansion(text: str, index: int, subs: list[str], depth: int = 0
         elif char == "<" and command and text.startswith("<<", j):
             opening = _HEREDOC_WORD_RE.match(text, j)
             if opening is not None and opening.group(2):
-                pending.append((re.sub(r"['\"\\]", "", opening.group(2)), bool(opening.group(1))))
+                # An ANSI-C run in the delimiter (`<<$'EOF'`) is the text it decodes to, no `$` of its own.
+                word = re.sub(
+                    r"\$\$|\$'((?:[^'\\]|\\.)*)'",
+                    lambda run: run.group(0) if run.group(1) is None else _ansi_c_decode(run.group(1)),
+                    opening.group(2),
+                )
+                pending.append((re.sub(r"['\"\\]", "", word), bool(opening.group(1))))
                 j = opening.end()
             else:
                 j += 1
@@ -1071,6 +1145,13 @@ def _collect_dq_expansion(text: str, index: int, subs: list[str], depth: int = 0
                 return j + 1
             same_depth -= 1
             j += 1
+        elif char == "$" and not arithmetic and _is_pid_pair(text, j):
+            j += 2  # the process id: a quote after it is a plain one (read by the branch below)
+        elif char == "$" and not arithmetic and text.startswith("$'", j):
+            # ANSI-C quoting inside the construct: a backslash takes the next character along, so `\'` does
+            # not end the run (and a backtick in it opens no span).
+            end = _ansi_c_end(text, j + 2)
+            j = len(text) if end < 0 else end + 1
         elif char == "'" and not arithmetic:
             j = _skip_squote(text, j)
         elif char == "#" and opener == "(" and not arithmetic and (j == index + 1 or text[j - 1] in " \t\n;&|("):
@@ -1109,7 +1190,9 @@ def _read_word(
     quote or a trailing backslash, and — with `spans_must_close`, the tokenizing of one line on its
     own — on an unquoted span without its closing backtick: bash ends such a span in a later line,
     so this line alone does not show where the quoting goes on (the whole-command tokenizing does).
-    Without it, an unclosed span runs to the end of `text`."""
+    Without it, an unclosed span runs to the end of `text`. An unquoted, unescaped `$'` opens an ANSI-C run: it ends at
+    the next quote no backslash takes along (an unclosed one raises like any unclosed quote), its escapes are decoded
+    like bash (_ansi_c_decode) and the value is quoted text (live mark "'")."""
     parts: list[str] = []
     bare: list[str] = []
     live: list[str] = []  # one character per character of `parts`, see _Word
@@ -1153,6 +1236,14 @@ def _read_word(
                     # `\$` keeps its backslash in the word; the mark "E" on the `$` tells a later reading that the
                     # shell expands nothing there (_escaped_substitutions_only).
                     live.append(".E" if piece == "\\$" else "." * len(piece))
+                    in_name = False
+                    index += 2
+                elif _is_pid_pair(text, index):
+                    # `$$` is the process id, one unit, before every character: in `"$${x'}"` the braces and the
+                    # quote are plain text, no `${...}` starts at the second `$`.
+                    parts.append("$$")
+                    bare.append("$$")
+                    live.append("..")
                     in_name = False
                     index += 2
                 elif inner == "$" and index + 1 < len(text) and text[index + 1] in _EXPANSION_CLOSERS:
@@ -1204,6 +1295,25 @@ def _read_word(
             bare.append(text[index + 1])
             live.append(".")
             index += 2
+        elif _is_pid_pair(text, index):
+            # `$$` is the process id, one unit: a quote right after it is a plain single quote, not an ANSI-C run.
+            # Both dollar signs stay live, as every unquoted `$` is.
+            parts.append("$$")
+            bare.append("$$")
+            live.append("LL")
+            index += 2
+        elif char == "$" and text.startswith("$'", index):
+            # ANSI-C quoting: the run ends at the next quote no backslash takes along, its escapes are resolved
+            # the way bash does, and what is left is quoted text (no glob, no expansion, like a single-quoted
+            # run) - marked "'" in `live`. The `$` in front of the quote is no part of the word.
+            end = _ansi_c_end(text, index + 2)
+            if end < 0:
+                raise ValueError("No closing quotation")
+            value = _ansi_c_decode(text[index + 2:end])
+            parts.append(value)
+            bare.append(value)
+            live.append("'" * len(value))
+            index = end + 1
         elif char == "$" and index + 1 < len(text) and (
             text[index + 1] == "["
             or (text[index + 1] == "(" and index + 2 < len(text) and text[index + 2] == "(")
@@ -1313,6 +1423,15 @@ def _double_close_may_follow(line: str, start: int) -> bool:
         if char == "\\":
             index += 2
             continue
+        if _is_pid_pair(line, index):
+            index += 2
+            continue
+        if char == "$" and line.startswith("$'", index):
+            end = _ansi_c_end(line, index + 2)
+            if end < 0:
+                return True
+            index = end + 1
+            continue
         if char == "'":
             end = line.find("'", index + 1)
             if end < 0:
@@ -1355,6 +1474,13 @@ def _arithmetic_line_state(line: str, stack: str) -> tuple[str, Optional[list[bo
             end = line.find("'", index + 1)
             if end < 0:
                 break  # an unclosed quote: the line does not tokenize on its own, the caller gives up on it
+            index = end + 1
+        elif _is_pid_pair(line, index):
+            index += 2  # the process id: a quote after it is a plain one
+        elif line.startswith("$'", index):
+            end = _ansi_c_end(line, index + 2)  # ANSI-C quoting: a backslash takes the next character along
+            if end < 0:
+                break
             index = end + 1
         elif char == '"':
             end = index + 1
@@ -1607,17 +1733,41 @@ def _ps_reads_stdin(args: list[str]) -> bool:
     return True
 
 
-# Limit: a `$'...'` word with a backslash inside a double-quoted `bash -c "eval ..."` text is not read: the lexer keeps
-# the backslash of the outer quotes, so the inner ANSI-C text is not decoded.
 # What the escapes of an ANSI-C `$'...'` word stand for (bash's own table), and the numeric forms.
 _ANSI_C_SIMPLE = {"a": "\a", "b": "\b", "e": "\x1b", "E": "\x1b", "f": "\f", "n": "\n", "r": "\r", "t": "\t",
                   "v": "\v", "\\": "\\", "'": "'", '"': '"', "?": "?"}
 _ANSI_C_ESCAPE_RE = re.compile(
     r"\\(?:([0-7]{1,3})|x([0-9A-Fa-f]{1,2})|u([0-9A-Fa-f]{1,4})|U([0-9A-Fa-f]{1,8})|c(.)|(.))", re.DOTALL)
+# The next character that decides where an ANSI-C run ends: a backslash (it takes the next character along) or a quote.
+_ANSI_C_STOP_RE = re.compile(r"[\\']")
+
+
+def _is_pid_pair(text: str, index: int) -> bool:
+    """True when the `$$` at `text[index]` is the shell's process-id parameter, read as a pair from the left: a
+    quote right after it is a plain single quote, not the start of an ANSI-C run (`$$'x'` is the PID and `x`,
+    `$$$'x'` the PID and an ANSI-C run). Bash pairs an unescaped `$$` before every character, so does this: in
+    `$$(`, `$$[` and `$${` the second `$` starts nothing (bash itself stops with a syntax error at `$$(`; reading
+    it as the PID plus `(` can only block more)."""
+    return text.startswith("$$", index)
+
+
+def _ansi_c_end(text: str, start: int) -> int:
+    """The index of the single quote that closes the ANSI-C run whose first character after the opening `$'` is
+    `text[start]`, or -1 when it never closes. A backslash takes the next character along, so `\\'` does not end
+    the run (the one difference to a plain single-quoted run)."""
+    index = start
+    while True:
+        match = _ANSI_C_STOP_RE.search(text, index)
+        if match is None:
+            return -1
+        if text[match.start()] == "'":
+            return match.start()
+        index = match.start() + 2
 
 
 def _ansi_c_decode(raw: str) -> str:
-    """The text bash makes of the inside of `$'...'` (escapes resolved; an unknown escape stays as typed)."""
+    """The text bash makes of the inside of `$'...'` (escapes resolved; an unknown escape stays as typed; the
+    value ends at the first NUL it would hold, as bash's own strings do)."""
     def one(match: "re.Match[str]") -> str:
         octal, hexa, short, long_, control, simple = match.groups()
         try:
@@ -1632,17 +1782,20 @@ def _ansi_c_decode(raw: str) -> str:
         except (ValueError, OverflowError):
             return match.group(0)
         if control is not None:
-            return chr(ord(control) & 0x1F)
+            return "\x7f" if control == "?" else chr(ord(control) & 0x1F)
         return _ANSI_C_SIMPLE.get(simple, match.group(0))
 
-    return _ANSI_C_ESCAPE_RE.sub(one, raw)
+    value = _ANSI_C_ESCAPE_RE.sub(one, raw)
+    nul = value.find("\x00")
+    return value if nul < 0 else value[:nul]
 
 
 def _ansi_c_unquote(word: str) -> str:
-    """`word` with each ANSI-C run in it read as bash reads it: the lexer does not know `$'...'` and hands
-    it back as a live `$` followed by single-quoted text (`live`: "L" then "'" characters), so `eval
-    $'git config x'` came out as the command `$git`. Here the `$` is dropped and the escapes of the quoted run
-    (the characters marked "'" after it) are resolved. A word without `live` (a plain `str`), and a word
+    """`word` with each ANSI-C run in it read as bash reads it. The lexer (_read_word) decodes an unescaped `$'...'`
+    itself, so a word it made holds no live `$` in front of single-quoted text, except after a `$$` (the process id:
+    the quote after it is a plain one, so that pair is skipped here as a unit); what this still reads is a word
+    built another way, a live `$` followed by characters marked "'" in `live`: the `$` is dropped and the escapes
+    of the quoted run are resolved. A word without `live` (a plain `str`), and a word
     with no such `$`, come back as they are. A run of several single-quoted pieces that stand together
     (`$'a''b'`) is read as one run, which only matters for an escape in the second piece."""
     live = getattr(word, "live", None)
@@ -1652,7 +1805,10 @@ def _ansi_c_unquote(word: str) -> str:
     index = 0
     size = len(word)
     while index < size:
-        if word[index] == "$" and live[index] == "L" and index + 1 < size and live[index + 1] == "'":
+        if _is_pid_pair(word, index) and live[index:index + 2] == "LL":
+            pieces.append("$$")  # the process id: the quote after it is a plain one
+            index += 2
+        elif word[index] == "$" and live[index] == "L" and index + 1 < size and live[index + 1] == "'":
             end = index + 1
             while end < size and live[end] == "'":
                 end += 1
@@ -1897,8 +2053,9 @@ class _QuoteScan:
     """One pass over a whole command that follows the quoting bash applies — single quotes, double
     quotes with their nested `$(...)`, backslashes, comments, backtick spans, `<<` heredocs — to answer
     two questions the tokenizers cannot answer line by line: is there a `$'` that bash reads as ANSI-C
-    quoting (`run` raises _AnsiCFound), and which heredoc bodies belong to a quoted delimiter (`bodies`,
-    character ranges that bash never runs). It is built to err toward "assume the worst": everything it
+    quoting (`ansi_c`; an ANSI-C run is followed to its own end, a quote no backslash takes along), and
+    which heredoc bodies belong to a quoted delimiter (`bodies`, character ranges that bash never runs).
+    `run` raises _AnsiCFound where it cannot tell. It is built to err toward "assume the worst": everything it
     does not model on purpose raises _AnsiCFound instead of guessing — arithmetic `((`, `$((`, `$[`,
     a `${...}` that is not a plain parameter name, a `$(...)` in a command that also has a `case`, a
     comment that holds a quote, escape, expansion, `<` or `(`, a backtick span that holds `$'`, an
@@ -1913,6 +2070,7 @@ class _QuoteScan:
     def __init__(self, text: str) -> None:
         self.text = text
         self.has_case = _QS_CASE_RE.search(text) is not None
+        self.ansi_c = False  # set when a `$'...'` that bash reads as ANSI-C quoting stands in the text
         self.bodies: list[tuple[int, int]] = []
         self._missing: set[tuple[str, bool]] = set()
         self._line_starts: Optional[dict[str, list[int]]] = None
@@ -2034,7 +2192,11 @@ class _QuoteScan:
         if following == "'":
             if in_double:
                 return i + 2  # `"$'"`: inside double quotes it is two literal characters
-            raise _AnsiCFound("ANSI-C quoting")
+            end = _ansi_c_end(text, i + 2)
+            if end < 0:
+                raise _AnsiCFound("unterminated ANSI-C quote")
+            self.ansi_c = True
+            return end + 1  # a run of its own: a backslash takes the next character along
         if following == "(":
             if text.startswith("$((", i) or self.has_case:
                 raise _AnsiCFound("arithmetic expansion or case next to a command substitution")
@@ -2091,6 +2253,14 @@ class _QuoteScan:
                 parts.append(text[j + 1])
                 quoted = True
                 j += 2
+            elif char == "$" and text.startswith("$'", j):
+                end = _ansi_c_end(text, j + 2)
+                if end < 0:
+                    raise _AnsiCFound("unterminated ANSI-C quote")
+                self.ansi_c = True
+                parts.append(_ansi_c_decode(text[j + 2:end]))
+                quoted = True
+                j = end + 1
             elif char in "$`":
                 raise _AnsiCFound("heredoc delimiter with an expansion")
             else:
@@ -2167,15 +2337,15 @@ def _quote_scan(command: str) -> Optional[_QuoteScan]:
 
 
 def _may_use_ansi_c_quoting(command: str) -> bool:
-    """True if `command` may hold a `$'...'` that bash reads as ANSI-C quoting, which neither tokenizer
-    knows (`\\'` inside it does not end the string). A `$'` that is only text — inside single or
-    double quotes, backslash-escaped, in a comment, in a quoted heredoc body — is not: that is
-    what keeps `grep -v '$' f` and `python - <<'EOF'` with a `$'` in its text from being read as
-    ANSI-C. Whatever _QuoteScan cannot tell counts as ANSI-C (the previous test was the plain
-    substring `$'`)."""
+    """True if `command` may hold a `$'...'` that bash reads as ANSI-C quoting (`\\'` inside it does not end
+    the string). A `$'` that is only text — inside single or double quotes, backslash-escaped, in a comment,
+    in a quoted heredoc body — is not. Whatever _QuoteScan cannot tell counts as ANSI-C. A live `$'` the scan can
+    place does not send a command to a fallback: the lexer reads ANSI-C quoting itself (_read_word). Only a scan
+    that gives up does (_scan_command, _tokenize_chain ask _quote_scan for that)."""
     if "$'" not in command:
         return False
-    return _quote_scan(command) is None
+    scan = _quote_scan(command)
+    return scan is None or scan.ansi_c
 
 
 def _without_quoted_heredoc_bodies(command: str) -> str:
@@ -2208,13 +2378,11 @@ def _quote_model_applies(command: str) -> bool:
 
 def _tokenize_chain(command: str) -> Optional[list]:
     """The tokenizer for a whole chain (line mode first, whole-command fallback), None if neither
-    manages (an unclosed quote, or `$'...'` ANSI-C quoting, which that tokenizer does not know)."""
-    # The same quote pass the shell checks use (_may_use_ansi_c_quoting): a `$'` that is only
-    # text (in quotes, escaped, in a comment, in a quoted heredoc body) no longer defeats the tokenizer;
-    # whatever the pass cannot tell counts as a live ANSI-C quote. With a heredoc and a backslash-newline
-    # in one command the pass does not apply and any `$'` counts, as in the shell checks.
+    manages (an unclosed quote, including an unclosed `$'...'`). ANSI-C quoting is read by the lexer itself; only
+    a command with a `$'` the quote pass cannot place (_quote_scan gives up) gets None, as before: the line-wise
+    reading's heredoc skipping is not trusted there."""
     if "$'" in command:
-        if not _quote_model_applies(command) or _may_use_ansi_c_quoting(_LINE_CONTINUATION_RE.sub(r"\1", command)):
+        if not _quote_model_applies(command) or _quote_scan(_LINE_CONTINUATION_RE.sub(r"\1", command)) is None:
             return None
     try:
         return _line_mode_tokens(command)
@@ -2231,7 +2399,8 @@ def _raw_redirect_targets(command: str) -> list[str]:
     stripped off its ends, fd duplications (`>&2`) left out. Over-inclusive by design."""
     targets = []
     for match in _RAW_REDIRECT_RE.finditer(command):
-        word = match.group(1).strip("'\"")
+        # The `$` of an ANSI-C `$'...'` belongs to its quote, as the lexer reads it: no part of the word.
+        word = match.group(1)[1 if match.group(1).startswith("$'") else 0:].strip("'\"")
         if not _FD_DUP_WORD_RE.match(word):
             targets.append(word)
         # The expression above ends at the first blank, so a word that holds a quoted or escaped blank
@@ -2274,6 +2443,9 @@ def _raw_target_word(text: str, start: int) -> str:
                 pieces.append(text[index])
                 index += 1
             index += 1
+        elif _is_pid_pair(text, index):
+            pieces.append("$$")
+            index += 2
         elif char == "$" and text.startswith("$'", index):
             index += 2
             begin = index
@@ -2924,12 +3096,14 @@ def _clone_directory(url: str, bare: bool) -> Optional[str]:
     return last or None
 
 
-_GIT_OUTPUT_FILE_SUBS = frozenset({"diff", "log", "show"})
+_GIT_OUTPUT_FILE_SUBS = frozenset({"diff", "log", "show", "diff-tree", "diff-index", "diff-files", "whatchanged"})
 
 
-def _git_output_file_targets(args: list[str]) -> list[str]:
-    """The file `git diff|log|show --output=FILE` (also `--output FILE` and an abbreviation from `--ou`)
-    writes its result to; empty without one. Words after `--` are paths."""
+def _git_output_file_targets(args: list[str], with_directory: bool = False) -> list[str]:
+    """The file `git diff|log|show|diff-tree|diff-index|diff-files|whatchanged|stash show --output=FILE` (also
+    `--output FILE` and an abbreviation from `--ou`) writes its result to; empty without one. With
+    `with_directory` (`format-patch`, whose `--output-directory` an abbreviation from `--ou` may mean as well) the
+    value of such an abbreviation is a target either way. Words after `--` are paths."""
     targets: list[str] = []
     index = 0
     while index < len(args):
@@ -2940,7 +3114,7 @@ def _git_output_file_targets(args: list[str]) -> list[str]:
         if not arg.startswith("--"):
             continue
         name, has_value, value = arg.partition("=")
-        if len(name) >= 4 and "--output".startswith(name):
+        if len(name) >= 4 and ("--output".startswith(name) or (with_directory and "--output-directory".startswith(name))):
             if has_value:
                 if value:
                     targets.append(value)
@@ -2954,7 +3128,8 @@ def _git_creator_targets(sub: str, args: list[str]) -> list[str]:
     """What a git subcommand that creates files or directories of its own writes (the words after the
     subcommand are `args`): the destination of `clone` (the one derived from the URL when none is
     given) and `submodule add`, the directory of `init`, `worktree add` and `format-patch -o`, the file of
-    `bundle create` and `archive -o`, the `--output` file of `diff`, `log` and `show`. [] for any other subcommand."""
+    `bundle create` and `archive -o`, the `--output` file of `diff`, `log`, `show`, `diff-tree`, `diff-index`,
+    `diff-files`, `whatchanged`, `stash show` and `format-patch`. [] for any other subcommand."""
     if sub == "clone":
         operands, values = _operands(args, _GIT_CLONE_VALUE_FLAGS)
         bare = any(arg in ("--bare", "--mirror") for arg in args)
@@ -2968,6 +3143,8 @@ def _git_creator_targets(sub: str, args: list[str]) -> list[str]:
         return targets
     if sub in _GIT_OUTPUT_FILE_SUBS:
         return _git_output_file_targets(args)
+    if sub == "stash":
+        return _git_output_file_targets(args[1:]) if args[:1] == ["show"] else []
     spec = _GIT_CREATORS.get(sub)
     if spec is None:
         return []
@@ -2988,7 +3165,10 @@ def _git_creator_targets(sub: str, args: list[str]) -> list[str]:
         return [implied] if implied else []
     if sub == "bundle":
         return operands[:1]
-    return list(values.get("-o", [])) + list(values.get("--output", [])) + list(values.get("--output-directory", []))
+    found = list(values.get("-o", [])) + list(values.get("--output", [])) + list(values.get("--output-directory", []))
+    if sub == "format-patch":
+        found += [target for target in _git_output_file_targets(args, True) if target not in found]
+    return found
 
 
 def _simple_command_targets(
@@ -3669,9 +3849,12 @@ _SSH_DURATION_RE = re.compile(r"\d+(?:\.\d+)?[smhd]?")
 # text to count as remote. The program: `ssh` itself, or the one of a system directory. A word up to and
 # including the destination is plain when the shell expands nothing in it: no `$`, backtick, brace, glob
 # character or tilde. The options: flags that change nothing about where the text runs (`-4`, `-6`, `-a`,
-# `-C`, `-n`, `-q`, `-T`, `-t`, `-v`, `-x`, also combined, `-tt`, `-vvv`) and three that take a value
-# (`-p` a port of digits, `-l` a login name, `-i` an identity file - glued or as the next word). Any other
-# option (`-o`, `-F`, `-E`, `-J`, `-W`, `-L`, `-R`, `-D`, ...) can change the destination, run a program
+# `-C`, `-n`, `-q`, `-T`, `-t`, `-v`, `-x`, also combined, `-tt`, `-vvv`) and four that take a value
+# (`-p` a port of digits, `-l` a login name, `-i` an identity file - glued or as the next word, a plain word
+# or `~/` and plain characters - and `-o` with one `Key=Value` word out of _SSH_SAFE_OPTION_VALUES: keys that
+# only tune the connection or name a file to read, each with a value of its own pattern). Any other
+# option (`-F`, `-E`, `-J`, `-W`, `-L`, `-R`, `-D`, ...) and any other `-o` key or value (`ProxyCommand`,
+# `LocalCommand`, `Hostname`, ..., the `Key Value` form) can change the destination, run a program
 # here or write a file here and is left off the list on purpose. The destination: `[user@]host`, a name
 # or an address.
 _SSH_PROGRAM_RE = re.compile(
@@ -3680,7 +3863,24 @@ _SSH_PROGRAM_RE = re.compile(
     re.IGNORECASE,
 )
 _SSH_PLAIN_WORD_RE = re.compile(r"[^$`{*?\[~]+")
-_SSH_OPTION_RE = re.compile(r"-([46aCnqTtvx]*)(?:([pli])(.*))?")
+_SSH_OPTION_RE = re.compile(r"-([46aCnqTtvx]*)(?:([plio])(.*))?")
+# `-i` value: a plain word, or `~/` and plain characters (the one tilde a shell expands to the home folder).
+_SSH_IDENTITY_RE = re.compile(r"(?:~/)?[^$`{*?\[~]+")
+_SSH_YES_NO = "yes|no"
+_SSH_DIGITS = "[0-9]{1,6}"
+# The `-o` keys (lower case) whose single `Key=Value` word leaves the call as it is: they tune the
+# connection or name a file ssh reads, none runs a program, changes the destination or writes a file.
+_SSH_SAFE_OPTION_VALUES = {
+    "stricthostkeychecking": "yes|no|ask|accept-new|off",
+    "batchmode": _SSH_YES_NO, "identitiesonly": _SSH_YES_NO, "passwordauthentication": _SSH_YES_NO,
+    "pubkeyauthentication": _SSH_YES_NO, "compression": _SSH_YES_NO,
+    "connecttimeout": _SSH_DIGITS, "serveraliveinterval": _SSH_DIGITS, "serveralivecountmax": _SSH_DIGITS,
+    "connectionattempts": _SSH_DIGITS, "port": _SSH_DIGITS,
+    "loglevel": "QUIET|FATAL|ERROR|INFO|VERBOSE|DEBUG|DEBUG1|DEBUG2|DEBUG3",
+    "user": "[A-Za-z0-9._-]+",
+    "userknownhostsfile": "/dev/null", "globalknownhostsfile": "/dev/null",
+    "identityfile": _SSH_IDENTITY_RE.pattern,
+}
 _SSH_PORT_RE = re.compile(r"[0-9]{1,5}")
 _SSH_DESTINATION_RE = re.compile(r"(?:[\w.-]+@)?(?:[A-Za-z0-9][\w.-]*|[0-9A-Fa-f.]*:[0-9A-Fa-f:.]*)")
 _NUMERIC_HOST_LABEL_RE = re.compile(r"(?:0x[0-9a-f]+|[0-9]+)", re.IGNORECASE)
@@ -3754,6 +3954,14 @@ def _is_local_ssh_host(host: str) -> bool:
     )
 
 
+def _ssh_safe_option(value: str) -> bool:
+    """Whether `value` (the word after `-o`) is `Key=Value` with a key of _SSH_SAFE_OPTION_VALUES (any case)
+    and a value that matches that key's pattern whole."""
+    key, equals, setting = value.partition("=")
+    pattern = _SSH_SAFE_OPTION_VALUES.get(key.lower())
+    return bool(equals) and pattern is not None and re.fullmatch(pattern, setting) is not None
+
+
 def _ssh_may_run_remote(command: str) -> bool:
     """True when `command` names ssh and nothing in it can make that word run something else
     (_SSH_SHADOWED_RE): only then is the command text of an ssh call left out of the local reading."""
@@ -3768,8 +3976,10 @@ def _ssh_remote_start(words: list[str]) -> Optional[int]:
     (`PATH=`) or that is neither a reserved word (`if`, `{`, ...) nor a wrapper of _SSH_ARGV_WRAPPERS
     (`parallel`, `xargs`, an option of a wrapper: the words may reach a shell); a word from the first up
     to the destination that the shell still expands
-    (_SSH_PLAIN_WORD_RE; the reserved words `if`, `{`, ... in front are plain); an option not in
-    _SSH_OPTION_RE, or a port that is not digits; a destination that is not `[user@]host`
+    (_SSH_PLAIN_WORD_RE; the reserved words `if`, `{`, ... in front are plain; the value of `-i` may also be
+    `~/` and plain characters, _SSH_IDENTITY_RE, and an `-o Key=Value` word is judged only by its key's value
+    pattern, _ssh_safe_option); an option not in _SSH_OPTION_RE, an `-o` key or value off
+    _SSH_SAFE_OPTION_VALUES, or a port that is not digits; a destination that is not `[user@]host`
     (_SSH_DESTINATION_RE) or is this machine (_is_local_ssh_host); no command; a first command word that
     is empty or begins with `-` or with something the shell expands - ssh reads options after the
     destination too (a `--` in front of it ends them, which changes nothing here), and an expansion
@@ -3778,6 +3988,7 @@ def _ssh_remote_start(words: list[str]) -> Optional[int]:
     if at >= len(words) or _SSH_PROGRAM_RE.fullmatch(str(words[at])) is None:
         return None
     index = at + 1
+    checked: set[int] = set()  # the words an option's own pattern has judged: no plain-word test for them
     while index < len(words):
         arg = str(words[index])
         if arg == "--":
@@ -3794,11 +4005,17 @@ def _ssh_remote_start(words: list[str]) -> Optional[int]:
             value = str(words[index]) if index < len(words) else ""
         if letter == "p" and _SSH_PORT_RE.fullmatch(value) is None:
             return None
+        if letter == "o" and not _ssh_safe_option(value):
+            return None
+        if letter == "o" or (letter == "i" and _SSH_IDENTITY_RE.fullmatch(value) is not None):
+            checked.add(index)
         index += 1
     if index + 1 >= len(words):
         return None
     for position, word in enumerate(words[:index + 1]):
         plain = str(word)
+        if position in checked:
+            continue
         if position < at:
             after_timeout = position > 0 and str(words[position - 1]) == "timeout"
             if plain in _RESERVED_PREFIXES or plain in _SSH_ARGV_WRAPPERS:
@@ -3937,6 +4154,35 @@ def _ssh_local_effects(words: list[str]) -> tuple[list[str], Optional[str]]:
 _REPEATING_CONSTRUCT_WORDS = frozenset({"for", "while", "until", "if", "case", "select", "function"})
 
 
+_COMPOUND_OPENERS = frozenset({"{", "if", "while", "until", "for", "select", "case"})
+_COMPOUND_CLOSERS = frozenset({"}", "fi", "done", "esac"})
+# Words that may stand in front of the command of a segment without ending the construct they belong to.
+_COMPOUND_CONTINUERS = frozenset({"do", "then", "else", "elif", "!", "time"})
+
+
+def _compound_marks(words: list[str]) -> list[bool]:
+    """The compound-command keywords a segment starts with, in order: True for one that opens a body (`{`, `if`,
+    `while`, `until`, `for`, `select`, `case`), False for one that closes it (`}`, `fi`, `done`, `esac`).
+    `do`, `then`, `else`, `elif`, `!` and `time` are skipped; the first other word ends the run, as do the
+    headers of `for`, `select` and `case`, whose words are no command. The words are read without their quotes
+    and without knowing `case` patterns, a leading redirection or `function NAME {`, so a quoted keyword, a
+    pattern spelled like a keyword or the `}` of a function body can be taken for one. That only widens what a
+    background list returns to: a closer adds the base its compound began with to the current one, never
+    replaces it (_scan_tokens), and a stray opener leaves the base as it was."""
+    marks: list[bool] = []
+    for word in words:
+        text = str(word)
+        if text in _COMPOUND_OPENERS:
+            marks.append(True)
+            if text in ("for", "select", "case"):
+                break
+        elif text in _COMPOUND_CLOSERS:
+            marks.append(False)
+        elif text not in _COMPOUND_CONTINUERS:
+            break
+    return marks
+
+
 def _dir_stack_unreliable(tokens: list[_Token]) -> bool:
     """Whether the directory stack of `pushd`/`popd` cannot be followed through this token stream: `dirs`
     (`dirs -c` empties it) or an assignment to / `unset` of `DIRSTACK` changes it behind the scanner's back,
@@ -3968,7 +4214,9 @@ def _scan_tokens(tokens: list[_Token], start_bases: _Bases, git_writes: frozense
         form or without a certain stack, any `pushd` inside a subshell or `$(...)`, and one next
         to a pipe or `&` add "unknown" (a literal `cd` inside a subshell holds until the `)`);
       - a list that ends in `&` ran as one background job: what follows runs where the list began, and the
-        `pushd` stack is the one the list began with;
+        `pushd` stack is the one the list began with. When a `{ }`, loop, `if` or `case` with an inner `;` stands
+        in it, the closing word adds the base the compound began with (compound_starts), so what follows is
+        judged in both, and a stack that changed inside the compound makes a later `popd` unknown;
       - a folder a plain `mkdir` with literal operands made earlier in the line (first in its list, outside a
         subshell, a pipe, a construct whose body may not run) counts as existing for a `cd` to it, unless a
         file is in the way or a later command removes or moves it (_WrittenPlaces.note_created);
@@ -3997,6 +4245,13 @@ def _scan_tokens(tokens: list[_Token], start_bases: _Bases, git_writes: frozense
     closed_group: Optional[str] = None
     dir_stack: list[_Bases] = []  # the directories `pushd` left, for a later `popd`
     list_stack: list[_Bases] = []  # the stack as the current list began: what a background list leaves behind
+    # The `list_start` and the list's `pushd` stack that held where each open compound command (`{ }`,
+    # `for`/`while`/`until` ... `done`, `if` ... `fi`, `case` ... `esac`) began: an inner `;`, newline or `&&` moves
+    # them, but the `&` behind the closing word backgrounds the whole list, which began before the compound.
+    compound_starts: list[tuple[_Bases, list[_Bases]]] = []
+    # True once a closing word found the list's `pushd` stack changed inside its compound: a `&` ending the list then
+    # leaves a stack the scanner cannot name.
+    compound_stack_changed = False
     # False once a `pushd`/`popd` was not followed: a `popd` is then unknown. It is false from the start when the
     # command can change the stack by other means or run a `pushd`/`popd` a different number of times than it
     # is written (_dir_stack_unreliable).
@@ -4156,6 +4411,16 @@ def _scan_tokens(tokens: list[_Token], start_bases: _Bases, git_writes: frozense
                         after_list = after_list | new_bases
                     bases = new_bases
         produced, closed_group = _track_group_output(group_outputs, words, separator, produced, closed_group)
+        for opens in _compound_marks(words):
+            if opens:
+                compound_starts.append((list_start, list(list_stack)))
+            elif compound_starts:
+                # Never narrower than before: a word taken for a closer by mistake (_compound_marks) must not
+                # drop the base the list is in now.
+                began, began_stack = compound_starts.pop()
+                list_start = list_start | began
+                if began_stack != list_stack:
+                    compound_stack_changed = True
         # A pipe hands the stage's literal output on; a `(` right behind a pipe (`cat <<EOF | (python -)`)
         # passes what it got to the first command inside.
         if separator in _PIPE_OPS:
@@ -4187,6 +4452,9 @@ def _scan_tokens(tokens: list[_Token], start_bases: _Bases, git_writes: frozense
                 after_list = list_start
                 if not saved:
                     dir_stack = list(list_stack)
+                if compound_stack_changed:
+                    dir_stack_known = False
+            compound_stack_changed = False
             bases = list_start = after_list
             if not saved:
                 list_stack = list(dir_stack)
@@ -4200,11 +4468,11 @@ def _scan_tokens(tokens: list[_Token], start_bases: _Bases, git_writes: frozense
 
 
 def _scan_heredocs_for_inline_code(command: str, bases: _Bases, git_writes: frozenset, depth: int) -> None:
-    """Inline-code reading only (_INLINE_SINK set), for a command that may use ANSI-C quoting `$'...'`:
+    """Inline-code reading only (_INLINE_SINK set), for a command with a `$'` the quote pass could not place:
     _scan_command then tokenizes the whole command without reading heredocs, so a program fed as a
     heredoc (`IFS=$'\\n'; python - <<'EOF' ...`) would never be seen. This walks the line-wise reading
     once more - the one that knows heredocs - and keeps only what it adds to the sink; its targets are
-    dropped, and a `$'` this lexer misreads costs this pass its tokens from there on (what it read
+    dropped, and a word this reading cannot tokenize costs this pass its tokens from there on (what it read
     before still counts), never the result of any other check."""
     try:
         tokens = _line_mode_tokens(command)
@@ -4238,8 +4506,12 @@ def _scan_command(command: str, bases: _Bases, git_writes: frozenset, depth: int
     tokens: Optional[list[_Token]] = None
     prefixes: list[list[_Token]] = []  # what came before the word that broke a tokenizing attempt
     too_deep = False  # a construct nested deeper than the tokenizer follows: what comes after it is unknown
-    ansi_c_quoting = _may_use_ansi_c_quoting(command) if quote_model else "$'" in command
-    if not ansi_c_quoting:
+    # The lexer reads ANSI-C quoting itself, so a `$'` alone does not change the reading. Only a `$'` the quote
+    # pass cannot place (it gives up on a comment with a quote, arithmetic, a `${...}` with an operator, ...)
+    # keeps the old caution: the heredoc skipping of the line-wise reading is not trusted there, the whole
+    # command is read in one go and no heredoc body is skipped.
+    unsure = "$'" in command and (not quote_model or _quote_scan(command) is None)
+    if not unsure:
         try:
             tokens = _line_mode_tokens(command, with_spans)
         except ValueError as error:
@@ -4248,9 +4520,9 @@ def _scan_command(command: str, bases: _Bases, git_writes: frozenset, depth: int
             prefixes.append(getattr(error, "partial", []))
     if tokens is None:
         # The whole-command fallback skips no heredoc itself: the bodies of quoted-delimiter heredocs,
-        # which bash never runs, are cut out first (unless `$'` may be live, where nothing is trusted).
+        # which bash never runs, are cut out first (unless a `$'` could not be placed, where nothing is trusted).
         # A body that may be a shell's script (`bash <<'EOF'`) is not cut out either: it is scanned.
-        keep_bodies = ansi_c_quoting or not quote_model or _heredoc_may_feed_shell(command)
+        keep_bodies = unsure or not quote_model or _heredoc_may_feed_shell(command)
         whole = command if keep_bodies else _without_quoted_heredoc_bodies(command)
         try:
             tokens = _shell_tokens(whole, newline_is_operator=True)
@@ -4258,9 +4530,9 @@ def _scan_command(command: str, bases: _Bases, git_writes: frozenset, depth: int
             tokens = None
             too_deep = too_deep or _TOO_DEEP_MESSAGE in str(error)
             prefixes.append(getattr(error, "partial", []))
-        if tokens is None or ansi_c_quoting:
+        if tokens is None or unsure:
             found.extend((target, None) for target in _raw_redirect_targets(whole))
-    if ansi_c_quoting and _INLINE_SINK is not None:
+    if unsure and _INLINE_SINK is not None:
         _scan_heredocs_for_inline_code(command, bases, git_writes, depth)
     if tokens is not None:
         found.extend(_scan_tokens(tokens, bases, git_writes, depth))

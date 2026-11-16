@@ -47,8 +47,14 @@
 # call of the code shows, and _inline_target_offends judges each like a write target (but not as a shell
 # word). A check refuses only what the command text shows to be wrong: a target the text does not show (a
 # variable, a substitution, unreadable code, a relative path whose directory is unknown) passes, a shell
-# variable the same command assigns once as a simple literal is judged by that value (_known_target), and
-# every target under `.act-local/tmp/` of the project is free (_is_throwaway_target).
+# variable the same command assigns exactly once, as a simple literal (`f=v`, behind `export`, `local`,
+# `declare`, `typeset`, `readonly` with the flags `-r -x -g`, several names in one assignment-only command;
+# not a prefix assignment of a command), is judged by that value (_known_target), a name assigned more than
+# once stays unknown, and every target under `.act-local/tmp/` of the project is free (_is_throwaway_target).
+# Limit: the assignment is read wherever it stands in the text, so one that bash does not run before the write
+# (inside `( ... )`, in a later pipeline stage, in a branch that does not run, after `unset`, in a heredoc body
+# or a quoted string, `local` outside a function, a name only a child `bash -c` sees, a quoted `'$f'` or `\$f`
+# target, a non-ASCII name) can be taken as the value: a possible false block on a constructed command.
 #
 # A Bash target's quoting travels with it up to the judgment (shell_targets._Word.live): a glob
 # character bash takes literally - quoted or escaped - expands nothing, so `mkdir -p 'server/api/[id]'`
@@ -74,7 +80,7 @@ import actlib
 from . import inline_code as _inline_code
 from .brace_expand import literal_brace_variants
 from .command_parse import parse_for
-from .common import _TOOL_PATH_FIELDS, _WORKER_TOOL_NAMES, _check_mode, _is_unplaced_target
+from .common import _TOOL_PATH_FIELDS, _WORKER_TOOL_NAMES, _check_mode, _is_unplaced_target, _note_refusal_class
 from .shell_targets import (
     _GIT_WRITES_WORKER_SCOPE,
     _Word,
@@ -90,7 +96,7 @@ __all__ = [
     "_external_pattern", "_scope_pattern", "_parse_write_scope", "_parse_pattern_list", "_parse_tests_scope", "_assignment_scope", "_worker_scopes_dir",
     "_worker_scope_file", "_read_json_object", "_entry_is_fresh", "_scope_file_is_prunable",
     "_prune_worker_scope_files", "_store_worker_scope_entry", "_entry_has_ended",
-    "_record_worker_scope", "_read_worker_scope_entry", "_recent_restricted_scope_registered",
+    "_record_worker_scope", "_unrecordable_scope_message", "_read_worker_scope_entry", "_recent_restricted_scope_registered",
     "_scope_via_meta", "_scope_via_transcript", "_resolve_worker_scope",
     "_WORKFLOW_TASK_RE", "_WORKFLOW_SCAN_LINES", "_record_content", "_workflow_task_text",
     "_agent_assignment_text",
@@ -448,8 +454,10 @@ def _prune_worker_scope_files(dir_path: Path, skip: Path) -> None:
     needed. `skip` is the file just written in this same call, left alone unconditionally (it
     cannot be stale — it was just stamped with the current time)."""
     try:
+        if not actlib.local_write_ok(actlib.repo_root(), dir_path):
+            return  # behind a link out of the project nothing is removed
         candidates = list(dir_path.glob("*.json"))
-    except OSError:
+    except (OSError, RuntimeError):
         return
     for path in candidates:
         if path == skip:
@@ -464,8 +472,11 @@ def _prune_worker_scope_files(dir_path: Path, skip: Path) -> None:
 def _store_worker_scope_entry(path: Path, entry: dict) -> bool:
     """Write one worker-scopes entry to `path`, via a temp file plus os.replace in the same directory, so a
     concurrent reader never observes a partially written file -- os.replace is an atomic rename on both POSIX
-    and Windows. False if it could not be written (the temp file is removed again)."""
+    and Windows. False if it could not be written (the temp file is removed again), or if `.act-local` leads out
+    of the project (actlib.local_write_ok): nothing is written through a link."""
     try:
+        if not actlib.local_write_ok(actlib.repo_root(), path):
+            return False
         path.parent.mkdir(parents=True, exist_ok=True)
         # suffix ".tmp", not ".json": _prune_worker_scope_files globs "*.json", and a temp file
         # that matched that pattern was briefly visible (between creation and the os.replace
@@ -473,7 +484,7 @@ def _store_worker_scope_entry(path: Path, entry: dict) -> bool:
         # replace runs, dropping this write silently (2026-09-23 review, t26_race.py: 8 parallel
         # starts sometimes wrote as few as 4 of 8 files under the old ".json"-suffixed temp name).
         fd, tmp_name = tempfile.mkstemp(prefix=".tmp-", suffix=".tmp", dir=str(path.parent))
-    except OSError:
+    except (OSError, RuntimeError):
         return False
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
@@ -510,6 +521,23 @@ def _record_worker_scope(root: Path, tool_use_id: str, scope: dict) -> None:
     entry["ts"] = datetime.now(timezone.utc).isoformat()
     if _store_worker_scope_entry(path, entry):
         _prune_worker_scope_files(path.parent, skip=path)
+
+
+def _unrecordable_scope_message(root: Path, tool_use_id: str, scope: dict) -> Optional[str]:
+    """A message when this start names a restricted `Write scope:` (or a `Tests:` line) that cannot be
+    recorded because `.act-local` leads out of the project (actlib.local_write_ok): the scope would then go
+    unenforced without a word. None when the scope is unrestricted or can be recorded."""
+    if scope.get("mode") == "unrestricted" and not scope.get("tests"):
+        return None
+    path = _worker_scope_file(root, tool_use_id)
+    if path is None or actlib.local_write_ok(root, path):
+        return None
+    return (
+        "[act] this assignment names a `Write scope:` or `Tests:` line, but worker scopes cannot be recorded "
+        "while `.act-local` is a link out of the project, so the scope would not be enforced: remove the link, "
+        "or switch the row off for one run (`worker-write-scope`, `worker-scope-overlap` in docs/ai/config.md "
+        "§ Checks)."
+    )
 
 
 def _read_worker_scope_entry(root: Path, tool_use_id: str) -> Optional[dict]:
@@ -1028,27 +1056,37 @@ def _inline_hint(language: str, scope: dict, in_throwaway_place: bool = False) -
     return f"{hint}; {way_out}" if way_out else hint
 
 
-# A plain variable assignment of a shell command - `NAME=value` at the start of a command, the value one
-# unquoted word, a single-quoted or a double-quoted text with no expansion in it (`f=server/x.ts && sed -i
-# ... $f`) - and a use of a variable in a target (`$NAME`, `${NAME}`).
-_ASSIGNMENT_RE = re.compile(
-    r"""(?:^|[;&|\n])[ \t]*(?:export[ \t]+)?([A-Za-z_]\w*)=(?:"([^"$`\\\n]*)"|'([^'\n]*)'|([\w./:+@%-]+))(?=[ \t]*(?:&&|\|\||;|\n|$))"""
+# A value a shell variable is bound to as a plain literal: one unquoted word, a single-quoted text, or a
+# double-quoted text with no expansion in it.
+_LITERAL_VALUE = r"""(?:"[^"$`\\\n]*"|'[^'\n]*'|[\w./:+@%-]+)"""
+_ASSIGN_WORD = rf"[A-Za-z_]\w*={_LITERAL_VALUE}"
+# An assignment-only command - `NAME=value` words, optionally behind `export`, `local`, `declare`, `typeset` or
+# `readonly` with plain flags (`-r -x -g`), up to the end of the command (`f=server/x.ts && sed -i ... $f`,
+# `f=a g=other/y; ...`). A prefix assignment of a command (`g=x cmd $g`) is no such command: bash expands `$g`
+# before the assignment is made, so it binds nothing the command sees.
+_ASSIGNMENT_COMMAND_RE = re.compile(
+    rf"""(?:^|[;&|\n])[ \t]*((?:(?:export|local|declare|typeset|readonly)[ \t]+(?:-[rxg]+[ \t]+)*)?{_ASSIGN_WORD}(?:[ \t]+{_ASSIGN_WORD})*)(?=[ \t]*(?:&&|\|\||;|\n|$))"""
 )
+_ASSIGN_PART_RE = re.compile(rf"(?:^|[ \t])([A-Za-z_]\w*)=({_LITERAL_VALUE})(?=[ \t]|$)")
 # A word that changes the directory a Bash command runs in; without one a relative target resolves against the
 # directory the call started in, even where the scanner lost track of it (a quote it could not read).
 _CHDIR_RE = re.compile(r"(?<![\w.-])(?:cd|pushd|popd|chdir|sl|Set-Location)(?![\w.-])|\s-C\b|--chdir|--directory", re.IGNORECASE)
 _VARIABLE_USE_RE =re.compile(r"\$(?:([A-Za-z_]\w*)|\{([A-Za-z_]\w*)\})")
 _NAME_ASSIGNED_RE = re.compile(r"(?:^|[;&|(\n\s])(?:export[ \t]+)?([A-Za-z_]\w*)\+?=")
-# Other ways a shell name gets bound: a loop or `select` variable, and the names after `read`, `local`,
-# `declare`, `typeset`, `readonly`, `getopts`, `mapfile`, `readarray` - such a name is never resolved.
+# Other ways a shell name gets bound: a loop or `select` variable, and the names after `read`, `getopts`,
+# `mapfile`, `readarray` - such a name is never resolved. The declaring words `local`, `declare`, `typeset` and
+# `readonly` bind a name to a literal in an assignment-only command; with another flag (`declare -i`, `-n`,
+# `-a` ...), without a value or with a value that is no literal their names are never resolved either.
 _NAME_LOOP_RE = re.compile(r"\b(?:for|select)[ \t]+([A-Za-z_]\w*)")
-_NAME_DECLARED_RE = re.compile(r"\b(?:read|local|declare|typeset|readonly|getopts|mapfile|readarray)\b([^;&|\n]*)")
+_NAME_READ_RE = re.compile(r"\b(?:read|getopts|mapfile|readarray)\b([^;&|\n]*)")
+_NAME_DECLARED_RE = re.compile(r"\b(?:local|declare|typeset|readonly)\b([^;&|\n]*)")
+_PLAIN_FLAG_RE = re.compile(r"-[rxg]+")
 
 
 def _known_target(raw: str, literal_brace: bool, command: str) -> Optional[str]:
     """The text of a shell write target as it can be judged, or None where the command text does not show it:
-    a variable is replaced by the value the command assigns it as a simple literal (_with_assigned_values), one
-    it does not, a substitution, and a brace list of unknown quoting stay unknown."""
+    a variable is replaced by the value the command assigns it once as a simple literal (_with_assigned_values),
+    one it does not, a substitution, and a brace list of unknown quoting stay unknown."""
     if _is_unplaced_target(raw):
         return None
     if _INLINE_DYNAMIC_RE.search(raw):
@@ -1068,14 +1106,24 @@ def _with_assigned_values(target: str, command: str) -> str:
         counts[match.group(1)] = counts.get(match.group(1), 0) + 1
     for match in _NAME_LOOP_RE.finditer(command):
         counts[match.group(1)] = counts.get(match.group(1), 0) + 2
-    for match in _NAME_DECLARED_RE.finditer(command):
+    for match in _NAME_READ_RE.finditer(command):
         for name in re.findall(r"[A-Za-z_]\w*", match.group(1)):
             counts[name] = counts.get(name, 0) + 2
-    values = {
-        match.group(1): next(group for group in match.groups()[1:] if group is not None)
-        for match in _ASSIGNMENT_RE.finditer(command)
-        if counts.get(match.group(1)) == 1
-    }
+    for match in _NAME_DECLARED_RE.finditer(command):
+        words = match.group(1).split()
+        plain_flags = all(_PLAIN_FLAG_RE.fullmatch(word) for word in words if word.startswith("-"))
+        for word in (word for word in words if not word.startswith("-")):
+            parsed = re.match(r"([A-Za-z_]\w*)=(.*)$", word)
+            if plain_flags and parsed is not None and re.fullmatch(_LITERAL_VALUE, parsed.group(2)):
+                continue  # a literal binding, counted by _NAME_ASSIGNED_RE
+            for name in re.findall(r"[A-Za-z_]\w*", word):
+                counts[name] = counts.get(name, 0) + 2
+    values: dict[str, str] = {}
+    for command_match in _ASSIGNMENT_COMMAND_RE.finditer(command):
+        for part in _ASSIGN_PART_RE.finditer(command_match.group(1)):
+            if counts.get(part.group(1)) == 1:
+                value = part.group(2)
+                values[part.group(1)] = value[1:-1] if value[:1] in ("'", '"') else value
 
     def value_of(match: "re.Match[str]") -> str:
         name = match.group(1) or match.group(2)
@@ -1117,6 +1165,18 @@ def check_worker_write_scope(payload: dict) -> int:
             prompt = tool_input.get("prompt")
             if isinstance(tool_use_id, str) and tool_use_id and isinstance(prompt, str):
                 scope = _assignment_scope(prompt, root)
+                session = payload.get("session_id")
+                if isinstance(session, str) and _SAFE_ID_RE.match(session):
+                    scope = dict(scope, session=session)  # as worker_scope_overlap records it
+                transcript = payload.get("transcript_path")
+                if isinstance(transcript, str) and transcript:
+                    scope = dict(scope, transcript_path=transcript)
+                unrecordable = _unrecordable_scope_message(root, tool_use_id, scope)
+                if unrecordable is not None:
+                    if mode == "block":
+                        print(unrecordable, file=sys.stderr)
+                        return 2
+                    print(unrecordable)
                 _record_worker_scope(root, tool_use_id, scope)
         return 0
 
@@ -1195,6 +1255,7 @@ def check_worker_write_scope(payload: dict) -> int:
         if mode == "warn":
             print(message)
             return 0
+        _note_refusal_class("scope-unbound")
         print(message, file=sys.stderr)
         return 2
 
@@ -1207,6 +1268,7 @@ def check_worker_write_scope(payload: dict) -> int:
         if mode == "warn":
             print(message)
             return 0
+        _note_refusal_class("scope-unbound")
         print(message, file=sys.stderr)
         return 2
 
@@ -1256,6 +1318,7 @@ def check_worker_write_scope(payload: dict) -> int:
         if mode == "warn":
             print(message)
             return 0
+        _note_refusal_class("read-only-scope" if scope.get("mode") == "none" else "outside-scope")
         print(message, file=sys.stderr)
         return 2
     for raw_path, base, language in inline_targets:
@@ -1268,6 +1331,7 @@ def check_worker_write_scope(payload: dict) -> int:
         if mode == "warn":
             print(message)
             return 0
+        _note_refusal_class("read-only-scope" if scope.get("mode") == "none" else "inline-code")
         print(message, file=sys.stderr)
         return 2
     return 0

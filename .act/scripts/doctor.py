@@ -108,6 +108,13 @@
 #               set to `off` or `release-notes-only`, without an `[Unreleased]` section, or with the
 #               switch off. The template's own checkout has no docs/ai/config.md, so the defaults
 #               apply and its own CHANGELOG.md is checked too. Counted like any finding, never a block.
+#          26. a local skill override (skill-shadow): a folder docs/ai/local/skills/<name>/ that holds at
+#               least one file of .act/skills/<name>/ (same relative path) and has no key `skill:<name>`
+#               in .act-lock.json § overrides — one finding per name; `--accept skill:<name>` records the
+#               hash of the overridden template files, and a later change of those files is reported as
+#               override-stale. A folder that only adds files, and an own skill, are no finding. The
+#               switch `own-rules-review` in docs/ai/config.md § Checks (warn (default) | block (= warn) |
+#               off) skips the shadow finding with `off`; stale reports are not affected. Never a block.
 #          Finding 6's `act:ref` scan skips fenced code blocks and inline code spans (D2) — those
 #          markers are illustration, not a live reference, and used to be reported as broken.
 #          The content-based half of the reconcile skill (contradictions, near-duplicate rules,
@@ -129,7 +136,8 @@
 #                                                     # the proposal tells the worker beforehand what the
 #                                                     # check does not allow, it never loosens the check)
 #   python .act/scripts/doctor.py --accept ID [...]  # record ID's current template text as the
-#                                                     # accepted baseline (clears finding 4 for it)
+#                                                     # accepted baseline (clears finding 4 for it);
+#                                                     # ID may be skill:<name> for a local skill override
 #   python .act/scripts/doctor.py --accept-all       # same, for every stale override/off found
 #
 # Output format:
@@ -204,13 +212,14 @@ KIND_LABELS: dict[str, str] = {
     "import": "Rule files Claude Code does not load (rules.py --imports)",
     "dead-id": "Dead identifiers (overridden/off, but gone from the template)",
     "use-missing": "Switched-off rule set with a missing target",
-    "override-stale": "Overridden rule whose template text has changed",
+    "override-stale": "Overridden rule or skill whose template text has changed",
     "ref-missing": "Broken references",
     "duplicate-unit": "Duplicate scripts/agents/skills",
     "duplicate-id": "Duplicate entry ids (task/backlog/question/todo)",
     "entry-unreadable": "Entry files that cannot be read as UTF-8",
     "orphan-file": "Files in the inbox or concept folder that no Markdown file under docs/ links",
     "override-orphan": "Override files under docs/ai/local/ whose template counterpart under .act/ is gone",
+    "skill-shadow": "Local skills that override a template skill of the same name, not yet kept (own-rules-review)",
     "archive-fence": "Archive collection files with a code block that is never closed",
     "hook": "Missing hook entries",
     "settings-script": "Hook/permission entries pointing at a missing script",
@@ -252,13 +261,14 @@ KIND_LABELS_DE: dict[str, str] = {
     "import": "Regeldateien, die Claude Code nicht lädt (rules.py --imports)",
     "dead-id": "Tote Kennungen (überschrieben/aus, aber aus der Vorlage verschwunden)",
     "use-missing": "Abgewählter Regelsatz mit fehlendem Ziel",
-    "override-stale": "Überschriebene Regel, deren Vorlagentext sich geändert hat",
+    "override-stale": "Überschriebene Regeln oder Skills, deren Vorlagentext sich geändert hat",
     "ref-missing": "Kaputte Verweise",
     "duplicate-unit": "Doppelte Scripte/Agenten/Skills",
     "duplicate-id": "Doppelte Eintragskennungen (Aufgabe/Backlog/Frage)",
     "entry-unreadable": "Eintragsdateien, die sich nicht als UTF-8 lesen lassen",
     "orphan-file": "Dateien in Inbox oder Konzeptordner, auf die keine Markdown-Datei unter docs/ verweist",
     "override-orphan": "Override-Dateien unter docs/ai/local/, deren Gegenstück der Vorlage unter .act/ fehlt",
+    "skill-shadow": "Lokale Skills, die einen Vorlagen-Skill gleichen Namens überschreiben und noch nicht behalten sind (own-rules-review)",
     "archive-fence": "Sammeldateien des Archivs mit einem Codeblock, der nie geschlossen wird",
     "hook": "Fehlende Hook-Einträge",
     "settings-script": "Hook-/Berechtigungseinträge, die auf ein fehlendes Script zeigen",
@@ -454,6 +464,81 @@ def check_dead_and_stale(
     return findings, effective, candidates
 
 
+SKILL_KEY_PREFIX = "skill:"
+UNKNOWN_SKILLS = "*"  # stands in `unreadable` for "the local skills folder could not be listed"
+_REPORTED_READ_ERRORS: set[str] = set()
+
+
+def _report_read_error(message: str) -> None:
+    """Prints a read error once per run, however often the skill folders are scanned."""
+    if message not in _REPORTED_READ_ERRORS:
+        _REPORTED_READ_ERRORS.add(message)
+        print(message, file=sys.stderr)
+
+
+def skill_overrides(root: Path) -> tuple[dict[str, tuple[list[str], str]], set[str]]:
+    """Local skill overrides: name -> (sorted posix paths below the skill folder that exist in both
+    docs/ai/local/skills/<name>/ and .act/skills/<name>/, sha256 of the template-side files). The hash
+    feeds `path + NUL + file bytes + NUL` per path. A local folder that only adds files no template
+    file matches is no override and is left out, as is an own skill (no template folder of that name).
+    The second value names the skills whose files could not be read (UNKNOWN_SKILLS when the local skills
+    folder itself could not be listed): they are not checked, but a baseline recorded for them is kept."""
+    unreadable: set[str] = set()
+    local = root / "docs" / "ai" / "local" / "skills"
+    template = root / ".act" / "skills"
+    found: dict[str, tuple[list[str], str]] = {}
+    if not local.is_dir() or not template.is_dir():
+        return found, unreadable
+    try:
+        folders = sorted(p for p in local.iterdir() if p.is_dir())
+    except OSError as exc:
+        _report_read_error(f"doctor.py: cannot list docs/ai/local/skills ({type(exc).__name__}: {exc}); "
+                           f"local skill overrides not checked")
+        unreadable.add(UNKNOWN_SKILLS)
+        return found, unreadable
+    for folder in folders:
+        base = template / folder.name
+        if not base.is_dir():
+            continue
+        try:
+            shared = sorted(
+                f.relative_to(folder).as_posix() for f in folder.rglob("*")
+                if f.is_file() and "__pycache__" not in f.parts and (base / f.relative_to(folder)).is_file()
+            )
+        except OSError as exc:
+            _report_read_error(f"doctor.py: cannot list docs/ai/local/skills/{folder.name} "
+                               f"({type(exc).__name__}: {exc}); skill override not checked")
+            unreadable.add(folder.name)
+            continue
+        if not shared:
+            continue
+        digest = hashlib.sha256()
+        try:
+            for rel in shared:
+                digest.update(rel.encode("utf-8") + b"\0" + (base / rel).read_bytes() + b"\0")
+        except OSError as exc:
+            _report_read_error(f"doctor.py: cannot read template skill file .act/skills/{folder.name}/{rel} "
+                               f"({type(exc).__name__}: {exc}); skill override not checked")
+            unreadable.add(folder.name)
+            continue
+        found[folder.name] = (shared, digest.hexdigest())
+    return found, unreadable
+
+
+def own_rules_review_mode(root: Path) -> str:
+    """The `own-rules-review` switch: off | warn | block; a missing or invalid value means warn."""
+    value = _config_word(root, "own-rules-review", "warn")
+    return value if value in ("off", "warn", "block") else "warn"
+
+
+class UnknownAcceptId(Exception):
+    """`--accept` named rule ids with no override, no off entry and no recorded baseline."""
+
+    def __init__(self, ids: list[str]) -> None:
+        super().__init__(", ".join(ids))
+        self.ids = ids
+
+
 def apply_override_hashes(
     root: Path, candidates: dict[str, tuple[str, str, int]], accept_ids: set[str], accept_all: bool,
 ) -> list[Finding]:
@@ -465,8 +550,25 @@ def apply_override_hashes(
     recorded: dict[str, str] = dict(lock.get("overrides") or {})
     # Only IDs still overridden keep their baseline: a dropped and later re-added override
     # starts from a fresh sighting instead of being reported as stale.
-    to_write = {gid: h for gid, h in recorded.items() if gid in candidates}
+    skills, unreadable = skill_overrides(root)
+    review = own_rules_review_mode(root)
+    to_write = {gid: h for gid, h in recorded.items()
+                if gid in candidates or (gid.startswith(SKILL_KEY_PREFIX)
+                    and (gid[len(SKILL_KEY_PREFIX):] in skills or gid[len(SKILL_KEY_PREFIX):] in unreadable
+                         or UNKNOWN_SKILLS in unreadable))}
     findings: list[Finding] = []
+    unknown = sorted(g for g in accept_ids if not g.startswith(SKILL_KEY_PREFIX)
+                     and g not in candidates and g not in recorded)
+    if unknown:
+        raise UnknownAcceptId(unknown)
+
+    def stale(gid: str, project_path: str, project_line: Optional[int]) -> Finding:
+        return Finding(
+            path=project_path, line=project_line, kind="override-stale",
+            message=f"`{gid}` — template text changed since this override/off was recorded: check whether the "
+                    f"new template text makes it unnecessary (then delete the override or the off), else run "
+                    f"`doctor.py --accept {gid}` once reviewed",
+        )
 
     for gid, (new_hash, project_path, project_line) in sorted(candidates.items()):
         old_hash = recorded.get(gid)
@@ -478,11 +580,28 @@ def apply_override_hashes(
         if accept_all or gid in accept_ids:
             to_write[gid] = new_hash
             continue
-        findings.append(Finding(
-            path=project_path, line=project_line, kind="override-stale",
-            message=f"`{gid}` — template text changed since this override/off was recorded "
-                    f"(run `doctor.py --accept {gid}` once reviewed)",
-        ))
+        findings.append(stale(gid, project_path, project_line))
+
+    for name, (_, new_hash) in sorted(skills.items()):
+        gid = f"{SKILL_KEY_PREFIX}{name}"
+        folder = f"docs/ai/local/skills/{name}"
+        old_hash = recorded.get(gid)
+        if old_hash is None:
+            # Keeping a shadow is a per-name decision: only an explicit --accept <id> records it.
+            if gid in accept_ids:
+                to_write[gid] = new_hash
+            elif review != "off":
+                findings.append(Finding(
+                    path=folder, line=None, kind="skill-shadow",
+                    message=f"local skill `{name}` overrides the template skill of the same name "
+                            f"(`{folder}/` wins over `.act/skills/{name}/`): keep it with "
+                            f"`doctor.py --accept {gid}`, or delete the local folder to use the template's",
+                ))
+        elif old_hash != new_hash:
+            if accept_all or gid in accept_ids:
+                to_write[gid] = new_hash
+            else:
+                findings.append(stale(gid, folder, None))
 
     if to_write != recorded:
         actlib.write_lock({"overrides": to_write})
@@ -1908,7 +2027,11 @@ def check_own_rules_size(root: Path) -> list[Finding]:
                  f"tokens) in every session, over the budget of {budget:,} ({parts}) — keep a one-line rule each, "
                  "move incident, evidence and identifiers into the project docs (table in the Own rules "
                  "section of .act/bridges/coding_rules.md); `own-rules-budget` in docs/ai/config.md raises the "
-                 "limit, `off` skips the check"),
+                 "limit, `off` skips the check; also check whether parts of these rules, of the overrides under "
+                 "docs/ai/local/ or of other project data under docs/ai/ would help every project on the template, "
+                 + ("and file those as a backlog entry here (`feedback: local`)"
+                    if actlib.read_config(root).get("feedback", "").strip().strip("`").strip().lower() == "local"
+                    else "and send those as feedback (`act-feedback`)")),
     )]
     chosen = sorted(history)[:OWN_RULES_HISTORY_MAX]
     for _, _, rel, number, text in sorted(chosen, key=lambda item: (item[2], item[3])):
@@ -2406,7 +2529,7 @@ def remember_tier_proposals(root: Path, filed: dict[str, int]) -> bool:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         data = {key: {"count": count, "filed": filed_on} for key, (count, filed_on) in memory.items()}
-        path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
     except OSError:
         return False
     return True
@@ -2422,11 +2545,12 @@ def remember_tier_proposals(root: Path, filed: dict[str, int]) -> bool:
 _REFUSAL_WINDOW_DAYS = 7
 _REFUSAL_THRESHOLD = 3
 _REFUSAL_MEMORY_FILE = Path(".act-local") / "refusal-proposals.json"
-_WORKER_LINE_RE = re.compile(r"^- `([a-z_]+)`: (.+)$")
+_WORKER_LINE_RE = re.compile(r"^- `([a-z_]+)`(?: \(`([a-z-]+)`\))?: (.+)$")
 
 
 def _worker_lines(root: Path) -> dict[str, str]:
-    """check module name -> the one sentence a worker is told beforehand, from topics/checks.md."""
+    """check module name -> the one sentence a worker is told beforehand, from topics/checks.md; a sentence for one
+    refusal class of a check is keyed `<check>:<class>`."""
     try:
         text = (root / ".act" / "rules" / "topics" / "checks.md").read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
@@ -2436,7 +2560,7 @@ def _worker_lines(root: Path) -> dict[str, str]:
     for line in (text[start:].splitlines()[1:] if start >= 0 else []):
         match = _WORKER_LINE_RE.match(line)
         if match:
-            lines[match.group(1)] = match.group(2).strip()
+            lines[match.group(1) + (f":{match.group(2)}" if match.group(2) else "")] = match.group(3).strip()
         elif line.strip() and not line.startswith("- "):
             break
     return lines
@@ -2488,7 +2612,8 @@ def _new_refusal_proposals(root: Path) -> list[tuple[str, dict[str, int]]]:
     return found
 
 
-def refusal_question_text(check: str, workers: dict[str, int], line: str, language: str) -> tuple[str, str]:
+def refusal_question_text(check: str, workers: dict[str, int], line: str, language: str,
+                          classes: dict[str, int] | None = None) -> tuple[str, str]:
     """(title, body) of the question for a check that refused workers often. The first option, the
     recommended one, adopts `line`; no option changes the check."""
     def loc(en: str, de: str) -> str:
@@ -2497,24 +2622,27 @@ def refusal_question_text(check: str, workers: dict[str, int], line: str, langua
     total = sum(workers.values())
     split = ", ".join(f"`{role}` {number}" for role, number in sorted(workers.items(), key=lambda item: (-item[1], item[0])))
     top = sorted(workers.items(), key=lambda item: (-item[1], item[0]))[0][0]
+    class_split = ", ".join(f"`{word}` {number}" for word, number in
+                            sorted((classes or {}).items(), key=lambda item: (-item[1], item[0])))
     title = loc(f"`{check}` refused workers {total} times in {_REFUSAL_WINDOW_DAYS} days: tell them beforehand?",
                 f"`{check}` hat Worker in {_REFUSAL_WINDOW_DAYS} Tagen {total}-mal gesperrt: ihnen vorher sagen, was nicht geht?")
     hint = loc(f"The check `{check}` refused workers {total} times in the last {_REFUSAL_WINDOW_DAYS} days ({split}); only "
-               "the counts are kept, no command and no path. A refusal shows that the check works, so the check stays as "
+               "the counts are kept, no command and no path" + (f", and the classes of the refusals ({class_split})" if class_split else "") + ". A refusal shows that the check works, so the check stays as "
                "it is. The proposal is to tell the worker beforehand what the check does not allow, so it does not run "
                "into it.",
                f"Die Prüfung `{check}` hat in den letzten {_REFUSAL_WINDOW_DAYS} Tagen Worker {total}-mal gesperrt "
-               f"({split}); gezählt wird nur, nie ein Befehl oder Pfad. Eine Sperre zeigt, dass die Prüfung greift, "
+               f"({split}); gezählt wird nur, nie ein Befehl oder Pfad" + (f", dazu die Art der Sperren ({class_split})" if class_split else "") + ". Eine Sperre zeigt, dass die Prüfung greift, "
                "sie bleibt also, wie sie ist. Vorgeschlagen ist, dem Worker vorher zu sagen, was die Prüfung nicht "
                "erlaubt, damit er gar nicht erst in die Sperre läuft.")
     if top == "worker":  # no role name is known, so there is no role file to name
         where_en = "into the text of the assignment header (the brief)"
         where_de = "in den Text des Auftragskopfs (die Beauftragung) aufnehmen"
     else:
-        where_en = (f"into the role file of `{top}` (a project version under `docs/ai/local/agents/{top}.md`) "
-                    "or into the text of the assignment header")
-        where_de = (f"in die Rollendatei von `{top}` (Projektfassung unter `docs/ai/local/agents/{top}.md`) "
-                    "oder in den Text des Auftragskopfs aufnehmen")
+        base = top[:-len("-high")] if top.endswith("-high") else top
+        where_en = (f"into the body of the role's bridge `.claude/agents/{base}.md` (and `{base}-high.md` where the role "
+                    "has a high variant; no update replaces the body) or into the text of the assignment header")
+        where_de = (f"in den Text der Rollen-Bridge `.claude/agents/{base}.md` (und `{base}-high.md`, wo die Rolle eine "
+                    "High-Variante hat; kein Update ersetzt den Text) oder in den Text des Auftragskopfs aufnehmen")
     lines = [
         hint, "",
         "- **a)** " + loc(f"**Recommended:** Adopt: put this sentence {where_en}: \"{line}\" "
@@ -2544,11 +2672,18 @@ def file_refusal_questions(root: Path) -> list[Path]:
         return []
     language = actlib.docs_language(root)
     lines = _worker_lines(root)
+    try:
+        import usage
+        class_counts = usage.refusal_classes(root, _REFUSAL_WINDOW_DAYS)
+    except Exception:  # noqa: BLE001 -- no classes, the sentence of the check
+        class_counts = {}
     written: list[Path] = []
     for check, workers in new:
-        line = lines.get(check) or (f"Before a call that `{check}` may refuse, read what it allows in "
+        classes = class_counts.get(check) or {}
+        top_class = sorted(classes.items(), key=lambda item: (-item[1], item[0]))[0][0] if classes else ""
+        line = lines.get(f"{check}:{top_class}") or lines.get(check) or (f"Before a call that `{check}` may refuse, read what it allows in "
                                     "`.act/rules/topics/checks.md`; a refusal is not retried another way.")
-        title, body = refusal_question_text(check, workers, line, language)
+        title, body = refusal_question_text(check, workers, line, language, classes)
         try:
             path, _ = entries.create_entry(root, "question", title, body=body, answer_block=True,
                                            slug=f"worker-refusals-{check}")
@@ -2970,7 +3105,7 @@ def write_inbox(root: Path, findings: list[Finding]) -> Optional[Path]:
         lines.extend(f"- {f.render()}" for f in group)
         lines.append("")
     dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")
+    dest.write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8", newline="\n")
     return dest
 
 
@@ -3066,7 +3201,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--target", metavar="DIR", help="check this project instead of the current checkout")
     parser.add_argument("--json", action="store_true", help="machine-readable output")
     parser.add_argument("--inbox", action="store_true", help="also write docs/ai/inbox/report-<YYYYMMDD-HHMM>-doctor.md if there are findings, and one inbox question per new tier proposal and per check that refused workers often")
-    parser.add_argument("--accept", action="append", default=[], metavar="ID", help="accept the current template text for ID (repeatable)")
+    parser.add_argument("--accept", action="append", default=[], metavar="ID", help="accept the current template text for ID, a rule id or skill:<name> (repeatable)")
     parser.add_argument("--accept-all", action="store_true", help="accept the current template text for every stale override/off")
     return parser
 
@@ -3101,7 +3236,20 @@ def main(argv: list[str]) -> int:
             return 2
 
     accept_ids = set(args.accept)
-    findings, effective = run(root, accept_ids, args.accept_all)
+    known_skills, skills_unreadable = skill_overrides(root)
+    for gid in sorted(accept_ids):
+        if gid.startswith(SKILL_KEY_PREFIX) and gid[len(SKILL_KEY_PREFIX):] not in known_skills \
+                and gid[len(SKILL_KEY_PREFIX):] not in skills_unreadable and UNKNOWN_SKILLS not in skills_unreadable:
+            print(f"doctor.py: --accept {gid}: no local override docs/ai/local/skills/"
+                  f"{gid[len(SKILL_KEY_PREFIX):]}/ of a file of the template skill .act/skills/"
+                  f"{gid[len(SKILL_KEY_PREFIX):]}/", file=sys.stderr)
+            return 2
+    try:
+        findings, effective = run(root, accept_ids, args.accept_all)
+    except UnknownAcceptId as exc:
+        print(f"doctor.py: --accept {', '.join(exc.ids)}: no override, off entry or recorded baseline for this "
+              f"id (nothing was written)", file=sys.stderr)
+        return 2
 
     if args.inbox:
         # A tier proposal is a decision, so it goes into a question of its own, not into the
