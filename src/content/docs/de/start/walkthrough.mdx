@@ -3,7 +3,7 @@ title: Von der Idee zum Commit
 description: Ein echter Durchlauf vom ersten Satz bis zum Commit - Idee, Frage in der Inbox, Antwort, Aufgabe, builder und reviewer, Commit - mit dem Board dazwischen.
 sidebar:
   order: 2
-sourceHash: b3277f2a4373398a966d2c882170e803dc94dc35e7e5601e4f3d82c84770b0f9
+sourceHash: 1a68606cfeaa8e80de3bc08c4b5de56f2fbd88992d10be5ca6ed4888394f4aed
 ---
 
 import Diagram from '../../../../components/Diagram.astro';
@@ -117,7 +117,7 @@ Sitzung, oder du nach einem Kaffee, dort weitermachen kann. Das Board zeigt die 
 
 Die Änderung baut der Assistent nicht selbst. Er gibt einem `builder` einen begrenzten Auftrag, einem Worker mit
 eigener Modellstufe, einer Obergrenze an Werkzeugaufrufen, einem Write Scope und, weil er Tests ausführt, dem Verzeichnis, in dem sie laufen (`R-cost-delegate`,
-[Rollen und Worker](/agentic-coding-template-docs/de/concepts/roles/)):
+[Rollen und Worker](/agentic-coding-template-docs/de/concepts/roles/)). Hat er den Worker gestartet, endet sein Zug mit einer Zeile, wie viele Worker laufen, und du kannst währenddessen weiter mit ihm reden. Der Auftrag sieht so aus:
 
 ```text
 Task T14, entry B21: show the remaining time of a round on phone and dashboard.

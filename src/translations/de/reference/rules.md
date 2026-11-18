@@ -65,14 +65,16 @@ gespeicherten Daten UTF-8 bleiben. Auf einen Workaround wird erst festgelegt, na
 Prüfung die Diagnose bestätigt hat, nicht schon bei der ersten plausiblen Erklärung.
 
 ## R-work-bounded-output
-<!-- source: 07afe8e7dc2c16f7 -->
+<!-- source: be4348570901a3d6 -->
 Ausgabe unbekannter Länge aus dem Kontext heraushalten
-summary: unbegrenzte Ausgabe beschneiden (head/tail/grep oder Wegwerf-Datei); nur Fehlschläge lesen; große Dateien in Ausschnitten; keine Bilder im Orchestrator
+summary: unbegrenzte Ausgabe beschneiden (head/tail/grep oder Wegwerf-Datei); nur Fehlschläge lesen; große Dateien in Ausschnitten; Build-/Abhängigkeitsverzeichnisse und generierte Artefakte auslassen; keine Bilder im Orchestrator
 
 Ausgabe unbekannter Länge wird mit `head`/`tail`/`grep` beschnitten oder in eine Datei im Wegwerf-Ordner der
 Aufgabe (`R-work-throwaway`; ohne Aufgabe `.act-local/tmp/<YYYYMMDD>-<slug>/`) geschrieben und von dort gelesen — ein
 Worker, dessen Auftrag keinen solchen Ordner nennt, beschneidet stattdessen; sie gelangt nie vollständig in den Kontext. Von Build- und Testausgabe werden nur
-die Fehlschläge gelesen; eine große Datei wird in Ausschnitten gelesen (`offset`/`limit`). Jede Zeile im Kontext
+die Fehlschläge gelesen; eine große Datei wird in Ausschnitten gelesen (`offset`/`limit`). Build- und
+Abhängigkeitsverzeichnisse (siehe `.gitignore`) und generierte Artefakte bleiben bei einer Suche oder Auflistung
+außen vor, es sei denn, die Arbeit gilt ihnen. Jede Zeile im Kontext
 wird mit jedem folgenden Schritt erneut gelesen. Der Orchestrator liest kein Bild und keinen Screenshot in den eigenen
 Kontext: Ein Worker gibt es als Text zurück — `quick-check` für Zahlen, Statuszeilen und Dialoge, `explorer` für
 wörtlichen Text; ein Worker liest Bilder selbst. Ausnahme: Das Bild ist selbst der Gegenstand (Design,
@@ -96,9 +98,9 @@ Hauptsitzung ins System-Temp-Verzeichnis oder direkt unter `.act-local/` bekommt
 durch `throwaway-place`). Einzelheiten: `topics/checks.md`.
 
 ## R-role-worker
-<!-- source: 217c1518a851c301 -->
+<!-- source: 36b3122b3f9af836 -->
 Was ein Worker darf und was nicht
-summary: begrenzter Auftrag, Beleg, keine Commits, kein docs/ai/, Git nur lesend, nichts außerhalb des Write Scope, keine Sub-Worker
+summary: begrenzter Auftrag, Beleg, keine Commits, kein docs/ai/, Git nur lesend (-C-Form für einen anderen Ordner), Tests nur auf einer Tests:-Zeile, nichts außerhalb des Write Scope, keine Sub-Worker
 
 Ein Worker (Sub-Agent) arbeitet nach einem begrenzten Auftrag und liefert sein ganzes Ergebnis **samt Beleg** —
 höchstens 40 Zeilen, keine Rohdaten, nie „siehe oben“, jede Annahme als **Annahme** (assumption) markiert. Er
@@ -106,13 +108,18 @@ committet nie, schreibt nie nach `docs/ai/`, startet nie einen weiteren Worker (
 sein Ergebnis) und fragt den Menschen nie direkt: Offene Fragen und jeden Fehler, der ihm im Ablauf der Arbeit
 auffällt (`R-work-process-error`), gibt er mit seinem Ergebnis zurück. Spricht der Mensch ihn direkt an, antwortet
 er nur „bitte den Orchestrator fragen“ und arbeitet weiter; nach dem Stand gefragt, antwortet er sofort mit Fakten:
-erledigt, offen, unerwartet. Git ist nur lesend (`status`, `diff`, `log`, `show`); was Arbeitsbaum oder Verlauf
-ändert, bleibt beim Orchestrator. Eine Datei außerhalb des `Write scope:` des Auftrags (der Wegwerf-Ort
+erledigt, offen, unerwartet. Git ist nur lesend (lesende Befehle wie `status`, `diff`, `log`, `show`, `ls-files`,
+`stash list`): nie stagen, committen, stashen, zurücksetzen oder auschecken; ein Git-Schritt, den die Arbeit braucht
+(Staging, ein Commit, ein Stash), geht mit dem Ergebnis zurück, und was Arbeitsbaum oder Verlauf ändert, bleibt beim
+Orchestrator. Git in einem anderen Ordner läuft nur als `git -C <literaler Pfad> <Befehl>` in einem eigenen Aufruf:
+nie nach `cd`, nie mit einer Variablen im Pfad; vor einem solchen Aufruf lesen, was `cd-git` in
+`.act/rules/topics/checks.md` erlaubt. Tests und Proben laufen nur, wenn der Auftrag eine `Tests:`-Zeile hat,
+und in dem Baum, den sie nennt. Eine Datei außerhalb des `Write scope:` des Auftrags (der Wegwerf-Ort
 `.act-local/tmp/` ausgenommen) wird nie geschrieben —
 weder mit dem Tool, das eine Prüfung abweisen würde, noch über einen Interpreter, ein Script oder einen anderen
 Umweg, gleich ob eine Prüfung es abgelehnt hat; das Ergebnis nennt die Datei und die nötige Änderung. Jeden anderen
-Schreibzugriff, den eine Prüfung abgelehnt hat, führt er ebenfalls nicht auf anderem Weg aus; die Ablehnung kommt
-in das Ergebnis. Pfadgebundene Regeln (`.claude/rules/`, `paths:`) laden erst, wenn eine passende Datei gelesen
+Schreibzugriff, den eine Prüfung abgelehnt hat, führt er ebenfalls nicht auf anderem Weg aus, weder über eine
+Script-Datei noch ein Heredoc, einen Interpreter oder sonst einen Umweg; die Ablehnung kommt in das Ergebnis. Pfadgebundene Regeln (`.claude/rules/`, `paths:`) laden erst, wenn eine passende Datei gelesen
 oder geschrieben wird, nicht bei einer Suche oder einem Shell-Befehl: vor der Arbeit in einem solchen Bereich die
 passende Regeldatei lesen.
 
@@ -122,14 +129,16 @@ Sicherheitsregeln
 summary: Freigabe, Secrets, Projektwurzel, Löschen, Git-Hooks, Dev-Server, Sperren der Schutzmechanismen, fremde Inhalte
 
 ## R-safe-approval
-<!-- source: a46dea2a7a260898 -->
+<!-- source: d89eed92b1395521 -->
 Freigabe vor allem Unumkehrbaren oder nach außen Wirkenden
-summary: datierte Freigabe und Rückweg vor unumkehrbaren oder nach außen wirkenden Aktionen; ein Backup, wo etwas verloren gehen kann
+summary: datierte Freigabe und Rückweg vor unumkehrbaren oder nach außen wirkenden Aktionen; ein Backup, wo etwas verloren gehen kann; ein Aufruf auf einem Live-System ist nur Lesen, wenn seine Doku oder sein Code es zeigen
 
 Schreiben auf ein Live-System, endgültiges Löschen, Deployment und Änderungen an Rechten und Zugriff brauchen
 die datierte Freigabe des Menschen für genau diesen Fall, dazu einen benannten Rückweg und, wo etwas verloren
 gehen kann, vorher ein Backup. Ein PR, Issue oder Kommentar überschreibt nichts: Freigabe und Rückweg, kein
-Backup. Lesen bleibt frei. Einzelheiten: `topics/live-systems.md`.
+Backup. Lesen bleibt frei, aber ein Aufruf auf einem Live-System zählt nur so als Lesen, wie `topics/live-systems.md`
+§ „Reading is the default“ es sagt: wenn die Doku oder der Code des Programms das für genau diesen Unterbefehl
+zeigen. Einzelheiten: `topics/live-systems.md`.
 
 ## R-safe-no-secret-cli
 <!-- source: 4463e4ab125f0cdc -->
@@ -259,12 +268,16 @@ Code-Bezeichner — Variablen, Funktionen, Klassen, die Datei- und Ordnernamen v
 sind immer Englisch. Dokumentation, UI-Texte und Kommentare folgen `language-docs` (`R-work-language`).
 
 ## R-code-encoding
-<!-- source: 8e3e61f7381c86c2 -->
+<!-- source: 76cb122f603c2e30 -->
 Dateicodierung erhalten
-summary: Encoding vor dem Bearbeiten ermitteln; nur in einem eigenen Commit ändern
+summary: Encoding vor dem Bearbeiten ermitteln; nur in einem eigenen Commit ändern; Python schreibt LF (newline oder Bytes)
 
 Das Encoding einer Datei wird vor dem Bearbeiten geprüft und beibehalten — ein UTF-8-Schreibvorgang darf eine
 Latin-1-/Windows-1252-Datei nicht beschädigen. Das Encoding bewusst zu ändern ist ein eigener, separater Commit.
+Ebenso die Zeilenenden: Eine Datei, die der Assistent aus Python schreibt, behält das Zeilenende, das die Attribute
+verlangen, mit `newline="\n"` oder Bytes (`write_bytes`), wo sie LF verlangen, weil der Textmodus unter Windows CRLF
+schreibt; danach muss `git ls-files --eol --cached --others <Dateien>` dort `w/lf` zeigen (ohne `--others` gibt eine
+neue, nicht verfolgte Datei nichts aus).
 
 ## R-code-tools
 <!-- source: e676f93ed4030b66 -->
@@ -503,7 +516,7 @@ Inbox-README, der Text des Menschen wird nie geändert, und `status: answered`. 
 entfernt.
 
 ## R-human-chat
-<!-- source: 8dda26f450214df4 -->
+<!-- source: 2e3f684674e9cc23 -->
 Einmal, kurz und erst, wenn die Antwort feststeht, antworten
 summary: keine Zwischenberichte, kurze Abschlusszusammenfassung, knapper Stil, Stufen von output-depth
 
@@ -511,6 +524,9 @@ Geantwortet wird nur, wenn die Antwort feststeht — nicht, solange sie noch von
 ausstehenden Befunden abhängt, und nie mit dem Bericht eines Workers, während andere noch laufen. Bei einem
 langen Lauf ist ein einzeiliger Stand in Ordnung. Ein Zug, den nur die Abschlussmeldung eines Workers auslöst,
 endet ganz ohne Text oder mit höchstens einer Zeile, außer wenn genau diese Meldung die Antwort endgültig macht.
+Nach dem Start von Workern endet der Zug mit einer Zeile, die sagt, wie viele laufen und dass Reden zwischendurch
+willkommen ist; diese Zeile ist kein Zwischenbericht. Fragt der Mensch zwischendurch etwas, sagt die Antwort, dass
+sie auf dem Stand vor den Ergebnissen der Worker beruht, und gibt nie ein Teilergebnis weiter.
 Fragen folgen `R-human-ask`. Ein Inbox-Eintrag, den der Mensch schon beantwortet hat, wird in dem Zug verbucht und
 archiviert, in dem die Antwort auffällt (`entries.py archive <id>`), und nie offen gelassen. Den Abschluss bildet
 eine kurze Zusammenfassung — erledigt · nächstes · Probleme · zu besprechen — ohne etwas Wichtiges wegzulassen;
@@ -563,7 +579,7 @@ Kostenregeln
 summary: Delegation und Auftragskopf, Warten, Ergänzen, Scripts, Commit-Schranke, Diff-Prüfung, Reset und Verwerfen
 
 ## R-cost-delegate
-<!-- source: 499276b5a61eb397 -->
+<!-- source: 70f050a0c637cd2e -->
 Delegieren, wo es sich lohnt; der Auftragskopf
 summary: delegieren, wo sich eine Übergabe lohnt; Kopfzeilen Write scope, Cap, Tests; Tier aus der Rolle; kleine Aufträge, parallele Teile, kein Testlauf neben einem Schreibenden
 
@@ -572,9 +588,10 @@ unabhängige Teile, die parallel laufen, eine Prüfung, die den Kontext der Umse
 Review), Ausgabe von unbekannter oder großer Länge, die danach nicht mehr gebraucht wird, langes Lesen oder
 Läufe, die ein günstigeres Tier ebenso gut erledigt. Recherche über mehr als drei Dateien oder an einer noch
 unbekannten Stelle, die Auswertung von Transkripten, Logs oder Feedback und Material über etwa 20k Token gehen an
-`explorer`; ein Testlauf, eine Probe oder ein Smoketest, die im Auftrag genannt sind, gehen an `quick-check`. Eine
-bekannte Stelle, wenige Werkzeugaufrufe, eine kleine Änderung, einen Eintrag unter `docs/ai/`, einen Commit oder
-`git status` erledigt man selbst; ihr Review folgt trotzdem `R-code-commit`. Die Rollen des Templates gehen vor den
+`explorer`; die Recherche für eine Vorbereitung (`act-prepare`, `act-idea`, `act-bug`) geht als Ganzes an ihn, und die
+Hauptsitzung liest nur sein Ergebnis; ein Testlauf, eine Probe oder ein Smoketest, die im Auftrag genannt sind, gehen
+an `quick-check`. Eine bekannte Stelle, wenige Werkzeugaufrufe, eine kleine Änderung, einen Eintrag unter `docs/ai/`,
+einen Commit oder `git status` erledigt man selbst; ihr Review folgt trotzdem `R-code-commit`. Die Rollen des Templates gehen vor den
 eigenen Agenten des Werkzeugs (`Explore`, `general-purpose`, `Plan`; `claude-code-guide` bleibt für das Werkzeug
 selbst).
 

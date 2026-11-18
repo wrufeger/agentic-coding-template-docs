@@ -3,7 +3,7 @@ title: Update
 description: Einen neueren Stand des Templates mit act-update in ein Projekt holen.
 sidebar:
   order: 3
-sourceHash: 3c135abeb920c4a82d5cbf76abc6474fc84819b9ec0c58a4647f371034e1bb10
+sourceHash: 9fe4d5d3cd7d094827a865430becc8d1976401f5dfe15c897d686fac03472334
 ---
 
 `act-update` holt einen neueren Stand des Templates in dein Projekt: Du siehst den Diff, du stimmst zu, und
@@ -120,7 +120,9 @@ Update-Notiz, `act-update` selbst bleibt unverändert.
    `off`, werden sie nur gemeldet („would refresh … not written“). Danach prüft `doctor.py` auf Abweichungen; Befunde landen in `docs/ai/inbox/`, nie als stille Korrektur. Darunter: ein Override unter `docs/ai/local/`, dessen Gegenstück unter `.act/` fehlt (das Template hat es umbenannt oder entfernt, der Override wirkt also nicht), mit dem ähnlichsten Namen unter `.act/`; Regel-Overrides, Rollen und eigene Skills bleiben außen vor, ebenso ein eigenes Script oder ein eigener Coding-Satz, es sei denn, ein Name ist der Anfang des anderen oder unterscheidet sich nur in der Endung. Ein lokaler Skill, der einen Template-Skill gleichen Namens überschreibt, ist ebenfalls ein Befund, bis du ihn mit `python .act/scripts/doctor.py --accept skill:<name>` behältst oder löschst (`own-rules-review`). Ein neuer Tier-Vorschlag wird dort als eigene Frage angelegt, und erst, wenn eine Rolle auf einem Tier 30 erfasste Ergebnisse hat und mindestens 60 % der letzten 30 nachgearbeitet oder eskaliert wurden. Die Frage ist kurz und empfiehlt Option a), zuerst die Fälle anzusehen; ihre Zahlen stehen in einem eigenen Inbox-Bericht, `report-<Datum>-<Uhrzeit>-tier-numbers-<Rolle>-<Tier>.md`. Der Commit nimmt den Bericht und die Fragen mit, und die Zusammenfassung nennt beide.
 10. **Lock und Commit.** `.act-lock.json` wird neu geschrieben und ein Commit angelegt, außer du gibst
     `--no-commit` an. Ein Pfad, den `.gitignore` ignoriert (etwa mit einer Allowlist wie `*`, `!docs/`), bleibt aus dem
-    Commit, der ihn nennt.
+    Commit, der ihn nennt. Nicht committete Änderungen von dir an `docs/ai/rules.md`, `.gitignore` und `.gitattributes`
+    bleiben ebenfalls aus ihm: das Update schreibt seine Ergänzung trotzdem dort hinein und nennt jede solche Datei, damit
+    du sie selbst committest; `--plan` nennt vorab die, in die es schreiben würde.
 
 Die Zusammenfassung sagt auch, wie viel der nächste Sitzungsstart aus `.act-local/` entfernen wird (die Prüfung
 `act-local-tidy`, siehe unten).
@@ -153,18 +155,27 @@ Sitzungsstart, der diese Meldung gezeigt hat. `act-local-tidy: warn` meldet nur,
 
 Danach ergänzt der Assistent eine Journalzeile mit der Änderung des Basis-Commits und der Zahl der Befunde.
 
-## Upgrade über 2.5.0 hinaus (noch nicht veröffentlicht)
+## Upgrade auf 2.6.0
 
-Für Projekte mit `update-channel: latest`; nach v2.5.0 gibt es noch kein Release. `act-update` wie gewohnt ausführen,
-danach eine neue Sitzung starten.
+Von v2.5.0 aus wird `act-update` wie gewohnt ausgeführt, danach eine neue Sitzung gestartet.
 
-- **Älter als v2.2.0:** Ein solches Projekt wird nicht mehr aktualisiert; `update.py` bricht ab und nennt `act-adopt`
-  (siehe [Bevor du anfängst](#bevor-du-anfängst)).
+- **Aufträge, die Tests ausführen,** brauchen eine Zeile `Tests:` neben `Write scope:`; Worker führen Tests nur damit
+  aus (siehe [Rollen](/agentic-coding-template-docs/de/concepts/roles/)).
 - **Migration `008-done-entries-keep`** läuft einmal: Sie entfernt die Zeile `done-entries` und ihren Erklärungsabsatz
   aus `docs/ai/config.md`. Ein Projekt, das `delete` hatte (der Standard unter Git), archiviert erledigte Einträge von
   nun an; siehe [Erledigte Einträge](#erledigte-einträge).
-- **Aufträge, die Tests ausführen,** brauchen eine Zeile `Tests:` neben `Write scope:`; Worker führen Tests nur damit
-  aus (siehe [Rollen](/agentic-coding-template-docs/de/concepts/roles/)).
+- **`cd-git`** (nur mit `claude-code` in `tools`) verweigert einen Bash-Aufruf, der `cd` und `git` verbindet, und nennt
+  `git -C <Ordner>`; um nur gewarnt zu werden, die Zeile `cd-git` mit `warn` unter § Checks ergänzen
+  ([Checks](/agentic-coding-template-docs/de/reference/configuration/#checks)).
+- **`git branch -D`** einer Branch, die HEAD nicht enthält (etwa eine per Cherry-pick übernommene), wird verweigert;
+  sie zuerst mergen oder `git-discard: warn` setzen.
+- **`CHANGELOG.md`:** `act-update` legt sie an, und `act-commit` ergänzt von da an Einträge; um das zu vermeiden, zuvor
+  die Zeile `changelog` mit `off` unter § Formats von `docs/ai/config.md` ergänzen
+  ([Formats](/agentic-coding-template-docs/de/reference/configuration/#formats)); `config.py` kann eine fehlende Zeile
+  nicht setzen, `.act/skeleton/config.md` zeigt ihre Form.
+- **Overrides der Kernregeln:** überschreibt `docs/ai/local/` die Dateien `.act/rules/shared/00-core.md`,
+  `10-safety.md` oder `20-code.md`, die neuen Sätze von `R-role-worker`, `R-work-bounded-output`, `R-safe-approval` und
+  `R-code-encoding` dort nachtragen.
 - **`outside-root-allow`:** Ein absoluter Eintrag außerhalb von Projekt und Home-Ordner ist jetzt nur lesend, Schreiben
   dort wird verweigert. Ein `file:`-Eintrag wird ignoriert; stattdessen den Pfad schreiben.
 - **Lock-Dateien:** Ein Commit, der eine Lock-Datei berührt, wird gehalten, solange der Scan-Cache-Ordner ein Link oder
@@ -173,15 +184,26 @@ danach eine neue Sitzung starten.
   hat (Schritt 6). Committen, dann `python .act/scripts/rules.py --add-new-coding` ausführen.
 - **Befunde von `act-doctor` und `rules.py`:** Dateien unter `docs/ai/local/`, deren Template-Datei weg ist, und Regeldateien,
   die eine eigene Kopie unter `docs/ai/local/rules/` überschattet. Genanntes beheben.
-- **`CHANGELOG.md`:** `act-doctor` warnt, blockiert nie, vor `[Unreleased]`-Einträgen über 250 Zeichen. Sie kürzen oder
-  `changelog-length: off` in `docs/ai/config.md`
+- **Neue Schlüssel** (§ Formats, `methods`, `cd-git`, `protected-watch` …) haben ihren Standardwert, bis du ihre Zeile
+  aus `.act/skeleton/config.md` kopierst; `/act-config` ändert nur vorhandene Zeilen.
+- **Älter als v2.2.0:** Ein solches Projekt wird nicht mehr aktualisiert; `update.py` bricht ab und nennt `act-adopt`
+  (siehe [Bevor du anfängst](#bevor-du-anfängst)).
+- **Lange `[Unreleased]`-Einträge:** `act-doctor` nennt die Einträge deiner `CHANGELOG.md` über 250 Zeichen. Sie kürzen
+  oder `changelog-length: off` in `docs/ai/config.md`
   § [Checks](/agentic-coding-template-docs/de/reference/configuration/#checks) setzen.
-- **Neue Prüfungen** (`cd-git`, `commit-hashes`, `throwaway-place`, `model-switch`, `protected-watch`) sind standardmäßig an;
-  `cd-git` (nur mit `claude-code` in `tools`) verweigert einen Bash-Aufruf, der `cd` und `git` verbindet, und nennt `git -C <Ordner>`. Schalter:
-  [Checks](/agentic-coding-template-docs/de/reference/configuration/#checks).
-- Optional: Um die Standardbehandlung des Changelogs zu ändern, die Zeile `changelog` unter § Formats ergänzen
-  ([Formats](/agentic-coding-template-docs/de/reference/configuration/#formats)); `config.py` kann eine fehlende Zeile
-  nicht setzen, `.act/skeleton/config.md` zeigt ihre Form.
+- **Eine Quelle, die selbst ein eingerichtetes Projekt ist:** `update.py` einmal mit `--source <Template-Adresse>`
+  ausführen, wie die Meldung es nennt (siehe [Bevor du anfängst](#bevor-du-anfängst)).
+- **Copilot-Projekte:** nach dem Update die Modelle in `.github/agents/` mit `/model` abgleichen, Abweichungen in die
+  Spalte `Copilot` von `docs/ai/config.md` § Roles eintragen und dann `python .act/scripts/update.py --catch-up --yes`
+  ausführen.
+- **Skill-Overrides:** jeder unter `docs/ai/local/skills/` ist ein Befund von `act-doctor`, bis du ihn mit
+  `python .act/scripts/doctor.py --accept skill:<name>` behältst oder löschst.
+- **`.act-local` als Link aus dem Projekt hinaus:** ein Worker-Start mit einer Zeile `Write scope:` oder `Tests:` wird
+  jetzt verweigert; einen gewöhnlichen Ordner daraus machen oder `worker-write-scope` und `worker-scope-overlap` auf
+  `warn` setzen.
+- **Reasoning `none`** in `docs/ai/config.md` § Roles oder einer lokalen Rollen- oder Skill-Datei wird jetzt als
+  `default` gelesen; `act-doctor` nennt jede Stelle, dort `default` schreiben. Die `-high`-Variante einer solchen Rolle
+  läuft auf `high`.
 
 ## Upgrade auf 2.5.0
 

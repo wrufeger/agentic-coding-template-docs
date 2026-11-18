@@ -3,7 +3,7 @@ title: Rollen und Worker
 description: Der Orchestrator, die Worker-Rollen, Tiers, Caps, Write Scope und was ein Worker nicht darf.
 sidebar:
   order: 2
-sourceHash: ab4d968fea6fce01ef674105c4bb0f874a5fd5974427a1a1d97d7ab57422ec2e
+sourceHash: 13be6d5b21716521e2c44707f9b53e6ec26fd6ea774feeec1b927bfb21005c76
 ---
 
 ## Orchestrator und Worker
@@ -11,7 +11,7 @@ sourceHash: ab4d968fea6fce01ef674105c4bb0f874a5fd5974427a1a1d97d7ab57422ec2e
 Die Hauptsitzung ist der **Orchestrator**. Er plant, prüft, committet und ist der Einzige, der nach `docs/ai/`
 schreibt. Er startet Worker, also Sub-Agenten mit einem abgegrenzten Auftrag. Du sprichst nie direkt mit einem
 Worker. Eine Rolle im Chat zu nennen (`reviewer`, `explorer`) ist die Anweisung an den Orchestrator, sie
-einzusetzen. Er gibt Arbeit nur ab, wo es sich lohnt: unabhängige Teile, die parallel laufen, die Prüfung, Ausgabe unbekannter oder großer Länge, die danach nicht mehr gebraucht wird, langes Lesen oder Läufe, die ein günstigeres Tier ebenso gut erledigt. Konkret: Recherche über mehr als drei Dateien oder in Code, dessen Stelle noch nicht bekannt ist, die Auswertung von Transkripten, Logs oder Feedback und Material über etwa 20k Token, das danach nicht mehr gebraucht wird, gehen an `explorer`, der nur Befunde und Zahlen zurückgibt; ein im Auftrag genannter Lauf der Testsuite, eine Probe oder ein Smoketest geht an `quick-check`, der Exit-Code, Fehlschläge und Zahlen zurückgibt. Eine bekannte Datei oder Stelle, wenige Tool-Aufrufe, eine kleine Änderung, einen Eintrag unter `docs/ai/`, einen Commit oder `git status` macht er selbst; ihr Review folgt trotzdem `R-code-commit`. Vor einem `builder`-Auftrag sucht er die Tests, Proben und Prüfungen, die das Verhalten schon festhalten, und nennt ihre Zusicherungen, entscheidet die Grenzfälle des Entwurfs selbst oder fragt dich und gibt jede Prüfung als Befehl mit erwarteter Ausgabe an (`R-cost-delegate`). Die Rollen des Templates gehen den eigenen Agenten des Werkzeugs vor (in Claude Code `Explore`, `general-purpose`, `Plan`).
+einzusetzen. Er gibt Arbeit nur ab, wo es sich lohnt: unabhängige Teile, die parallel laufen, die Prüfung, Ausgabe unbekannter oder großer Länge, die danach nicht mehr gebraucht wird, langes Lesen oder Läufe, die ein günstigeres Tier ebenso gut erledigt. Konkret: Recherche über mehr als drei Dateien oder in Code, dessen Stelle noch nicht bekannt ist, die Auswertung von Transkripten, Logs oder Feedback und Material über etwa 20k Token, das danach nicht mehr gebraucht wird, gehen an `explorer`, der nur Befunde und Zahlen zurückgibt; die Recherche für `act-prepare`, `act-idea` und `act-bug` geht als Ganzes an ihn, und die Hauptsitzung liest nur sein Ergebnis; ein im Auftrag genannter Lauf der Testsuite, eine Probe oder ein Smoketest geht an `quick-check`, der Exit-Code, Fehlschläge und Zahlen zurückgibt. Eine bekannte Datei oder Stelle, wenige Tool-Aufrufe, eine kleine Änderung, einen Eintrag unter `docs/ai/`, einen Commit oder `git status` macht er selbst; ihr Review folgt trotzdem `R-code-commit`. Vor einem `builder`-Auftrag sucht er die Tests, Proben und Prüfungen, die das Verhalten schon festhalten, und nennt ihre Zusicherungen, entscheidet die Grenzfälle des Entwurfs selbst oder fragt dich und gibt jede Prüfung als Befehl mit erwarteter Ausgabe an (`R-cost-delegate`). Nach dem Start von Workern endet sein Zug mit einer Zeile, wie viele laufen; du kannst währenddessen mit ihm reden, und er sagt dann, dass seine Antwort auf dem Stand vor den Ergebnissen der Worker beruht. Die Rollen des Templates gehen den eigenen Agenten des Werkzeugs vor (in Claude Code `Explore`, `general-purpose`, `Plan`).
 
 ## Die Rollen
 
@@ -52,12 +52,14 @@ Ein Worker lädt `CLAUDE.md` nicht: Die Rollen der Vorlage tragen `omitClaudeMd:
 
 ## Was ein Worker nicht darf
 
+Die Sätze, die jede Rolle teilt, stehen in `R-role-worker`, `R-code-encoding`, `R-work-bounded-output` und `R-safe-approval`, nicht in der Datei jeder Rolle; die Datei einer Rolle ergänzt nur, was ihr eigen ist.
+
 - Nie committen und nie nach `docs/ai/` schreiben.
 - Dich nie direkt fragen: offene Fragen gehen mit dem Ergebnis an den Orchestrator zurück.
 - Einen Schreibzugriff, den eine Prüfung abgelehnt hat, nie auf anderem Weg machen (Interpreter, Script, anderes Werkzeug); die Ablehnung mit dem Ergebnis melden.
 - Nie die Dateien ändern, die `R-safe-git-metadata` schützt (Git-Hooks, Claude-Einstellungen, Agents und Skills, Copilot-Rollendateien unter `.github/agents/`, `.mcp.json`, `.envrc`, Editor-Tasks). Neben `git-metadata-guard` vergleicht die Prüfung `protected-watch` sie nach jedem Tool-Aufruf mit einem Snapshot: Eine Änderung in einem Aufruf des Workers wird sofort zurückgesetzt, die geänderte Fassung bleibt unter `.act-local/protected-watch/kept/`, und du und der Orchestrator werden benachrichtigt. Siehe die [Seite zu den Prüfungen](/agentic-coding-template-docs/de/reference/topics/#checks).
-- Git ist nur lesend (`status`, `diff`, `log`, `show` sowie `stash list` und `stash show`). Die lesenden Rollen (`explorer`, `quick-check`, `reviewer`, `debugger`) rufen Git in einem anderen Ordner nur als `git -C <wörtlicher Pfad>` auf.
-- Die schreibenden Rollen (`builder`, `doc-writer`, `test-writer`, `expert-solver`, `optimizer`) schreiben Dateien aus Python mit LF.
+- Git ist für jeden Worker nur lesend (`status`, `diff`, `log`, `show`, `ls-files`, `stash list`, `stash show`): Ein Worker staged, committet und stasht nie, setzt nichts zurück und checkt nichts aus; ein Git-Schritt, den die Arbeit braucht, geht mit dem Ergebnis zurück. Git in einem anderen Ordner läuft nur als `git -C <literaler Pfad> <Befehl>` in einem eigenen Aufruf, nie nach `cd`, nie mit einer Variablen im Pfad.
+- Ein Worker, der Dateien aus Python schreibt, behält das Zeilenende, das die Attribute verlangen, mit LF als `newline="\n"` oder Bytes (`R-code-encoding`).
 - Nie einen weiteren Worker starten. Sollte eine Aufgabe geteilt werden, sagt er das, und der Orchestrator entscheidet.
 - Ein Ergebnis samt Beleg in höchstens 40 Zeilen liefern, keine Rohdaten.
 - Jede Annahme als Annahme kennzeichnen; der Orchestrator bestätigt sie, fragt dich oder hält sie fest, nie nur im Bericht.

@@ -114,7 +114,7 @@ a coffee, can pick up from there. The board shows the task as running:
 ## 6. builder and reviewer
 
 The assistant does not build the change itself. It hands a bounded assignment to a `builder`, a worker with
-its own model tier, a cap on tool calls, a write scope and, because it runs tests, the tree they run in (`R-cost-delegate`, [Roles](/agentic-coding-template-docs/concepts/roles/)):
+its own model tier, a cap on tool calls, a write scope and, because it runs tests, the tree they run in (`R-cost-delegate`, [Roles](/agentic-coding-template-docs/concepts/roles/)). Once it has started the worker, the assistant's turn ends with one line saying how many workers run, and you can keep talking to it meanwhile. The assignment looks like this:
 
 ```text
 Task T14, entry B21: show the remaining time of a round on phone and dashboard.

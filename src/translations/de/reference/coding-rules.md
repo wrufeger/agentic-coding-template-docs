@@ -744,7 +744,7 @@ das vor dem Satz eingerichtet wurde), vor Arbeit an Nuxt-Code `.act/coding/nuxt5
 Eigentümers.
 
 ## CR-nuxt-basics
-<!-- source: f347f10bc49ee737 -->
+<!-- source: 0bc4817cd404874a -->
 Bewährte Nuxt-Standards
 summary: Verzeichnisstruktur, Datenabruf, typisierte Handler, Runtime-Konfiguration, Fallstricke
 
@@ -811,6 +811,14 @@ summary: Verzeichnisstruktur, Datenabruf, typisierte Handler, Runtime-Konfigurat
     überlebt ein solcher Wert den Request und wird zwischen Nutzern geteilt — der nächste Request sieht die
     Daten des vorigen. Für Zustand, der den Request überleben muss, `useState` verwenden.
   - Formulare mit `@submit.prevent` brauchen zusätzlich `method="post"` (siehe `CR-vue-basics`).
+  - Exportnamen in Ordnern mit Auto-Import (`composables/`, `utils/`, `server/utils/`, `shared/utils/`) sind über alle
+    ihre Dateien eindeutig. Exportieren zwei Dateien denselben Namen, gewinnt eine von ihnen ohne Fehler, es erscheint
+    nur eine Warnung über doppelte Imports, und Lint und Typecheck können grün bleiben. Jedem Bereich ein Präfix
+    geben und diese Warnung in der Ausgabe von Dev, Build oder Typecheck als Befund behandeln.
+  - Eine Page-Komponente hat genau ein Wurzelelement; ein HTML-Kommentar zählt als eines. Bei mehr warnt Nuxt nur im
+    Dev (im Nuxt-5-Nightly: `NUXT_E4004`), und die Seite bricht bei einem clientseitigen Routenwechsel, während das
+    direkte Öffnen und Tests der einzelnen Seite grün bleiben. Nach dem Anlegen oder Umbauen einer Seite die
+    Browser-Konsole und die Dev-Ausgabe auf diese Warnung prüfen; sie ist ein Befund.
   - **Windows:** Ein abgebrochener Dev-Server kann seinen Port belegt halten; der nächste Start weicht auf
     den nächsten freien Port aus, und HMR-/WebSocket-Fehler folgen. Ist es ein Server, den der Assistent
     selbst gestartet hat, genau diesen Prozess beenden, statt einen eigenen HMR-Port zu konfigurieren. Die
@@ -1544,9 +1552,9 @@ summary: versionierte Benennung, idempotent, umkehrbar, ein Werkzeug
 - Ein Migrationswerkzeug konsequent verwenden (z. B. Flyway, Prisma Migrate, Alembic); nicht mischen.
 
 ## CR-sql-mariadb
-<!-- source: 2a7c72032b8db0f0 -->
+<!-- source: cb49716bf16af9d0 -->
 Fallstricke bei MySQL und MariaDB (InnoDB)
-summary: Gap-Locks bei Bereichsschreibzugriffen, Fehler 1020 unter Snapshot-Isolation, ENUM-Änderungen an versionierten Tabellen, `CONVERT_TZ` ohne Zonentabellen
+summary: Gap-Locks bei Bereichsschreibzugriffen, Fehler 1020 unter Snapshot-Isolation, `LOCK IN SHARE MODE` statt `FOR SHARE`, `ALTER`- und ENUM-Änderungen an versionierten Tabellen, `CONVERT_TZ` ohne Zonentabellen
 
 - InnoDB (Standard-Isolationsstufe `REPEATABLE READ`): Ein `UPDATE` oder `DELETE` über einen Bereich auf einer Tabelle,
   in die andere einfügen, nimmt Gap-Locks und kann mit einem gleichzeitigen `INSERT` in einen Deadlock laufen. Die Ids
@@ -1561,6 +1569,15 @@ summary: Gap-Locks bei Bereichsschreibzugriffen, Fehler 1020 unter Snapshot-Isol
   vor dem ersten Lesen ohne Lock zu sperren (`FOR UPDATE`) vermeidet den Fremdschlüssel-Fall. Absicherung: jede
   Transaktion durch einen Retry-Helfer laufen lassen oder mit einem Markerkommentar versehen, der sagt, warum sie keinen
   braucht, und einen schnellen Unit-Test Transaktionen mit keinem von beiden finden lassen.
+- MariaDB: Ein gemeinsamer Lesezugriffs-Lock heißt `LOCK IN SHARE MODE`; die MySQL-8-Form `FOR SHARE` ist dort ein
+  Syntaxfehler. Das `forShare()` eines Query-Builders (etwa Kysely) erzeugt die MySQL-Form, und der Fehler zeigt sich
+  erst zur Laufzeit gegen eine echte Datenbank: stattdessen die Lock-Klausel roh ans Ende der Abfrage hängen (Kysely:
+  ``.modifyEnd(sql`lock in share mode`)``); MySQL 8 akzeptiert diese Form ebenfalls. `FOR UPDATE` ist in beiden gleich.
+- MariaDB, systemversionierte Tabelle: Ein `ALTER TABLE`, das ihre Spalten ändert, wird standardmäßig abgelehnt.
+  `system_versioning_alter_history = KEEP` für die Sitzung nur um das `ALTER` herum setzen, auf derselben Verbindung
+  aus dem Pool, und in einem `finally` zurücksetzen; eine Migration beim Anwendungsstart bricht sonst jeden Start ab.
+  `KEEP` lässt die Historienzeilen, wie sie sind, eine Änderung, die alten Werten widerspricht, schlägt also weiter
+  fehl (der `ENUM`-Fall unten).
 - MariaDB, systemversionierte Tabelle: Einen Wert aus einem `ENUM` zu entfernen schlägt bei Historienzeilen fehl,
   auch bei eben ersetzten. Den Wert im Typ lassen, die aktuellen Zeilen umziehen, den alten Wert in der Anwendung
   ablehnen und den Default mit `ALTER COLUMN … SET DEFAULT` ändern. Die Migration gegen eine Datenbank testen, die

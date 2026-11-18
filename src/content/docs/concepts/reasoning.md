@@ -19,13 +19,13 @@ Every worker role has a **tier** (how much model capacity) and a **reasoning** l
 
 For Claude Code, `.act/tiers.json` maps `light` to Haiku, `standard` to Sonnet, `elevated` and `high` to Opus (`high` with the reasoning bumped one step) and `expert` to the top model. For Copilot, the `copilot` table in the same file gives each tier an ordered list of models, and the first one your plan offers wins: `light` claude-haiku-5.5, then claude-haiku-4.5; `standard` claude-sonnet-5.5; `elevated` and `high` claude-opus-5.5, then claude-sonnet-5.5 (`high` again with the reasoning bumped one step); `expert` claude-fable-5.2, then claude-opus-5.5. The reasoning goes into the `reasoning-effort` field. Other tools have no mapping yet; for them the generated files keep whatever model they have.
 
-The reasoning scale is `none`, `low`, `medium`, `high`, `xhigh`, `max`.
+The reasoning scale is `low`, `medium`, `high`, `xhigh`, `max`. Next to it a role may say `default`: no effort line is written, so the tool's own level applies; for a `-high` variant it counts as `medium`. An older `none` in the Roles table or a local role or skill file is read as `default`, and `act-doctor` names each place.
 
 ## Per role
 
 | Role | Tier | Reasoning |
 | :--- | :--- | :--- |
-| `quick-check` | `light` | `none` |
+| `quick-check` | `light` | `default` |
 | `explorer` | `standard` | `low` |
 | `builder`, `doc-writer`, `test-writer`, `optimizer` | `standard` | `medium` |
 | `debugger` | `standard` | `high` |
@@ -36,7 +36,7 @@ The [roles reference](/agentic-coding-template-docs/reference/roles/) is generat
 
 ## The -high variants
 
-Next to `.claude/agents/<role>.md` (with Copilot also `.github/agents/<role>.agent.md`), the template generates `.claude/agents/<role>-high.md` (`.github/agents/<role>-high.agent.md`) for `builder` and `reviewer`: the same role with the reasoning one step further up the scale. The assistant names the `-high` variant for a single assignment that needs more thought, without raising the role for good. The other template roles have no variant, and neither does a role already at the top of the scale (`expert-solver`); an update removes variants generated earlier for them. A project's own role keeps its variant. An assignment that named a removed variant names the role itself, or `builder-high` or `reviewer-high`.
+Next to `.claude/agents/<role>.md` (with Copilot also `.github/agents/<role>.agent.md`), the template generates `.claude/agents/<role>-high.md` (`.github/agents/<role>-high.agent.md`) for `builder` and `reviewer`: the same role with the reasoning one step further up the scale. The assistant names the `-high` variant for a single assignment that needs more thought, without raising the role for good. The other template roles have no variant, and neither does a role already at the top of the scale (`expert-solver`); an update removes variants generated earlier for them. A role at `default` gets `high` in its variant. A project's own role keeps its variant. An assignment that named a removed variant names the role itself, or `builder-high` or `reviewer-high`.
 
 ## Overriding a role
 

@@ -115,7 +115,7 @@ behind another remote helper gets no update note at session start, while `act-up
    refreshed; with `session-start-refresh` at `warn` or `off` in `docs/ai/config.md` § Checks they are only
    reported ("would refresh … not written"). Then `doctor.py` checks for
    drift; findings land in `docs/ai/inbox/`, never as a silent fix. Among them: an override under `docs/ai/local/` whose counterpart under `.act/` is gone (the template renamed or removed it, so the override has no effect), with the most similar name under `.act/`; rule overrides, roles and your own skills are left out, and so is an own script or coding set unless one name is the start of the other or differs only in its extension. A local skill that overrides a template skill of the same name is a finding too, until you keep it with `python .act/scripts/doctor.py --accept skill:<name>` or delete it (`own-rules-review`). A new tier proposal is filed there as a question of its own, and only once a role has 30 recorded outcomes at a tier and at least 60 % of the last 30 were reworked or escalated. The question is short and recommends option a), looking at the cases first; its numbers are in a separate inbox report, `report-<date>-<time>-tier-numbers-<role>-<tier>.md`. The commit takes the report and the questions, and the summary names both.
-10. **Lock and commit.** `.act-lock.json` is rewritten and a commit is made, unless you pass `--no-commit`. A path that `.gitignore` ignores (for example with an allowlist such as `*`, `!docs/`) stays out of the commit, which names it.
+10. **Lock and commit.** `.act-lock.json` is rewritten and a commit is made, unless you pass `--no-commit`. A path that `.gitignore` ignores (for example with an allowlist such as `*`, `!docs/`) stays out of the commit, which names it. Uncommitted changes of yours to `docs/ai/rules.md`, `.gitignore` and `.gitattributes` stay out of it too: the update still writes its addition there and names each such file so you can commit it yourself; `--plan` names the ones it would write.
 
 The summary also says how much the next session start will remove from `.act-local/` (the check `act-local-tidy`, see
 below).
@@ -147,18 +147,27 @@ warn` only reports, `off` skips it. `python .act/scripts/act_local_tidy.py` list
 
 Then the assistant adds a journal line with the base-commit change and the number of findings.
 
-## Upgrading past 2.5.0 (not yet released)
+## Upgrading to 2.6.0
 
-For projects on `update-channel: latest`; there is no release after v2.5.0 yet. Run `act-update` as usual, then start
-a new session.
+From v2.5.0, run `act-update` as usual, then start a new session.
 
-- **Older than v2.2.0:** such a project is no longer updated; `update.py` stops and names `act-adopt` (see
-  [Before you start](#before-you-start)).
+- **Assignments that run tests** need a `Tests:` line beside `Write scope:`; workers run tests only with it (see
+  [Roles](/agentic-coding-template-docs/concepts/roles/)).
 - **Migration `008-done-entries-keep`** runs once: it removes the `done-entries` row and its explanation paragraph from
   `docs/ai/config.md`. A project that had `delete` (the default under Git) archives finished entries from now on; see
   [Finished entries](#finished-entries).
-- **Assignments that run tests** need a `Tests:` line beside `Write scope:`; workers run tests only with it (see
-  [Roles](/agentic-coding-template-docs/concepts/roles/)).
+- **`cd-git`** (only with `claude-code` in `tools`) refuses a Bash call that combines `cd` and `git` and names
+  `git -C <folder>`; to only be warned, add the row `cd-git` with `warn` under § Checks
+  ([Checks](/agentic-coding-template-docs/reference/configuration/#checks)).
+- **`git branch -D`** of a branch HEAD does not contain (for example one taken over by cherry-pick) is refused; merge it
+  first, or set `git-discard: warn`.
+- **`CHANGELOG.md`:** `act-update` creates it and `act-commit` adds entries from then on; to avoid that, first add the
+  row `changelog` with `off` under § Formats of `docs/ai/config.md`
+  ([Formats](/agentic-coding-template-docs/reference/configuration/#formats)); `config.py` cannot set a missing row,
+  `.act/skeleton/config.md` shows its shape.
+- **Overrides of the core rules:** if `docs/ai/local/` overrides `.act/rules/shared/00-core.md`, `10-safety.md` or
+  `20-code.md`, copy in the new sentences of `R-role-worker`, `R-work-bounded-output`, `R-safe-approval` and
+  `R-code-encoding`.
 - **`outside-root-allow`:** an absolute entry outside the project and the home folder is read-only now, so writes
   there are refused. A `file:` entry is ignored; write the path instead.
 - **Lock files:** a commit that touches a lock file is held while the scan cache folder is a link or junction; the
@@ -167,15 +176,23 @@ a new session.
   then run `python .act/scripts/rules.py --add-new-coding`.
 - **Findings of `act-doctor` and `rules.py`:** `docs/ai/local/` files whose template file is gone, and rule files
   shadowed by your own copy under `docs/ai/local/rules/`. Fix what is named.
-- **`CHANGELOG.md`:** `act-doctor` warns, never blocks, about `[Unreleased]` entries over 250 characters. Shorten
+- **New keys** (§ Formats, `methods`, `cd-git`, `protected-watch` …) take their default until you copy their row from
+  `.act/skeleton/config.md`; `/act-config` changes only rows that exist.
+- **Older than v2.2.0:** such a project is no longer updated; `update.py` stops and names `act-adopt` (see
+  [Before you start](#before-you-start)).
+- **Long `[Unreleased]` entries:** `act-doctor` names the entries of your `CHANGELOG.md` over 250 characters. Shorten
   them, or set `changelog-length: off` in `docs/ai/config.md`
   § [Checks](/agentic-coding-template-docs/reference/configuration/#checks).
-- **New checks** (`cd-git`, `commit-hashes`, `throwaway-place`, `model-switch`, `protected-watch`) are on by default; `cd-git`
-  (only with `claude-code` in `tools`) refuses a Bash call that combines `cd` and `git` and names `git -C <folder>`. Switches:
-  [Checks](/agentic-coding-template-docs/reference/configuration/#checks).
-- Optional: to change the default changelog handling, add the `changelog` row to § Formats
-  ([Formats](/agentic-coding-template-docs/reference/configuration/#formats)); `config.py` cannot set a missing row,
-  `.act/skeleton/config.md` shows its shape.
+- **A source that is itself a set-up project:** run `update.py` once with `--source <template address>`, as its message
+  names (see [Before you start](#before-you-start)).
+- **Copilot projects:** compare the models in `.github/agents/` with `/model` after the update, put differences into the
+  `Copilot` column of `docs/ai/config.md` § Roles, then run `python .act/scripts/update.py --catch-up --yes`.
+- **Skill overrides:** each one under `docs/ai/local/skills/` is an `act-doctor` finding until you keep it with
+  `python .act/scripts/doctor.py --accept skill:<name>` or delete it.
+- **`.act-local` as a link out of the project:** a worker start with a `Write scope:` or `Tests:` line is refused now;
+  make it a plain folder, or set `worker-write-scope` and `worker-scope-overlap` to `warn`.
+- **Reasoning `none`** in `docs/ai/config.md` § Roles or a local role or skill file is read as `default` now;
+  `act-doctor` names each place, write `default` there. The `-high` variant of such a role runs at `high`.
 
 ## Upgrading to 2.5.0
 

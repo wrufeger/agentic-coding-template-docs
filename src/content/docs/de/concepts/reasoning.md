@@ -3,7 +3,7 @@ title: Tiers und Reasoning
 description: Wie Rollen eine Modellkapazität (Tier) und eine Reasoning-Stufe bekommen, die -high-Varianten, Overrides und Caps.
 sidebar:
   order: 5
-sourceHash: f9ef4b2d0e30bf9bab287fd8d2794523437cae9c60171e656dc7424830481c7d
+sourceHash: 0ef77dcccd935ec1ad407ae1d698eb5207e974b6b966edff0acbfc35cf7c28c9
 ---
 
 Jede Worker-Rolle hat einen **Tier** (wie viel Modellkapazität) und eine **Reasoning**-Stufe (wie viel sie vor der Antwort nachdenkt). Beides steht in einer werkzeugneutralen Skala in der Definition der Rolle. Ein echter Modellname erscheint nur in `.act/tiers.json` und wird angewendet, wenn die Datei der Rolle für dein Werkzeug erzeugt wird.
@@ -20,13 +20,13 @@ Jede Worker-Rolle hat einen **Tier** (wie viel Modellkapazität) und eine **Reas
 
 Für Claude Code ordnet `.act/tiers.json` `light` Haiku zu, `standard` Sonnet, `elevated` und `high` Opus (`high` mit einer Stufe mehr Reasoning) und `expert` dem Spitzenmodell. Für Copilot gibt die Tabelle `copilot` in derselben Datei jedem Tier eine geordnete Modellliste, und das erste Modell, das dein Abo anbietet, gewinnt: `light` claude-haiku-5.5, dann claude-haiku-4.5; `standard` claude-sonnet-5.5; `elevated` und `high` claude-opus-5.5, dann claude-sonnet-5.5 (`high` wieder mit einer Stufe mehr Reasoning); `expert` claude-fable-5.2, dann claude-opus-5.5. Das Reasoning kommt ins Feld `reasoning-effort`. Andere Werkzeuge haben noch keine Zuordnung; bei ihnen behalten die erzeugten Dateien das Modell, das sie schon haben.
 
-Die Reasoning-Skala lautet `none`, `low`, `medium`, `high`, `xhigh`, `max`.
+Die Reasoning-Skala lautet `low`, `medium`, `high`, `xhigh`, `max`. Daneben kann eine Rolle `default` sagen: Es wird keine Effort-Zeile geschrieben, es gilt die Stufe des Werkzeugs; für eine `-high`-Variante zählt sie als `medium`. Ein älteres `none` in der Rollen-Tabelle oder einer lokalen Rollen- oder Skill-Datei wird als `default` gelesen, und `act-doctor` nennt jede Stelle.
 
 ## Pro Rolle
 
 | Rolle | Tier | Reasoning |
 | :--- | :--- | :--- |
-| `quick-check` | `light` | `none` |
+| `quick-check` | `light` | `default` |
 | `explorer` | `standard` | `low` |
 | `builder`, `doc-writer`, `test-writer`, `optimizer` | `standard` | `medium` |
 | `debugger` | `standard` | `high` |
@@ -37,7 +37,7 @@ Die [Rollenreferenz](/agentic-coding-template-docs/de/reference/roles/) wird aus
 
 ## Die -high-Varianten
 
-Neben `.claude/agents/<role>.md` (mit Copilot auch `.github/agents/<role>.agent.md`) erzeugt das Template für `builder` und `reviewer` `.claude/agents/<role>-high.md` (`.github/agents/<role>-high.agent.md`): dieselbe Rolle mit dem Reasoning eine Stufe weiter oben auf der Skala. Der Assistent nennt die `-high`-Variante für einen einzelnen Auftrag, der mehr Nachdenken braucht, ohne die Rolle dauerhaft anzuheben. Die anderen Rollen der Vorlage haben keine Variante, ebenso wenig eine Rolle, die schon an der Spitze der Skala steht (`expert-solver`); ein Update entfernt früher erzeugte Varianten dieser Rollen. Eine eigene Rolle des Projekts behält ihre Variante. Ein Auftrag, der eine entfernte Variante nannte, nennt die Rolle selbst oder `builder-high` bzw. `reviewer-high`.
+Neben `.claude/agents/<role>.md` (mit Copilot auch `.github/agents/<role>.agent.md`) erzeugt das Template für `builder` und `reviewer` `.claude/agents/<role>-high.md` (`.github/agents/<role>-high.agent.md`): dieselbe Rolle mit dem Reasoning eine Stufe weiter oben auf der Skala. Der Assistent nennt die `-high`-Variante für einen einzelnen Auftrag, der mehr Nachdenken braucht, ohne die Rolle dauerhaft anzuheben. Die anderen Rollen der Vorlage haben keine Variante, ebenso wenig eine Rolle, die schon an der Spitze der Skala steht (`expert-solver`); ein Update entfernt früher erzeugte Varianten dieser Rollen. Eine Rolle auf `default` bekommt in ihrer Variante `high`. Eine eigene Rolle des Projekts behält ihre Variante. Ein Auftrag, der eine entfernte Variante nannte, nennt die Rolle selbst oder `builder-high` bzw. `reviewer-high`.
 
 ## Eine Rolle überschreiben
 
