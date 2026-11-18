@@ -38,10 +38,10 @@
   },
   "template": {
     "version": "2.6.0",
-    "commit": "683d1386462c4ffcc80f5a0a9c0bb94c8d7e10cf",
+    "commit": "971a9e9e74f80f8ca183ad3297adf167c9ea9111",
     "source": "D:/dev/rufeger/agentic-coding-template",
     "ref": "main",
-    "manifest_sha256": "c6176ec1972186fe3fc3d03e46cb4771943eb13640c46b0cffb2516e741eb317",
+    "manifest_sha256": "a033c411f3b0a98425c6968c20caa747b9dedc0390104d15adcf30dbe3405a6b",
     "source_fingerprint": ""
   },
   "copies": {
@@ -244,6 +244,10 @@
     ".claude/skills/act-adopt/references/commit-groups.md": {
       "source": ".act/skills/act-adopt/references/commit-groups.md",
       "sha256": "793b3b9861fdf0d5aa87dfa00d2563164b984969f9d3b791c3eb1b6e290da4ac"
+    },
+    ".claude/skills/act-packages/SKILL.md": {
+      "source": ".act/skills/act-packages/SKILL.md",
+      "sha256": "d5435b6db742a62adab469b0d20ed6f68feef037c5b8da1d01f3f4a618f7baff"
     }
   },
   "removed_by_user": [],
