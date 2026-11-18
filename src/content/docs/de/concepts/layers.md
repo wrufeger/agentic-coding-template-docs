@@ -3,7 +3,7 @@ title: Schichten und Overrides
 description: Wie Template-Schicht und Projekt-Schicht zusammenpassen und wie du eine Regel änderst, ohne sie beim Update zu verlieren.
 sidebar:
   order: 1
-sourceHash: c18ecccd2006d9cc8dc315dbd29496d4b4c436539513b740a29e5e035d44a700
+sourceHash: 8c635b1ca0f656b6c1c58705750870f3a240684116bd9952af42091ba6b64147
 ---
 
 ## Zwei Schichten
@@ -27,6 +27,10 @@ bekommt seine Werkzeugkopien beim nächsten Sitzungsstart (Standard `session-sta
 Arbeitsmethoden gehen denselben Weg (`docs/ai/local/methods/<name>.md`). Die Formate für Commit-Nachricht, Changelog, Release Notes und README sind die eine Ausnahme: Eine Datei `docs/project/formats/<name>.md` ersetzt die gleichnamige Datei des Templates vollständig (`act-export-settings --with-formats` trägt sie in ein anderes Projekt, `act-load-settings` schreibt sie zurück), siehe [Konfiguration](/agentic-coding-template-docs/de/concepts/configuration/).
 
 Ein Override, dessen Gegenstück unter `.act/` das Template umbenannt oder entfernt hat, wirkt stillschweigend nicht mehr. `act-doctor` meldet eine solche Datei unter `docs/ai/local/` mit dem ähnlichsten Namen unter `.act/` (Regel-Overrides, Rollen und eigene Skills bleiben außen vor); ein lokaler Skill mit dem Namen eines Template-Skills ist ebenfalls ein Befund, bis du ihn mit `python .act/scripts/doctor.py --accept skill:<name>` behältst (`own-rules-review`); `update.py` zeigt die Zeile im Bericht seines Doctor-Laufs.
+
+## Packages
+
+Ein Package bringt Regeln, Coding-Sätze, Skills, Rollen, Topics, Scripts und Prüfmodule in ein Projekt, ohne `.act/` zu ändern (siehe [Skill `act-packages`](/agentic-coding-template-docs/de/reference/skills/#act-packages)). Seine Regeln laden in dieser Reihenfolge: die Dateien aus `pre-template/` des Packages, dann `.act/`, dann die Dateien aus `post-template/` des Packages, dann `docs/ai/local/`. Die Import-Zeilen eines Packages stehen in markierten Blöcken von `docs/ai/rules.md`; `python .act/scripts/rules.py --imports` zeigt die sich ergebende Reihenfolge. Ein Package wirkt ab der nächsten Sitzung.
 
 ## Regeln an- und ausschalten
 

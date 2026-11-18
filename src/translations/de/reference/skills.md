@@ -91,6 +91,10 @@ Verwenden bei „zeig die Issues“, „zeig meine offenen Stories“, „zeig I
 <!-- source: 32cb41348ed2cc47 -->
 Verwenden, wenn eine settings.md- oder settings.zip-Datei (Ausgabe von act-export-settings) zum Einspielen in dieses Projekt übergeben wird. Mechanische Prüfungen sortieren neue, identische und tote Einträge, inhaltliche Überschneidungen gehen zur Beurteilung an ein Modell, Ungeklärtes landet in der Inbox. Nicht für einen Konflikt bei einem Template-Update - dafür act-update.
 
+## act-packages
+<!-- source: 5f1f3d8dcb27e4d1 -->
+Verwenden, wenn gebeten wird, ein Package aufzulisten, anzusehen, zu holen, zu installieren, zu aktualisieren oder zu entfernen (ein Bündel aus Regeln, Skills, Rollen und Prüfungen von außerhalb des Templates), bei „/act-packages“ oder nach act-update, wenn ein installiertes Package eine neuere Version hat. Zeigt zuerst Plan und Diff und wartet auf dein Ja.
+
 ## act-perf
 <!-- source: 041643742259824b -->
 Verwenden, wenn etwas als langsam gemeldet wird oder gebeten wird, eine benannte Seite, Query oder einen Endpoint zu beschleunigen. Endet damit, dass genau dieser Teil messbar schneller ist, belegt durch Zahlen vor und nach einer einzelnen Änderung. Nicht für verhaltenserhaltendes Umstrukturieren - dafür act-refactor.

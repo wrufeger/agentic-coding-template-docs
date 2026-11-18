@@ -3,7 +3,7 @@ title: Update
 description: Einen neueren Stand des Templates mit act-update in ein Projekt holen.
 sidebar:
   order: 3
-sourceHash: 9fe4d5d3cd7d094827a865430becc8d1976401f5dfe15c897d686fac03472334
+sourceHash: 6f2bf665d1a41bf6582aa4d3b6c2f12598131da97464e52880baf597ef055564
 ---
 
 `act-update` holt einen neueren Stand des Templates in dein Projekt: Du siehst den Diff, du stimmst zu, und
@@ -132,6 +132,8 @@ ab, trägst Abweichungen in die Spalte `Copilot` von `docs/ai/config.md` § Role
 `python .act/scripts/update.py --catch-up --yes` aus.
 
 Solange `own-rules-review` nicht `off` ist, stellt `act-update` danach die neuen und geänderten Regeln und Skills des Updates deinen eigenen Regeln, Overrides und Skills gegenüber und stellt, wo es Überschneidungen findet, eine Inbox-Frage: verwerfen, behalten oder anpassen; nichts wird gelöscht.
+
+Danach folgt der Package-Schritt. Mit `packages-update: ask` (der Standard, [Packages](/agentic-coding-template-docs/de/reference/configuration/#packages)) holt `act-update` jedes aktive Package (`python .act/scripts/packages.py fetch <id>`) und führt für jedes mit neuerer Version `/act-packages update <id>` aus ([Skill `act-packages`](/agentic-coding-template-docs/de/reference/skills/#act-packages)): Plan und Diff, dein Ja zu diesem Plan, erst dann die Änderung. Ein Ja je Package, nie eines für alle; eine Quelle, die nichts liefern kann, wird genannt und übersprungen. `packages-update: off` oder kein aktives Package überspringt den Schritt. `update.py` selbst nennt nur ein Package, dessen `requires-template` das neue Template nicht mehr erfüllt oder dessen neuere Zip schon da ist.
 
 Ist `.act-local` ein Link aus dem Projekt hinaus, wird ein Worker-Start mit einer Zeile `Write scope:` oder `Tests:` jetzt abgelehnt: mach daraus einen gewöhnlichen Ordner oder setze `worker-write-scope` und `worker-scope-overlap` auf `warn`.
 

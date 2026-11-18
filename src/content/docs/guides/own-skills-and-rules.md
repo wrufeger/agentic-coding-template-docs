@@ -48,6 +48,15 @@ A skill is a directory with a `SKILL.md` that starts with YAML frontmatter (`nam
 
 An own role is a file `docs/ai/local/agents/<name>.md` with its rules. A new role is its own bridge source and needs frontmatter (`name`, `description`, tier/reasoning, `tools`); only an override of a template role is plain text without frontmatter. Tier and reasoning (of a skill: `reasoning` in its frontmatter, overridable by a row with the skill's name) can also be set in the Roles table of `docs/ai/config.md` (see [Tiers and reasoning](/agentic-coding-template-docs/concepts/reasoning/)); the tool-specific file under `.claude/agents/` is created by init and update; an own role also gets it at session start under the default `session-start-refresh`. Once such a file exists, its text is yours: updates only refresh its `model` and `effort` lines. The template's roles carry `omitClaudeMd: true`; an own role without the field loads `CLAUDE.md` as before, including the orchestrator rules, so add the field if you want it to get only the worker rules (see [Update](/agentic-coding-template-docs/getting-started/update/)). The built-in roles are described in [Roles](/agentic-coding-template-docs/concepts/roles/).
 
+## Packages
+
+A package is a second way to bring rules, coding sets, skills, roles, topics, scripts and checks into a project without editing `.act/`. It is kept in `.act-local/packages/<id>/` and is active only while `.act-lock.json` records it. The skill `act-packages` (`/act-packages`) lists, fetches, installs, updates and removes packages; see the [skills reference](/agentic-coding-template-docs/reference/skills/#act-packages).
+
+- **Install**: `add` first shows the plan and the diff of every project file it changes. Only after your yes in the chat does it run again with `--yes`. Rules, skills and roles are read in full from the next session.
+- **Remove**: `remove` shows its file list and diffs and asks again; it takes out what the package brought and its settings, and what you changed by hand in those files stays yours.
+- **Origin**: a package with no valid signature of the template author or of a key in `docs/ai/local/package-signers` is refused under the default `packages-unverified: block`; `scan` shows the findings of a static scan before it asks, `allow` only warns. A signature that does not match is refused in every mode.
+- **Load order** of the rules: see [Layers](/agentic-coding-template-docs/concepts/layers/#packages).
+
 ## Taking it to another project
 
 Two skills carry your deviations from the template to another project.

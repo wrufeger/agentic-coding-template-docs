@@ -26,6 +26,10 @@ Working methods follow the same path (`docs/ai/local/methods/<name>.md`). The fo
 
 An override whose counterpart under `.act/` has been renamed or removed by the template silently has no effect any more. `act-doctor` reports such a file under `docs/ai/local/` with the most similar name under `.act/` (rule overrides, roles and your own skills are left out); a local skill with the name of a template skill is a finding too, until you keep it with `python .act/scripts/doctor.py --accept skill:<name>` (`own-rules-review`); `update.py` shows the line in the report of its doctor run.
 
+## Packages
+
+A package adds rules, coding sets, skills, roles, topics, scripts and check modules to a project without editing `.act/` (see the [`act-packages` skill](/agentic-coding-template-docs/reference/skills/#act-packages)). Its rules load in this order: the package's `pre-template/` files, then `.act/`, then the package's `post-template/` files, then `docs/ai/local/`. A package's import lines sit in marked blocks of `docs/ai/rules.md`, and `python .act/scripts/rules.py --imports` shows the resulting order. A package takes effect from the next session.
+
 ## Switching rules on and off
 
 `docs/ai/rules.md` imports the rule files and lists every rule with a checkbox. A checked rule applies; an

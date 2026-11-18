@@ -131,6 +131,18 @@ Erzeugt oder prüft .act/MANIFEST.json — einen SHA-256-Hash je Datei unter .ac
 <!-- source: 0a8b407ddcba2d45 -->
 Verschiebt ein Dokument (eine Datei oder einen Ordner samt Inhalt) unterhalb von docs/ an eine neue Stelle und zieht die Verweise mit, sodass eine Neuordnung…
 
+## table:package_load.py
+<!-- source: eb957add17747efa -->
+Laden der aktiven Packages (der Eintrag `packages` im Lock, Ordner unter .act-local/packages/): was ein Package mitbringt, wirkt in…
+
+## table:package_scan.py
+<!-- source: e749b31f211201a8 -->
+Der statische Scan eines Package-Ordners: was darin über Text hinaus auf das Projekt wirken kann. Er liest den Ordner nur - er importiert nie, führt nie aus oder…
+
+## table:packages.py
+<!-- source: a7e403eca110eda1 -->
+Holt ein Package, liest es und macht es aktiv oder inaktiv: prüft einen Package-Ordner oder eine Zip gegen das Template und gibt aus, was eine Installation…
+
 ## table:rules.py
 <!-- source: 5c387e9b86e110f4 -->
 Liest die *wirksamen* Regeln — die Regelsätze des Templates, nachdem die Kästchen, Ersetzungen und Ergänzungen des Projekts angewendet wurden. Ein…

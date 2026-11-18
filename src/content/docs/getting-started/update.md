@@ -126,6 +126,8 @@ differences into the `Copilot` column of `docs/ai/config.md` § Roles, then run
 
 Unless `own-rules-review` is `off`, `act-update` then sets the new and changed rules and skills of the update against your own rules, overrides and skills and, where it finds overlaps, asks one inbox question: drop, keep or adapt; nothing is deleted.
 
+Then comes the package step. With `packages-update: ask` (the default, [Packages](/agentic-coding-template-docs/reference/configuration/#packages)) `act-update` fetches each active package (`python .act/scripts/packages.py fetch <id>`) and, for each one whose fetched version is newer, runs `/act-packages update <id>` ([skill `act-packages`](/agentic-coding-template-docs/reference/skills/#act-packages)): its plan and diff, your yes to that plan, only then the change. One yes per package, never one for all; a source that cannot deliver is named and skipped. `packages-update: off`, or no active package, skips the step. `update.py` itself only names a package whose `requires-template` the new template no longer meets or whose newer zip is already there.
+
 If `.act-local` is a link out of the project, a worker start with a `Write scope:` or `Tests:` line is now refused: make it a plain folder, or set `worker-write-scope` and `worker-scope-overlap` to `warn`.
 
 If the template has no newer state, `--plan` and the real run both say "nothing to update". A bridge file whose content
