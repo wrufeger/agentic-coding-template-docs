@@ -37,11 +37,11 @@
     ]
   },
   "template": {
-    "version": "2.5.0",
-    "commit": "58083d78b6ca810c61ef26f6bca4e3624b26520e",
+    "version": "2.6.0",
+    "commit": "683d1386462c4ffcc80f5a0a9c0bb94c8d7e10cf",
     "source": "D:/dev/rufeger/agentic-coding-template",
     "ref": "main",
-    "manifest_sha256": "6ce3bfc001313d8ff8b9b03de67cc62507c012015decb9256d73c5f51460bc56",
+    "manifest_sha256": "c6176ec1972186fe3fc3d03e46cb4771943eb13640c46b0cffb2516e741eb317",
     "source_fingerprint": ""
   },
   "copies": {
@@ -59,7 +59,7 @@
     },
     ".claude/skills/act-bug/SKILL.md": {
       "source": ".act/skills/act-bug/SKILL.md",
-      "sha256": "88fb4e19a082e71c30e2da3494e6794e51e563dc8da33f109e7f69c8b78df779"
+      "sha256": "21f0c85400ce4503240d131ec4fb6dc4465bde9f0b29a66a72256e54a1617637"
     },
     ".claude/skills/act-commit/SKILL.md": {
       "source": ".act/skills/act-commit/SKILL.md",
@@ -95,7 +95,7 @@
     },
     ".claude/skills/act-idea/SKILL.md": {
       "source": ".act/skills/act-idea/SKILL.md",
-      "sha256": "4a9d3fc0cf0181e995ef0da46ef13936ebfa81a5fcba2c3f1a101ca7e9a066d0"
+      "sha256": "1953de48050f0816f653373f13c3c4241a1e45100af89db25b998df513bed0dd"
     },
     ".claude/skills/act-integrations/SKILL.md": {
       "source": ".act/skills/act-integrations/SKILL.md",
@@ -119,7 +119,7 @@
     },
     ".claude/skills/act-prepare/SKILL.md": {
       "source": ".act/skills/act-prepare/SKILL.md",
-      "sha256": "1cbf5f98d0dbc32ca35cc1a0f6fb281f557d55660d1f29e1824fcb87b93c5065"
+      "sha256": "0f93d1c5a2aec81d092049e95ae4d00ce175002d5df27058bc86b1c56c72a166"
     },
     ".claude/skills/act-refactor/SKILL.md": {
       "source": ".act/skills/act-refactor/SKILL.md",
