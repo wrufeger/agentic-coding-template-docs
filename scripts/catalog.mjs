@@ -56,11 +56,11 @@ function entryBlock(id, source, todo, text) {
   return [`## ${id}`, `<!-- source: ${source} -->`, ...(todo ? [TODO_MARK] : []), text.replace(/^\n+|\n+$/g, ''), ''].join('\n');
 }
 
-export function writeCatalog(file, page, entries) {
+export function writeCatalog(file, page, entries, kind = 'reference page', generator = 'gen-reference.mjs') {
   const head = [
-    `<!-- German catalog for the reference page "${page}". One section per entry: the id is the heading, the`,
+    `<!-- German catalog for the ${kind} "${page}". One section per entry: the id is the heading, the`,
     'source hash ties the text to its English source. Edit the German text by hand; remove the todo marker when done.',
-    'Never translate commands, keys, ids or code. Maintained by scripts/gen-reference.mjs --skeleton and',
+    `Never translate commands, keys, ids or code. Maintained by scripts/${generator} --skeleton and`,
     'scripts/check-translations.mjs; see README "Editing the site". -->',
     '',
   ].join('\n');
@@ -70,6 +70,6 @@ export function writeCatalog(file, page, entries) {
 }
 
 // Same as writeCatalog, but starting from the parsed map (keeps the order of the map).
-export function serializeMap(file, page, map) {
-  writeCatalog(file, page, [...map].map(([id, e]) => ({ id, ...e })));
+export function serializeMap(file, page, map, kind, generator) {
+  writeCatalog(file, page, [...map].map(([id, e]) => ({ id, ...e })), kind, generator);
 }

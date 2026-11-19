@@ -3,7 +3,7 @@ title: Eigene Regeln, Skills und Rollen
 description: Regeln des Templates abschalten, eigene ergänzen, Dateien des Templates unter docs/ai/local/ überschreiben, Skills und Rollen hinzufügen und in ein anderes Projekt mitnehmen.
 sidebar:
   order: 3
-sourceHash: 4e49d57c1be8db6de843c8468e50a1e2b0faf6747b0f218b42bf179fa93aa6c8
+sourceHash: 3fb56ba1f0f2dd263c8b3266bb78b22e06672515a001a504bcf3d9f9253463cc
 ---
 
 Das Projekt überschreibt immer das Template. Du bearbeitest nie etwas unter `.act/`; ein Wächter (`template-write-guard`) verweigert dort Schreibzugriffe. Alles, was dir gehört, kommt nach `docs/ai/` und `docs/project/` und übersteht jedes Update.
@@ -51,12 +51,7 @@ Eine eigene Rolle ist eine Datei `docs/ai/local/agents/<name>.md` mit ihren Rege
 
 ## Packages
 
-Ein Package ist ein zweiter Weg, Regeln, Coding-Sätze, Skills, Rollen, Topics, Scripts und Prüfungen in ein Projekt zu bringen, ohne `.act/` zu ändern. Es liegt unter `.act-local/packages/<id>/` und ist nur aktiv, solange `.act-lock.json` es verzeichnet. Der Skill `act-packages` (`/act-packages`) listet, holt, installiert, aktualisiert und entfernt Packages; siehe die [Skill-Referenz](/agentic-coding-template-docs/de/reference/skills/#act-packages).
-
-- **Installieren**: `add` zeigt zuerst den Plan und den Diff jeder Projektdatei, die es ändert. Erst nach deinem Ja im Chat läuft es erneut mit `--yes`. Regeln, Skills und Rollen werden ab der nächsten Sitzung vollständig gelesen.
-- **Entfernen**: `remove` zeigt seine Dateiliste und Diffs und fragt erneut; es nimmt heraus, was das Package gebracht hat, samt seinen Einstellungen, und was du in diesen Dateien von Hand geändert hast, bleibt deins.
-- **Herkunft**: Ein Package ohne gültige Signatur des Template-Autors oder eines Schlüssels in `docs/ai/local/package-signers` wird beim Standard `packages-unverified: block` abgelehnt; `scan` zeigt vor der Rückfrage die Funde eines statischen Scans, `allow` warnt nur. Eine Signatur, die nicht passt, wird in jedem Modus abgelehnt.
-- **Ladefolge** der Regeln: siehe [Schichten](/agentic-coding-template-docs/de/concepts/layers/#packages).
+Ein Package ist ein zweiter Weg, Regeln, Coding-Sätze, Skills, Rollen, Topics, Scripts und Prüfungen in ein Projekt zu bringen, ohne `.act/` zu ändern; ohne Plan, Diff und dein Ja im Chat wird nichts installiert. Packages finden, installieren, aktualisieren, entfernen, schreiben und einreichen: siehe die [Anleitung Packages](/agentic-coding-template-docs/de/guides/packages/). Die Ladefolge der Regeln steht unter [Schichten](/agentic-coding-template-docs/de/concepts/layers/#packages).
 
 ## In ein anderes Projekt mitnehmen
 

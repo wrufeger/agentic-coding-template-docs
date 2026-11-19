@@ -50,12 +50,7 @@ An own role is a file `docs/ai/local/agents/<name>.md` with its rules. A new rol
 
 ## Packages
 
-A package is a second way to bring rules, coding sets, skills, roles, topics, scripts and checks into a project without editing `.act/`. It is kept in `.act-local/packages/<id>/` and is active only while `.act-lock.json` records it. The skill `act-packages` (`/act-packages`) lists, fetches, installs, updates and removes packages; see the [skills reference](/agentic-coding-template-docs/reference/skills/#act-packages).
-
-- **Install**: `add` first shows the plan and the diff of every project file it changes. Only after your yes in the chat does it run again with `--yes`. Rules, skills and roles are read in full from the next session.
-- **Remove**: `remove` shows its file list and diffs and asks again; it takes out what the package brought and its settings, and what you changed by hand in those files stays yours.
-- **Origin**: a package with no valid signature of the template author or of a key in `docs/ai/local/package-signers` is refused under the default `packages-unverified: block`; `scan` shows the findings of a static scan before it asks, `allow` only warns. A signature that does not match is refused in every mode.
-- **Load order** of the rules: see [Layers](/agentic-coding-template-docs/concepts/layers/#packages).
+A package is a second way to bring rules, coding sets, skills, roles, topics, scripts and checks into a project without editing `.act/`; nothing is installed without the plan, the diff and your yes in the chat. Finding, installing, updating, removing, writing and submitting a package: see the [Packages guide](/agentic-coding-template-docs/guides/packages/). The load order of the rules is in [Layers](/agentic-coding-template-docs/concepts/layers/#packages).
 
 ## Taking it to another project
 

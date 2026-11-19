@@ -22,3 +22,4 @@ These pages are generated from the `.act/` directory of this repository, which h
 - [Topics](/agentic-coding-template-docs/reference/topics/): 9 detail pages
 - [Roles](/agentic-coding-template-docs/reference/roles/): 9 worker roles
 - [Coding rules](/agentic-coding-template-docs/reference/coding-rules/): 22 rule sets
+- [Package format](/agentic-coding-template-docs/reference/package-format/): the format of a package

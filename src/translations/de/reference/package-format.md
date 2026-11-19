@@ -1,0 +1,316 @@
+<!-- German catalog for the reference page "package-format". One section per entry: the id is the heading, the
+source hash ties the text to its English source. Edit the German text by hand; remove the todo marker when done.
+Never translate commands, keys, ids or code. Maintained by scripts/gen-reference.mjs --skeleton and
+scripts/check-translations.mjs; see README "Editing the site". -->
+
+## _intro
+<!-- source: 8d921ca8979ffe57 -->
+Package-Format
+summary: der Ordneraufbau, der Kopf und die Abschnitte eines Packages, wie seine Einheiten heißen, das Zip und seine Signatur, Installieren und Entfernen
+
+Ein Package bringt Regeln, Coding-Sätze, Skills, Rollen, Topics, Scripts und Prüfmodule in ein Projekt auf dem
+Template, dazu ein `install.py` und eine KI-geführte Einrichtung `install.md`. `python .act/scripts/packages.py plan <zip|folder>`
+liest ein Package, prüft es gegen diese Datei und gibt aus, was seine Installation tun würde; es schreibt nichts und führt
+keinen Package-Code aus. `add` und `remove` (unten) machen ein Package aktiv oder inaktiv, immer nach einem Plan, einem Diff
+jeder Projektdatei und einem ausdrücklichen Ja. Diese Datei ist eine Art für sich, wie `documents/`: kein Schalter, kein
+Projekt-Override.
+
+## Folder layout
+<!-- source: 6cb451f9e998e0fa -->
+Ordneraufbau
+
+```
+<package>/
+  package.md          required: header and sections (below)
+  install.py          optional: code that runs once at install (needs `contains-code: yes`)
+  install.md          optional: the AI-guided setup, read after the install
+  pre-template/       units that come before the template's own
+  post-template/      units that come after the template's own
+```
+
+Jede Seite enthält beliebige der Ordner `rules/`, `coding/`, `skills/`, `agents/`, `topics/`, `scripts/`, `hooks/checks/`;
+sonst nichts. Alles andere an der Wurzel des Packages oder in einer Seite sowie jeder symbolische Link oder jede Junction
+irgendwo führt dazu, dass das Package abgelehnt wird, ebenso ein Name, der nicht auf jedem System geschrieben werden kann:
+ein `:` in einem Teil (ein NTFS-Stream) oder ein Windows-Gerätename (`con`, `prn`, `aux`, `nul`, `com1`-`com9`,
+`lpt1`-`lpt9`, mit oder ohne Endung, in beliebiger Schreibweise) in einem Teil. Was wohin gehört:
+
+| Ordner | Enthält | Eine Einheit ist |
+| :--- | :--- | :--- |
+| `rules/` | `.md`-Dateien mit Überschriften ``## `R-<area>-<name>` — Title`` | eine Regel-ID |
+| `coding/` | `<name>.md` | ein Coding-Satz |
+| `skills/` | `<name>/SKILL.md` und was dazugehört | ein Skill-Ordner |
+| `agents/` | `<name>.md` | eine Rolle |
+| `topics/` | `<name>.md` | eine Topic-Datei |
+| `scripts/` | `<module>.py` | ein Script |
+| `hooks/checks/` | `<module>.py` | ein Prüfmodul |
+
+## package.md
+<!-- source: 494fd0a47a446a2b -->
+package.md
+
+Ein Kopf zwischen zwei `---`-Zeilen, ein `key: value` je Zeile, dann Abschnitte.
+
+| Kopffeld | Wert |
+| :--- | :--- |
+| `id` | `^[a-z][a-z0-9-]{1,30}$`; das Präfix jeder neuen Einheit; `act` und jede ID, die mit `act-` beginnt, werden abgelehnt (der Namensraum des Templates) |
+| `version` | `X.Y.Z` |
+| `requires-template` | `>=X.Y.Z`, keine andere Form; wird abgelehnt, wenn das installierte Template (`.act/VERSION`) älter ist oder seine Version nicht gelesen werden kann |
+| `tools` | Kommaliste; jedes ein Werkzeug, das das Template kennt (`claude-code`, `codex`, `copilot`, `gemini`, `cursor`, `aider`, `cline`, `ollama`) |
+| `license` | nicht leer |
+| `contains-code` | `yes` oder `no`; `no` mit einem `install.py`, einer Datei in `scripts/` oder in `hooks/checks/` wird abgelehnt |
+
+Ein fehlendes oder ungültiges Feld wird unter Nennung des Feldes abgelehnt. Andere Kopffelder ignoriert der Plan; ein
+Package-Repository darf ein weiteres, optionales Feld in seinen Index übernehmen: `stack`, eine Kommaliste der Stacks, für
+die das Package gedacht ist (freie Wörter wie `python` oder `nuxt`; nichts prüft es).
+
+| Abschnitt | Zeilen | Plan-Zeile |
+| :--- | :--- | :--- |
+| `## Contents` | freier Text, am Kopf des Plans gezeigt | Kopf |
+| `## disables` | `- R-<area>-<name>`: eine Regel-ID des Templates | `disables rule …` |
+| `## settings` | `- <key>: <question>`, Schlüssel `<id>-<key>` (jeder andere Schlüssel wird mit dem erwarteten Namen abgelehnt, ebenso ein Schlüssel, der einem Schlüssel der `docs/ai/config.md` des Templates gleicht) | `asks <key>: <question>` |
+| `## checks` | `- <check>: block\|warn\|off` (die eigenen Modi des Templates, nichts anderes): eine Prüfung mit einer block/warn/off-Zeile in der `config.md` § Checks des Templates | ``config line `<check>: <value>` (from package <id>)`` |
+
+Jeder andere `##`-Abschnitt, eine Zeile in `disables`, `settings` oder `checks`, die keine Listenzeile ist, sowie ein
+wiederholter Eintrag oder Abschnitt werden abgelehnt.
+
+## Units and names
+<!-- source: 293a94f58cf8ad97 -->
+Einheiten und Namen
+
+Eine Einheit, deren Name dem einer Template-Einheit derselben Art gleicht:
+
+- in `pre-template/` **ersetzt** sie diese Einheit; in `post-template/` **erweitert** sie sie (der Text wird angehängt).
+  Das gilt für Skills, Rollen und Topics.
+- Ein **Coding-Satz** wird nur erweitert: Ein Coding-Satz in `pre-template/` mit dem Namen eines Template-Satzes wird
+  abgelehnt, weil sich der Satz des Templates noch nicht herausnehmen lässt; den Text stattdessen in `post-template/` legen.
+- Eine **Regel** wird über ihre ID zugeordnet. Eine Template-Regel-ID in `pre-template/` wird immer abgelehnt, mit oder ohne
+  `disables`-Zeile: Die Zeile dieser ID ist die, die `disables` ausschaltet, die eigene Regel des Packages wäre also selbst
+  aus. Um eine Regel zu ersetzen, führe sie unter `## disables` auf und bringe eine Regel mit der eigenen ID des Packages
+  `R-<id>-<name>` mit. In `post-template/` erweitert eine Template-Regel-ID diese Regel, und ihre Zeile bleibt angekreuzt.
+
+Eine neue Einheit muss `<id>-<name>` heißen (Regel-IDs `R-<id>-<name>`; Scripts und Prüfmodule `<id>_<name>.py`, die
+Bindestriche der ID als Unterstriche geschrieben). Die einzigen Ausnahmen sind Template-Einheiten, die in ein Package
+umgezogen sind und ihren Namen behalten: `act-teach` und `act-slides` (`OUTSOURCED_UNITS` in `packages.py`). Alles andere wird
+mit dem erwarteten Namen abgelehnt. Eine Einheit darf nur von einer Seite kommen; ein Skill-Ordner braucht seine `SKILL.md`.
+
+Ein Script oder Prüfmodul mit dem Namen eines Template-Scripts oder -Moduls wird abgelehnt: Ein Package ersetzt keinen
+Template-Code. Ein Einheitenname oder eine Regel-ID, die ein anderes Package im Lock schon mitbringt, wird abgelehnt, mit
+Nennung dieses Packages (der frühere Eintrag des Packages selbst zählt nicht). Die eine Ausnahme: Zwei Packages dürfen
+dieselbe Template-Einheit oder Template-Regel beide **erweitern** (ihr Text wird in der Installationsreihenfolge angehängt).
+Ein Ersatz kollidiert mit allem: Ersatz gegen Ersatz und Ersatz gegen Erweiterung derselben Template-Einheit werden
+abgelehnt, mit Nennung des anderen Packages.
+
+Ladefolge: zuerst das `pre-template/` eines Packages, dann die eigenen Dateien des Templates, dann `post-template/`, dann
+die Overrides und Regeln des Projekts.
+
+### Skills and roles
+
+Ein Skill ist ein Ordner: `SKILL.md` und was dazugehört. Ein neuer Skill bekommt seine eigene Kopie dort, wo das Projekt
+seine Skills ablegt. Ein Skill in `pre-template/` mit dem Namen eines Template-Skills ersetzt die Kopie dieses Skills
+(Template-Dateien, die dem Package fehlen, werden nicht kopiert). Ein Skill in `post-template/` mit dem Namen eines
+Template-Skills erweitert ihn: Der Text der `SKILL.md` des Packages ohne ihr Frontmatter wird an den des Templates
+angehängt, andere Dateien mit dem Namen einer Template-Datei bekommen ihren Text angehängt, weitere Dateien werden
+hinzugefügt.
+
+Eine Rolle ist eine `.md`-Datei: Frontmatter (`name`, `description` und die Tier-Felder, die die Rollen des Templates
+nutzen) und der Text der Rolle. Eine neue Rolle wird als Rollendatei kopiert; eine Rolle in `pre-template/` mit dem Namen
+einer Template-Rolle ersetzt sie; eine Rolle in `post-template/` erweitert sie: Ihr Text wird nach dem Hauptteil der
+Template-Rolle zwischen zwei Marken `<!-- act:package <id> -->` und `<!-- /act:package <id> -->` eingefügt. Die
+`-high`-Variante der Rolle folgt ihrer Basisrolle. Eine Kopie, die ein Mensch bearbeitet hat, wird nie überschrieben oder
+gelöscht, und der Plan nennt sie.
+
+Grenze: Rollen erreichen nur Claude Code (`.claude/agents/`). Rollendateien für Copilot (`.github/agents/`) werden aus
+einem Package noch nicht erzeugt.
+
+### Check modules
+
+Ein Prüfmodul in `hooks/checks/` ist eine PreToolUse-Prüfung des Packages. Es definiert `check_<module>(payload) -> int`
+(das Modul `demo_guard.py` ergibt `check_demo_guard`): `0` lässt den Aufruf durch, `2` lehnt ihn ab, und was es auf stderr
+ausgibt, ist der Grund. Es läuft nach den eigenen Prüfungen des Templates auf einer tiefen Kopie der Payload, mit einem
+Zeitlimit von zwei Sekunden, und seine Ablehnung wird mit Package und Modul genannt. Bevor es läuft, wird seine Datei mit
+dem Hash im Lock verglichen; ein Modul, das abweicht, ein fehlender Ordner, ein Modul, das eine Ausnahme auslöst oder sein
+Limit überschreitet, lehnt den Aufruf ab und nennt die Abhilfe (`packages.py remove <id>` oder erneut `add <id>`). Ein
+Modul kann einen Aufruf nur strenger machen: Es kann nichts durchlassen, was eine Template-Prüfung ablehnt, und eine
+Änderung an seiner eigenen Payload-Kopie ändert für die anderen nichts.
+
+Ein Prüfmodul ist Code, den der Besitzer installiert hat, dem wie `install.py` vertraut wird: Das Template sichert sein
+Urteil gegen den Rückgabewert des Moduls und gegen Änderungen der Payload ab, nicht gegen das, was Code tun kann. Die
+Sicherheit kommt vor der Installation: Der Plan nennt das Modul, `package_scan.py` listet es auf, und eine Signatur sagt,
+wer das Zip gemacht hat.
+
+Der Dispatcher lehnt jeden Aufruf ab, solange `.act-lock.json` existiert, aber nicht gelesen werden kann (oder sein
+`packages` kein Objekt ist) und `.act-local/packages/` einen Package-Ordner enthält: Der Besitzer repariert den Lock (zum
+Beispiel `! git checkout -- .act-lock.json`) oder verschiebt die Ordner hinaus. Ohne Package-Ordner gibt es einen Hinweis
+je Sitzung, und nichts wird abgelehnt.
+
+### The config mark
+
+Eine Zeile unter `## checks` setzt den Wert einer Zeile in `docs/ai/config.md`. Die Zeile wird am Ende ihrer dritten Spalte
+mit `<!-- act:package <id> was=<value before> now=<value set> -->` markiert. Ein Package markiert eine Zeile zur Zeit:
+Eine Zeile, die ein anderes Package markiert, lehnt die Installation ab und nennt dieses Package. Das Entfernen des
+Packages gibt der Zeile ihren alten Wert zurück, wenn sie noch `now=` enthält; ein Wert, den der Besitzer seither
+geschrieben hat, bleibt. Die Marke geht in beiden Fällen. Eine Zeile `secret-read-allow` schreibt nur der Besitzer, ein
+Package kann sie nicht setzen.
+
+## The plan
+<!-- source: 171c30333f93c376 -->
+Der Plan
+
+`packages.py plan <zip|folder>` gibt für ein gültiges Package aus: einen Kopf (Package und Version, Lizenz, Tools,
+`contains-code`, `requires-template`, den Package-Hash, Contents), die Herkunft und ob sie zugelassen ist (unten), eine
+Zeile je Datei `pre|post|root <path> -> <effect>` (`adds skill …`, `replaces role …`, `extends rule …`), dann eine Zeile je
+Config-Zeile. Ein abgelehntes Package gibt jeden Grund aus, nicht nur den ersten, und endet mit Exit 1.
+
+## Zip, signature and fetch
+<!-- source: cd4b5a45656fa624 -->
+Zip, Signatur und Fetch
+
+Ein Zip hat `package.md` an seiner Wurzel oder in genau einem obersten Ordner. Abgelehnt werden ein absoluter Pfad, ein
+Laufwerksbuchstabe, ein `..`-Teil, ein Backslash, ein leerer Teil, ein symbolischer Link oder ein anderer Eintrag, der keine
+einfache Datei ist, ein verschlüsselter Eintrag, zwei Namen, die sich nur in der Groß-/Kleinschreibung unterscheiden, ein
+Eintrag unterhalb einer Datei, mehr als 2.000 Einträge und mehr als 50 MB unkomprimiert. Eine Ordnerquelle bekommt dieselben
+Grenzen, gezählt an den kopierten Bytes. Ein UNC-Pfad (`\\host\share`, `//host/share`) wird als Quelle abgelehnt, bevor
+irgendetwas geöffnet wird. Zip und Ordner werden zuerst in einen frischen Ordner unter `.act-local/packages/.staging/`
+kopiert; jede Prüfung, die Signaturprüfung und das Entpacken lesen diese eine Kopie.
+
+Die Signatur ist `<zip>.sig`, erzeugt mit `ssh-keygen -Y sign -n act-package` und geprüft mit `ssh-keygen -Y verify -I
+act-packages -n act-package` gegen die Schlüssel in `.act/package-signers` und, falls vorhanden, in der eigenen
+`docs/ai/local/package-signers` des Projekts (dieselbe Allowed-Signers-Form, eine Zeile je Schlüssel:
+`act-packages namespaces="act-package" <key type> <key>`); die Schlüsselzeile einer der beiden Dateien darf die Prüfung
+bestehen. Ein Projekt, das einem eigenen Schlüssel vertraut, trägt ihn in seine eigene Datei ein und ändert nie `.act/`.
+`ssh-keygen` wird nur in den absoluten Einträgen von `PATH` gesucht. Die Herkunft ist eine von:
+
+| Zustand | Wann |
+| :--- | :--- |
+| `verified` | die Signatur wird bestätigt |
+| `unverified` | kein `.sig`, keine Schlüsselzeile in einer der beiden Signers-Dateien, kein `ssh-keygen`, ein Time-out oder ein Ordner (ein Ordner hat keine Signatur) |
+| `bad` | ein `.sig` existiert und wird nicht bestätigt: in jedem Modus abgelehnt |
+
+Der Config-Schlüssel `packages-unverified` entscheidet über `unverified`: `block` (Standard) lehnt es ab, `scan` lässt es zu,
+und `add` gibt zuerst die Funde von `package_scan.py` aus (mit `RED` markiert), `allow` lässt es mit einer Warnung zu. Ein
+unbekannter Wert gilt als `block`.
+
+`packages.py fetch <id> [--source <place>]` sucht das Package der Reihe nach in `packages-sources`. Eine Quelle ist eine
+`https://`-Adresse oder ein lokaler Ordner mit `index.json`:
+
+```json
+{"packages": {"<id>": {"version": "X.Y.Z", "zip": "<file name>", "sig": "<file name>"}}}
+```
+
+Dateinamen sind schlichte Namen ohne Pfadteil. Fetch schreibt `.act-local/packages/<id>-<version>.zip` und dessen `.sig`,
+gibt die Herkunft aus und entpackt oder aktiviert nie etwas.
+
+Ein Eintrag kann außerdem optionale Felder tragen, die einen Leser nur informieren und nie zum Holen verwendet werden:
+`contents` (der Text des Abschnitts `## Contents` des Packages), `tools` und `stack` (eine Kommaliste oder eine Liste von
+Strings; `tools` wie im Kopf, `stack` aus dem optionalen Kopffeld) und `red` (ein nicht leerer Grund: Die Betreuer des
+Repositorys markieren das Package als eines, von dem man sich fernhalten sollte). Ein fehlendes Feld fehlt; keines davon ist
+ein Grund, dem Package zu vertrauen oder es abzulehnen, darüber entscheidet der Plan des Zips selbst.
+
+`packages.py index [--source <place>] [--json]` liest diese `index.json` aus der ersten Quelle, die antwortet, mit den
+Regeln von `fetch` (eine `https://`-Adresse oder ein lokaler Ordner, kein UNC-Pfad, die Zeit- und Größenlimits; eine
+Quelle, deren Index abgelehnt wird oder nicht antwortet, wird mit einer Zeile auf stderr übersprungen, ein Time-out bricht
+ab) und gibt eine Zeile je Package aus: ID, Version, eine Markierung, wenn der Lock es verzeichnet (`active <version>`,
+`broken`, `newer in the index`) oder ein Ordner davon in `.act-local/packages/` ruht, und, wo der Index sie hat, die erste
+Zeile von `contents`, `tools`, `stack` und `RED <reason>`. Eine Datei wird als Ganzes abgelehnt, wenn sie kein JSON ist,
+kein `packages`-Objekt hat, eine ID auflistet, die keine Package-ID ist, oder ein Eintrag eine Version, einen Dateinamen
+oder ein optionales Feld der falschen Art hat. `--json` gibt dieselben Felder als JSON aus. Es schreibt nichts.
+
+## Installing and removing
+<!-- source: e877e0dd5e8b9637 -->
+Installieren und Entfernen
+
+`packages.py add <zip|folder|id>` nimmt ein Zip (mit seinem `.sig` daneben), einen Package-Ordner oder eine Package-ID:
+dann das neueste `.act-local/packages/<id>-<version>.zip`, sonst den ruhenden Ordner `.act-local/packages/<id>/` (als
+Ordner gelesen, also unverified), sonst lehnt es ab und nennt `fetch`. Ein Argument in der Form einer ID ist immer eine
+ID; einen Ordner dieses Namens schreibt man als `./<name>`. Was eine bloße ID aufgreift, muss dem entsprechen, was ihr Name
+sagt: Ein Zip oder Ordner, dessen `package.md` eine andere ID trägt, wird abgelehnt, ebenso ein Zip `<id>-<version>.zip`,
+dessen `package.md` eine andere Version trägt.
+
+Ohne `--yes` schreibt es nichts. Es gibt den Plan aus, die Herkunft und die Zulassung (mit `scan` die Funde), `install`,
+`update <old> → <new>` oder `downgrade <old> → <new>` (dieselbe ID noch einmal ist ein Update, eine niedrigere Version ein
+Downgrade, nach dem Ja wie ein Update erlaubt; die Einheiten, die die neue Version weglässt, gehen), was mit dem Ordner
+`.act-local/packages/<id>/` geschieht (ein ruhender Ordner, den eine andere Quelle ersetzt, wird als ersetzt und gelöscht
+genannt), die Liste der Projektdateien, die sich ändern, und einen Unified Diff jeder davon (`docs/ai/rules.md`, Skill-
+und Rollenkopien, `docs/ai/config.md`, `.act-lock.json`), und die Zeile `install exactly this: python .act/scripts/packages.py add <source> --yes <code>`. Der
+Code sind die ersten 12 Hex-Ziffern eines Package-Hashes, berechnet über die Rohbytes jeder Package-Datei, ohne
+Zeilenende-Angleichung: Jedes Byte, das sich ändert, nachdem der Plan gezeigt wurde, ändert den Code, und `--yes` mit dem
+alten Code wird abgelehnt. (Das `sha256` des Locks unten bleibt über der LF-Form.) Das Ja selbst gehört dem Besitzer: Es
+wird im Chat zum gezeigten Plan gegeben, und `--yes <code>` führt es nur aus; ein Plan wird nie in einem Schritt gezeigt
+und ausgeführt. Der Diff zeigt keine Importzeile, die der Schnitt einer Regeldatei herausnimmt, wenn das Package alle ihre
+Regeln abschaltet.
+
+Mit `--yes <code>` wird der bereitgestellte Ordner nach `.act-local/packages/<id>/` verschoben (ein alter wird vorher
+beiseitegelegt), die Prüfzeilen werden gesetzt, der Lock-Eintrag wird geschrieben und das Package wird geladen. Ein Fehler
+unterwegs, auch eine Datei, die das Laden nicht schreiben kann, stellt alles aus den zuvor gesicherten Bytes wieder her (den
+Lock, die Config, jede Datei, die das Laden schreibt) und endet mit Exit 1 mit dem Pfad und der Art des Fehlers, nie dem
+Inhalt einer Datei. Dann läuft bei `contains-code: yes` mit einem `install.py` dieses einmal (Argumentliste, die
+Projektwurzel als Arbeitsordner, keine Eingabe, seine Ausgabe in eine Datei im Staging-Ordner geschrieben und danach
+gezeigt, bei 20 000 Bytes abgeschnitten, ein Limit von 300 Sekunden). Am Limit werden der Prozess und alles, was er
+gestartet hat, beendet, auch unter Windows und auch, wenn er einen Kindprozess hinterlassen hat, der die Ausgabe offen hält.
+Bei einem Time-out oder einem Exit ungleich 0 bleibt das Package installiert, die Meldung nennt `remove`, und der Exit ist
+1. Ein Prozess, den `install.py` nach einem normalen Ende weiterlaufen lässt, wird nicht beendet; hält er die Ausgabedatei
+noch offen, bleibt der Staging-Ordner, und die Meldung nennt ihn. Dann, mit einer `install.md`, weist eine Zeile den
+KI-Agenten an, ihr jetzt zu folgen: Die `install.md` eines Packages, zu dem der Besitzer nach dem Plan Ja gesagt hat, gilt
+als Anweisung des Besitzers nur für diese eine Installation. Beides läuft weder im Dry Run noch aus einem Sitzungsstart-
+oder Prüfpfad.
+
+`packages.py remove <id> [--keep]` zeigt denselben Plan und Diff für das Herausnehmen des Packages und den Ordner, der
+geht; `--yes <id>` gibt die Prüfzeilen zurück, entfernt den Lock-Eintrag, entlädt das Package und löscht
+`.act-local/packages/<id>/` (folgt nie einem Link), außer mit `--keep`, das den Ordner ruhen lässt: Aus einem Ordner, den
+der Lock nicht verzeichnet, wird nichts geladen. Es funktioniert, wenn der Ordner schon fehlt, und ein ruhender Ordner ohne
+Lock-Eintrag wird auf dieselbe Weise gelöscht. `add` gefolgt von `remove` lässt das Projekt Byte für Byte so, wie es war.
+`packages.py list` zeigt die Packages des Locks und die ruhenden Ordner und nennt ein defektes Package (sein Ordner fehlt
+oder eine Datei weicht vom Lock ab) mit der Abhilfe: erneut `add <id>` oder `remove <id>`.
+
+## Settings
+<!-- source: 26a274490e70708e -->
+Einstellungen
+
+Die Fragen aus dem Abschnitt `## settings` eines Packages werden nach der Installation in einem Zug beantwortet und in
+`docs/ai/config.md`, Abschnitt Packages, in einem eigenen Block unter der Tabelle des Abschnitts festgehalten, eine
+Tabellenzeile je Schlüssel:
+
+```
+<!-- act:package-settings <id> -->
+| Key | Value |
+| :--- | :--- |
+| `<id>-<key>` | die Antwort |
+<!-- /act:package-settings <id> -->
+```
+
+`packages.py settings <id>` zeigt die Schlüssel, die das Package deklariert, mit Frage und Antwort (`(not set)`, wenn es
+keine Zeile gibt); `settings <id> <key>=<value> …` schreibt sie. Nur Schlüssel, die der eigene Abschnitt `## settings` des
+Packages deklariert, werden übernommen (gelesen aus der hash-geprüften `package.md` eines intakten aktiven Packages), ein
+Wert ist eine Zeile ohne `|` und wird gestrippt gespeichert, und ein abgelehntes Paar schreibt nichts. Die Zeilen werden
+wie jede andere Zeile der Datei gelesen (`actlib.read_config`), `config.py` zeigt sie als Einstellungen des Packages und
+prüft sie nie gegen die eigenen Einstellungen des Templates, und `doctor.py` prüft ihre Werte nicht; es nennt nur einen
+Block, dessen Package keinen Eintrag im Lock hat, mit der Abhilfe (den Block von Hand entfernen oder `packages.py add <id>`).
+Ein Update, das einen Schlüssel nicht mehr deklariert, entfernt seine Zeile; `remove --yes` entfernt den Block (und die eine
+Leerzeile davor), sodass `add`, `settings` und `remove` `docs/ai/config.md` Byte für Byte so lassen, wie sie war. Die
+Einstellungen eines Packages sind keine Geheimnisse: Die Datei ist versioniert.
+
+## Lock
+<!-- source: 1e75f8e77f7eba28 -->
+Lock
+
+Der Lock (`.act-lock.json`) verzeichnet installierte Packages unter `packages`, je ID:
+
+```json
+{"<id>": {"version": "1.0.0", "source": "...", "sha256": "...", "check": "verified",
+          "files": {"<path in the package>": "<sha256>"}, "units": ["skill:<id>-x", "rule:R-<id>-y"],
+          "extends": ["role:reviewer"], "config": ["<check>: <value>"]}}
+```
+
+`source` nennt das Zip oder den Ordner, aus dem es kam, `check` die Herkunft zum Zeitpunkt der Installation. `sha256` ist
+der SHA-256 über die sortierten Zeilen `<path>`, ein NUL-Byte, `<file sha256>`, ein Zeilenumbruch, eine je Datei des
+Packages (der Datei-Hash ist der, den der Lock überall verwendet, über der LF-Form). Mit `units` sieht eine spätere
+Installation, welche Namen ein Package schon mitbringt (Regel-IDs lassen sich nicht aus einem Pfad lesen); `extends`
+listet den Teil von `units`, der nur eine Template-Einheit oder -Regel erweitert, sodass zwei Erweiterungen derselben nicht
+kollidieren. Die Kopien, die ein Package gemacht hat, stehen unter `package_copies`, nie unter `copies`.
+
+Ein Package ist **aktiv**, wenn es einen Lock-Eintrag hat; ein Ordner ohne einen ist **ruhend**, und nichts wird aus ihm
+geladen. Der Lock ist versioniert, der Ordner nicht: Auf einem zweiten Rechner ist der Lock da, und der Ordner fehlt
+vielleicht. Was sich allein aus dem Lock ableitet (die Importzeilen und die markierten Zeilen), bleibt, was den Ordner
+braucht (Kopien, Prüfmodule), bleibt, wie es ist, und wird gemeldet, und ein Package, dessen Ordner fehlt oder dessen
+Dateien vom Lock abweichen, ist **defekt**: Seine Module werden nicht geladen und seine Kopien nicht neu geschrieben, bis
+`add` oder `remove` läuft.

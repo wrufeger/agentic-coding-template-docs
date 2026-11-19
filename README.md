@@ -42,6 +42,10 @@ the owner's word.
   Commands, keys, ids, code and `--help` output are never in the catalog.
 - After changing an English page, `npm run check:translations` lists the stale German page; after updating it,
   run `node scripts/check-translations.mjs --stamp <de-file>`.
+- Package pages are generated from the package repository, outside `prebuild` and CI: after each release of
+  `act-packages`, run `npm run gen:packages` (it reads the newest tag of `../act-packages`), write the missing German
+  entries under `src/translations/de/packages/` (`node scripts/gen-packages.mjs --skeleton` adds them as English text
+  with a todo marker), then run `npm run check:translations`.
 - German wording follows `docs/project/german-glossary.md`.
 - Preview with `npm run dev` (http://localhost:4321/agentic-coding-template-docs/), check with `npm run build`. A dev
   server left running across a `sync` can keep serving old pages from its content cache: stop it and start it again;

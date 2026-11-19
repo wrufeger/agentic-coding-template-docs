@@ -9,6 +9,9 @@
 //                                                   src/translations/de/reference/<page>.md to the current English
 //                                                   source (the translator has reviewed them; todo entries stay)
 //   --act <dir>, --translations <dir>               other .act / catalog directory (tests)
+//   --packages <dir>, --tag <tag>, --package-translations <dir>
+//                                                   package repo checkout, release tag (taken as written, not a path)
+//                                                   and package catalog directory for the package catalogs
 //
 // Besides the hand pages it checks the reference catalogs: per page the entries that are missing, stale
 // (hash differs), still todo, and orphans (id no longer in the source). Any of the first three gives exit 1.
@@ -70,16 +73,21 @@ function stamp(file, hash) {
   fs.writeFileSync(file, `---${parts.eol}${front}${parts.eol}---${parts.body}`, 'utf8');
 }
 
-const dePages = walk(deDir, (p) => p === path.join(deDir, 'reference'));
-const enPages = walk(enDir, (p) => p === deDir || p === path.join(enDir, 'reference'));
+// reference/ and packages/ are generated; their German side comes from catalogs, not from hand pages.
+const dePages = walk(deDir, (p) => p === path.join(deDir, 'reference') || p === path.join(deDir, 'packages'));
+const enPages = walk(enDir, (p) => p === deDir || p === path.join(enDir, 'reference') || p === path.join(enDir, 'packages'));
 const enOf = (de) => path.join(enDir, path.relative(deDir, de));
 
-function optValue(name) {
+function rawValue(name) {
   const i = argv.indexOf(name);
   if (i === -1) return null;
-  if (i + 1 >= argv.length) fail(`${name} needs a directory argument`);
-  return path.resolve(argv[i + 1]);
+  if (i + 1 >= argv.length) fail(`${name} needs an argument`);
+  return argv[i + 1];
 }
+const optValue = (name) => {
+  const v = rawValue(name);
+  return v === null ? null : path.resolve(v);
+};
 const transDir = optValue('--translations') ?? path.join(root, 'src', 'translations', 'de', 'reference');
 function currentEntries() {
   const args = [path.join(root, 'scripts', 'gen-reference.mjs'), '--entries'];
@@ -176,4 +184,58 @@ console.log(
   `check-translations: catalogs ${totals.current} current, ${totals.stale} stale, ${totals.missing} missing, ${totals.todo} todo, ${totals.orphan} orphan`,
 );
 catalogBad = totals.stale + totals.missing + totals.todo + totals.orphan;
+
+// ---------- package catalogs ----------
+// One catalog per package under src/translations/de/packages/, checked against the entries of gen-packages.mjs
+// for the chosen tag (--packages <dir>, --tag <tag>, --package-translations <dir>). Without a package repo
+// checkout (CI) this part says so and is skipped; it never passes silently.
+{
+  const pkgTransDir = optValue('--package-translations') ?? path.join(root, 'src', 'translations', 'de', 'packages');
+  const args = [path.join(root, 'scripts', 'gen-packages.mjs'), '--entries', '--translations', pkgTransDir];
+  if (optValue('--packages')) args.push('--packages', optValue('--packages'));
+  if (rawValue('--tag') !== null) args.push('--tag', rawValue('--tag')); // a tag name, never a path
+  const pkgRepo = path.resolve(optValue('--packages') ?? path.join(root, '..', 'act-packages'));
+  if (!fs.existsSync(pkgRepo)) {
+    console.log(`check-translations: package catalogs skipped - no package repo at ${pkgRepo}`);
+  } else {
+    let pk;
+    try {
+      pk = JSON.parse(execFileSync(process.execPath, args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] }));
+    } catch (e) {
+      fail(`gen-packages.mjs failed: ${String(e.stderr ?? e.message).trim()}`);
+    }
+    const pt = { current: 0, stale: 0, missing: 0, todo: 0, orphan: 0 };
+    for (const pg of Object.keys(pk)) {
+      const have = parseCatalog(path.join(pkgTransDir, `${pg}.md`));
+      const ids = new Set(pk[pg].map((e) => e.id));
+      const r = { current: 0, stale: [], missing: [], todo: [], orphan: [] };
+      for (const e of pk[pg]) {
+        const c = have.get(e.id);
+        if (!c) r.missing.push(e.id);
+        else if (c.todo) r.todo.push(e.id);
+        else if (c.source !== e.hash) r.stale.push(e.id);
+        else r.current++;
+      }
+      for (const id of have.keys()) if (!ids.has(id)) r.orphan.push(id);
+      console.log(
+        `package catalog ${pg}: ${r.current} current, ${r.stale.length} stale, ${r.missing.length} missing, ${r.todo.length} todo, ${r.orphan.length} orphan`,
+      );
+      for (const k of ['stale', 'missing', 'todo', 'orphan']) if (r[k].length) console.log(`  ${k}: ${r[k].join(', ')}`);
+      pt.current += r.current;
+      for (const k of ['stale', 'missing', 'todo', 'orphan']) pt[k] += r[k].length;
+    }
+    if (fs.existsSync(pkgTransDir)) {
+      for (const f of fs.readdirSync(pkgTransDir).sort()) {
+        if (f.endsWith('.md') && !pk[f.slice(0, -3)]) {
+          console.log(`package catalog ${f.slice(0, -3)}: orphan catalog (no such package in the tag)`);
+          pt.orphan++;
+        }
+      }
+    }
+    console.log(
+      `check-translations: package catalogs ${pt.current} current, ${pt.stale} stale, ${pt.missing} missing, ${pt.todo} todo, ${pt.orphan} orphan`,
+    );
+    catalogBad += pt.stale + pt.missing + pt.todo + pt.orphan;
+  }
+}
 process.exit(stale.length || missing.length || unstamped.length || catalogBad ? 1 : 0);

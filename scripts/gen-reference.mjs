@@ -252,6 +252,7 @@ const DE_META = {
   topics: ['Topics', 'Topics: Detailseiten, auf die Regeln als topics/<name>.md verweisen.'],
   roles: ['Rollen', 'Die Worker-Rollen mit Tier, Reasoning und Werkzeugen.'],
   'coding-rules': ['Coding-Regeln', 'Die Coding-Regelsätze je Sprache oder Framework mit ihren Gruppenkennungen.'],
+  'package-format': ['Package-Format', 'Ordneraufbau, Kopf und Abschnitte eines Packages, seine Einheiten, Signatur, Plan, Installation und Lock.'],
 };
 
 function page({ name, title, description, order, intro, body }) {
@@ -544,6 +545,37 @@ function buildCoding() {
   };
 }
 
+// ---------- package format ----------
+// One page from .act/formats/package.md: the head (title, summary, intro) is the entry `_intro`, every `## ` section
+// is one entry named by its heading (the heading is its title line, the body the rest).
+function buildPackageFormat() {
+  begin('package-format');
+  // A code span that holds an escaped backtick (a table cell in the source) becomes a double-backtick span,
+  // which is how Markdown writes it.
+  const text = stripComments(read('formats/package.md')).replace(/`(## )\\`([^`\n]*)\\`([^`\n]*)`/g, '``$1`$2`$3``');
+  const { pre, sections } = splitSections(text);
+  const head0 = takeSummary(pre.replace(/^# .*\n+/, ''));
+  const head = trParts('_intro', { title: h1(text), summary: head0.summary, rest: head0.rest });
+  const intro = [head.summary ? `${L('Summary')}: ${esc(head.summary)}` : '', esc(head.rest), `${L('Source')}: ${code('.act/formats/package.md')}`]
+    .filter(Boolean)
+    .join('\n\n');
+  const parts = sections.map((s) => {
+    const p = trParts(s.heading, { title: s.heading, summary: '', rest: s.body });
+    return `## ${esc(p.title)}\n\n${esc(p.rest)}\n`;
+  });
+  return {
+    count: sections.length,
+    text: page({
+      name: 'package-format',
+      title: 'Package format',
+      description: 'The folder layout, header and sections of a package, its units, signature, plan, install and lock.',
+      order: 9,
+      intro,
+      body: parts.join('\n'),
+    }),
+  };
+}
+
 // ---------- index ----------
 // Links must carry the site's base path (the link validator rejects relative ones); it is read
 // from astro.config.mjs, never hard-coded here.
@@ -564,6 +596,7 @@ function buildIndex(c) {
     ['topics', 'Topics', 'Topics', `${c.topics} detail pages`, `${c.topics} Detailseiten`],
     ['roles', 'Roles', 'Rollen', `${c.roles} worker roles`, `${c.roles} Worker-Rollen`],
     ['coding-rules', 'Coding rules', 'Coding-Regeln', `${c.codingRules} rule sets`, `${c.codingRules} Regelsätze`],
+    ['package-format', 'Package format', 'Package-Format', 'the format of a package', 'das Format eines Packages'],
   ];
   const introEn = `These pages are generated from the ${code('.act/')} directory of this repository, which holds the newest template state at its last update - commit @COMMIT@, not a release. Nothing here is written by hand, so the pages cannot drift from the template.`;
   const intro = tr('_intro', introEn, 'inline').replace(/@COMMIT@/g, () => commitShort);
@@ -588,6 +621,7 @@ function buildAll(l) {
   const topics = buildTopics();
   const roles = buildRoles();
   const coding = buildCoding();
+  const packageFormat = buildPackageFormat();
   const index = buildIndex({
     skills: skills.count,
     scripts: scripts.count,
@@ -605,6 +639,7 @@ function buildAll(l) {
     'topics.md': topics.text,
     'roles.md': roles.text,
     'coding-rules.md': coding.text,
+    'package-format.md': packageFormat.text,
     'index.md': index,
   };
 }

@@ -22,3 +22,4 @@ Diese Seiten werden aus dem Verzeichnis `.act/` dieses Repositorys erzeugt, also
 - [Topics](/agentic-coding-template-docs/de/reference/topics/): 9 Detailseiten
 - [Rollen](/agentic-coding-template-docs/de/reference/roles/): 9 Worker-Rollen
 - [Coding-Regeln](/agentic-coding-template-docs/de/reference/coding-rules/): 22 Regelsätze
+- [Package-Format](/agentic-coding-template-docs/de/reference/package-format/): das Format eines Packages

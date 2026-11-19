@@ -32,6 +32,7 @@ export default defineConfig({
 				},
 				{ label: 'Concepts', translations: { de: 'Konzepte' }, items: [{ autogenerate: { directory: 'concepts' } }] },
 				{ label: 'Guides', translations: { de: 'Anleitungen' }, items: [{ autogenerate: { directory: 'guides' } }] },
+				{ label: 'Packages', translations: { de: 'Packages' }, items: [{ autogenerate: { directory: 'packages' } }] },
 				{ label: 'Reference', translations: { de: 'Referenz' }, items: [{ autogenerate: { directory: 'reference' } }] },
 			],
 		}),
