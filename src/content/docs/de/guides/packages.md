@@ -3,12 +3,16 @@ title: Packages
 description: Packages finden, installieren, aktualisieren und entfernen, ein eigenes Package erstellen und es beim allgemeinen Package-Repository einreichen.
 sidebar:
   order: 8
-sourceHash: 6ba99a12c571e6c77087cfd021b8851715cfff3ed825188bbbd74d75772b2f8a
+sourceHash: 5bfc46e6e504386ff9b6ab6f6fcca52e1b68f0ae2cfa67a41cda2c2518bd8812
 ---
 
 Ein Package ist ein Bündel aus Regeln, Coding-Sätzen, Skills, Rollen, Topics, Scripts und Prüfungen, das von außerhalb des Templates kommt. Es liegt unter `.act-local/packages/<id>/` und ist nur aktiv, solange `.act-lock.json` es verzeichnet; um eines zu nutzen, bearbeitest du also nie `.act/`. Diese Anleitung hat drei Teile: [Packages nutzen](#packages-nutzen), [ein Package erstellen](#ein-package-erstellen) und [es beim allgemeinen Repository einreichen](#beim-allgemeinen-repository-einreichen).
 
 Die für alle veröffentlichten Packages liegen im Repository [act-packages](https://github.com/wrufeger/act-packages), mit einer [Katalogseite](https://wrufeger.github.io/act-packages/). Auch diese Seite listet sie: siehe die [Package-Übersicht](/agentic-coding-template-docs/de/packages/).
+
+:::caution[Packages ab dem nächsten Release des Templates]
+Die Package-Schicht (`packages.py`, `/act-packages`) steckt noch in keinem Release des Templates: v2.6.0 und älter haben sie nicht. Sie kommt mit dem nächsten Release. Bis dahin braucht ein Projekt den [Update-Channel](/agentic-coding-template-docs/de/getting-started/update/#update-channel) `latest`: `update-channel: latest` in `docs/ai/config.md` setzen und `act-update` ausführen.
+:::
 
 ## Packages nutzen
 

@@ -402,6 +402,19 @@ function buildIndex() {
     ),
     '',
   );
+  // Until the next template release: the package layer is in no release yet (remove with that release).
+  out.push(
+    pick(
+      ':::caution[Packages from the next template release]',
+      ':::caution[Packages ab dem nächsten Release des Templates]',
+    ),
+    pick(
+      `The package layer (${code('packages.py')}, ${code('/act-packages')}) is in no release of the template yet: v2.6.0 and older do not have it. It comes with the next release. Until then a project needs the [update channel](${prefix}/getting-started/update/#update-channel) ${code('latest')}: set ${code('update-channel: latest')} in ${code('docs/ai/config.md')} and run ${code('act-update')}.`,
+      `Die Package-Schicht (${code('packages.py')}, ${code('/act-packages')}) steckt noch in keinem Release des Templates: v2.6.0 und älter haben sie nicht. Sie kommt mit dem nächsten Release. Bis dahin braucht ein Projekt den [Update-Channel](${prefix}/getting-started/update/#update-channel) ${code('latest')}: ${code('update-channel: latest')} in ${code('docs/ai/config.md')} setzen und ${code('act-update')} ausführen.`,
+    ),
+    ':::',
+    '',
+  );
   out.push(
     `| ${pick('Package', 'Package')} | ${L('Version')} | ${pick('Contents', 'Inhalt')} | ${L('Tools')} | ${L('Contains code')} |`,
     '| :--- | :--- | :--- | :--- | :--- |',

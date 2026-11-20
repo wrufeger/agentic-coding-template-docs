@@ -13,6 +13,10 @@ Erzeugt aus dem Release-Tag [`2026-11-19.2`](https://github.com/wrufeger/act-pac
 
 Ein Package bündelt Regeln, Rollen, Skills und Prüfungen, die ein Projekt zum Template hinzufügen kann. Das sind die Packages des Releases `2026-11-19.2` im [Package-Repository](https://github.com/wrufeger/act-packages); der [Katalog](https://wrufeger.github.io/act-packages/) zeigt dasselbe Release.
 
+:::caution[Packages ab dem nächsten Release des Templates]
+Die Package-Schicht (`packages.py`, `/act-packages`) steckt noch in keinem Release des Templates: v2.6.0 und älter haben sie nicht. Sie kommt mit dem nächsten Release. Bis dahin braucht ein Projekt den [Update-Channel](/agentic-coding-template-docs/de/getting-started/update/#update-channel) `latest`: `update-channel: latest` in `docs/ai/config.md` setzen und `act-update` ausführen.
+:::
+
 | Package | Version | Inhalt | Werkzeuge | Enthält Code |
 | :--- | :--- | :--- | :--- | :--- |
 | [`example`](/agentic-coding-template-docs/de/packages/example/) | `1.0.0` | Ein kleines Package, an dem man das Format lernt: eine Regel (`R-example-greeting`), ein neuer Skill (`example-hello`) und eine Erweiterung der Rolle `reviewer` des Templates. | claude-code | nein |
