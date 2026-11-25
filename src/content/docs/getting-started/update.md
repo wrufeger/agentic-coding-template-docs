@@ -98,10 +98,10 @@ behind another remote helper gets no update note at session start, while `act-up
    after committing, `python .act/scripts/rules.py --add-new-coding`. `--plan` previews the sets and groups an update
    would enter. A changed `methods` row in `docs/ai/config.md` is applied here too
    (`python .act/scripts/rules.py --sync-methods` does the same on its own).
-   If you edited `docs/ai/rules.md`, a rule that moved to another rule file takes its checkbox line along (mark and
+   If you edited `docs/ai/local/rules.md`, a rule that moved to another rule file takes its checkbox line along (mark and
    reason unchanged, so a rule switched off stays off); if you do not import the new file, it is only reported, and so is a rule that moved into a file your
    project shadows with its own copy under `docs/ai/local/rules/` that lacks the rule (it does not load). An
-   unedited `docs/ai/rules.md` is re-derived as before. In an edited one, a rule or rule file the template added is entered: a checkbox line per new rule, a new rule file as an import block at the end of its section. Your own text, unchecked boxes and imports you removed stay as they are, and `.act-lock.json` records what was offered (`rules_offered`), so a removed line does not come back, and its rule still counts as on (remove the cross to switch it off). What cannot be entered safely is named with `python .act/scripts/rules.py --add-missing`; the session start enters new rules the same way. Only `builder` and `reviewer` keep a `-high` variant: generated
+   unedited `docs/ai/local/rules.md` is re-derived as before. In an edited one, a rule or rule file the template added is entered: a checkbox line per new rule, a new rule file as an import block at the end of its section. Your own text, unchecked boxes and imports you removed stay as they are, and `.act-lock.json` records what was offered (`rules_offered`), so a removed line does not come back, and its rule still counts as on (remove the cross to switch it off). What cannot be entered safely is named with `python .act/scripts/rules.py --add-missing`; the session start enters new rules the same way. Only `builder` and `reviewer` keep a `-high` variant: generated
    variants of the other template roles are removed, each named in the preview and summary.
    The template's roles (and their `-high` variants) get `omitClaudeMd: true`, so workers no longer load `CLAUDE.md`;
    your own roles and an explicit `omitClaudeMd: false` stay as they are, and an own role without the field keeps
@@ -110,12 +110,12 @@ behind another remote helper gets no update note at session start, while `act-up
 7. **Hooks and Git files.** Reconciles the hook entries in `.claude/settings.json` and the template blocks in
    `.gitattributes` and `.gitignore`, sets `PYTHON_BASIC_REPL=1` under `env` there (on Windows, an empty heredoc in a Bash call no longer hangs on Python 3.13 and later; a value you set yourself is kept, and the report names the env keys added), and sets `"enableArtifact": false` there unless `artifacts: on` is in
    `docs/ai/config.md`. An existing project therefore starts without the `Artifact` tool after the update. It also adds the `Stop` entry of the check `model-switch` (with `SubagentStop` it reports when a worker or the session continued on another model) and the 12 `SubagentStart` entries that give workers their rules without the orchestrator rules (see step 6); an older set of six is replaced, your own hooks stay. `python .act/scripts/rules.py --worker` shows what a worker gets. It also keeps `.act-local/` out of IDE indexes: an `excludeFolder` in every JetBrains `.idea/*.iml`, and `files.watcherExclude` in `.vscode/settings.json` where `.vscode/` exists.
-8. **Migrations.** Runs any that are due. Each rewrites an affected file once and leaves it alone after. Three give an existing project a missing file once: `docs/ai/local/resources.md` (your reading list), `docs/project/README.md` (the index of the project docs) and, through `007-changelog-file`, `CHANGELOG.md` in the project root. A file that exists is never touched, and one you delete does not come back. `007-changelog-file` never overwrites or recreates a `CHANGELOG.md`; it creates none for a project that keeps its changelog under another name (`changelog.md`, `CHANGES.md`, `HISTORY.md`, `NEWS.md`) or has `changelog: release-notes-only` or `off` under § Formats. `008-done-entries-keep` removes the retired `done-entries` row and its explanation from `docs/ai/config.md` (see [Finished entries](#finished-entries)); the plan names what it would cut.
-9. **Bridges and doctor.** First unedited generated bridges (`CLAUDE.md`, `AGENTS.md`, `docs/ai/rules.md`) are
+8. **Migrations.** Runs any that are due. Each rewrites an affected file once and leaves it alone after. Three give an existing project a missing file once: `docs/ai/local/resources.md` (your reading list), `docs/project/README.md` (the index of the project docs) and, through `007-changelog-file`, `CHANGELOG.md` in the project root. A file that exists is never touched, and one you delete does not come back. `007-changelog-file` never overwrites or recreates a `CHANGELOG.md`; it creates none for a project that keeps its changelog under another name (`changelog.md`, `CHANGES.md`, `HISTORY.md`, `NEWS.md`) or has `changelog: release-notes-only` or `off` under § Formats. `008-done-entries-keep` removes the retired `done-entries` row and its explanation from `docs/ai/config.md` (see [Finished entries](#finished-entries)); the plan names what it would cut. `009-whiteboard` moves each ideas file `docs/ai/concept/ideas-<identity>.md` unchanged to `docs/ai/whiteboard-<identity>.md`, moves concept pages to `docs/project/concepts/` and turns each file in `docs/ai/proposals/` into an inbox question. `010-rules-to-local` moves the rule file `docs/ai/rules.md` to `docs/ai/local/rules.md`, rewrites its import lines and points `CLAUDE.md`, `AGENTS.md` and `.gitattributes` at the new place; with both files present it moves nothing, and the session start says `docs/ai/rules.md is still at its old place` until you have merged them by hand and deleted the old one. `011-packages-section` adds the section `## Packages` to a `docs/ai/config.md` that lacks it.
+9. **Bridges and doctor.** First unedited generated bridges (`CLAUDE.md`, `AGENTS.md`, `docs/ai/local/rules.md`) are
    refreshed; with `session-start-refresh` at `warn` or `off` in `docs/ai/config.md` § Checks they are only
    reported ("would refresh … not written"). Then `doctor.py` checks for
    drift; findings land in `docs/ai/inbox/`, never as a silent fix. Among them: an override under `docs/ai/local/` whose counterpart under `.act/` is gone (the template renamed or removed it, so the override has no effect), with the most similar name under `.act/`; rule overrides, roles and your own skills are left out, and so is an own script or coding set unless one name is the start of the other or differs only in its extension. A local skill that overrides a template skill of the same name is a finding too, until you keep it with `python .act/scripts/doctor.py --accept skill:<name>` or delete it (`own-rules-review`). A new tier proposal is filed there as a question of its own, and only once a role has 30 recorded outcomes at a tier and at least 60 % of the last 30 were reworked or escalated. The question is short and recommends option a), looking at the cases first; its numbers are in a separate inbox report, `report-<date>-<time>-tier-numbers-<role>-<tier>.md`. The commit takes the report and the questions, and the summary names both.
-10. **Lock and commit.** `.act-lock.json` is rewritten and a commit is made, unless you pass `--no-commit`. A path that `.gitignore` ignores (for example with an allowlist such as `*`, `!docs/`) stays out of the commit, which names it. Uncommitted changes of yours to `docs/ai/rules.md`, `.gitignore` and `.gitattributes` stay out of it too: the update still writes its addition there and names each such file so you can commit it yourself; `--plan` names the ones it would write.
+10. **Lock and commit.** `.act-lock.json` is rewritten and a commit is made, unless you pass `--no-commit`. A path that `.gitignore` ignores (for example with an allowlist such as `*`, `!docs/`) stays out of the commit, which names it. Uncommitted changes of yours to `docs/ai/local/rules.md`, `.gitignore` and `.gitattributes` stay out of it too: the update still writes its addition there and names each such file so you can commit it yourself; `--plan` names the ones it would write.
 
 The summary also says how much the next session start will remove from `.act-local/` (the check `act-local-tidy`, see
 below).
@@ -148,6 +148,25 @@ only reports what it would remove; removal starts the day after a session start 
 warn` only reports, `off` skips it. `python .act/scripts/act_local_tidy.py` lists what would go.
 
 Then the assistant adds a journal line with the base-commit change and the number of findings.
+
+## Upgrading to 2.7.0
+
+From v2.6.0, run `act-update` as usual, then start a new session.
+
+- **Rule file:** migration `010-rules-to-local` moves `docs/ai/rules.md` to `docs/ai/local/rules.md` (step 8). If both
+  files exist, it moves nothing: merge them by hand and delete the old one; until then every session start says
+  `docs/ai/rules.md is still at its old place`.
+- **Whiteboard:** read what migration `009-whiteboard` reports it left in `docs/ai/concept/` or `docs/ai/proposals/`
+  and move it by hand; answer the inbox questions it made from open rule proposals.
+- **Own scripts or skills** that call `ideas.py` or the topic `ideas` need `whiteboard.py` and the topic `whiteboard`.
+- **Git for workers:** workers can no longer run `git update-ref`, tag changes, a writing `git symbolic-ref` or
+  `git config` writes; leave them to the orchestrator, or set `worker-git-write: warn` under § Checks
+  ([Checks](/agentic-coding-template-docs/reference/configuration/#checks)).
+- **Overrides of the rules:** if `docs/ai/local/` overrides rule files of `.act/rules/`, copy in the new sentences of
+  `R-role-worker`, `R-work-language`, `R-work-override`, `R-safe-foreign-text`, `R-work-record-now`, `R-human-chat`,
+  `R-human-capture` and `R-cost-delegate`.
+- **Packages** are new in this release; migration `011-packages-section` adds the section `## Packages` to
+  `docs/ai/config.md` ([Packages](/agentic-coding-template-docs/guides/packages/)).
 
 ## Upgrading to 2.6.0
 
@@ -290,7 +309,7 @@ usual fix is `--source <local template checkout>`.
 ## Your own changes
 
 `.act/` is replaced, so never edit it. Put a project version of a rule, skill, or role into
-`docs/ai/local/<same path>`; if you override the `act-audit-docs` script `workflow.js`, rename your file to `workflow.js.txt` (the template's script has that name now, and the update removes the old one). An update never overwrites that folder or your own content in `docs/ai/` and `docs/project/`. It refreshes only unedited generated files (such as an unedited `docs/ai/rules.md`; an existing `docs/ai/inbox/README.md` is not replaced, the rule `R-human-ask` carries the form of a question), files findings in the inbox and runs migrations. See
+`docs/ai/local/<same path>`; if you override the `act-audit-docs` script `workflow.js`, rename your file to `workflow.js.txt` (the template's script has that name now, and the update removes the old one). An update never overwrites that folder or your own content in `docs/ai/` and `docs/project/`. It refreshes only unedited generated files (such as an unedited `docs/ai/local/rules.md`; an existing `docs/ai/inbox/README.md` is not replaced, the rule `R-human-ask` carries the form of a question), files findings in the inbox and runs migrations. See
 [Layers and overrides](/agentic-coding-template-docs/concepts/layers/).
 
 ## If `.act/` was replaced another way

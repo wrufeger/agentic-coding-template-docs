@@ -3,7 +3,7 @@ title: "Konzept, Test, Review: was braucht was"
 description: Eine Entscheidungstabelle - braucht eine Änderung zuerst ein Konzept, einen Test oder anderen Beleg, ein Review - mit der Regel hinter jeder Antwort.
 sidebar:
   order: 6
-sourceHash: 628a064721d1108bf1feef40c6eec8189076c9d8b5764b128e13abece6b9abc4
+sourceHash: cf99b1e005f158d8c70bd721451218ea597e0290185c47239770842f7baf8009
 ---
 
 Nicht jede Änderung geht den ganzen [Von der Idee zum Commit](/agentic-coding-template-docs/de/start/walkthrough/). Das Template
@@ -11,7 +11,9 @@ verlangt drei Dinge, und hinter jedem steht eine Regel:
 
 - **Zuerst ein Konzept** - `R-work-idea-first`: Eine Idee, ein Feature oder ein Änderungswunsch bekommt zuerst ein
   kurzes Konzept mit Optionen (`act-idea`) und eine Entscheidung, dann wird gebaut. Das bei etwas Kleinem zu
-  überspringen ist erlaubt, aber der Assistent sagt es laut, damit du widersprechen kannst.
+  überspringen ist erlaubt, aber der Assistent sagt es laut, damit du widersprechen kannst. Eine Chat-Nachricht, die mit
+  `idea:` beginnt, wird nur festgehalten: Sie wird ein neuer Abschnitt in deinem eigenen Whiteboard,
+  `docs/ai/whiteboard-<identity>.md` (`R-human-capture`).
 - **Beleg** - `R-work-evidence`: „Fertig“ gilt nur mit einem Testlauf, einem CI-Lauf, einem Log-Auszug oder
   Screenshot, einem Commit-Hash oder einem Aufruf nach außen. Ohne ihn ist ein Ergebnis „nicht verifiziert“. `R-code-commit` lässt Prüfungen in Stufen laufen,
   wo das Projekt sie eingerichtet hat: betroffene Tests innerhalb eines Schritts; Lint, Typecheck und Tests vor jedem Commit;
@@ -19,7 +21,8 @@ verlangt drei Dinge, und hinter jedem steht eine Regel:
   Framework oder Abhängigkeiten. Solange eine Prüfung rot bleibt, wird nichts committet oder gepusht.
 - **Ein Review** - `R-code-commit`: Der `reviewer` läuft einmal je Aufgabe vor der Abnahme, nicht nach jedem Schritt,
   und schließt mit `ALLOW`, `CONDITIONAL` oder `BLOCK`. Bei einer trivialen Änderung (ein Tippfehler, nur Doku)
-  überspringt der Assistent es und sagt es.
+  überspringt der Assistent es und sagt es. Der `reviewer` liefert sein Urteil als Text in der Antwort und schreibt keine
+  Ergebnisdatei.
 
 | Die Änderung | Zuerst ein Konzept? | Test oder Beleg? | Review? |
 | :--- | :--- | :--- | :--- |

@@ -3,7 +3,7 @@ title: Bestehendes Projekt
 description: Ein Projekt mit eigener Doku oder eigenem KI-Setup mit act-adopt übernehmen.
 sidebar:
   order: 2
-sourceHash: 253a679678c33a8253dc6b3a4cc93d9c4dd038a533214fbdcddd21ee9db9b928
+sourceHash: c5800dc039f5783744318becf88788bfddd0d095697f18872691e20945e077db
 ---
 
 Ein Projekt, das schon Doku, eine `CLAUDE.md` oder ein älteres KI-Setup hat, läuft über `act-adopt`, nicht allein
@@ -55,6 +55,8 @@ Alles ja lässt `--carry` weg, alles nein ist `--carry none` (`--no-local` tut d
 wird abgelehnt. Nur committeter Inhalt reist mit, nie `.env*`, Symlinks oder unversionierte Dateien. Was das neue
 Projekt nicht aufnehmen kann (eine Regelgruppe oder ein Regelsatz, den es nicht kennt), landet in seiner Inbox. Aus dem
 Template-Checkout gibt es nichts mitzunehmen.
+Die Packages des Projekts kommen als ruhende Ordner (und Zips) mit; der erste Sitzungsstart im neuen Projekt nennt
+jedes, und `/act-packages add <id>` aktiviert es nach deinem Ja.
 
 ## Die Schritte
 
@@ -79,8 +81,8 @@ Template-Checkout gibt es nichts mitzunehmen.
    `copilot` in `tools` zeigt der Assistent danach eine kurze Tabelle Rolle und Modell, gelesen aus `.github/agents/`; gleiche sie in Copilot mit `/model` ab, trage eine Abweichung in die Spalte `Copilot` von `docs/ai/config.md`
    § Roles ein (fehlt die Spalte im Tabellenkopf, ergänze sie) und führe dann `python .act/scripts/update.py --catch-up --yes` aus.
 6. **Inhalte füllen.** Offene Aufgaben, Backlog-Punkte und Fragen werden zu Einträgen; Regeltext wird zu
-   Overrides, eigenen Regeln oder Vorschlägen. Eine vorhandene Richtliniendatei wird danach sortiert, wohin jeder Teil gehört, und Teil für Teil vorgeschlagen, nie ganz in „Own rules“ übernommen; eigene Regeln bleiben Einzeiler. Text wird aus den alten Dateien ausgeschnitten, nie neu
-   getippt. Ein Vorschlag in `docs/ai/proposals/` bekommt einen Frontmatter-Kopf (`author`, `date`, `target`); ältere Vorschläge in der schlichten Form werden weiter gelesen.
+   Overrides, eigenen Regeln oder Inbox-Fragen. Eine vorhandene Richtliniendatei wird danach sortiert, wohin jeder Teil gehört, und Teil für Teil vorgeschlagen, nie ganz in „Own rules“ übernommen; eigene Regeln bleiben Einzeiler. Text wird aus den alten Dateien ausgeschnitten, nie neu
+   getippt. Vorgeschlagener Regeltext wird zu einer Inbox-Frage je Vorschlag, die Ziel und Autor nennt und den alten Text zitiert; `docs/ai/proposals/` gibt es nicht mehr.
 7. **Abschluss.** `adopt.py --finish` brückt übernommene Dateien, entfernt, was weg sollte, führt `doctor.py`
    aus und schreibt einen Übernahmebericht in die Inbox.
 8. **Commit.** Per Pathspec auf dem Branch `act-adopt`, in sechs Gruppen: die Legacy-Verschiebungen, die Template-Schicht,

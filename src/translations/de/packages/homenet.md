@@ -12,7 +12,7 @@ homenet — Administration des Heimnetzes
 Regeln, Rollen und Skills, um ein Heimnetz oder Homelab aus einem Projekt auf dem Template zu betreiben: LAN und WLAN, Router und Netzwerk-Controller, Hypervisor, Raspberry Pi und andere Server, DNS-Filter, Geräte, Firewall und Home Assistant.
 
 ## contents
-<!-- source: 984fbf904e1d0949 -->
+<!-- source: 8eb3e55b483f235f -->
 Regeln, Rollen und Skills, um ein Heimnetz oder Homelab aus einem Projekt auf dem Template zu betreiben: LAN und WLAN,
 Router und Netzwerk-Controller, Hypervisor, Raspberry Pi und andere Server, DNS-Filter, Geräte, Firewall und Home
 Assistant. Das Package enthält keine Netzwerkdaten (keine Adressen, Hostnamen oder Zugangsdaten); die Einrichtung hält
@@ -25,13 +25,18 @@ sie im Projekt unter `docs/project/homenet/` fest. Es baut auf `R-safe-approval`
   Erweiterung von `R-safe-approval`, die auf die Rechtetabelle verweist.
 - Rollen: `homenet-reader` (liest nur, scannt nie, prüft jeden Schreibvorgang über seinen eigenen Weg gegen) und
   `homenet-writer` (sichert zuerst, löscht nie, ein Schreibvorgang gilt erst nach der Gegenprüfung des Readers als
-  erledigt).
-- Skills: `homenet-inventory` (erste Bestandsaufnahme und Prüfung der Doku gegen den Live-Stand) und
-  `homenet-add-device`.
+  erledigt); für Home Assistant `homenet-ha-reader` (nur lesende Tools, keine Shell, kein SSH, große Antworten
+  eingegrenzt und Entities gezählt) und `homenet-ha-writer` (feste Reihenfolge mit einer Prüfsummensperre, ein Dashboard
+  zuerst auf einer Testansicht, eine Domain neu geladen statt eines Neustarts, eine Tabelle der Änderungen
+  zurückgegeben).
+- Skills: `homenet-inventory` (erste Bestandsaufnahme und Prüfung der Doku gegen den Live-Stand), `homenet-add-device`
+  und `homenet-maintenance` (wiederkehrende Aufgaben mit je einer Statusdatei; zeigt, was fällig ist, führt nur das aus,
+  schreibt einen datierten Bericht und ändert nichts an den Systemen).
 - Topic: `homenet-mcp` (MCP-Server und APIs für Home Assistant, Netzwerk-Controller, Hypervisor, Monitoring und NAS,
   Lesen und Schreiben getrennt gehalten).
 - Code: `install.py` meldet nur, welche Werkzeuge vorhanden sind (`ssh`, Python, Interpreter-Fallen unter Windows); es
-  öffnet keine Verbindung und schreibt nichts. Das Prüfmodul `homenet_no_scan` verweigert Port-Scanner (`nmap`,
+  öffnet keine Verbindung und schreibt nichts. Das Script `homenet_due.py` liest die Statusdateien von
+  `homenet-maintenance`, gibt höchstens fünf Zeilen dazu aus, was fällig ist, und schreibt nichts. Das Prüfmodul `homenet_no_scan` verweigert Port-Scanner (`nmap`,
   `masscan`, `zmap` und ähnliche, `nc -z` über mehr als einen Port) in Shell-Aufrufen von Claude Code.
 
 ## settings:homenet-home-assistant

@@ -9,9 +9,7 @@ A package is a bundle of rules, coding sets, skills, roles, topics, scripts and 
 
 The packages published for everyone live in the repository [act-packages](https://github.com/wrufeger/act-packages), with a [catalogue page](https://wrufeger.github.io/act-packages/). This site lists them too: see the [package overview](/agentic-coding-template-docs/packages/).
 
-:::caution[Packages from the next template release]
-The package layer (`packages.py`, `/act-packages`) is in no release of the template yet: v2.6.0 and older do not have it. It comes with the next release. Until then a project needs the [update channel](/agentic-coding-template-docs/getting-started/update/#update-channel) `latest`: set `update-channel: latest` in `docs/ai/config.md` and run `act-update`.
-:::
+The package layer (`packages.py`, `/act-packages`) is part of the template from v2.7.0 on; a project on an older version gets it with `act-update`.
 
 ## Using packages
 

@@ -13,13 +13,13 @@ this file directly for anything those two miss — it stays a plain table, not a
 | `docs/project/` | The project's documentation as it is now; its `README.md` has one line per file and subfolder (`R-docs-order`). Holds `coding_rules.md` (which rule sets are on for this stack) and `german-glossary.md` (wording rules for the German pages) | 2026-11-14 | before writing or reviewing code; before writing a German page; to find a document, read `docs/project/README.md` |
 | `docs/ai/config.md` | Project configuration — steers the assistant | 2026-10-04 | before any task; re-read after a change |
 | `docs/ai/board.md` | Board — generated overview of what is open (not versioned by default, see `board` in `config.md`) | 2026-10-04 | at session start, for the current picture |
-| `docs/ai/rules.md` | Orchestrator-only rule digest, loaded at session start | 2026-10-04 | orchestrator, every session (automatic) |
+| `docs/ai/local/rules.md` | The project's rule file (checkboxes, your own rules), loaded at session start; not an override | 2026-11-25 | orchestrator, every session (automatic) |
 | `docs/ai/whiteboard-<identity>.md` | One whiteboard per person: your own ideas, bugs, notes and reminders, picked up at the next session start; rules in `docs/ai/README.md` | 2026-11-25 | whenever you have an idea or want a reminder; the assistant when the session start names new or due entries |
 | `docs/ai/inbox/` | Things waiting for a decision: questions (proposed rule changes too), tasks for a human, tool reports, notes | 2026-11-25 | at session start, and before starting a new task |
 | `docs/ai/work/tasks/`, `docs/ai/work/backlog/` | Open tasks (the assistant's own work) and backlog items | 2026-10-04 | when picking a task or grooming the backlog |
 | `docs/ai/work/ledger/` | Journal — one entry per file, newest first | 2026-10-04 | to see recent activity; `board.py` reads it too |
 | `docs/ai/work/archive/` | Finished tasks/backlog/proposals, kept for reference | 2026-10-04 | rarely — history, not current state |
-| `docs/ai/local/` | This project's own overrides of template files | 2026-10-04 | whenever the matching template file changes |
+| `docs/ai/local/` | This project's own files (the rule file `rules.md`) and its overrides of template files | 2026-10-04 | whenever the matching template file changes |
 
 A file created later under `docs/project/` (`architecture.md`, `features.md`, `testing.md`,
 `decisions.md`, `incidents/`) gets its own row here once it exists — nothing here creates those

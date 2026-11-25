@@ -41,7 +41,7 @@ Any language works. With `copilot` in `tools`, `act-setup` also shows a short ta
 Once a project runs the template, `/act-adopt` there starts the next project or adopts another one from it, and can
 carry its own skills, rules, exceptions, overrides, topics and agents over (`--carry`); see
 [Existing project](/agentic-coding-template-docs/getting-started/existing-project/#start-it). Afterwards the assistant
-suggests `act-update` in the new project, since it got the `.act/` of the project it came from. Its template source comes from the lock of that project only if
+suggests `act-update` in the new project, since it got the `.act/` of the project it came from. The packages of the source project come along as resting folders (and zips); the first session start names each, and `/act-packages add <id>` activates it after your yes. Its template source comes from the lock of that project only if
 it is a remote address; otherwise the published template address is used.
 
 Before it runs, the assistant asks once whether a working method should be on (`test-first`, `spec-first`,
@@ -83,7 +83,7 @@ Ten fixed steps, each printed as `[n/10]`:
 3. Checks your Git identity.
 4. Writes your workspace identity (also when `.act-local/identity.json` exists but lacks `identity`) and the local import folder `.act-local/import/`.
 5. Thins the bridges down to the tools you chose.
-6. Writes the skeleton: `docs/ai/` (`config.md`, `rules.md`, `concept/`, inbox, work folders), `docs/project/coding_rules.md`, `docs/project/glossary.md`,
+6. Writes the skeleton: `docs/ai/` (`config.md`, `README.md`, your whiteboard `whiteboard-<identity>.md`, inbox, work folders), `docs/ai/local/rules.md` (your rule file), `docs/project/coding_rules.md`, `docs/project/glossary.md`,
    `docs/project/README.md` (the index of the project docs, one line per file), `docs/ai/local/resources.md`, `docs/README.md`, the bridge files, skill copies and the hook entries in `.claude/settings.json` (with `"enableArtifact": false` unless `artifacts: on`, and `PYTHON_BASIC_REPL=1` under `env`, so that on Windows an empty heredoc in a Bash call cannot hang on Python 3.13 and later). Skill copies and role bridges that `profile` or `exclude` in `docs/ai/config.md` § [Scope](/agentic-coding-template-docs/reference/configuration/#scope) leave out are not written.
 7. Appends template blocks to `.gitattributes` and `.gitignore`, and keeps `.act-local/` out of IDE indexes (`excludeFolder` in `.idea/*.iml`, `files.watcherExclude` in `.vscode/settings.json` where `.vscode/` exists).
 8. In place only: retires the template's own README (the new one follows the `readme-format` layout of

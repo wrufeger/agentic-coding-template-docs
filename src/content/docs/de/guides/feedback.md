@@ -3,7 +3,7 @@ title: Feedback
 description: Freiwilliges Feedback an den Autor des Templates - die Modi, Takt und Scope, was nie gesendet wird und wo die lokale Kopie bleibt.
 sidebar:
   order: 1
-sourceHash: 6f116e1c8581a841af5c60d6b73c443495abe9820f61f36e1b513aa257c21ef3
+sourceHash: a57dd5a057df888ed23cdb2417bb2f86131521952464455a02da633d47b7cc14
 ---
 
 Du kannst dem Autor des Templates als Feedback melden, was der Arbeitsweise gutgetan hat oder fehlte. Feedback ist freiwillig, betrifft **nur die Arbeitsweise, nie dein Projekt**, und alles, was den Rechner verlässt, wird auch lokal aufbewahrt.
@@ -61,8 +61,8 @@ Jede Zeichenkette, die das Projekt verlassen könnte, läuft zuerst durch eine D
 
 ## Das lokale Incident-Log
 
-Getrennt vom Feedback und nie gesendet: echte Fehler (eine zurückgesetzte geschützte Datei, eine abgestürzte Prüfung, ein Modellwechsel, ein `warn`-Treffer, der ein Schreiben, ein Löschen oder das Lesen einer geheimen Datei durchließ) werden auf diesem Rechner in `.act-local/incidents.jsonl` festgehalten und kommen beim Sitzungsstart als ein Inbox-Bericht pro Tag an. Festgehalten werden nur Kennungen, nie ein Befehl oder ein Pfad. `ACT_INCIDENT_LOG=off` in der Umgebung pausiert das Log für einen Lauf.
+Getrennt vom Feedback und nie gesendet: echte Fehler (eine zurückgesetzte geschützte Datei, eine abgestürzte Prüfung, ein Modellwechsel, ein `warn`-Treffer, der ein Schreiben, ein Löschen oder das Lesen einer geheimen Datei durchließ) werden auf diesem Rechner in `.act-local/incidents.jsonl` festgehalten und kommen beim Sitzungsstart als ein Inbox-Bericht pro Tag an. Festgehalten werden nur Kennungen, nie ein Befehl oder ein Pfad. `ACT_INCIDENT_LOG=off` in der Umgebung pausiert das Log für einen Lauf. `ACT_INCIDENT_ORIGIN=<Marke>` fügt den Logzeilen ein Feld `origin` hinzu, damit ein Test-Runner die Zeilen seiner eigenen Proben von denen deiner Sitzung unterscheiden kann.
 
-Ablehnungen der Sicherheitsprüfungen werden nur gezählt, je Prüfung und Rolle (in `.act-local/usage.json`). Hat eine Prüfung Worker innerhalb von 7 Tagen mindestens 3-mal abgelehnt, legt `doctor.py --inbox` eine Frage an: Sie schlägt einen Satz für die Rollendatei oder den Auftragskopf vor, der Workern vorab sagt, was diese Prüfung nicht erlaubt.
+Ablehnungen der Sicherheitsprüfungen werden nur gezählt, je Prüfung und Rolle (in `.act-local/usage.json`). Hat eine Prüfung Worker innerhalb von 7 Tagen mindestens 3-mal abgelehnt, legt `doctor.py --inbox` eine Frage an: Sie schlägt einen Satz für die Rollendatei oder den Auftragskopf vor, der Workern vorab sagt, was diese Prüfung nicht erlaubt. Trägt die Rollen-Brücke, deine eigenen Regeln oder eine geladene Regeldatei einen solchen Satz schon, sagt die Frage das, bietet als erste Option eine Meldung an das Template an (den Satz trotzdem zu übernehmen bleibt möglich), nennt diese Datei und zählt nur Ablehnungen ab dem Tag nach dem letzten Commit der Datei.
 
 Siehe auch die [Konfigurationsreferenz](/agentic-coding-template-docs/de/reference/configuration/) für die drei Schlüssel und [Konfiguration](/agentic-coding-template-docs/de/concepts/configuration/) dafür, wie die Datei funktioniert.

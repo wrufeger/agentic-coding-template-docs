@@ -3,7 +3,7 @@ title: Im Team arbeiten
 description: Team-Modus - Ids, die auf dem Standard-Branch vergeben werden, Adressierung mit for:, Dateien pro Person und was wie zu mergen ist.
 sidebar:
   order: 4
-sourceHash: 4596fbd958b23f6e42f6180cb1d7f5d7b92ded41302c82592d2c3da324d7f837
+sourceHash: 6e54a94250c5c04d14f5dfc9d68bb143ec077a1decfc3443cdc4da01af9c8213
 ---
 
 Mehrere Personen können in einem Projekt arbeiten, jede mit eigenen Assistenten-Sitzungen, weil jeder Eintrag eine eigene Datei ist und jede persönliche Ansicht ebenfalls.
@@ -20,23 +20,23 @@ Im Modus `solo` gibt der Assistent einer Aufgabe (`T7`), einem Backlog-Eintrag (
 
 ## Adressieren mit for:
 
-Einträge und Aufgaben tragen ein Feld `for:`: `all` für alle, oder eine Workspace-Identität, den Kurznamen in `.act-local/identity.json`. Eine Aufgabe wird für die aktuelle Identität angelegt, sofern du nicht `--for` übergibst; Todos, Berichte und Notizen sind standardmäßig `all`, außer einem per Quick Capture abgelegten `todo:` oder `note:` (Chat-Nachricht mit diesem Präfix), das für den Schreibenden ist. Das Board listet deine und die geteilten Aufgaben, und mit eingeschaltetem `board-others` (im Team-Modus Standard) einen eigenen Abschnitt für Aufgaben, die anderen Personen zugewiesen sind. Der Sitzungsstart legt `.act-local/identity.json` an, wenn sie fehlt oder keine `identity` enthält (frischer Klon, zweiter Rechner), nimmt den Kurznamen aus `git config user.name` und sagt das in einer `[act] identity`-Zeile; ohne brauchbaren git-Namen bittet er dich, einen mit `python .act/scripts/board.py --identity <name>` zu setzen, womit sich auch eine vorhandene Identität ändern lässt (Dateien einer früheren Identität werden nicht umbenannt). Deine Inbox-Ansicht `.act-local/inbox-<identity>.md` sammelt die offenen Einträge, die an dich oder an `all` gerichtet sind.
+Einträge und Aufgaben tragen ein Feld `for:`: `all` für alle, oder eine Workspace-Identität, den Kurznamen in `.act-local/identity.json`. Eine Aufgabe wird für die aktuelle Identität angelegt, sofern du nicht `--for` übergibst; Todos, Berichte und Notizen sind standardmäßig `all`, außer einem per Quick Capture abgelegten `todo:` oder `note:` (Chat-Nachricht mit diesem Präfix), das für den Schreibenden ist. Das Board listet deine und die geteilten Aufgaben, und mit eingeschaltetem `board-others` (im Team-Modus Standard) einen eigenen Abschnitt für Aufgaben, die anderen Personen zugewiesen sind. Der Sitzungsstart legt `.act-local/identity.json` an, wenn sie fehlt oder keine `identity` enthält (frischer Klon, zweiter Rechner), nimmt den Kurznamen aus `git config user.name` und sagt das in einer `[act] identity`-Zeile; ohne brauchbaren git-Namen bittet er dich, einen mit `python .act/scripts/board.py --identity <name>` zu setzen, womit sich auch eine vorhandene Identität ändern lässt (das Whiteboard der früheren Identität wird umbenannt, sofern der neue Name frei ist; Board-Dateien der früheren Identität bleiben). Deine Inbox-Ansicht `.act-local/inbox-<identity>.md` sammelt die offenen Einträge, die an dich oder an `all` gerichtet sind.
 
 ## Dateien pro Person
 
 | Datei | Wer schreibt | Versioniert |
 | :--- | :--- | :--- |
-| `docs/ai/concept/ideas-<identity>.md` | nur ihr Eigentümer | ja |
+| `docs/ai/whiteboard-<identity>.md` | nur ihr Eigentümer | ja |
 | `docs/ai/board.md` (Standard `board: docs`) | pro Checkout erzeugt | nein, per gitignore ausgeschlossen |
 | `docs/ai/board-<identity>.md` (`board: shared`) | von `act-commit` erzeugt | ja |
 | `.act-local/**` (Identität, Arbeitsstand, Feedback, Inbox-Ansicht) | pro Rechner | nein |
 
-Mit `board: shared` lässt das versionierte Board jeder Person die anderen offene Aufgaben sehen, ohne einen Arbeitsbaum zu teilen. Die Ideen-Datei einer anderen Person gehört ihr: Lies sie, schreibe in deine eigene.
+Mit `board: shared` lässt das versionierte Board jeder Person die anderen offene Aufgaben sehen, ohne einen Arbeitsbaum zu teilen. Das Whiteboard einer anderen Person gehört ihr: Lies es, schreib in dein eigenes.
 
 ## Was wie zu mergen ist
 
 - **Eintragsdateien** (Inbox, Aufgaben, Backlog, Journal) sind eine Datei pro Eintrag, jede mit YAML-Frontmatter am Anfang, sodass zwei Personen selten dieselbe Datei berühren. Das Journal und jeder neue Eintrag tragen einen Zeitstempel `created:`, sodass zwei Branches, die denselben Titel anlegen, nie einen stillen Merge identischer Dateien erzeugen.
-- **Erzeugte Dateien** (`CLAUDE.md`, `AGENTS.md`, `docs/ai/rules.md`) sind in `.gitattributes` mit `merge=ours` markiert, ebenso `docs/ai/board-*.md`. Ist kein Merge-Treiber registriert (`git config merge.ours.driver true`), mergt Git normal; der Sitzungsstart leitet eine unveränderte Brücke neu ab, und der nächste Commit schreibt eine Board-Datei neu, sodass eine veraltete nie überlebt.
+- **Erzeugte Dateien** (`CLAUDE.md`, `AGENTS.md`, `docs/ai/local/rules.md`) sind in `.gitattributes` mit `merge=ours` markiert, ebenso `docs/ai/board-*.md`. Ist kein Merge-Treiber registriert (`git config merge.ours.driver true`), mergt Git normal; der Sitzungsstart leitet eine unveränderte Brücke neu ab, und der nächste Commit schreibt eine Board-Datei neu, sodass eine veraltete nie überlebt.
 - **`docs/ai/config.md` und deine eigenen Regeln** sind geteilte Projektentscheidungen; merge sie von Hand wie jede andere Quelldatei.
 - **Das Template aktualisieren**: Andere Branches bekommen ein Update nur mit dem Merge. Ein Update auf einem Branch, der nicht der Standard-Branch ist, gibt einen Hinweis, der das sagt.
 

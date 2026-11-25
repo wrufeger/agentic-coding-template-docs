@@ -50,6 +50,8 @@ From a project, the assistant lists what could come along and asks once per cate
 All yes leaves `--carry` out, all no is `--carry none` (`--no-local` does the same); `--carry` without `--target` is
 refused. Only committed content travels, never `.env*`, symlinks or untracked files. What the new project cannot take
 (a rule group or set it does not list) goes to its inbox. From the template checkout there is nothing to carry.
+The project's packages come along as resting folders (and zips); the first session start in the new project names
+each, and `/act-packages add <id>` activates it after your yes.
 
 ## The steps
 
@@ -73,7 +75,7 @@ refused. Only committed content travels, never `.env*`, symlinks or untracked fi
    in `tools` the assistant then shows a short table of role and model, read from `.github/agents/`; compare it with `/model` in Copilot, put a difference into the `Copilot` column of `docs/ai/config.md` § Roles
    (add the column to the table head if it is missing), then run `python .act/scripts/update.py --catch-up --yes`.
 6. **Fill the content.** Open tasks, backlog items, and questions become entries; rule text becomes overrides,
-   own rules, or proposals. An existing guideline file is sorted by where each part belongs and proposed part by part, never taken whole into "Own rules"; own rules stay one-liners. Text is cut from the old files, never retyped. A proposal in `docs/ai/proposals/` gets a frontmatter header (`author`, `date`, `target`); older proposals in the plain form are still read.
+   own rules, or inbox questions. An existing guideline file is sorted by where each part belongs and proposed part by part, never taken whole into "Own rules"; own rules stay one-liners. Text is cut from the old files, never retyped. Rule prose that is proposed becomes one inbox question per proposal, naming the target and the author and quoting the old text; there is no `docs/ai/proposals/` any more.
 7. **Finish.** `adopt.py --finish` bridges adopted files, removes what was meant to go, runs `doctor.py`, and writes
    an adoption report into the inbox.
 8. **Commit.** By pathspec on the branch `act-adopt`, in six groups: the legacy moves, the template layer, one commit

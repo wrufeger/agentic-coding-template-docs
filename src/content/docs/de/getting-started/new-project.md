@@ -3,7 +3,7 @@ title: Neues Projekt
 description: Ein neues Projekt aus dem Template einrichten, mit dem Assistenten oder von Hand.
 sidebar:
   order: 1
-sourceHash: ddfcdaea308bfb66254e4e8b1e8d0c4256a88a284dc2e9270f1f32e3d642c4ac
+sourceHash: 13b3efb3367ecf536398dd2f174121bd66d6b2dea9503e700984111a69c15f56
 ---
 
 ## Das Template holen
@@ -44,7 +44,7 @@ von `docs/ai/config.md` § Roles ein (fehlt die Spalte im Tabellenkopf, ergänze
 Läuft das Template in einem Projekt schon, startet `/act-adopt` dort das nächste Projekt oder übernimmt von dort aus ein
 anderes und kann dessen eigene Skills, Regeln, Ausnahmen, Overrides, Topics und Agents mitnehmen (`--carry`); siehe
 [Bestehendes Projekt](/agentic-coding-template-docs/de/getting-started/existing-project/#starten). Danach schlägt der
-Assistent `act-update` im neuen Projekt vor, denn es hat das `.act/` des Projekts bekommen, aus dem es kam. Seine Template-Quelle stammt nur dann aus der Lock-Datei jenes Projekts, wenn sie eine Remote-Adresse ist;
+Assistent `act-update` im neuen Projekt vor, denn es hat das `.act/` des Projekts bekommen, aus dem es kam. Die Packages des Quellprojekts kommen als ruhende Ordner (und Zips) mit; der erste Sitzungsstart nennt jedes, und `/act-packages add <id>` aktiviert es nach deinem Ja. Seine Template-Quelle stammt nur dann aus der Lock-Datei jenes Projekts, wenn sie eine Remote-Adresse ist;
 sonst gilt die veröffentlichte Template-Adresse.
 
 Vor dem Lauf fragt der Assistent einmal, ob eine Arbeitsmethode an sein soll (`test-first`, `spec-first`,
@@ -87,7 +87,7 @@ Zehn feste Schritte, jeder ausgegeben als `[n/10]`:
 3. Prüft deine Git-Identität.
 4. Schreibt deine Workspace-Identität (auch wenn `.act-local/identity.json` existiert, aber `identity` fehlt) und den lokalen Import-Ordner `.act-local/import/`.
 5. Dünnt die Brücken auf die gewählten Werkzeuge aus.
-6. Schreibt das Gerüst: `docs/ai/` (`config.md`, `rules.md`, `concept/`, Inbox, Arbeitsordner), `docs/project/coding_rules.md`, `docs/project/glossary.md`,
+6. Schreibt das Gerüst: `docs/ai/` (`config.md`, `README.md`, dein Whiteboard `whiteboard-<identity>.md`, Inbox, Arbeitsordner), `docs/ai/local/rules.md` (deine Regeldatei), `docs/project/coding_rules.md`, `docs/project/glossary.md`,
    `docs/project/README.md` (der Index der Projektdoku, eine Zeile je Datei), `docs/ai/local/resources.md`, `docs/README.md`, die Brückendateien, Skill-Kopien und die Hook-Einträge in `.claude/settings.json` (mit `"enableArtifact": false`, außer bei `artifacts: on`, und `PYTHON_BASIC_REPL=1` unter `env`, damit unter Windows ein leeres Heredoc in einem Bash-Aufruf unter Python 3.13 und neuer nicht hängt). Skill-Kopien und Rollen-Brücken, die `profile` oder `exclude` in `docs/ai/config.md` § [Scope](/agentic-coding-template-docs/de/reference/configuration/#scope) auslassen, werden nicht geschrieben.
 7. Hängt Blöcke des Templates an `.gitattributes` und `.gitignore` an und hält `.act-local/` aus den Indizes der IDEs heraus (`excludeFolder` in `.idea/*.iml`, `files.watcherExclude` in `.vscode/settings.json`, wo `.vscode/` existiert).
 8. Nur im Klon: legt die eigenen Dateien des Templates still: README (die neue folgt dem Layout `readme-format` aus

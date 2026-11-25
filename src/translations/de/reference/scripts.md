@@ -99,10 +99,6 @@ Einmalige Einrichtung je Rechner für die anklickbaren Eintrags-IDs (Editor-Unte
 <!-- source: d929c6c7f4b8d78a -->
 Language Server, der Eintrags-IDs wie T12, B7, Q3 oder U5 in Markdown-Dateien anklickbar macht, die in einem Editor geöffnet sind (VS Code, IntelliJ mit einem…
 
-## table:ideas.py
-<!-- source: b2df8059a1b0ea78 -->
-Die Ideen-Datei je Person `docs/ai/concept/ideas-<identity>.md` — eine versionierte Datei für jede Person eines Projekts, von dieser Person geschrieben…
-
 ## table:incidents.py
 <!-- source: daf7710df440b06d -->
 Das Incident-Log. Hooks und Scripts halten fest, was schiefging, ohne jemanden aufzuhalten, und was der Mensch später sehen soll: eine geschützte Datei …
@@ -202,6 +198,10 @@ Holt einen neueren Stand des Templates in ein bereits initialisiertes Projekt. Z
 ## table:usage.py
 <!-- source: 5f4b17ec0429dca6 -->
 Lokaler Nutzungszähler — wie oft jede Rolle startet, mit welchem Tier/Modell; wie oft jeder Skill, Slash-Befehl, jedes Script und jede Checkliste genutzt wird…
+
+## table:whiteboard.py
+<!-- source: a13c431e0f9dbc1c -->
+Das Whiteboard je Person `docs/ai/whiteboard-<identity>.md` — eine versionierte Datei für jede Person eines Projekts, von dieser Person geschrieben als…
 
 ## _intro
 <!-- source: 374e60a4342af8ad -->

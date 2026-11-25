@@ -216,7 +216,7 @@ kein `packages`-Objekt hat, eine ID auflistet, die keine Package-ID ist, oder ei
 oder ein optionales Feld der falschen Art hat. `--json` gibt dieselben Felder als JSON aus. Es schreibt nichts.
 
 ## Installing and removing
-<!-- source: e877e0dd5e8b9637 -->
+<!-- source: 8ecb1431c4b2cc61 -->
 Installieren und Entfernen
 
 `packages.py add <zip|folder|id>` nimmt ein Zip (mit seinem `.sig` daneben), einen Package-Ordner oder eine Package-ID:
@@ -230,7 +230,7 @@ Ohne `--yes` schreibt es nichts. Es gibt den Plan aus, die Herkunft und die Zula
 `update <old> → <new>` oder `downgrade <old> → <new>` (dieselbe ID noch einmal ist ein Update, eine niedrigere Version ein
 Downgrade, nach dem Ja wie ein Update erlaubt; die Einheiten, die die neue Version weglässt, gehen), was mit dem Ordner
 `.act-local/packages/<id>/` geschieht (ein ruhender Ordner, den eine andere Quelle ersetzt, wird als ersetzt und gelöscht
-genannt), die Liste der Projektdateien, die sich ändern, und einen Unified Diff jeder davon (`docs/ai/rules.md`, Skill-
+genannt), die Liste der Projektdateien, die sich ändern, und einen Unified Diff jeder davon (`docs/ai/local/rules.md`, Skill-
 und Rollenkopien, `docs/ai/config.md`, `.act-lock.json`), und die Zeile `install exactly this: python .act/scripts/packages.py add <source> --yes <code>`. Der
 Code sind die ersten 12 Hex-Ziffern eines Package-Hashes, berechnet über die Rohbytes jeder Package-Datei, ohne
 Zeilenende-Angleichung: Jedes Byte, das sich ändert, nachdem der Plan gezeigt wurde, ändert den Code, und `--yes` mit dem
@@ -258,7 +258,9 @@ oder Prüfpfad.
 geht; `--yes <id>` gibt die Prüfzeilen zurück, entfernt den Lock-Eintrag, entlädt das Package und löscht
 `.act-local/packages/<id>/` (folgt nie einem Link), außer mit `--keep`, das den Ordner ruhen lässt: Aus einem Ordner, den
 der Lock nicht verzeichnet, wird nichts geladen. Es funktioniert, wenn der Ordner schon fehlt, und ein ruhender Ordner ohne
-Lock-Eintrag wird auf dieselbe Weise gelöscht. `add` gefolgt von `remove` lässt das Projekt Byte für Byte so, wie es war.
+Lock-Eintrag wird auf dieselbe Weise gelöscht. Bei einer ID ohne Lock-Eintrag und ohne Ordner nennt `remove <id>` die
+Dateien, die `fetch` dafür behalten hat (`<id>-X.Y.Z.zip` und `.zip.sig` in `.act-local/packages/`), und `--yes <id>`
+löscht sie. `add` gefolgt von `remove` lässt das Projekt Byte für Byte so, wie es war.
 `packages.py list` zeigt die Packages des Locks und die ruhenden Ordner und nennt ein defektes Package (sein Ordner fehlt
 oder eine Datei weicht vom Lock ab) mit der Abhilfe: erneut `add <id>` oder `remove <id>`.
 

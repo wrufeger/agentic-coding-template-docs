@@ -27,26 +27,27 @@ als unbewiesen gemeldet, nicht als nicht vorhanden. Ein Commit-Hash, der als Bel
 durch `commit-hashes` geprüft.
 
 ## R-work-override
-<!-- source: ef16f6a606296019 -->
+<!-- source: 3523ab7779083648 -->
 Das Projekt überschreibt das Template
 summary: Änderungen des Projekts haben Vorrang vor Template-Vorgaben; Overrides liegen unter docs/ai/local
 
 Eine Regel oder Datei, die das Projekt geändert hat, gilt immer vor der Fassung des Templates. Nie etwas direkt
-unter `.act/` ändern; eine projektspezifische Fassung kommt nach `docs/ai/local/<same path>`. Ein Fehler IM
+unter `.act/` ändern; eine projektspezifische Fassung kommt nach `docs/ai/local/<same path>` (die Datei
+`docs/ai/local/rules.md` ist die Regeldatei des Projekts, kein Override). Ein Fehler IM
 Template selbst — ein Script, Skill oder eine Regel unter `.act/`, die fehlschlägt, einer anderen widerspricht oder
 nachweislich nie greift — wird sofort per `feedback.py --add --kind bug` gemeldet (`feedback: local`: stattdessen
 ein Backlog-Eintrag). Ein Worker gibt einen solchen Fehler mit seinem Ergebnis zurück, und der Orchestrator meldet
 ihn. Einzelheiten: `topics/feedback.md`.
 
 ## R-work-language
-<!-- source: 6054f0815f4f5884 -->
+<!-- source: 3fb50196cb628f41 -->
 Eine Sprache für die Doku, `.act/` auf Englisch
 summary: Doku in language-docs, unabhängig von der Chat-Sprache; .act/ Englisch; Text von Menschen und englische Fachbegriffe unübersetzt
 
-Alles, was der Assistent unter `docs/` schreibt — Journal, Fragen, Aufgaben, Backlog, Inbox, Vorschläge, neue
+Alles, was der Assistent unter `docs/` schreibt — Journal, Fragen, Aufgaben, Backlog, Inbox, neue
 Dokumentation —, steht in `language-docs` (`docs/ai/config.md`, Standard `en`), gleich in welcher Sprache der Chat
 läuft. `.act/` bleibt Englisch, ebenso das, was die Mechanik erzeugt (das Board, die erzeugten Teile von
-`docs/ai/rules.md`); Regeln und Overrides, die das Projekt dort ergänzt, stehen in `language-docs`; Bezeichner
+`docs/ai/local/rules.md`); Regeln und Overrides, die das Projekt dort ergänzt, stehen in `language-docs`; Bezeichner
 folgen `R-code-language`. Text, den ein Mensch geschrieben hat, bleibt in seiner Originalsprache; ihn zu übersetzen
 ist ein eigener, ausdrücklicher Auftrag. Eine Datei, deren Zeile 1 `<!-- act:default -->` lautet, ist englisches
 Gerüst, übersetzt nur über den Inbox-Eintrag `*-translate-scaffold.md`. Marken (`<!-- act:... -->`), Kopffelder und
@@ -98,9 +99,9 @@ Hauptsitzung ins System-Temp-Verzeichnis oder direkt unter `.act-local/` bekommt
 durch `throwaway-place`). Einzelheiten: `topics/checks.md`.
 
 ## R-role-worker
-<!-- source: 36b3122b3f9af836 -->
+<!-- source: 1e974955fb64b6ff -->
 Was ein Worker darf und was nicht
-summary: begrenzter Auftrag, Beleg, keine Commits, kein docs/ai/, Git nur lesend (-C-Form für einen anderen Ordner), Tests nur auf einer Tests:-Zeile, nichts außerhalb des Write Scope, keine Sub-Worker
+summary: begrenzter Auftrag, Beleg, keine Commits, kein docs/ai/, Git nur lesend (-C-Form für einen anderen Ordner, Proben in einem eigenen Repository), Tests nur auf einer Tests:-Zeile, nichts außerhalb des Write Scope, keine Sub-Worker
 
 Ein Worker (Sub-Agent) arbeitet nach einem begrenzten Auftrag und liefert sein ganzes Ergebnis **samt Beleg** —
 höchstens 40 Zeilen, keine Rohdaten, nie „siehe oben“, jede Annahme als **Annahme** (assumption) markiert. Er
@@ -109,12 +110,21 @@ sein Ergebnis) und fragt den Menschen nie direkt: Offene Fragen und jeden Fehler
 auffällt (`R-work-process-error`), gibt er mit seinem Ergebnis zurück. Spricht der Mensch ihn direkt an, antwortet
 er nur „bitte den Orchestrator fragen“ und arbeitet weiter; nach dem Stand gefragt, antwortet er sofort mit Fakten:
 erledigt, offen, unerwartet. Git ist nur lesend (lesende Befehle wie `status`, `diff`, `log`, `show`, `ls-files`,
-`stash list`): nie stagen, committen, stashen, zurücksetzen oder auschecken; ein Git-Schritt, den die Arbeit braucht
+`stash list`; kein `update-ref`, kein schreibendes `symbolic-ref`, `tag` oder `config`): nie stagen, committen,
+stashen, zurücksetzen oder auschecken; ein Git-Schritt, den die Arbeit braucht
 (Staging, ein Commit, ein Stash), geht mit dem Ergebnis zurück, und was Arbeitsbaum oder Verlauf ändert, bleibt beim
 Orchestrator. Git in einem anderen Ordner läuft nur als `git -C <literaler Pfad> <Befehl>` in einem eigenen Aufruf:
 nie nach `cd`, nie mit einer Variablen im Pfad; vor einem solchen Aufruf lesen, was `cd-git` in
-`.act/rules/topics/checks.md` erlaubt. Tests und Proben laufen nur, wenn der Auftrag eine `Tests:`-Zeile hat,
-und in dem Baum, den sie nennt. Eine Datei außerhalb des `Write scope:` des Auftrags (der Wegwerf-Ort
+`.act/rules/topics/checks.md` erlaubt. Eine Git-Probe läuft nur in einem eigenen Repository unter dem
+Wegwerf-Ordner: Die Probe (ein Script; ein eigenes `git init` des Workers im Projekt wird abgewiesen) führt dort
+zuerst `git init` aus, mit `GIT_CEILING_DIRECTORIES` auf diesen Ordner gesetzt, und hält an, wenn
+`git rev-parse --show-toplevel` nicht diesen Ordner nennt. Ein Script, Interpreter oder Programm, das der Worker
+startet, schreibt nur dort, wo der Worker selbst schreiben darf; nach einem solchen Aufruf meldet `worker-run-watch`
+einen Commit, eine Ref-Änderung oder eine Datei außerhalb des Scopes jedes laufenden Workers, und der Worker nennt das
+in seinem Ergebnis, statt es rückgängig zu machen. Tests und Proben laufen nur, wenn der Auftrag eine
+`Tests:`-Zeile hat, und in dem Baum, den sie nennt. Eine Probe, die der Worker für den Auftrag schreibt und die nur
+ihr eigenes Wegwerfmaterial liest und ausführt, braucht keine `Tests:`-Zeile; den Code oder die Tests oder Proben
+des Projekts auszuführen oder zu importieren, auch in einer Kopie, braucht eine, die diesen Baum nennt. Eine Datei außerhalb des `Write scope:` des Auftrags (der Wegwerf-Ort
 `.act-local/tmp/` ausgenommen) wird nie geschrieben —
 weder mit dem Tool, das eine Prüfung abweisen würde, noch über einen Interpreter, ein Script oder einen anderen
 Umweg, gleich ob eine Prüfung es abgelehnt hat; das Ergebnis nennt die Datei und die nötige Änderung. Jeden anderen
@@ -340,11 +350,11 @@ ADR; ist es gebaut, steht das Ergebnis in Code, Journal, Projektdoku oder einem 
 nie einfach gelöscht. Mechanisch geprüft durch `act-doctor` (`docs-order`); Details: `topics/docs-order.md`.
 
 ## rules/orchestrator/00-role.md
-<!-- source: 965866474c72e9bb -->
+<!-- source: 6a418496a7e7c312 -->
 Rollenregeln
 summary: Auftrag des Orchestrators, Eskalationsweg, Rollenzuweisung
 
-Wird für jede Sitzung über `docs/ai/rules.md` importiert, ist aber nur für die Hauptsitzung gedacht — ein
+Wird für jede Sitzung über `docs/ai/local/rules.md` importiert, ist aber nur für die Hauptsitzung gedacht — ein
 Worker (Sub-Agent) überspringt diese Datei und die übrigen Orchestrator-Regeln.
 
 ## R-role-main
@@ -394,13 +404,15 @@ Arbeitsregeln
 summary: festhalten, Prozessfehler, Neustarts, erst das Konzept, config.md, Übergabe
 
 ## R-work-record-now
-<!-- source: 4e247c559b1c43fb -->
+<!-- source: 292de4af7b7f8059 -->
 Sofort schreiben, nicht erst am Sitzungsende
-summary: Journal, Aufgabenstatus und Inbox-Einträge direkt nach jedem Schritt aktualisieren
+summary: Journal, Aufgabenstatus und Inbox-Einträge direkt nach jedem Schritt aktualisieren; offene Einträge, die eine Verbuchung, ein Commit oder eine erledigte Aufgabe berührt, im selben Schritt nachziehen
 
 Journal, Aufgabenstatus und neue Fragen kommen direkt nach dem Schritt, der sie hervorgebracht hat, an ihren
 Platz, solange der Beleg frisch ist — nicht später aus dem Gedächtnis rekonstruiert. Wohin eine Frage oder eine
-offene Entscheidung kommt: `R-human-ask`.
+offene Entscheidung kommt: `R-human-ask`. Wird eine Antwort verbucht, ein Commit gemacht oder eine Aufgabe erledigt,
+werden die offenen Einträge, die sie berührt (ein Bericht, eine Frage, ein Todo oder ein Backlog-Eintrag, der sie
+nennt oder auf ihr beruht), im selben Schritt nachgezogen: korrigiert oder archiviert, sobald sie abgedeckt sind.
 
 ## R-work-process-error
 <!-- source: 81cba647dbae03e3 -->
@@ -499,16 +511,16 @@ verbucht wird, zusammen mit jedem Schritt, den nur der Mensch jetzt tun kann (Fr
 verbuchte Eintrag nennt ihre ID; die offenen Entscheidungen einer Aufgabe liegen immer dort.
 
 ## R-human-capture
-<!-- source: 7232496a73065688 -->
+<!-- source: 49a1c405e7f9cc1c -->
 Chat-Präfixe `todo:`, `note:`, `idea:` erfassen
-summary: todo:/note:/idea: wird ein Inbox-Eintrag oder Ideen-Abschnitt (Hook, sonst entries.py new --triage); triage: open wird als Nächstes bearbeitet
+summary: todo:/note:/idea: wird ein Inbox-Eintrag oder Whiteboard-Abschnitt (Hook, sonst entries.py new --triage); triage: open wird als Nächstes bearbeitet
 
 Eine Chat-Nachricht, die mit `todo:`, `note:` oder `idea:` beginnt (Groß-/Kleinschreibung egal), ist eine Erfassung,
 kein Auftrag. Ist `quick-capture` an (der Standard), legt der `UserPromptSubmit`-Hook sie ab, und die Nachricht
 erreicht das Modell nie. Läuft der Hook nicht und kommt trotzdem eine Nachricht mit so einem Präfix an, legt man
 sie selbst sofort ab, ohne mit dem Todo zu beginnen: `todo:` und `note:` mit `entries.py new todo|note --triage
 --for <writer> [--body-file <file>] <title>` (erste Zeile des Wortlauts als Titel, der ganze Wortlaut als Text),
-`idea:` als neuer Abschnitt am Ende der `docs/ai/concept/ideas-<identity>.md` des Schreibenden, der Text
+`idea:` als neuer Abschnitt `## <title>` am Ende der `docs/ai/whiteboard-<identity>.md` des Schreibenden, der Text
 unverändert. Mit einer Zeile antworten, die die Datei nennt. Ist `quick-capture` aus, haben die Präfixe keine
 besondere Bedeutung.
 
@@ -519,7 +531,7 @@ Inbox-README, der Text des Menschen wird nie geändert, und `status: answered`. 
 entfernt.
 
 ## R-human-chat
-<!-- source: 2e3f684674e9cc23 -->
+<!-- source: 4fa3168b78db570f -->
 Einmal, kurz und erst, wenn die Antwort feststeht, antworten
 summary: keine Zwischenberichte, kurze Abschlusszusammenfassung, knapper Stil, Stufen von output-depth
 
@@ -527,10 +539,11 @@ Geantwortet wird nur, wenn die Antwort feststeht — nicht, solange sie noch von
 ausstehenden Befunden abhängt, und nie mit dem Bericht eines Workers, während andere noch laufen. Bei einem
 langen Lauf ist ein einzeiliger Stand in Ordnung. Ein Zug, den nur die Abschlussmeldung eines Workers auslöst,
 endet ganz ohne Text oder mit höchstens einer Zeile, außer wenn genau diese Meldung die Antwort endgültig macht.
-Nach dem Start von Workern endet der Zug mit einer Zeile, die sagt, wie viele laufen und dass Reden zwischendurch
-willkommen ist; diese Zeile ist kein Zwischenbericht. Fragt der Mensch zwischendurch etwas, sagt die Antwort, dass
-sie auf dem Stand vor den Ergebnissen der Worker beruht, und gibt nie ein Teilergebnis weiter.
-Fragen folgen `R-human-ask`. Ein Inbox-Eintrag, den der Mensch schon beantwortet hat, wird in dem Zug verbucht und
+Nach dem Start von Workern endet der Zug mit einer Zeile, die sagt, wie viele laufen; diese Zeile ist kein
+Zwischenbericht. Fragt der Mensch zwischendurch etwas, sagt die Antwort, dass
+sie auf dem Stand vor den Ergebnissen der Worker beruht, und gibt nie ein Teilergebnis weiter. Eine `[act] tip:`-Zeile
+des Sitzungsstarts kommt, im Text unverändert, als eine Zeile in die erste Antwort der Sitzung, bei jedem
+`output-depth` (auch `sparse`). Fragen folgen `R-human-ask`. Ein Inbox-Eintrag, den der Mensch schon beantwortet hat, wird in dem Zug verbucht und
 archiviert, in dem die Antwort auffällt (`entries.py archive <id>`), und nie offen gelassen. Den Abschluss bildet
 eine kurze Zusammenfassung — erledigt · nächstes · Probleme · zu besprechen — ohne etwas Wichtiges wegzulassen;
 neue Fragen und Aufgaben werden zusammen in einer Schlusszeile genannt („Neue Fragen: Q12–Q14, neue Aufgabe T7“).
@@ -582,7 +595,7 @@ Kostenregeln
 summary: Delegation und Auftragskopf, Warten, Ergänzen, Scripts, Commit-Schranke, Diff-Prüfung, Reset und Verwerfen
 
 ## R-cost-delegate
-<!-- source: 70f050a0c637cd2e -->
+<!-- source: 739581ebb8680bc4 -->
 Delegieren, wo es sich lohnt; der Auftragskopf
 summary: delegieren, wo sich eine Übergabe lohnt; Kopfzeilen Write scope, Cap, Tests; Tier aus der Rolle; kleine Aufträge, parallele Teile, kein Testlauf neben einem Schreibenden
 
@@ -599,8 +612,9 @@ eigenen Agenten des Werkzeugs (`Explore`, `general-purpose`, `Plan`; `claude-cod
 selbst).
 
 **Auftragskopf.** Pflicht, jede Angabe am Zeilenanfang (nur `Cap:` darf auch nach `·`/`|`/`;`/`,` stehen):
-`Write scope: <glob>[, <glob> ...]` (relativ zum Projektstamm; `none` = nur lesend; Wegwerfmaterial unter
-`.act-local/tmp/` ist für jeden Worker frei), `Cap: <n>` (Werkzeugaufrufe; ein Hinweis am Cap, Abweisung ab dem
+`Write scope: <glob>[, <glob> ...]` (relativ zum Projektstamm; `none` = nur lesend und der einzige
+Wert für eine Rolle ohne Write-Werkzeug, die ihr Ergebnis als Text zurückgibt — eine Brief-Datei schreibt der
+Orchestrator; Wegwerfmaterial unter `.act-local/tmp/` ist für jeden Worker frei), `Cap: <n>` (Werkzeugaufrufe; ein Hinweis am Cap, Abweisung ab dem
 1,5-Fachen) und, wo etwas läuft, `Tests: <glob>[, <glob> ...]` (der Baum, den es liest). Mechanisch geprüft durch
 `worker-write-scope`, `worker-cap` und `worker-scope-overlap`. Das Tier folgt aus der Rolle; eine `Tier:`-Zeile
 nennt nur eine Abweichung; mehr Reasoning: `builder-high`/`reviewer-high`. Die Schätzung (`~<n> min · ~<n> tkn

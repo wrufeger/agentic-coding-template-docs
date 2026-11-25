@@ -397,22 +397,9 @@ function buildIndex() {
   const out = [];
   out.push(
     pick(
-      `A package bundles rules, roles, skills and checks that a project can add to the template. These are the packages of release ${code(tag)} of the [package repo](${SITE_PACKAGES}); the [catalogue](${CATALOGUE}) shows the same release.`,
-      `Ein Package bündelt Regeln, Rollen, Skills und Prüfungen, die ein Projekt zum Template hinzufügen kann. Das sind die Packages des Releases ${code(tag)} im [Package-Repository](${SITE_PACKAGES}); der [Katalog](${CATALOGUE}) zeigt dasselbe Release.`,
+      `A package bundles rules, roles, skills and checks that a project can add to the template. These are the packages of release ${code(tag)} of the [package repo](${SITE_PACKAGES}); the [catalogue](${CATALOGUE}) shows the same release. The package layer (${code('packages.py')}, ${code('/act-packages')}) is in the template from v2.7.0 on; an older project gets it with ${code('act-update')}.`,
+      `Ein Package bündelt Regeln, Rollen, Skills und Prüfungen, die ein Projekt zum Template hinzufügen kann. Das sind die Packages des Releases ${code(tag)} im [Package-Repository](${SITE_PACKAGES}); der [Katalog](${CATALOGUE}) zeigt dasselbe Release. Die Package-Schicht (${code('packages.py')}, ${code('/act-packages')}) steckt ab v2.7.0 im Template; ein älteres Projekt bekommt sie mit ${code('act-update')}.`,
     ),
-    '',
-  );
-  // Until the next template release: the package layer is in no release yet (remove with that release).
-  out.push(
-    pick(
-      ':::caution[Packages from the next template release]',
-      ':::caution[Packages ab dem nächsten Release des Templates]',
-    ),
-    pick(
-      `The package layer (${code('packages.py')}, ${code('/act-packages')}) is in no release of the template yet: v2.6.0 and older do not have it. It comes with the next release. Until then a project needs the [update channel](${prefix}/getting-started/update/#update-channel) ${code('latest')}: set ${code('update-channel: latest')} in ${code('docs/ai/config.md')} and run ${code('act-update')}.`,
-      `Die Package-Schicht (${code('packages.py')}, ${code('/act-packages')}) steckt noch in keinem Release des Templates: v2.6.0 und älter haben sie nicht. Sie kommt mit dem nächsten Release. Bis dahin braucht ein Projekt den [Update-Channel](${prefix}/getting-started/update/#update-channel) ${code('latest')}: ${code('update-channel: latest')} in ${code('docs/ai/config.md')} setzen und ${code('act-update')} ausführen.`,
-    ),
-    ':::',
     '',
   );
   out.push(

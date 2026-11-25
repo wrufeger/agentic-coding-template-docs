@@ -49,16 +49,6 @@ Claude-Einstellungen oder `~/.claude.json`, oder Claude Codes eigenen `ide`-Serv
 Server gilt nichts davon. Der `ide`-Server von Claude Code bietet `getDiagnostics` (lesend, für alle in
 Ordnung) und `executeCode` (nur Orchestrator, wie jedes Tool, das Code ausführt).
 
-## ideas
-<!-- source: e7ded355c2af8dc8 -->
-Ideen
-
-Detailseite, angekündigt von der Topic-Zeile des Sitzungsstarts. „ideas“ ist aktiv, wenn die eigene Ideendatei
-des Sitzungsinhabers — `docs/ai/concept/ideas-<identity>.md`, Regeln für den Menschen in der `README.md` dieses
-Ordners — Einträge hat, die neu oder seit der letzten Verarbeitung geändert sind; der Sitzungsstart nennt sie
-in einem Hinweis `[act] ideas:`. Mechanik: `.act/scripts/ideas.py`, aufgerufen aus
-`.act/hooks/checks/session_context.py`.
-
 ## live-systems
 <!-- source: a1d03acb0e39d7c5 -->
 Zugriff auf Live-Systeme
@@ -82,6 +72,16 @@ Safeguard-Blocks
 
 Detailseite zu `R-safe-block` (`.act/rules/shared/10-safety.md`). Lies sie immer, wenn ein Tool eine Anfrage
 oder Aktion als riskant markiert — eine Schutzvorkehrung, ein Inhaltsfilter, eine Rechteausweitung.
+
+## whiteboard
+<!-- source: 77a5b822a4a8dc32 -->
+Whiteboard
+
+Detailseite, angekündigt von der Topic-Zeile des Sitzungsstarts. „whiteboard“ ist aktiv, wenn das eigene Whiteboard
+des Sitzungsinhabers — `docs/ai/whiteboard-<identity>.md`, Regeln für den Menschen in `docs/ai/README.md` — Einträge
+hat, die neu oder seit der letzten Verarbeitung geändert sind, eine Erinnerung zu einem fälligen Datum oder eine
+Erinnerung zu einem Ereignis, das zu prüfen ist; der Sitzungsstart nennt sie in Hinweisen `[act] whiteboard:`.
+Mechanik: `.act/scripts/whiteboard.py`, aufgerufen aus `.act/hooks/checks/session_context.py`.
 
 ## _intro
 <!-- source: 8c88cf2e463d41fe -->

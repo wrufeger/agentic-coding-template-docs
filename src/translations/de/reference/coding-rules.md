@@ -854,9 +854,9 @@ summary: /types, /constants, /server und shared/utils/ im Repo-Root, jeweils der
   automatisch; Nuxt 3 tut das nur mit `future.compatibilityVersion: 4`, sonst aus `#shared/utils/…` importieren.
 
 ## CR-nuxt-ssr
-<!-- source: 2c575bc65b2bdaa9 -->
+<!-- source: f1bbab3386057df2 -->
 Den SSR-Modus bewusst wählen
-summary: vor der Annahme von SSR fragen, die Hydration-Kosten kennen, nach SSR-Arbeit auf Mismatches prüfen
+summary: vor der Annahme von SSR fragen, die Hydration-Kosten kennen, nach SSR-Arbeit auf Mismatches prüfen, `app:mounted` vor dem Ende der Hydration, Icons ohne SSR bündeln
 
 - `ssr: false` oder eine reine SPA ist bei einer rein lokalen Oberfläche ohne SEO- oder
   First-Paint-Anforderung (z. B. ein Admin-Tool) oft die einfachere Wahl. Den Nutzer einmal fragen, wenn die
@@ -876,6 +876,11 @@ summary: vor der Annahme von SSR fragen, die Hydration-Kosten kennen, nach SSR-A
   weder Lint noch der Typecheck bemerken es; den Kommentar vor die ganze Kette oder in einen Zweig setzen.
 - Das Ergebnis von `useFetch`/`useAsyncData` in ein eigenes `ref` zu kopieren ist ebenfalls eine häufige
   Ursache für Hydration-Mismatches — Grund und Behebung stehen in `CR-nuxt-basics`, hier nicht wiederholt.
+- `app:mounted` feuert, wenn `mount()` zurückkehrt, doch unter Suspense läuft die Hydration bis `app:suspense:resolve`
+  weiter. Code, der bei `app:mounted` startet und gemeinsamen Zustand ändert (ein Live-Stream, ein Zähler, der den Store
+  speist), kann ihn mitten in der Hydration ändern; der Mismatch zeigt sich dann nur auf langsamen Rechnern. Ist
+  `useNuxtApp().isHydrating` wahr, einmal auf `app:suspense:resolve` warten, sonst sofort starten. Mit
+  CPU-Drosselung im Browser (DevTools-Protokoll) nachstellen, nicht auf einem schnellen Rechner.
 - Mit `ssr: false` lädt `@nuxt/icon` (auch über `@nuxt/ui`) Icons zur Laufzeit von der öffentlichen Iconify-API,
   solange sie nicht gebündelt sind: die Icon-Sets als `@iconify-json/<set>` installieren, Provider `none`,
   `clientBundle.scan`, `fallbackToApi: false`; ein unbekanntes Icon erscheint dann als fehlend, mit einer Warnung in
@@ -891,9 +896,9 @@ summary: ESLint mit `@nuxt/eslint` plus Prettier, oder was das Projekt eingerich
   (siehe `R-code-tools`).
 
 ## CR-nuxt-tests
-<!-- source: 817b569d8eb6d049 -->
+<!-- source: 937bacfc63bf8cbe -->
 Unit- und End-to-End-Tests
-summary: standardmäßig vitest/Playwright, aber die Suite, die das Projekt ausführt, muss bestehen; verankerte Locators, isolierte parallele Testserver
+summary: standardmäßig vitest/Playwright, aber die Suite, die das Projekt ausführt, muss bestehen; verankerte Locators, isolierte parallele Testserver, Typecheck mit eigenem `buildDir`
 
 - `vitest` (`vitest.config.ts`) für Unit- und Komponententests, `@playwright/test`
   (`playwright.config.ts`) für End-to-End-Tests — die übliche Wahl des Templates; hat das Projekt einen
@@ -918,6 +923,11 @@ summary: standardmäßig vitest/Playwright, aber die Suite, die das Projekt ausf
   (`R-safe-dev-server`). Eine veraltete Lock-Datei im eigenen `buildDir` eines Testservers darf vor dem Start nur
   entfernt werden, wenn ihr Prozess nicht mehr läuft oder ihre PID inzwischen einem anderen Prozess gehört, nie nach
   ihrem Alter.
+- `nuxt typecheck` schreibt erzeugte Dateien (tsconfig, die Typen der Server-Imports, die ESLint-Konfiguration,
+  Build-Infos) in das Standard-`buildDir`, auch während der Dev-Server des Eigentümers läuft; ein Build lässt sich
+  umleiten, dieser Befehl hat keinen solchen Umweg. Ihn mit derselben Umgebungsvariable für das eigene `buildDir`
+  ausführen wie Build und Testserver, und diese Variable in jedem Builder-Auftrag nennen, der einen Typecheck
+  einschließt (`R-safe-dev-server`).
 
 ## nuxt5
 <!-- source: 06bf90338447a673 -->
@@ -932,7 +942,7 @@ nennt (`^5.0.0`, `npm:nuxt-nightly@5x`). Gruppen-IDs (`CR-nuxt5-<name>`) sind st
 eine Gruppe, deren Zweck nicht mehr gilt, bekommt eine neue ID und wird in diesem Kopf als `retired:` aufgeführt.
 
 ## CR-nuxt5-channel
-<!-- source: 9bb5ffe5b6c1e4d8 -->
+<!-- source: 2b3ade2b9a5cc628 -->
 Nightly-Kanal und Versionen
 summary: `nuxt-nightly@5x` als Tag, die Lockfile als einzige Festlegung, pnpm löst den Tag neu auf, der `vue`-Bereich der Nightly, Hauptversionen im Gleichschritt mit Nuxt, DevTools ausdrücklich, ein Paket ohne Nuxt bewegt
 
@@ -962,18 +972,22 @@ summary: `nuxt-nightly@5x` als Tag, die Lockfile als einzige Festlegung, pnpm l�
   bewusstes Nuxt-Update. Ein mitgewanderter Nightly-CLI wird in der Lockfile zurückgenommen. Dieselben Schritte heben
   die in `CR-nuxt5-checks` genannten Modulkopien auf die behobene Version, ohne die Nightly zu bewegen. Entfällt mit der
   pnpm-Zeile oben.
-- Eine Nightly kann ihren eigenen `vue`-Bereich anheben; ein `vue`-Eintrag des Projekts, der auf dem alten Minimum
-  bleibt, hält eine zweite Vue-Kopie. Nach jedem Vorrücken den Bereich der Nightly lesen (`npm view
-  <nightly>@<version> dependencies.vue`, `pnpm view` ebenso), den eigenen Eintrag darauf anheben, danach zeigt
-  `npm ls vue` / `pnpm why vue` eine Version. Auch `nuxt prepare` ausführen: Die erzeugte ESLint-Konfiguration kann
-  auf den alten Store-Pfad zeigen, bis es läuft (meist erledigt das `postinstall`).
+- Eine Nightly kann ihren eigenen `vue`-Bereich und Peer-Bereiche wie `vue-router` anheben, auch innerhalb einer
+  Hauptversion; ein Eintrag des Projekts, der auf dem alten Minimum bleibt, hält eine zweite Kopie. Nach jedem
+  Vorrücken die Bereiche der Nightly lesen (`npm view <nightly>@<version> dependencies.vue peerDependencies`, `pnpm
+  view` ebenso), die eigenen Einträge darauf anheben, danach zeigt `npm ls vue` / `pnpm why vue` (und dasselbe für
+  `vue-router`) eine Version. Auch `nuxt prepare` ausführen: Die erzeugte ESLint-Konfiguration kann auf den alten
+  Store-Pfad zeigen, bis es läuft (meist erledigt das `postinstall`).
 - Mit `minimumReleaseAge` von pnpm 11 nimmt `pnpm update nuxt` die neueste Nightly, die älter als dieses Alter ist:
   das nicht umgehen; die tatsächlich installierte Version in Commit und Upgrade-Log nennen.
+- pnpm misst `minimumReleaseAge` ab dem Zeitpunkt, zu dem eine Version auf npm erschien, und der kann nach ihrem
+  GitHub-Release liegen; eine Version, die nach dem Release-Datum alt genug aussieht, kann trotzdem zurückgehalten
+  werden.
 - Nach `dev` oder `build` den Diff von `package.json` lesen: Jeder Eintrag, den das Tooling von sich aus ergänzt
   hat, ist einer, den du erklären kannst.
 
 ## CR-nuxt5-modules
-<!-- source: 4fd5797f9db275ed -->
+<!-- source: 46905b738974058e -->
 Module unter Nuxt 5
 summary: `NUXT_B8013` heißt abgeschaltet, Pinia 4 mit seinem Peer, der i18n-Rückweg, gebündelte Icons, die Nitro-v2-Brücke nur in Modulen
 
@@ -987,17 +1001,16 @@ summary: `NUXT_B8013` heißt abgeschaltet, Pinia 4 mit seinem Peer, der i18n-Rü
   nuxt-modules/i18n#4066 schließt (Unterstützung für Nuxt 5 und Nitro 3). `experimental.nitroViteEnvironment:
   false` ist ab Nightly `5.0.0-2611031025` nicht mehr nötig; entfernen, sobald `build` und die E2E-Tests ohne es
   bestehen.
-- Unter Nuxt 5 liefert der Provider `server` von `@nuxt/icon` die Icons nicht aus: Er antwortet mit leerem Body
-  (2.5.1), oder der Browser fragt direkt die öffentliche Iconify-API (2.6.2 mit `@iconify/vue` 5) (gemeldet,
-  Upstream-Issue nuxt/icon 571). Das gebündelte Setup aus `CR-nuxt-ssr` verwenden und eine E2E-Prüfung, dass Icons
-  gerendert werden und keine Anfrage an die Iconify-API geht; entfällt, sobald dieses Issue in einem Release behoben
-  ist.
+- Das gebündelte Icon-Setup aus `CR-nuxt-ssr` verwenden und eine E2E-Prüfung, dass Icons gerendert werden und keine
+  Anfrage an die öffentliche Iconify-API geht. Ältere Versionen von `@nuxt/icon` brauchten einen Workaround: einen
+  serverseitigen Icon-Provider und ein von Hand gesetztes Cache-`allowQuery` für den Icon-Endpunkt. Ab `@nuxt/icon`
+  2.6.3 ist er nicht mehr nötig (gemeldet auf Nitro 3); beides in der Konfiguration suchen und entfernen.
 - Die Nitro-v2-Brücke (`NUXT_B9003`) nie im eigenen Code nachbauen.
 
 ## CR-nuxt5-server
-<!-- source: c4592a38670f525c -->
+<!-- source: 557aa25942baebce -->
 Nitro 3 und h3 v2
-summary: ausdrückliche Imports aus `nuxt/server`, `event.req` als Web-Request, typisierte Bodies, `status`/`statusText`, kein Komma in Kommentaren an Export-Zeilen, Header und CSP, keine Datei gelöscht unter dem Dev-Server des Eigentümers
+summary: ausdrückliche Imports aus `nuxt/server`, `event.req` als Web-Request, typisierte Bodies, `status`/`statusText`, kein Komma in Kommentaren an Export-Zeilen, Header und CSP (Nonce im Dev, Keep-alive-Hänger), keine Datei gelöscht unter dem Dev-Server des Eigentümers
 
 - In `server/` `defineEventHandler`, `readBody`, `getQuery`, `createError` … aus `nuxt/server` importieren und
   Plugins mit `definePlugin` aus `nitro` definieren; `server/utils/` bleibt auto-importiert.
@@ -1027,6 +1040,26 @@ summary: ausdrückliche Imports aus `nuxt/server`, `event.req` als Web-Request, 
   setzt eine Nonce auf seine eigenen Streaming-Skripte nur, wenn schon ein Head-Skript eine trägt. Eine CSP, die eine
   frühe Middleware setzt, überschreibt die des Renderers, dort also nur für API-Routen eine setzen. Entfällt, sobald
   ein CSP-Modul (z. B. `nuxt-security`) Unterstützung für Nuxt 5 erklärt.
+- Strikte Nonce-CSP im Dev: Das Fehler-Badge des Dev-Servers (gemeldet ab Nightly 2611132210) liest eine Nonce nur aus
+  Head-Tags, die vor dem Lauf von `render:html` vorhanden sind; eine Nonce, die erst innerhalb von `render:html`
+  erscheint, lässt das Badge blockiert. Nur im Dev (`import.meta.dev`) dem Badge die Nonce geben, die das Payload-Skript
+  hat, nie `unsafe-inline`. Das Reload-Skript von Nitro auf 5xx-Seiten im Dev (gemeldet mit Nitro 3.0.261103-rc) hat gar
+  keine Nonce; eine CSP-Meldung davon erwarten und aus Konsolenprüfungen herausfiltern. Der ältere Workaround für das
+  Overlay ist ab dieser Nightly nicht mehr nötig; entfernen. Ein E2E-Helfer löst den Fehler mit einer 5xx-Antwort aus.
+  Dieser Dev-Teil entfällt, sobald eine Nightly dem Dev-Badge die in `render:html` gesetzte Nonce gibt und dem
+  Dev-Reload-Skript auf 5xx-Seiten eine eigene Nonce.
+- Keep-alive-Hänger (gemeldet mit Nitro 3.0.261103-rc, srvx 1.0.8, h3 2.0.8, auf Linux, Windows und im
+  Produktions-Build, Nightly 2611172312): Eine früh abgewiesene Anfrage (413, 401) mit ungelesenem Body lässt die
+  nächste Anfrage auf derselben Verbindung bis `keepAliveTimeout` hängen. Als Notlösung setzt eine Server-Middleware
+  `Connection: close` bei unsicheren Methoden, auch in den Headern der Fehlerantwort. Entfällt, sobald ein Release den
+  Hänger nach einer frühen Abweisung mit ungelesenem Body behebt; dieses Upstream-Issue mit Beschreibung neben dem
+  Workaround vermerken.
+- Keep-alive im Dev: `Connection: close` bleibt, und zusätzlich den Request-Body bis zum Ende lesen, bevor früh
+  abgewiesen wird. Nur für unsichere Methoden, nur bei bekannter Länge bis zum größten Upload-Limit, nie einen Body, der
+  schon gelesen oder gesperrt ist, und um die ganze Middleware-Kette (`next()` in einem try/catch), nicht nur um den
+  eigenen Guard. Unit-Tests übergeben ihren eigenen Stub für `next`.
+- Den Keep-alive-Hänger mit einem POST über dem Limit testen, gefolgt von einer zweiten Anfrage über denselben Agent,
+  und mit mehreren rohen `node:http`-Clients parallel, die einen Body knapp über dem Limit senden.
 - Nach dem Umbenennen oder Entfernen eines Exports in `server/utils/` den eigenen Testserver neu starten (sein
   Port, wie `R-safe-dev-server` es sagt), bevor Tests gegen ihn zählen; den Server des Eigentümers erst nach
   Rückfrage. Kein Übergangs-Alias für den alten Namen. Nie `NUXT_IGNORE_LOCK` oder `NUXT_LOCK=0` setzen.
@@ -1037,9 +1070,9 @@ summary: ausdrückliche Imports aus `nuxt/server`, `event.req` als Web-Request, 
 - Jede Runtime-Abhängigkeit kommt in `package.json`, auch eine, die transitiv schon da ist.
 
 ## CR-nuxt5-app
-<!-- source: 703c2003441a9129 -->
+<!-- source: 0a2040721d261237 -->
 Seiten, Routing, Datenabruf, Head
-summary: `import.meta.*`, `query` statt `params`, typisiertes `$fetch` und typisierte Routenziele, Unhead 3 und sein og-Hinweis, kein `baseUrl`
+summary: `import.meta.*`, `query` statt `params`, typisiertes `$fetch` und typisierte Routenziele, serverseitiges `navigateTo` und die Query, Unhead 3 und sein og-Hinweis, kein `baseUrl`
 
 - `import.meta.*` statt `process.*` (`import.meta.client`, `import.meta.dev` …).
 - `query` statt `params` in den Optionen von `$fetch`/`useFetch`.
@@ -1062,14 +1095,20 @@ summary: `import.meta.*`, `query` statt `params`, typisiertes `$fetch` und typis
   `app.vue` rendert. Ein fehlender Head-Wert wird weggelassen, nie als `undefined` übergeben —
   `useSeoMeta({ description: undefined })` entfernt den Fallback (der `og:title`-Fall oben wird also durch Weglassen von
   Tags gelöst, nicht durch `undefined`).
+- Ein serverseitiges `navigateTo` in einer Middleware baut `Location` aus dem Router-Pfad neu, sodass die Query in der
+  Kodierung des Routers herauskommt (gemeldet ab Nightly 2611151847): signierte Parameter, OAuth-Rücksprung-Links und
+  geteilte Links brechen ohne jeden Fehler. Auf dem Server ein relatives Ziel derselben Origin mit der Option
+  `external: true` übergeben (mit `@nuxtjs/i18n` dieses Ziel mit `localePath(...)` bauen, sonst fehlt das
+  Locale-Präfix); im Client die Navigation dem Router überlassen. Ein Test vergleicht den genauen Search-String im
+  `Location`-Header.
 - `workspaceDir` festlegen, wie es die Sicherheitszeile in `CR-nuxt-basics` sagt; das gilt auch für Nuxt 5.
 - Kein `compilerOptions.baseUrl` in `tsconfig.json` — Nuxt ignoriert es; Aliase kommen nur in
   `nuxt.config.ts` (`CR-nuxt-basics`).
 
 ## CR-nuxt5-checks
-<!-- source: b11046521c527b14 -->
+<!-- source: 0cfeb7c667ae06e8 -->
 Prüfungen nach jedem Nuxt-Update
-summary: die volle Prüfkette, die Typfehlerliste verglichen statt gezählt, Warnungen (eine bekannte Listener-Warnung), Kopien (wie man zählt, der erwartete `@nuxt/schema`-Treffer) und `invalid` im Baum, Workarounds gegen Upstream, ein Build vor Commits an auto-importierten Ordnern oder `nuxt.config`, ein Protokoll
+summary: die volle Prüfkette, die Typfehlerliste verglichen statt gezählt, Warnungen (eine Liste je Nightly, eine bekannte Listener-Warnung), Kopien (wie man zählt, der erwartete `@nuxt/schema`-Treffer) und `invalid` im Baum, Workarounds gegen Upstream, ein Build vor Commits an auto-importierten Ordnern oder `nuxt.config`, der Typecheck im eigenen `buildDir`, ein Protokoll
 
 - Die Ausgabe des Typechecks vor dem Update sichern und danach die Fehler vergleichen — die Liste, nicht die Zahl.
 - Dann `npm run lint`, `typecheck`, `test`, `build`, `dev` (Hauptseiten antworten mit 200, keine Hydration-Warnung),
@@ -1081,6 +1120,9 @@ summary: die volle Prüfkette, die Typfehlerliste verglichen statt gezählt, War
   bleiben bei einem kaputten Export-Scan grün (`CR-nuxt5-server`), nur der Build scheitert. Mit eigenem `buildDir`
   und eigenem Nitro-Ausgabeverzeichnis bauen, wie `CR-nuxt-tests` es sagt, nie in das `.nuxt/` des Eigentümers,
   während dessen Dev-Server läuft (`R-safe-dev-server`).
+- Die Liste der Warnungen je Nightly führen und nach jedem Update vergleichen, wie bei den Typfehlern. Gemeldet mit
+  Nightly 2611151847 und `@nuxtjs/i18n` 10.6.0: neue Warnungen `NUXT_B2003`, `NUXT_B2010`, `NUXT_B2014` und
+  `NUXT_E8013` ohne Wirkung zur Laufzeit; eine neue Warnung wird nachgeschlagen, bevor sie akzeptiert wird.
 - Die Warnungen lesen (`NUXT_B8013`, `NUXT_B9003`, `[unhead]`), auf doppelte Kopien prüfen,
   `python .act/scripts/security_scan.py --deps` ausführen.
 - Kopien eines Pakets zählen mit `npm ls <package>` / `pnpm why <package>`; Ordner unter `node_modules/.pnpm`, die von
@@ -1095,11 +1137,18 @@ summary: die volle Prüfkette, die Typfehlerliste verglichen statt gezählt, War
   sobald die Response schließt; Anwendungscode erreicht die Response nicht. Eine einfache CLI-Ausgabe ohne die
   Oberfläche vermeidet sie. Nur untersuchen, wenn sie auch im Produktions-Build erscheint oder mit der Lebensdauer
   eines Streams wächst. Entfällt, sobald die Warnung im `nuxt dev` einer aktuellen Nightly nicht mehr erscheint.
+- Eine Build-Warnung `INEFFECTIVE_DYNAMIC_IMPORT` (ein Modul wird statisch und dynamisch importiert, der dynamische
+  Import erzeugt also keinen eigenen Chunk) ist meist kein Befund: Das Verhalten ist gleich, nur die Aufteilung fehlt.
+  Ein Befund ist sie, wenn dieser dynamische Import einen Importzyklus brechen oder Code bewusst aus dem Bundle halten
+  sollte.
 - `npm ls --all 2>&1 | grep invalid`: eine veraltete Auflösung mit `npm update <package>` beheben (mit pnpm: `pnpm
   why <package>`, `pnpm update <package>`, unter der pnpm-Zeile von `CR-nuxt5-channel`); bereits bekannte Einträge
   stehen im Upgrade-Log, nur neue melden.
 - Jeden Workaround dieses Satzes gegen das Upstream-Issue oder Release prüfen, das er nennt; den entfernen, dessen
-  Bedingung erfüllt ist, und das im Upgrade-Log vermerken.
+  Bedingung erfüllt ist, und das im Upgrade-Log vermerken. Die Ausstiegsbedingung eines Workarounds (Keep-alive, CSP)
+  beschreibt das Upstream-Issue in Worten, damit eine Behebung auffällt.
+- `nuxt typecheck` bekommt die Variable für das eigene `buildDir` wie der Build und die Testserver (`CR-nuxt-tests`);
+  ein Builder-Auftrag, der den Typecheck einschließt, nennt sie, damit das `.nuxt/` des Eigentümers unberührt bleibt.
 - Jeden Bruch in einem Upgrade-Log des Projekts festhalten (z. B. `docs/project/nuxt-5-upgrade.md`): das Symptom
   kurz zitiert, die Ursache geprüft oder als **assumption** markiert, die Behebung, die Stelle. Eine allgemeine
   Lehre wird eine eigene Regel in `docs/project/coding_rules.md` und geht per `act-feedback` ans Template.
@@ -1552,9 +1601,9 @@ summary: versionierte Benennung, idempotent, umkehrbar, ein Werkzeug
 - Ein Migrationswerkzeug konsequent verwenden (z. B. Flyway, Prisma Migrate, Alembic); nicht mischen.
 
 ## CR-sql-mariadb
-<!-- source: cb49716bf16af9d0 -->
+<!-- source: 37337312ac0bab97 -->
 Fallstricke bei MySQL und MariaDB (InnoDB)
-summary: Gap-Locks bei Bereichsschreibzugriffen, Fehler 1020 unter Snapshot-Isolation, `LOCK IN SHARE MODE` statt `FOR SHARE`, `ALTER`- und ENUM-Änderungen an versionierten Tabellen, `CONVERT_TZ` ohne Zonentabellen
+summary: Gap-Locks bei Bereichsschreibzugriffen, Fehler 1020 unter Snapshot-Isolation, `LOCK IN SHARE MODE` statt `FOR SHARE`, `ALTER`- und ENUM-Änderungen an versionierten Tabellen, `CONVERT_TZ` ohne Zonentabellen, Cascade plus `SET NULL` auf einer Zeile einer versionierten Tabelle
 
 - InnoDB (Standard-Isolationsstufe `REPEATABLE READ`): Ein `UPDATE` oder `DELETE` über einen Bereich auf einer Tabelle,
   in die andere einfügen, nimmt Gap-Locks und kann mit einem gleichzeitigen `INSERT` in einen Deadlock laufen. Die Ids
@@ -1585,6 +1634,12 @@ summary: Gap-Locks bei Bereichsschreibzugriffen, Fehler 1020 unter Snapshot-Isol
 - MySQL/MariaDB: `CONVERT_TZ` mit Zonennamen liefert ohne jeden Fehler `NULL`, wenn die Zeitzonentabellen nicht geladen
   sind (üblich bei verwalteten oder Container-Datenbanken). Den Offset als Zahl übergeben oder die Umrechnung im
   Anwendungscode machen.
+- MariaDB, systemversionierte Tabelle: Das Löschen einer Elternzeile, deren Kindzeilen per Cascade mitgelöscht werden,
+  kann, wenn das Kind zusätzlich einen Selbstbezug mit `ON DELETE SET NULL` hat, dieselbe Historienzeile doppelt
+  schreiben und mit einem Duplicate-Key-Fehler scheitern (gemeldet; die betroffenen Versionen sind nicht bekannt, also
+  auf der eingesetzten testen). Vermeiden: in einer Transaktion zuerst eine Anweisung, die die Kindzeilen entfernt, dann
+  eine zweite, die die Elternzeile entfernt. Ein Test baut eine Kette aus mindestens zwei verknüpften Zeilen, denn eine
+  einzelne Zeile löst es nicht aus.
 
 ## tailwind
 <!-- source: 64187d320bfffffa -->

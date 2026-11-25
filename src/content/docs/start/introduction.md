@@ -60,9 +60,9 @@ Around them sit the small files each tool reads (`CLAUDE.md`, `AGENTS.md`, `.cla
 | Tool | Reads | What it gets |
 | :--- | :--- | :--- |
 | Claude Code | `CLAUDE.md`, `.claude/` | Everything: rules by import, skills by name, sub-agent roles with a model and effort tier, hooks, a status line, the board at session start. |
-| Codex, GitHub Copilot, Cursor | `AGENTS.md`, `.agents/skills/`; Copilot also `.github/agents/` | Rules and skills as instructions. No hooks, so nothing is enforced mechanically. With `copilot` in `tools`, Copilot also gets the roles as files under `.github/agents/`; Codex and Cursor have no sub-agent roles. |
+| Codex, GitHub Copilot, Cursor | `AGENTS.md`, `.agents/skills/`; Copilot also `.github/agents/` | Rules and skills as instructions. Codex and Cursor have no hooks, so nothing is enforced mechanically there. In a project that has `claude-code` in `tools`, GitHub Copilot runs the Claude Code hooks too, since v2.7.0 also on Windows (in PowerShell); with only `copilot` in `tools` there are no hooks yet, and edits through Copilot's `apply_patch` are not checked. With `copilot` in `tools`, Copilot also gets the roles as files under `.github/agents/`; Codex and Cursor have no sub-agent roles. |
 | Gemini CLI | `GEMINI.md`, `.agents/skills/` | The skills. A project has no `GEMINI.md` yet, so point Gemini CLI at `AGENTS.md` in its settings. |
-| Any other assistant | none | Tell it to read `docs/ai/rules.md`. Every skill is a plain `SKILL.md`. |
+| Any other assistant | none | Tell it to read `docs/ai/local/rules.md`. Every skill is a plain `SKILL.md`. |
 
 The tools in use are the `tools` key in `docs/ai/config.md`, default `claude-code`. Every project gets
 `AGENTS.md` and the skill copies under `.agents/skills/`.

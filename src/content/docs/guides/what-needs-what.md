@@ -10,13 +10,15 @@ asks for three things, and each has a rule behind it:
 
 - **A concept first** - `R-work-idea-first`: an idea, feature or change request first gets a short concept with
   options (`act-idea`) and a decision, then it is built. Skipping this for something small is allowed, but the
-  assistant says so out loud so you can object.
+  assistant says so out loud so you can object. A chat message starting with `idea:` is only captured: it becomes a
+  new section in your own whiteboard, `docs/ai/whiteboard-<identity>.md` (`R-human-capture`).
 - **Evidence** - `R-work-evidence`: "done" holds only with a test run, a CI run, a log excerpt or screenshot, a
   commit hash or an outside call. Without it a result is "not verified". `R-code-commit` runs checks in tiers, where the project has them set up: affected tests within a step; lint,
   typecheck and tests before each commit; the full or E2E suite (an optional fourth `commands` entry) once before a push and after a framework or
   dependency update. While a check stays red, nothing is committed or pushed.
 - **A review** - `R-code-commit`: the `reviewer` runs once per task before acceptance, not after every step, and ends
   with `ALLOW`, `CONDITIONAL` or `BLOCK`. For a trivial change (a typo, docs only) the assistant skips it and says so.
+  The `reviewer` returns its verdict as text in the reply and writes no result file.
 
 | The change | Concept first? | Test or evidence? | Review? |
 | :--- | :--- | :--- | :--- |

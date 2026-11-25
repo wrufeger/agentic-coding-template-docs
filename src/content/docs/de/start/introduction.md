@@ -3,7 +3,7 @@ title: Einführung
 description: Was das Template ist, für wen sie gedacht ist und wie sie in einem Bild funktioniert.
 sidebar:
   order: 1
-sourceHash: 94a115d45da6e01a3dda48dccf217b1785baa77cdc5643b1ecfabbef99688671
+sourceHash: c3f5f186d5582f5fb588251128c3f10093f1811983e1f041333f8fdc4834b112
 ---
 
 Das Agentic-Coding-Template, kurz *act*, ist ein Satz von Dateien, den du in ein Projekt legst, damit dein
@@ -63,9 +63,9 @@ Templates kommt nach `docs/ai/local/<gleicher Pfad>` und gewinnt. Details: [Schi
 | Werkzeug | Liest | Was es bekommt |
 | :--- | :--- | :--- |
 | Claude Code | `CLAUDE.md`, `.claude/` | Alles: Regeln per Import, Skills per Name, Sub-Agenten-Rollen mit Modell- und Effort-Stufe, Hooks, eine Statuszeile, das Board beim Sitzungsstart. |
-| Codex, GitHub Copilot, Cursor | `AGENTS.md`, `.agents/skills/`; Copilot auch `.github/agents/` | Regeln und Skills als Anweisungen. Keine Hooks, also wird nichts mechanisch durchgesetzt. Mit `copilot` in `tools` bekommt Copilot zusätzlich die Rollen als Dateien unter `.github/agents/`; Codex und Cursor haben keine Sub-Agenten-Rollen. |
+| Codex, GitHub Copilot, Cursor | `AGENTS.md`, `.agents/skills/`; Copilot auch `.github/agents/` | Regeln und Skills als Anweisungen. Codex und Cursor haben keine Hooks, also wird dort nichts mechanisch durchgesetzt. In einem Projekt mit `claude-code` in `tools` führt GitHub Copilot die Hooks von Claude Code ebenfalls aus, seit v2.7.0 auch unter Windows (in PowerShell); mit nur `copilot` in `tools` gibt es noch keine Hooks, und Änderungen über Copilots `apply_patch` werden nicht geprüft. Mit `copilot` in `tools` bekommt Copilot zusätzlich die Rollen als Dateien unter `.github/agents/`; Codex und Cursor haben keine Sub-Agenten-Rollen. |
 | Gemini CLI | `GEMINI.md`, `.agents/skills/` | Die Skills. Ein Projekt hat noch keine `GEMINI.md`, also richte Gemini CLI in den Einstellungen auf `AGENTS.md`. |
-| Jeder andere Assistent | keine | Sag ihm, er soll `docs/ai/rules.md` lesen. Jeder Skill ist eine schlichte `SKILL.md`. |
+| Jeder andere Assistent | keine | Sag ihm, er soll `docs/ai/local/rules.md` lesen. Jeder Skill ist eine schlichte `SKILL.md`. |
 
 Welche Werkzeuge im Einsatz sind, steht im Schlüssel `tools` in `docs/ai/config.md`, Standard `claude-code`.
 Jedes Projekt bekommt `AGENTS.md` und die Skill-Kopien unter `.agents/skills/`.
