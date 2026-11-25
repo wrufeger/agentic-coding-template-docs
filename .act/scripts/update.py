@@ -1127,7 +1127,7 @@ def _held_back_note(rel: str, plan: bool) -> str:
 def _plan_writes_owner_file(root: Path, rel: str, act_dir: Path) -> bool:
     """Would this run's steps write `rel` (one of _OWNER_HELD_FILES)? Judged without writing, from the
     fetched .act/ in `act_dir`: a .gitignore/.gitattributes block that still has lines to add or replace
-    (the same merge init.py's _append_block applies), or a docs/ai/rules.md the rule steps would change."""
+    (the same merge init.py's _append_block applies), or a docs/ai/local/rules.md the rule steps would change."""
     if rel == rules.AREAS["core"].project_file:
         return (step_move_core_entries(root, True)[0].startswith("would")
                 or step_add_missing_core_entries(root, True, act_dir)[0].startswith("would"))
@@ -1150,6 +1150,11 @@ def _print_plan_held_notes(root: Path, act_dir: Path) -> None:
     for rel in sorted(_unsaved_owner_files(root)):
         if _plan_writes_owner_file(root, rel, act_dir):
             print(f"[act]   note: {_held_back_note(rel, True)}")
+    if (_has_unsaved_changes(root, actlib.LEGACY_RULES_FILE) and not (root / actlib.RULES_FILE).is_file()
+            and "010-rules-to-local" in _due_migration_ids(act_dir / "migrations")):
+        print(f"[act]   note: {actlib.LEGACY_RULES_FILE} has changes that are not committed, so the update would "
+              f"move it to {actlib.RULES_FILE} and leave it and its new place out of its commit; review and commit "
+              "them yourself")
 
 
 def step_list_new_coding_entries(
@@ -1230,8 +1235,8 @@ def _plan_methods_part(root: Path, act_dir: Optional[Path] = None) -> str:
 
 
 def step_move_core_entries(root: Path, plan: bool) -> tuple[str, list[Path]]:
-    """Follow a rule the replaced .act/rules/ moved to another file in docs/ai/rules.md
-    (rules.move_core_entries). A docs/ai/rules.md that is still exactly its generated copy is
+    """Follow a rule the replaced .act/rules/ moved to another file in docs/ai/local/rules.md
+    (rules.move_core_entries). A docs/ai/local/rules.md that is still exactly its generated copy is
     skipped: the bridge refresh re-derives it, and moving lines first would make it look edited.
     Returns (summary, touched); nothing is written under plan."""
     rel = rules.AREAS["core"].project_file
@@ -1258,7 +1263,7 @@ def step_move_core_entries(root: Path, plan: bool) -> tuple[str, list[Path]]:
 def step_add_missing_core_entries(
     root: Path, plan: bool, act_dir: Optional[Path] = None,
 ) -> tuple[str, list[Path], list[str]]:
-    """Enter into docs/ai/rules.md what the replaced .act/rules/ added and the file does not know: a rule
+    """Enter into docs/ai/local/rules.md what the replaced .act/rules/ added and the file does not know: a rule
     as a checkbox line, a rule file as an import block (rules.add_missing_core_entries). A copy that is
     still exactly its generated one is skipped here (the bridge refresh re-derives it; step_doctor then
     records what it holds as offered). Returns (summary, touched, notes): `notes` name what could not
@@ -1286,7 +1291,7 @@ def step_add_missing_core_entries(
 
 
 def _record_rules_offered(root: Path) -> None:
-    """After the bridge refresh: a docs/ai/rules.md that is still its generated copy and imports every
+    """After the bridge refresh: a docs/ai/local/rules.md that is still its generated copy and imports every
     rule file of the template has been offered all of them; otherwise what it lists is added to a
     record that already exists (a project without one gets it from the first run that enters rules)."""
     rel = rules.AREAS["core"].project_file
@@ -1393,7 +1398,7 @@ def step_replace(root: Path, new_act_dir: Path, plan: bool) -> str:
 # functions the new init.py calls — and, being cached, board's older copy under it. "unit_copies"
 # imports init the same way, so a cached copy of it would keep the older init bound. "advisory" is
 # imported by board (and entries, through board), so the same holds for it.
-_PROBE_MODULE_NAMES = ("act_profile", "actlib", "rules", "init", "tiers", "frontmatter", "ideas", "entries", "board",
+_PROBE_MODULE_NAMES = ("act_profile", "actlib", "rules", "init", "tiers", "frontmatter", "whiteboard", "entries", "board",
                        "unit_copies", "advisory")
 
 
@@ -1902,7 +1907,23 @@ def _bridge_edited(
     # A variant whose model is unresolvable under `overrides` renders verbatim, without its
     # "-high" name/description/variant-of — those three lines then say nothing about an edit.
     drop = ("name", "description", "variant-of") if variant and "variant-of:" not in reference else ()
-    return _bridge_core(current, drop, copilot) != _bridge_core(reference, drop, copilot)
+    core = _bridge_core(current, drop, copilot)
+    if core == _bridge_core(reference, drop, copilot):
+        return False
+    if copilot and not variant:
+        # a Copilot file written before its bridge had `copilot-description` carries the bridge's
+        # plain description: that alone is no edit
+        try:
+            fields, _, _ = new_init.tiers.split_frontmatter(source_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError):
+            return True
+        wanted = fields.get(new_init.COPILOT_DESCRIPTION_KEY, "").strip()
+        plain = fields.get("description")
+        quote = new_init.tiers.frontmatter.quote_value
+        if wanted and plain is not None:
+            old_line, new_line = f"description: {quote(wanted)}\n", f"description: {quote(plain)}\n"
+            return core != _bridge_core(reference.replace(old_line, new_line, 1), drop, copilot)
+    return True
 
 
 def _in_git_history(root: Path, rel: str) -> bool:
@@ -2813,7 +2834,7 @@ def _report_copilot_files_without_model(root: Path, new_init) -> Optional[Path]:
             "`models:` line. They are treated as your own files: an update never changes them, and the role runs "
             "on the model of the session. The lines the template would set for each one:\n\n"
             + "\n".join(blocks) + "\n"
-            "- **a)** **Recommended:** Add these lines to each file by hand, inside the frontmatter. Every later "
+            "- **a)** (Recommended) Add these lines to each file by hand, inside the frontmatter. Every later "
             "update then keeps them current from the tier table and the Copilot column of § Roles in "
             "`docs/ai/config.md`. One edit per file.\n\n"
             "- **b)** Leave the files as they are. The role runs on the model of the session; a later update "
@@ -2826,6 +2847,49 @@ def _report_copilot_files_without_model(root: Path, new_init) -> Optional[Path]:
         return path
     except Exception:
         return None
+
+
+def _refresh_copilot_descriptions(root: Path, new_init, tools: list[str], notes: Optional[list[str]] = None) -> list[str]:
+    """Gives an existing base Copilot role file its bridge's `copilot-description`: only when the
+    file's frontmatter has the line `description: <the bridge's plain description>` exactly (the one
+    the template wrote before the bridge had the key) is that one line replaced, keeping its own
+    line ending; an edited line, a block value, a line already carrying the new text or no such line
+    leaves the file byte-equal. Never a "-high" variant, a package-owned file or a project's own
+    `<role>.md`. One unreadable or unwritable file is skipped with a note. Returns the changed
+    destinations, project-relative."""
+    base_targets = _role_bridge_targets(new_init, root, tools)[0]
+    owned = _package_owned(root)
+    quote = new_init.tiers.frontmatter.quote_value
+    changed: list[str] = []
+    for dest_rel, source_path in sorted(base_targets.items()):
+        if new_init.bridge_target_parts(dest_rel)[0] != "copilot" or dest_rel in owned:
+            continue
+        dest = root / dest_rel
+        try:
+            fields, _, _ = new_init.tiers.split_frontmatter(source_path.read_text(encoding="utf-8"))
+            wanted = fields.get(new_init.COPILOT_DESCRIPTION_KEY, "").strip()
+            plain = fields.get("description")
+            if not wanted or plain is None or not dest.is_file():
+                continue
+            old_line, new_line = f"description: {quote(plain)}", f"description: {quote(wanted)}"
+            if old_line == new_line:
+                continue
+            lines = dest.read_bytes().decode("utf-8").splitlines(keepends=True)
+            if not lines or lines[0].rstrip("\r\n") != "---":
+                continue
+            for index in range(1, len(lines)):
+                bare = lines[index].rstrip("\r\n")
+                if bare == "---":
+                    break
+                if bare == old_line:
+                    lines[index] = new_line + lines[index][len(bare):]
+                    dest.write_bytes("".join(lines).encode("utf-8"))
+                    changed.append(dest_rel)
+                    break
+        except (OSError, UnicodeDecodeError, ValueError) as exc:
+            if notes is not None:
+                notes.append(f"{dest_rel}: description refresh skipped ({exc.__class__.__name__})")
+    return changed
 
 
 def step_refresh_role_frontmatter(root: Path, plan: bool, notes: Optional[list[str]] = None) -> tuple[str, list[Path]]:
@@ -2845,7 +2909,10 @@ def step_refresh_role_frontmatter(root: Path, plan: bool, notes: Optional[list[s
         copilot_plan = ""
         try:
             if "copilot" in _project_tools(root):
-                copilot_plan = ", and the model lists of the Copilot agent files under .github/agents/"
+                copilot_plan = (
+                    ", and the model lists of the Copilot agent files under .github/agents/"
+                    " and the description of Copilot role files still carrying their bridge's plain text"
+                )
         except (OSError, ValueError):
             pass
         return (
@@ -2872,7 +2939,8 @@ def step_refresh_role_frontmatter(root: Path, plan: bool, notes: Optional[list[s
         return "role bridge frontmatter refresh failed, left untouched", []
     omit_added = _add_omit_claude_md(root, new_init, notes)
     question = _report_copilot_files_without_model(root, new_init) if copilot else None
-    touched = [root / rel for rel in dict.fromkeys([*changed, *copilot_changed, *omit_added])]
+    described = _refresh_copilot_descriptions(root, new_init, _project_tools(root), notes) if copilot else []
+    touched = [root / rel for rel in dict.fromkeys([*changed, *copilot_changed, *omit_added, *described])]
     if question is not None:
         touched.append(question)
     total = len(changed) + len(copilot_changed)
@@ -2881,6 +2949,8 @@ def step_refresh_role_frontmatter(root: Path, plan: bool, notes: Optional[list[s
         summary += f" ({len(copilot_changed)} in {new_init.COPILOT_AGENTS_DIR})"
     if omit_added:
         summary += f"; omitClaudeMd added to {len(omit_added)} role bridge(s)"
+    if described:
+        summary += f"; description refreshed in {len(described)} Copilot role file(s)"
     if question is not None:
         summary += f"; inbox question filed: {COPILOT_NO_MODEL_TITLE}"
     return summary, touched
@@ -2971,6 +3041,11 @@ def step_hooks_and_gitfiles(root: Path, plan: bool) -> tuple[str, list[Path]]:
 # function returning a description without writing anything, and an apply(root) function that
 # performs the change and returns (description, touched_paths) — the minimal shape for "--plan
 # first, then run, repeatable", exercised by this script's test fixtures.
+#
+# A migration that moves a file the steps before step 8 read or write (the project's rule file) sets the
+# module attribute `EARLY = True` on a line of its own: _finish_update runs the due ones as its very first
+# action, ahead of every step that touches the project's files, and step 8 names them with the others (the
+# --plan preview marks them "(runs first)"). Both kinds are recorded in `migrations_applied` the same way.
 #
 # Every migration must open with a comment header `# Purpose: <what it changes for the
 # project> What this does: ...`. `--plan` shows the Purpose sentence per due migration, read as plain
@@ -3080,9 +3155,29 @@ def _plan_migrations_summary(new_act_dir: Path) -> str:
         "\n" + line for line in _due_migration_lines(migrations_dir, due))
 
 
+_EARLY_READ_BYTES = 65536
+_EARLY_MARK_RE = re.compile(r"^EARLY[ \t]*=[ \t]*True[ \t]*(?:#.*)?$", re.MULTILINE)
+
+
+def _migration_runs_first(path: Path) -> bool:
+    """True when the migration's file marks it `EARLY = True`: it runs as the first thing of the update's
+    closing steps, before anything reads or writes the project's rule files. Read as plain text, like the
+    Purpose line (never imported from a fetched ref)."""
+    if path.is_symlink() or not path.is_file():
+        return False
+    try:
+        with path.open("rb") as handle:
+            raw = handle.read(_EARLY_READ_BYTES)
+    except OSError:
+        return False
+    return bool(_EARLY_MARK_RE.search(raw.decode("utf-8-sig", errors="replace")))
+
+
 def _due_migration_lines(migrations_dir: Path, due: list[str]) -> list[str]:
-    """One indented `<name>: <Purpose>` line per due migration."""
-    return [f"[act]       {mid}: {_migration_purpose(migrations_dir / (mid + '.py'))}" for mid in due]
+    """One indented `<name>: <Purpose>` line per due migration; one that runs before everything else says so right
+    after the colon (the name is always followed directly by `: `)."""
+    return [f"[act]       {mid}: {'(runs first) ' if _migration_runs_first(migrations_dir / (mid + '.py')) else ''}"
+            f"{_migration_purpose(migrations_dir / (mid + '.py'))}" for mid in due]
 
 
 def _due_migrations_note(migrations_dir: Path) -> str:
@@ -3100,17 +3195,21 @@ def _due_migrations_note(migrations_dir: Path) -> str:
     return f" ({len(due)} migration(s) due, listed above)"
 
 
-def step_migrate(root: Path, plan: bool) -> tuple[str, list[str], list[Path]]:
-    """Returns (summary, newly_applied_ids, touched_paths)."""
+def step_migrate(root: Path, plan: bool, first: bool = False) -> tuple[str, list[str], list[Path]]:
+    """Returns (summary, newly_applied_ids, touched_paths). With `first` only the due migrations that mark
+    themselves `EARLY = True` run (the update does that before anything reads or writes the project's rule
+    files), and a run with none due says nothing (an empty summary); without it, the due ones that do not."""
     migrations_dir = root / ".act" / "migrations"
     if not migrations_dir.is_dir():
-        return "no .act/migrations/ directory", [], []
+        return ("" if first else "no .act/migrations/ directory"), [], []
 
     lock = actlib.read_lock()
     applied = set(lock.get("migrations_applied", []))
     due = sorted(p for p in migrations_dir.glob("[0-9][0-9][0-9]-*.py") if p.stem not in applied)
+    # the ones that run first are told apart by their own mark, as the --plan preview does
+    due = [p for p in due if _migration_runs_first(p) == first]
     if not due:
-        return "no due migrations", [], []
+        return ("" if first else "no due migrations"), [], []
 
     if plan:
         planned = []
@@ -3147,7 +3246,7 @@ def step_migrate(root: Path, plan: bool) -> tuple[str, list[str], list[Path]]:
 # ---------------------------------------------------------------------------
 
 def _refresh_generated_bridges(root: Path, plan: bool) -> tuple[str, list[Path]]:
-    """Re-derives CLAUDE.md/AGENTS.md/docs/ai/rules.md from .act/bridges/ (whichever of them is
+    """Re-derives CLAUDE.md/AGENTS.md/docs/ai/local/rules.md from .act/bridges/ (whichever of them is
     still exactly as it was last generated) before doctor.py runs — the same re-derivation
     dispatch.py's SessionStart hook does for an unedited copy (checks.session._refresh_bridges).
     Without this, doctor's import check (check_imports) still sees the *old* docs/ai/
@@ -3656,6 +3755,13 @@ def _finish_update(
     # before any step below writes: what the owner has not committed in the coding rules is theirs
     coding_unsaved = _has_unsaved_changes(root, rules.AREAS["coding"].project_file)
     held_unsaved = _unsaved_owner_files(root)  # rules.md, .gitignore, .gitattributes: same, see the commit below
+    old_rules_unsaved = _has_unsaved_changes(root, actlib.LEGACY_RULES_FILE)  # taken before the move below
+    # A migration that marks itself `EARLY = True` (one that moves a file the steps below read or write) runs
+    # before any of them: no step then sees the old place of the file, and none makes a second one beside it.
+    first_summary, _first_applied, first_touched = step_migrate(root, False, first=True)
+    if old_rules_unsaved and (root / actlib.RULES_FILE).is_file() and not (root / actlib.LEGACY_RULES_FILE).is_file():
+        # the owner's uncommitted rule file was moved: neither its deletion nor the new file goes into the commit
+        held_unsaved = held_unsaved | {actlib.RULES_FILE, actlib.LEGACY_RULES_FILE}
     sync_summary, new_copies, sync_touched = sync_dependent_files(root, always_run=True, notes=notes)
     # Own skills/roles written by hand under docs/ai/local/ get their tool copies/bridge too; the
     # entries are merged into new_copies because step_lock() below writes that value as a whole.
@@ -3688,6 +3794,10 @@ def _finish_update(
     _print_step(7, hooks_gitfiles_summary)
 
     migrate_summary, newly_applied, migration_touched = step_migrate(root, False)
+    if first_summary:  # the ones that ran first are named here too, so step 8 tells every migration of this run
+        migrate_summary = "; ".join(
+            part for part in (first_summary, "" if migrate_summary == "no due migrations" else migrate_summary) if part)
+        migration_touched = [*first_touched, *migration_touched]
     _print_step(8, migrate_summary)
 
     doctor_summary, doctor_inbox_paths, doctor_touched = step_doctor(root, False)
@@ -3715,7 +3825,8 @@ def _finish_update(
         left_out = sorted(rel for rel in held_unsaved if root / rel in commit_paths)
         commit_paths = [path for path in commit_paths if path not in held_paths]
         if not no_commit:
-            notes.extend(_held_back_note(rel, False) for rel in left_out)
+            # the moved rule file's old place is left out too, but one note, naming the new place, tells it
+            notes.extend(_held_back_note(rel, False) for rel in left_out if rel != actlib.LEGACY_RULES_FILE)
     rescue_dir = root / "docs" / "ai" / "local"
     if rescue_active and rescue_dir.is_dir():
         commit_paths.append(rescue_dir)

@@ -57,7 +57,8 @@ whole on one problem; a rerun skips items already written. `entries-map.json` li
 - **A board approval or open point without entry shape**: `kind: "inbox"`, `status: "open"`, `for` the owner or `all`; not
   `entries.py new inbox` (no `--target`).
 - **Rule prose** of the old `CLAUDE.md`/`AGENTS.md`/`AI-CONFIG.md`: `kind: "proposal"`, `target` one of `rules`|`coding`|
-  `checklists`|`config`. Only the project's own passages, not the predecessor's text.
+  `checklists`|`config`; the script files each as one inbox question (target and author named, the old text quoted,
+  take it over or leave it out), never a file of its own. Only the project's own passages, not the predecessor's text.
 - **Old ids with no live entry and no legacy copy** (in a file `--finish` deletes): `kind: "reserved"`, `id`, short reason.
 - **The config report** of step 5: one `inbox` item, title `Config adoption report`, `body_file`
   `.act-local/adopt/config-report.md`, `source` the old `AI-CONFIG.md`, `for: "all"`.
@@ -89,7 +90,7 @@ The orchestrator writes them; a worker drafts under `.act-local/adopt/drafts/<sa
     `.act/bridges/coding_rules.md` and propose a place per part; the human decides: every coding session → own rule, one
     imperative line; only some paths → `.claude/rules/<area>.md` with `paths:`; tied to a framework version → its own rule
     set; origin, incident, evidence → project docs; derivable from code → dropped or `stack`; doubles a template rule →
-    dropped. Own rules go through `adopt_passages.py --into coding`, or for `docs/ai/rules.md` as a ``- `ID`: text`` line.
+    dropped. Own rules go through `adopt_passages.py --into coding`, or for `docs/ai/local/rules.md` as a ``- `ID`: text`` line.
   - Check: `rules.py --list` and `--area core --list` show overrides `[~]` and own rules `[+]`; `--validate` must not name a
     `note:` or an `unclosed code fence` there (that text is not read: rewrite as bullets). A rule in neither list is not in force.
   - Record the decision per rule in the `note` of its table row.
@@ -103,6 +104,6 @@ The orchestrator writes them; a worker drafts under `.act-local/adopt/drafts/<sa
   ```
 
 **Record it in `table.json`.** For every `adopt` row set `target` to the files its content reached (for entries and
-proposals the `file` values of `entries-map.json` with the row's `path` as `source_path`, never `proposal_target`) and
+proposals (inbox questions) the `file` values of `entries-map.json` with the row's `path` as `source_path`, never `proposal_target`) and
 `"done": true`. `legacy` rows get no target. A recorded target the content did not change (`docs/ai/config.md` with every
 value already right) comes out of `target`; never touch a file to make it look changed.

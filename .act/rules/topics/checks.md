@@ -6,8 +6,15 @@ a command (parser allow-lists, time budgets, failure handling) is documented at 
 (header comment of the module); the block messages name the syntax and point here. The checks are switched in
 `docs/ai/config.md` § Checks (`block`, `warn` or `off`).
 
-**Incident log.** Only real faults are noted in `.act-local/incidents.jsonl` (time, kind, source, role, a short message;
-never a command or a path):
+**Hook command.** Each hook entry in `.claude/settings.json` has a `command` in Bash form that starts
+`.act/hooks/dispatch.py` and also a `powershell` form for GitHub Copilot on Windows (for `UserPromptSubmit` it
+starts nothing). The dispatcher always reads Copilot's keys (`path`, `file_text`, `old_str`, `new_str`) where
+Claude Code's are missing; the `powershell` form sets `ACT_HOOK_HOST=copilot`, and then Copilot's key wins over a
+Claude Code key, its shell tool reported as `Bash` is judged as `PowerShell`, and a denial reason goes to standard
+output as well.
+
+**Incident log.** Only real faults are noted in `.act-local/incidents.jsonl` (time, kind, source, role, a short message,
+and an origin mark when `ACT_INCIDENT_ORIGIN` is set; never a command or a path):
 
 - `restored` / `restore-failed`: `protected-watch` put a worker's change to a protected file back, or could not (tool,
   kinds of file such as `git-hook`, their number);
@@ -27,11 +34,14 @@ start puts the new lines into the inbox report `Incident log <date>` (`kind: rep
 same day is extended, text a person added to it stays), equal lines as one row with a count, counts per kind on top, and
 is silent when nothing is new. Delivered lines are kept 30 days. It is written by `session-start-refresh: block`; with
 `warn` the start only says how many events wait. There is no config row of its own, but `ACT_INCIDENT_LOG=off` in the
-environment writes, counts and delivers nothing for one run (a test suite that drives the hooks). Limits: two appends at
+environment writes, counts and delivers nothing for one run (a test suite that drives the hooks).
+`ACT_INCIDENT_ORIGIN=<mark>` adds the field `origin` to each line written in that run (a test runner marks its own
+probes' lines with it; delivery ignores it). Limits: two appends at
 the same instant are serialised by a short lock file (`.act-local/incidents.lock`), also held while a delivery cuts old
-lines out; a wait for it is given up after half a second and the event is appended anyway, so an event is lost only
-when a delivery's rewrite takes longer than that; when the offset cannot be written after a delivery, the same events
-come again.
+lines out; an event is appended only while the lock is held, waiting up to two seconds for it; when the lock cannot
+be taken in that time the event is not written (never an unlocked append, which could mix two lines), and a stale lock is
+broken. A hook passes a shorter wait, down to none, so that its own time limit holds; when the offset cannot be written
+after a delivery, the same events come again.
 
 **Refusals counted.** Every refusal of a check is counted silently in `.act-local/usage.json` (`checks.<check>.refusals`,
 per day and role, `main` for the main session; the check's module name and the role name only, never a command or a
@@ -44,7 +54,11 @@ role's bridge (`.claude/agents/<role>.md`, which an update never replaces; a `<r
 calls for is removed with a backup; a file `docs/ai/local/agents/<role>.md` with a template role's name is not read,
 it is the place of an own role) or the assignment header that tells the worker beforehand what the check does not allow, with the options adopt,
 reword, do nothing. The sentence follows the most frequent class of the window where one is listed below as
-`<check> (<class>)`, else it is the check's own; a check without one gets a generic sentence.
+`<check> (<class>)`, else it is the check's own; a check without one gets a generic sentence. When a file the worker
+reads already carries that sentence (the role's bridge, `docs/ai/local/rules.md`, `docs/project/coding_rules.md` or a rule file
+the workers load; compared without backticks, emphasis and line breaks), the options become report to the template,
+adopt anyway, reword, do nothing, the question names those files, and only the blocks after the last commit of the
+carrying file (without a commit, its modification date) count, from the day after it.
 The sentences are these:
 
 - `write_guard`: Never write under `.act/` of this project (the template's own files); a project-specific version goes into `docs/ai/local/<same path>`. In a throwaway copy under `.act-local/tmp/`, show the place in the command: the path written out, or a variable set once to a literal before its first use; `cd` only to a folder written out.
@@ -54,7 +68,7 @@ The sentences are these:
 - `git_metadata_guard`: Never write `.git/hooks`, `.git/config` or a git config key that starts a program, nor Claude settings, agents, skills or commands, Copilot roles under `.github/agents/`, `.vscode/tasks.json`, `.devcontainer`, `.envrc` or `.mcp.json`; name the change you need in your result.
 - `write_scope`: Write only inside the `Write scope:` of your assignment, also through a script, an interpreter or a redirect; name any other file and the change it needs in your result.
 - `worker_docs_ai`: Never write under `docs/ai/`; the orchestrator records it, return your result instead.
-- `worker_git_write`: Git is read-only for you (`status`, `diff`, `log`, `show`, `stash list`, `stash show`): never stage, commit, stash, reset or check out.
+- `worker_git_write`: Git is read-only for you (`status`, `diff`, `log`, `show`, `stash list`, `stash show`, `tag -l`, `config --get`): never stage, commit, stash, reset or check out, and never run `update-ref`, write `symbolic-ref`, create or delete a tag or write `config`.
 - `nesting_guard`: Never start another worker; name a better split in your result.
 - `mcp_ide`: Do not use IDE tools that write, run a shell or run a program; use the standard tools inside your `Write scope:`.
 - `commit_pathspec`: Never stage with `git add -A`, `git add .` or `git commit -a`; name each path.
@@ -302,6 +316,13 @@ writes `.claude/settings*.json`, `.claude/agents`, `.claude/skills`, `.claude/co
 `.vscode/tasks.json` or a `*.code-workspace` with a file tool, or writes `.vscode/tasks.json` with a shell command; the
 human writes such a file themselves.
 
+The body of a quoted heredoc is read as commands (a line `cp x .git/hooks/p` is a copy) unless the whole command only
+stores it as text; `cat > <note>` into a plain relative `.md`, `.txt`, `.json`, `.log` or `.csv` file outside every
+protected place counts as storing even behind a `mkdir -p <paths> &&` or before further commands, as long as those do
+not name or glob that file (they stay read as commands). A copy source is read from disk for at most 4 s; one that
+cannot be read in that time refuses the call and names the source, since a copy whose landing places are unknown is
+not let through. Text for a note or another file is better written with the Write tool than with a heredoc.
+
 Limits. The checks read the text of a call and run nothing: what a program or script file writes itself
 (`pre-commit install`, `python script.py`) is invisible; a Python program handed to `python` (`-c`, heredoc,
 here-string) is read for literal paths and literal command lines, not for computed ones (a variable, an f-string).
@@ -347,6 +368,51 @@ seen; a file over 2 MB cannot be restored; at most 4000 files are listed. `~/.cl
 call and not below the project root in fact is reported, not restored. Nothing runs where hooks do not run. The
 remaining limits and the rules for links are in the header of `protected_watch.py`.
 
+## `R-role-worker` — Git and scripts of a worker
+
+Checks: worker-git-write, worker-run-watch.
+
+`worker-git-write` (`block` default, `warn`, `off`) refuses a worker's git command that changes the tree or history:
+`commit`, `add`, `stash` (but `stash list` / `stash show`), `checkout`, `switch`, `reset`, `restore`, `merge`, `rebase`,
+`clean`, `push`, `pull`, `cherry-pick`, `revert`, `am`, `apply`, `rm`, `mv`, `init`, `branch` (but listing), and the
+forms that change refs and configuration: `update-ref` in every form, `symbolic-ref` with two names, `-d` or `-m`, `tag`
+that creates, changes or deletes a tag (a name without `-l`/`--list`/`-v`/`--verify`, `-d`, `-a`, `-s`, `-u`, `-f`, `-m`,
+`-F`, `-e`, `--create-reflog`) and `config` that writes (`--add`, `--unset`, `--unset-all`, `--replace-all`,
+`--rename-section`, `--remove-section`, `-e`, the new syntax `set`, `unset`, `rename-section`, `remove-section`, `edit`,
+or a key with a value). Reading stays free: `symbolic-ref <name>`, `tag`, `tag -l`, `tag -v`, `config <key>`, `--get*`,
+`--list`, `config get`. Git run against a folder outside the project (`git -C <folder>`, a leading `cd <folder>`) is
+exempt, but a `config` write with `--global`, `--system` or `--file` is refused there too: it writes the user's, the
+machine's or a named file, not that repository.
+
+`worker-run-watch` (`warn` default, `off` skips it, `block` counts as `warn`; it never refuses and never resets)
+reports what a worker's script or program changed, because the other checks read the text of a call and cannot see what
+a program does. A call is watched when a worker runs an interpreter with a script file or a module (`python x.py`,
+`py -3 x.py`, `python -m <module>`, `node x.js`, `node --test`, `bash x.sh`, `pwsh -File x.ps1`; behind `uv run`,
+`poetry run`, `pipenv run`, `pdm run`, `hatch run` or `conda run` the wrapped command counts), a path run directly
+(`./x.sh`, `./gradlew`, `.\x.ps1`, `& .\x.ps1`), or inline code that starts a process (Python `subprocess`/`os.system`,
+Node `child_process`). `python --version`, `python -c "print(1)"`, `py -0p`, `bash -n x.sh`, `source .venv/bin/activate`,
+`git status` and `ls` are not watched and cost nothing. Before such a call it
+takes a snapshot of the project's repository and of the repositories named by the worker's `Write scope:` outside the
+project (at most 3): HEAD, every ref, and the changed paths with size and modification time
+(`.act-local/worker-run-watch/`). After the call, a failed one too, it compares, and the worker gets a note headed
+`worker-run-watch:` among its next notes when it finds a `new commit` (HEAD's branch unchanged, the new id on top of
+the old one), a `ref changed` (a switch of HEAD's branch, a branch added, moved elsewhere or removed, a tag) or a file
+`outside every running worker's Write scope` (paths under `.act-local/` and paths that match the `Write scope:` of any
+running worker are left out). The orchestrator gets the same facts with the worker's id and, for a `new commit` in the
+project repository, the way back (`git reset --soft <old id>` after looking at what the commit holds); for a `ref
+changed` it gets the old targets and ids and no such command. The incident log gets identifiers only. The worker must
+not undo a commit or ref change itself and names it in its result. Time: the git calls of one event, and the loops that
+read the changed paths, share 3 s and never more than the hook has left; a time-out, a git error or a call whose
+snapshot is missing is reported as `comparison not possible` with the reason, never passed silently.
+
+Limits: paths ignored by git and paths under `.act-local/` are not seen; a background process that writes after the
+call has ended is not seen; a program outside the selection (an unknown binary, `npm run`, `make`) is not watched;
+when another worker runs, or the main session wrote meanwhile, the note says `author uncertain`, but a main-session
+call that starts before the snapshot and ends after the comparison is not counted for it; staging inside a scope is not
+reported; a call that a package check refuses after this check leaves a snapshot, pruned after 24 h; a project inside a
+larger repository is compared as that repository; at most 2000 changed paths and 5000 refs are compared (more: the part
+says so once per session and repository, the rest still runs).
+
 ## `R-work-throwaway` — Throwaway material under `.act-local/tmp/`
 
 Checks: act-local-tidy, throwaway-place.
@@ -357,7 +423,9 @@ report, feedback intake) takes `.act-local/tmp/<YYYYMMDD>-<slug>/` (date in digi
 clears it after 7 days like any entry whose name does not start with an open task's id. The orchestrator removes a task's folders when
 it commits the task (`python .act/scripts/act_local_tidy.py --task <id>`); whoever made a folder removes it earlier.
 Git run in a subfolder that is not a repository of its own acts on the project's repository: set
-`GIT_CEILING_DIRECTORIES` to `.act-local/tmp`, or call git only on a repository of its own. A deny entry on Windows can
+`GIT_CEILING_DIRECTORIES` to the throwaway folder (`.act-local/tmp/<name>`), or call git only on a repository of its
+own; a worker's git probe follows `R-role-worker` (`git init` first, stop unless `git rev-parse --show-toplevel`
+names the throwaway folder). A deny entry on Windows can
 lock out the owner too (`(RX)` also denies `READ_CONTROL`): deny only the one right the probe needs, such as `(RD)`,
 and run `icacls <path> /reset` in the `finally`. A throwaway project below `.act-local/tmp/` carries a `.act/` of its own;
 the template's `.act/` write-guard lets a write into it pass (conditions in `write_guard.py`); a `shutil.rmtree` of the

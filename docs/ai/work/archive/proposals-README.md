@@ -1,3 +1,8 @@
+---
+archived: 2026-11-25
+file: docs/ai/proposals/README.md
+---
+
 <!-- act:default -->
 One file per proposed change, named `YYYY-MM-DD-<slug>.md`, header naming its author, date, and
 target (`rules`, `coding`, `checklists`, or `config`). Anyone may add a proposal here, but only

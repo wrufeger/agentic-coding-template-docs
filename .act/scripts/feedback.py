@@ -517,7 +517,7 @@ def _metrics(root: Path) -> dict:
 
 _RULE_CHANGE_AREAS = {
     "rules": ".act/rules", "coding": ".act/coding",
-    "coding_rules_md": "docs/project/coding_rules.md", "core_rules_md": "docs/ai/rules.md",
+    "coding_rules_md": "docs/project/coding_rules.md", "core_rules_md": "docs/ai/local/rules.md",
     "skills": ".act/skills", "scripts": ".act/scripts",
 }
 
@@ -1545,11 +1545,11 @@ def main(argv: list[str]) -> int:
 
 if __name__ == "__main__":
     try:
-        from usage import count_script_run
-        count_script_run(__file__)
-    except ImportError:
-        pass
-    try:
+        try:
+            from usage import count_script_run
+            count_script_run(__file__)
+        except ImportError:
+            pass
         sys.exit(main(sys.argv[1:]))
     except SystemExit:
         raise

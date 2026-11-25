@@ -1,7 +1,7 @@
 {
   "bridges_applied": {
     ".gitattributes": [
-      "# Generated bridges: CLAUDE.md, AGENTS.md, and docs/ai/rules.md are",
+      "# Generated bridges: CLAUDE.md, AGENTS.md, and docs/ai/local/rules.md are",
       "# written by `.act/scripts/init.py` from `.act/bridges/`, always with LF, so they are marked",
       "# `text eol=lf`: with core.autocrlf=true, git would otherwise check them out as CRLF and report",
       "# a freshly re-derived bridge as changed while `git diff` stays empty. `merge=ours` is a hint for",
@@ -11,7 +11,7 @@
       "# never leaves a stale file behind.",
       "/CLAUDE.md merge=ours text eol=lf",
       "/AGENTS.md merge=ours text eol=lf",
-      "/docs/ai/rules.md merge=ours text eol=lf",
+      "/docs/ai/local/rules.md merge=ours text eol=lf",
       "# Per-person board file of `board: shared`, written with LF. `merge=ours` only takes effect where",
       "# the driver above is registered; otherwise a normal merge applies, and the next commit rewrites",
       "# the file anyway (act-commit runs `board.py --shared`).",
@@ -37,11 +37,11 @@
     ]
   },
   "template": {
-    "version": "2.6.0",
-    "commit": "971a9e9e74f80f8ca183ad3297adf167c9ea9111",
+    "version": "2.7.0",
+    "commit": "984d1f4824ab71deae34fb6724e9d15d22000956",
     "source": "D:/dev/rufeger/agentic-coding-template",
     "ref": "main",
-    "manifest_sha256": "a033c411f3b0a98425c6968c20caa747b9dedc0390104d15adcf30dbe3405a6b",
+    "manifest_sha256": "7ccfca09260d2524d1be492c6d9e0c059b894df63b6c680765106145e8905634",
     "source_fingerprint": ""
   },
   "copies": {
@@ -67,7 +67,7 @@
     },
     ".claude/skills/act-deps/SKILL.md": {
       "source": ".act/skills/act-deps/SKILL.md",
-      "sha256": "65712af89e7fb00dfc7c4ea6b030a2994d30c8e0fc2e5ff33e6c8b6928ca4e6a"
+      "sha256": "bff5f24915928d74340082c5b0bd4909bd250f61283b879562c4770814b164f1"
     },
     ".claude/skills/act-design-assets/SKILL.md": {
       "source": ".act/skills/act-design-assets/SKILL.md",
@@ -83,7 +83,7 @@
     },
     ".claude/skills/act-doctor/SKILL.md": {
       "source": ".act/skills/act-doctor/SKILL.md",
-      "sha256": "bb6d4bfe24b0f682860547b48bddd08f203c572bd40f53e86afa65c33a892bbe"
+      "sha256": "cc2e7e9aba49f91a816510337882a94a1a781830f187ac2c5f53a80d69a0c66e"
     },
     ".claude/skills/act-export-settings/SKILL.md": {
       "source": ".act/skills/act-export-settings/SKILL.md",
@@ -107,7 +107,7 @@
     },
     ".claude/skills/act-load-settings/SKILL.md": {
       "source": ".act/skills/act-load-settings/SKILL.md",
-      "sha256": "febf31b48fda52a945d4ee0abce4acaebf46dda54711349282650c7e4387586e"
+      "sha256": "31d134662657990056fa55dee19b2f4e4332cbb30c452b03e205017f0fc72df2"
     },
     ".claude/skills/act-perf/SKILL.md": {
       "source": ".act/skills/act-perf/SKILL.md",
@@ -143,7 +143,7 @@
     },
     ".claude/skills/act-update/SKILL.md": {
       "source": "docs/ai/local/skills/act-update/SKILL.md",
-      "sha256": "c7a5712c5341051e6449aed34787a2479d08b77457053f41724fc51dbdbfc9dc"
+      "sha256": "9b7673b44ef2ba6c389697dd27051d58b286934921b5ab6c58dd859ca7e1c138"
     },
     ".claude/skills/act-check-translations/SKILL.md": {
       "source": ".act/skills/act-check-translations/SKILL.md",
@@ -223,7 +223,7 @@
     },
     ".claude/skills/act-adopt/references/content-entries.md": {
       "source": ".act/skills/act-adopt/references/content-entries.md",
-      "sha256": "8ab66424497e78ec381141cb6295a181b9c6f3bb118b9c22a126989138cdb5d4"
+      "sha256": "e6df87e8cd9fcb55bd0148876df7b075cca5b19d9989f91bfebe52537877b6fc"
     },
     ".claude/skills/act-adopt/references/harvest.md": {
       "source": ".act/skills/act-adopt/references/harvest.md",
@@ -247,7 +247,7 @@
     },
     ".claude/skills/act-packages/SKILL.md": {
       "source": ".act/skills/act-packages/SKILL.md",
-      "sha256": "d5435b6db742a62adab469b0d20ed6f68feef037c5b8da1d01f3f4a618f7baff"
+      "sha256": "4f4925a54449b7c3758f37965b67bc3f77f3bca21568ad2ea9312696e51fbb7b"
     }
   },
   "removed_by_user": [],
@@ -269,7 +269,10 @@
     "005-resources-file",
     "006-docs-project-readme",
     "007-changelog-file",
-    "008-done-entries-keep"
+    "008-done-entries-keep",
+    "009-whiteboard",
+    "010-rules-to-local",
+    "011-packages-section"
   ],
   "settings_applied": {
     "enableArtifact": false

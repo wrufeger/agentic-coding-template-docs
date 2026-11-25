@@ -23,20 +23,21 @@ without that, report it as unproven, not as absent. A commit hash named as evide
 summary: project changes beat template defaults; overrides live under docs/ai/local
 
 A rule or file the project has changed always wins over the template's version. Never edit anything
-under `.act/` directly; a project-specific version goes into `docs/ai/local/<same path>`. A bug IN the
-template itself — a script, skill or rule under `.act/` that fails, contradicts another, or provably
-never fires — is reported at once via `feedback.py --add --kind bug` (`feedback: local`: a backlog
-entry instead). A worker hands such a bug back with its result and the orchestrator files it.
-Details: `topics/feedback.md`.
+under `.act/` directly; a project-specific version goes into `docs/ai/local/<same path>` (the file
+`docs/ai/local/rules.md` is the project's rule file, not an override). A bug IN the template itself —
+a script, skill or rule under `.act/` that fails, contradicts another, or provably never fires — is
+reported at once via `feedback.py --add --kind bug` (`feedback: local`: a backlog entry instead). A
+worker hands such a bug back with its result and the orchestrator files it. Details:
+`topics/feedback.md`.
 
 ## `R-work-language` — One docs language, `.act/` in English
 
 summary: docs in language-docs whatever the chat language; .act/ English; human text and technical terms untranslated
 
-Everything the assistant writes under `docs/` — journal, questions, tasks, backlog, inbox, proposals,
+Everything the assistant writes under `docs/` — journal, questions, tasks, backlog, inbox,
 new documentation — is in `language-docs` (`docs/ai/config.md`, default `en`), whatever the chat
 language. `.act/` stays English, as does what the mechanism generates (the
-board, the generated parts of `docs/ai/rules.md`); rules and overrides the project adds there are in
+board, the generated parts of `docs/ai/local/rules.md`); rules and overrides the project adds there are in
 `language-docs`; identifiers follow `R-code-language`. Text a person wrote stays in its original
 language; translating it is a separate, explicit assignment. A file whose line 1 is
 `<!-- act:default -->` is English scaffold, translated only through the inbox entry
@@ -86,7 +87,7 @@ to the system temp directory or directly under `.act-local/` gets a note (checke
 
 ## `R-role-worker` — What a worker may and may not do
 
-summary: bounded assignment, evidence, no commits, no docs/ai/, read-only git (-C form for another folder), tests only on a Tests: line, nothing outside the Write scope, no sub-workers
+summary: bounded assignment, evidence, no commits, no docs/ai/, read-only git (-C form for another folder, probes in a repo of its own), tests only on a Tests: line, nothing outside the Write scope, no sub-workers
 
 A worker (sub-agent) works from a bounded assignment and returns its whole result **plus evidence**
 — at most 40 lines, no raw dumps, never "see above", every assumption marked **assumption**. It never
@@ -95,12 +96,20 @@ result), and never asks the human directly: open questions, and any fault it not
 runs (`R-work-process-error`), come back with its result. If the human addresses it directly, it
 answers only "please ask the orchestrator" and carries on; asked for status, it answers at once with
 facts: done, open, unexpected. Git is read-only (reading commands such as `status`, `diff`, `log`, `show`,
-`ls-files`, `stash list`): never stage, commit, stash, reset or check out; a git step the work needs
-(staging, a commit, a stash) goes back with the result, and whatever changes the working tree or history
-stays with the orchestrator. Git in another folder runs only as `git -C <literal path> <command>` in a
-call of its own: never after `cd`, never with a variable in the path; before such a call read what
-`cd-git` allows in `.act/rules/topics/checks.md`. Tests and probes run only when the assignment has a
-`Tests:` line, and in the tree it names. A file outside the assignment's
+`ls-files`, `stash list`; no `update-ref`, no writing `symbolic-ref`, `tag` or `config`): never stage, commit,
+stash, reset or check out; a git step the work needs (staging, a commit, a stash) goes back with the result,
+and whatever changes the working tree or history stays with the orchestrator. Git in another folder runs
+only as `git -C <literal path> <command>` in a call of its own: never after `cd`, never with a variable in
+the path; before such a call read what `cd-git` allows in `.act/rules/topics/checks.md`. A git probe runs
+only in a repository of its own under the throwaway folder: the probe (a script; a worker's own `git init`
+inside the project is refused) runs `git init` there first with `GIT_CEILING_DIRECTORIES` set to that
+folder, and stops unless `git rev-parse --show-toplevel` names that folder. A script, interpreter or program
+the worker starts writes only where the worker may write itself; after such a call `worker-run-watch`
+reports a commit, a ref change or a file outside every running worker's scope, and the worker names that in
+its result instead of undoing it. Tests and probes run only when the assignment has a `Tests:` line, and in
+the tree it names. A probe the worker writes for the assignment that reads and runs
+only its own throwaway material needs no `Tests:` line; running or importing the project's code, or the
+project's tests or probes, also in a copy, needs one naming that tree. A file outside the assignment's
 `Write scope:` (the throwaway place `.act-local/tmp/` aside) is never written — not with the tool a check would refuse, and not through an
 interpreter, script or other detour, whether or not a check refused it; the result names the file and
 the change it needs. Any other write a check refused is not made another way either, not through a

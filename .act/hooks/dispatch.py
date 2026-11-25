@@ -160,7 +160,7 @@
 #                 lines (a changed/unrefreshable bridge, an unresolvable tier/reasoning value, a
 #                 project .act/ pulled in without update.py — each best-effort and independently
 #                 gated, see checks.session.refresh_session()), then the fixed-format status line
-#                 "[act] branch=<name>[ · inbox: <n> waiting][ · ideas: <n> new][ · feedback due] ·
+#                 "[act] branch=<name>[ · inbox: <n> waiting][ · whiteboard: <n> to process][ · feedback due] ·
 #                 board updated[ · rules: <n>][ · role-bridges refreshed: <n>]", then, unless
 #                 `board-at-start` is off, an optional board excerpt ("[act] board excerpt ..." plus the
 #                 board's "Waiting for you" and "Open tasks" sections, about 2,000 characters, a cut
@@ -213,7 +213,7 @@
 #                 Quick capture rides on the same entry: when the first non-blank line starts with
 #                 todo:/note:/idea: (case-insensitive; one regex on the raw prompt, still before any
 #                 import), checks/quick_capture.py files the entries (inbox todo/note with `triage:
-#                 open`, or a section in the own ideas file) and the same {"decision": "block"} line
+#                 open`, or a section in the own whiteboard) and the same {"decision": "block"} line
 #                 reports where; off with `quick-capture: off` in docs/ai/config.md, no identity or
 #                 any error means the prompt goes through untouched.
 #
@@ -254,7 +254,7 @@ import time
 import types
 
 from pathlib import Path  # noqa: E402
-from typing import NamedTuple  # noqa: E402
+from typing import NamedTuple, TextIO  # noqa: E402
 
 # When this hook process began its own work -- every PreToolUse check receives it as
 # payload["_act_hook_started"] (see _run_checks) and caps its own time budget against it
@@ -478,6 +478,12 @@ if len(sys.argv) == 2 and sys.argv[1] == "PostToolUse":
         _early_payload = {}
     if not isinstance(_early_payload, dict):
         _early_payload = {}
+    try:
+        from checks.common import _normalise_copilot_payload as _normalise_early  # noqa: E402 -- stdlib only
+    except Exception:  # noqa: BLE001 -- a broken checks.common is reported once, by the central import below
+        _normalise_early = None
+    if _normalise_early is not None:  # Copilot's key names, and its `Bash` for PowerShell when ACT_HOOK_HOST says so
+        _normalise_early(_early_payload)
     _early_watch = _watch_protected_files("PostToolUse", _early_payload)
     _early_failures = _take_failure_notes(_early_payload)
     if (not _early_payload.get("agent_id")
@@ -689,7 +695,7 @@ del _compat_module
 # (_load, _check_failed): refused for a guard in _FAIL_CLOSED, reported for every other check.
 #
 # Order note: worker_cap and status_poll are deliberately
-# the LAST two entries — both can deny based on their own running counter/streak (worker's tool-call
+# the LAST two entries that can deny (worker_run_watch follows them, it only snapshots) — both can deny based on their own running counter/streak (worker's tool-call
 # count, orchestrator's consecutive-poll streak), and that counter/streak must never be bumped for a
 # call another, earlier check goes on to deny anyway (e.g. encoding_hint refusing a worker's Write to
 # a non-UTF-8 file must not also count that call against the worker's cap). Every check ahead of them
@@ -722,6 +728,8 @@ _PRE_TOOL_USE_CHECKS = (
     ("worker_scope_overlap", "check_main_session_overlap"),  # notes, never a refusal: the orchestrator's write under a running worker's Tests:, its test run in a tree a worker writes in
     ("worker_cap", "check_worker_cap"),                   # tool calls beyond the worker's cap (R-cost-delegate) — last on purpose, see above
     ("status_poll", "check_status_poll"),                 # repeated status queries (R-cost-wait) — last on purpose, see above
+    ("worker_run_watch", "check_worker_run_watch"),       # never refuses: the snapshot before a worker's call that runs code (worker-run-watch) —
+                                                          # after every check that could refuse, so a refused call takes no snapshot
 )
 
 # PostToolUse / PostToolUseFailure notes, all of them run every time for either event (no "first
@@ -738,6 +746,7 @@ _POST_TOOL_USE_NOTES = (
     ("deps_scan", "note_deps_scan"),          # lower-severity/accepted findings after a commit (security-check)
     ("deps_scan", "note_deps_merge_scan"),    # lock files a merge/pull/cherry-pick brought in -> inbox report (security-check)
     ("worker_scope_overlap", "note_main_session_overlap"),  # the orchestrator's test run beside a worker writing in the tree (R-cost-delegate)
+    ("worker_run_watch", "note_worker_run_watch"),  # what a worker's script or program changed in the repositories (R-role-worker)
 )
 
 # Observers see every hook event and never block: signature observe(event: str, payload: dict) ->
@@ -832,6 +841,7 @@ _CHECK_KEYS = {
     "danger_scan": "security-check", "deps_scan": "security-check", "encoding_hint": "encoding-hint",
     "throwaway_place": "throwaway-place", "commit_hashes": "commit-hashes",
     "worker_scope_overlap": "worker-scope-overlap", "worker_cap": "worker-cap", "status_poll": "status-poll",
+    "worker_run_watch": "worker-run-watch",
 }
 
 
@@ -943,6 +953,15 @@ def _load(module_name: str, func_name: str):
     return func, None
 
 
+def _incident_wait() -> float:
+    """How long an incident event may wait for the log's append lock: at most the log's own wait, and never so long
+    that the hook passes its own time limit (the refusal or exit code that follows is worth more than the event);
+    0 when little is left, so the lock is tried once."""
+    import incidents  # noqa: E402 -- .act/scripts/ is on sys.path
+    remaining = _hook_budget() - (time.monotonic() - _HOOK_STARTED)
+    return max(0.0, min(incidents._APPEND_WAIT, remaining - 0.5))
+
+
 def _note_incident(kind: str, source: str, payload: dict, detail: str = "") -> None:
     """Append one event to the incident log (.act/scripts/incidents.py), delivered to the inbox at the next
     session start. Identifiers only: the tool name, a shell command's first word when it is a plain word.
@@ -955,7 +974,8 @@ def _note_incident(kind: str, source: str, payload: dict, detail: str = "") -> N
             tool_input = payload.get("tool_input")
             parts.append(incidents.command_word(tool_input.get("command") if isinstance(tool_input, dict) else None))
         role = "worker" if payload.get("agent_id") else "main"
-        incidents.record(actlib.repo_root(), kind, source, " ".join(part for part in parts if part), role)
+        incidents.record(actlib.repo_root(), kind, source, " ".join(part for part in parts if part), role,
+                        wait=_incident_wait())
     except Exception:  # noqa: BLE001 -- the log must never change a verdict
         pass
 
@@ -1730,9 +1750,28 @@ def _run_worker_rules(part_arg: str) -> int:
     except Exception:  # noqa: BLE001 — a missing or broken module must not break the worker start
         if part == 1:
             print(json.dumps({"hookSpecificOutput": {"hookEventName": "SubagentStart", "additionalContext": (
-                "Worker rules could not be assembled: read CLAUDE.md, docs/ai/rules.md and the files it "
+                "Worker rules could not be assembled: read CLAUDE.md, docs/ai/local/rules.md and the files it "
                 "imports from .act/rules/shared/ before your first step; skip .act/rules/orchestrator/.")}}))
     return 0
+
+
+class _StderrTee:
+    """stderr that also remembers what was written to it: under Copilot a denied PreToolUse call repeats its
+    stderr reason as `permissionDecisionReason` on stdout, because Copilot shows the model only that."""
+
+    def __init__(self, stream: TextIO) -> None:
+        self.stream = stream
+        self._parts: "list[str]" = []
+
+    def write(self, text: str) -> int:
+        self._parts.append(text)
+        return self.stream.write(text)
+
+    def flush(self) -> None:
+        self.stream.flush()
+
+    def text(self) -> str:
+        return "".join(self._parts)
 
 
 def _report_check_failures(payload: dict, held: str) -> None:
@@ -1789,18 +1828,37 @@ def main(argv: list[str]) -> int:
         real_stdout = sys.stdout
         held = io.StringIO()
         sys.stdout = held
+        reason_tee = _StderrTee(sys.stderr) if hook_host() == "copilot" else None
         try:
-            result, denied_by = _run_checks(payload)
+            if reason_tee is not None:
+                sys.stderr = reason_tee  # what the checks say on stderr is the denial reason Copilot wants on stdout
+            try:
+                result, denied_by = _run_checks(payload)
+            finally:
+                if reason_tee is not None:
+                    sys.stderr = reason_tee.stream
             _run_pre_tool_use_observers(payload, denied=(result != 0), denied_by=denied_by)
         finally:
             sys.stdout = real_stdout
-        _deliver_package_notes(payload, result != 0)
+        if reason_tee is not None:
+            sys.stderr = reason_tee
+        try:
+            _deliver_package_notes(payload, result != 0)
+        finally:
+            if reason_tee is not None:
+                sys.stderr = reason_tee.stream
         if result == 0:
             _CHECK_FAILURES.extend(_inline_size_notes())  # a note, not a failure: same way to the model
+        copilot_deny = result != 0 and reason_tee is not None
         if result == 0 and _CHECK_FAILURES:
             _report_check_failures(payload, held.getvalue())
-        elif held.getvalue():
+        elif held.getvalue() and not copilot_deny:
             sys.stdout.write(held.getvalue())
+        if copilot_deny and reason_tee is not None:
+            # Copilot reads stdout as one JSON document: held text (a warn note) joins the reason instead.
+            parts = (reason_tee.text().strip(), held.getvalue().strip())
+            reason = "\n".join(part for part in parts if part) or f"blocked by an act check (exit code {result})"
+            print(json.dumps({"permissionDecision": "deny", "permissionDecisionReason": reason}))
         return result
 
     if event == "UserPromptSubmit":

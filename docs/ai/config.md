@@ -209,3 +209,24 @@ in `docs/ai/local/reminders.md` are not affected by this key.
 
 Empty by default: every role runs the tier/reasoning the template ships. Fill a row to override
 one role's tier and/or reasoning, or set `Model` outright — a filled `Model` wins over `Tier`.
+
+## Packages
+
+| Key | Value |
+| :--- | :--- |
+| `packages-unverified` | block |
+| `packages-sources` | https://github.com/wrufeger/act-packages/releases/latest/download/ |
+| `packages-update` | ask |
+
+`packages-unverified`: `block` \| `scan` \| `allow`. What `python .act/scripts/packages.py` does with a package that
+carries no valid signature of the template author (a folder, a zip without its `.sig` file, or no signing key under
+`.act/`): `block` (the default) refuses it, `scan` shows the findings of the static scan in red before it asks, `allow`
+asks with a warning only. A package with a valid signature goes in every mode, a signature that does not match is
+refused in every mode; the plan, the diff and your yes apply in every mode. Details: `.act/formats/package.md`.
+
+`packages-sources`: a comma-separated list of places `packages.py fetch <id>` looks in, in this order: an `https://`
+address or a local folder, each holding an `index.json`; a pipe character inside the value gets a backslash in front
+of it.
+
+`packages-update`: `ask` \| `off`. `ask` (the default): after a template update `act-update` shows the diff of every
+installed package whose source has a newer version and asks; `off` leaves packages alone.

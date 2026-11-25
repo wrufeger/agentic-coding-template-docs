@@ -202,7 +202,7 @@ Without `--yes` it writes nothing. It prints the plan, the origin and admission 
 `update <old> → <new>` or `downgrade <old> → <new>` (the same id again is an update, a lower version a downgrade,
 allowed after the yes like an update; the units the new version drops go), what happens to the folder
 `.act-local/packages/<id>/` (a resting folder that another source replaces is said to be replaced and deleted), the list of project
-files that change and a unified diff of each (`docs/ai/rules.md`, skill and role copies, `docs/ai/config.md`,
+files that change and a unified diff of each (`docs/ai/local/rules.md`, skill and role copies, `docs/ai/config.md`,
 `.act-lock.json`), and the line `install exactly this: python .act/scripts/packages.py add <source> --yes <code>`. The
 code is the first 12 hex digits of a package hash computed over the raw bytes of every package file, with no
 line-ending folding: any byte that changes after the plan was shown changes the code, and `--yes` with the old code is
@@ -227,7 +227,9 @@ only. Neither runs in a dry run or from any session-start or check path.
 `--yes <id>` gives the check rows back, drops the lock entry, unloads the package and deletes
 `.act-local/packages/<id>/` (never following a link), unless `--keep`, which leaves the folder resting: nothing loads
 from a folder the lock does not record. It works when the folder is already missing, and a resting folder with no lock
-entry is deleted the same way. `add` followed by `remove` leaves the project byte for byte as it was. `packages.py list`
+entry is deleted the same way. For an id with neither a lock entry nor a folder, `remove <id>` names the files
+`fetch` kept for it (`<id>-X.Y.Z.zip` and `.zip.sig` in `.act-local/packages/`) and `--yes <id>` deletes them.
+`add` followed by `remove` leaves the project byte for byte as it was. `packages.py list`
 shows the lock's packages and the resting folders and names a broken package (its folder is missing or a file differs
 from the lock) with the fix: `add <id>` again, or `remove <id>`.
 

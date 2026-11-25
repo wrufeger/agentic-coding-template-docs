@@ -69,7 +69,7 @@ and roles (under `docs/ai/local/`) are never cut.
 `exclude`: `none`, or a comma-separated list of what to leave out on top of the profile — the name of a
 template skill (`act-seo`), of a template role (`test-writer`), of a rule file (`orchestrator/30-cost.md`)
 or of a topic (`logging`, or `topics/logging.md`). Rule files fall only by name, never by profile. A rule
-file stays under `.act/`, but its line in `docs/ai/rules.md` loses the `@` and Claude Code stops loading
+file stays under `.act/`, but its line in `docs/ai/local/rules.md` loses the `@` and Claude Code stops loading
 it (so do the sub-agents); an excluded topic is no longer named at the session start. `shared/10-safety.md`
 cannot be excluded (a warning, the entry is ignored), and an unknown name only gives a warning. The checks under
 § Checks stay in force either way: their blocks do not depend on rule text.
@@ -123,6 +123,7 @@ committed boards. Empty means `on` with `mode: team`, `off` otherwise.
 | :--- | :--- |
 | `inbox-decisions` | immediate |
 | `quick-capture` | on |
+| `inbox-stale` | 14 |
 
 `immediate` (default) \| `at-start`. `immediate`: every open decision, and every step only a person
 can take and can take now, goes into `docs/ai/inbox/` as soon as it is booked, so the inbox always
@@ -133,9 +134,17 @@ them in the inbox (`R-human-ask`).
 `quick-capture`: `on` \| `off`. `on` (default; a missing key counts as `on`): a chat message that begins
 with `todo:`, `note:` or `idea:` is filed by the `UserPromptSubmit` hook without a model turn and never
 reaches the model — `todo:` and `note:` as inbox entries marked `triage: open` (the assistant decides
-whom a todo is for, or answers the note), `idea:` as a new section in your `ideas-<identity>.md`
+whom a todo is for, or answers the note), `idea:` as a new section at the end of your whiteboard
+`docs/ai/whiteboard-<identity>.md`
 (`R-human-capture`). `off`: the prefixes mean nothing special. If a message that starts with one of
 the words was meant as an assignment, delete the file the hook names and send it again without the prefix.
+Under GitHub Copilot on Windows the hook does not file anything (Copilot cannot hold a message back): the
+message reaches the model, which files it itself as `R-human-capture` says.
+
+`inbox-stale`: a number of days, `off` or `0` (default `14`). `act-doctor` only, never refuses: it names an
+open inbox entry whose heading or header names a task, backlog item or question that is archived or has
+`status: done`, and an open report (`kind: report`) older than this many days (counted from `updated:` when it
+has one, else `created:`), each with a hint on what to do; `off` or `0` skips both.
 
 ## Output depth
 
@@ -281,7 +290,7 @@ refuses") treats `block` as `warn`.
 | :--- | :--- | :--- |
 | `template-write-guard` | block | writes under `.act/` — put a project version in `docs/ai/local/<same path>` instead |
 | `session-start-refresh` | block | rebuilds the generated bridges and the board at session start; `warn` only reports what it would refresh (once per change, not at every start) and writes nothing (one exception: a missing `.act-local/identity.json` is still created from `git config user.name`), here and in `update.py`'s bridge step; `off` skips it, and `update.py` then only reports too |
-| `orchestrator-rules` | block | fallback only: while `docs/ai/rules.md` does not import the orchestrator-only rules (an older, locally changed copy), the session start names them in short; `off` skips it |
+| `orchestrator-rules` | block | fallback only: while `docs/ai/local/rules.md` does not import the orchestrator-only rules (an older, locally changed copy), the session start names them in short; `off` skips it |
 | `worker-nesting-guard` | block | a sub-agent calling `Agent`/`Task` (no sub-sub-agents, `R-role-worker`) — `warn` reports without blocking, `off` skips it |
 | `worker-write-scope` | block | a worker writing outside its assignment's `Write scope:` line (`R-cost-delegate`) — `warn` reports without blocking, `off` skips it |
 | `worker-scope-overlap` | block | a worker start whose `Write scope:` overlaps that of a worker still running — `none` overlaps nothing, a missing line counts as everything (`R-cost-delegate`); a `Tests:` line (the tree an assignment runs tests in) is compared with the running workers' `Write scope:` and the `Write scope:` with their `Tests:` lines; a finished worker or a failed start frees its scope, a crashed worker after three hours or when its file under `.act-local/worker-scopes/` is deleted; of two starts racing in one message the later one is refused; the orchestrator's own write under a running worker's `Tests:` or test run beside a writing worker only gets a note; limit: a worker continued with `SendMessage` is invisible once ended; `warn` reports without blocking, `off` skips it |
@@ -300,12 +309,13 @@ refuses") treats `block` as `warn`.
 | `act-local-keep` | none | exceptions to `act-local-tidy`: `none`, or a comma-separated list of patterns relative to `.act-local/`, e.g. `exports, tmp/long-*` — matching entries are never removed; a pipe character inside the value gets a backslash in front of it (`R-work-throwaway`) |
 | `security-check` | local | `off` \| `local` \| `deps` \| `full`, not the usual block/warn/off. `off` runs nothing here; `local`/`deps`/`full` all run the dangerous-pattern scan (Art A: `eval`/`exec`, `shell=True`, `pickle.loads`, `yaml.load` without a SafeLoader, `v-html`, `innerHTML =`, SQL built by string concatenation, ... — only for a coding rule set the project has checked on in `docs/project/coding_rules.md`) on `git commit`, stopping the first hit once per file and pattern with its location; the repeat goes through, and a line carrying `act:allow-danger` is exempt. A doc file (`.md`, `.txt`, `.rst`) and anything under `.act/` are never scanned (prose and the template's own files, not project code). `deps`/`full` add Art B (`.act/scripts/security_scan.py`, `.act/hooks/checks/deps_scan.py`): a live dependency-vulnerability lookup — `osv-scanner` if installed, else `npm audit`/`composer audit`/`pip-audit` per ecosystem — run on `git commit` for exactly the lock files that commit touches (`package-lock.json`, `composer.lock`, `requirements.txt`, `go.mod`, `Cargo.lock`, ...; a finding in a lock file the commit leaves alone never holds it), and once a day at session start over every lock file in the project (reported as a line there, never delaying the start itself). The scan never runs inside the commit's own hook call: it runs as a detached background process, the hook waits briefly for its result and otherwise denies once ("dependency scan running — commit again in a moment"); the retry reads the finished result, cached for the day per lock-file content (recorded only if the files did not change while the tool ran), so a repeated commit does not query again; a background run that never finishes is started once more, and if that one dies too the commit is refused (to drop only this scan: `security-check: local`), so it never waits forever. An unaccepted finding at severity high/critical holds the commit (package, version, advisory id, severity, fixed version); a lower or unknown severity only notes — pip-audit's own output carries no severity field at all, so a pip-audit finding is always "unknown" and can only ever note, never hold the commit on its own. Accept a finding deliberately with a line in `docs/ai/local/security-accepted.md`: `- <advisory-id>: <reason>` (one per line; `#`-comments and blank lines ignored). A missing tool notes once per machine with the install command, never blocks; a tool or network failure notes every time, never blocks, and is reused for a minute at most before the next commit scans afresh (fail-open — Art B never has a template-shipped fallback list: a list shipped with an update is stale on arrival, the tools fetch their data live). `full` additionally runs Art C (Semgrep with open rule sets, plus a `reviewer` security pass) via `.act/scripts/security_deep.py`, but only on request and before a release (`act-release`) — never on every commit, same as Art A/B never run a heavy static-analysis pass |
 | `worker-docs-ai` | block | a worker writing under `docs/ai/` — only the orchestrator writes there (`R-role-worker`) |
-| `worker-git-write` | block | a worker running a git command that changes the tree or history (`commit`, `add`, `stash`, `checkout`, `reset`, `restore`, `merge`, `rebase`, `clean`, `push`) (`R-role-worker`) |
+| `worker-git-write` | block | a worker running a git command that changes the tree or history (`commit`, `add`, `stash`, `checkout`, `reset`, `restore`, `merge`, `rebase`, `clean`, `push`, `update-ref`; a writing `symbolic-ref`, `tag` or `config`) (`R-role-worker`) |
 | `ide-mcp` | block | a connected IDE MCP server's own tools (`execute_terminal_command`, `apply_patch`, `execute_run_configuration`, ...), classified as shell/write/exec-without-target and checked the same way the matching standard tool would be — a target this cannot evaluate denies rather than passing through unchecked; `warn` reports without blocking, `off` skips it (`topics/ide.md`) |
 | `worker-cap` | block | a worker's tool calls beyond its `Cap: <n>` line (without one: from a `Tier:` line, else from the role — `quick-check` 10, `reviewer` 60, `expert-solver` 80, others 40) — a note at the cap, refused from 1.5 × the cap (`R-cost-delegate`); known limit: a call these checks allow but Claude Code's own permission prompt then denies still counts, since the pre-call hook never sees that denial |
 | `status-poll` | block | repeated status queries on a running worker with no real work in between — refused from the second in a row (`R-cost-wait`) |
 | `encoding-hint` | block | writing to a file that is not UTF-8 — the first write per session and file is stopped once with a note, the repeat goes through; `warn` only notes after the write (`R-code-encoding`) |
 | `model-switch` | warn | at `SubagentStop` and `Stop`: a worker or the session that continues on another model (a `stop_reason: refusal`, a changed model in the transcript) is noted to the orchestrator with its next tool call, naming role and models, and the orchestrator tells the human in chat; the hook itself shows the human nothing (Claude Code records a `systemMessage` of these events but never displays it); never refuses, `block` counts as `warn`, `off` skips it (`R-safe-block`, details in `topics/safeguards.md`) |
+| `worker-run-watch` | warn | after a worker's call that runs a script, a program or inline code that starts a process: a new commit, a changed ref or a file outside every running worker's `Write scope:` is reported to the worker and, with its id and the way back, to the orchestrator; never refuses, `block` counts as `warn`, `off` skips it (`R-role-worker`, details in `topics/checks.md`) |
 | `throwaway-place` | warn | main session only: a command or file write that puts throwaway output in the system temp directory or directly under `.act-local/` gets a note naming `.act-local/tmp/<task-id>-<slug>/` or `.act-local/tmp/<YYYYMMDD>-<slug>/`; never refused, `off` silences it (`R-work-throwaway`) |
 | `commit-hashes` | warn | `git commit` only, never refuses: a commit hash in backticks (7 to 40 hex characters, with a digit and a letter) in the commit message or in a line added to a staged journal file (`docs/ai/work/ledger/`) that no repository knows (`git cat-file -e <hash>^{commit}`) and that starts no template commit recorded in `.act-lock.json` (working tree, staged or in its history) is named in a note; `block` counts as `warn`, `off` skips it (`R-work-evidence`, details in `topics/checks.md`) |
 | `commit-hashes-repos` | none | further repositories `commit-hashes` looks in: `none`, or a comma-separated list of paths, each relative to the project root or absolute, e.g. `../agentic-coding-template`; a journal can name commits of another repository; a pipe character inside the value gets a backslash in front of it |
@@ -314,7 +324,7 @@ refuses") treats `block` as `warn`.
 | `update-check` | block | at session start: a note if `.act/` was pulled in without `update.py`, and — checked at most once a day — a note that the template has moved on, repeated at every start and shown on the board and in the status line until the update is installed; never refuses, `off` skips both |
 | `docs-order` | warn | `act-doctor` only, never refuses: a folder under `docs/project/` with five or more entries and no `README.md`, a file its `README.md` does not name, an index line without a file, a dead relative link, a concept whose questions are all answered; `block` counts as `warn`, `off` skips it (`R-docs-order`) |
 | `changelog-length` | warn | `act-doctor` only, never refuses: an entry under `[Unreleased]` in `CHANGELOG.md` longer than 250 characters (its lines joined), named with its first words; `block` counts as `warn`, `off` skips it |
-| `own-rules-budget` | 6000 | `act-doctor` only, never refuses: the characters the "Own rules" sections of `docs/ai/rules.md` and `docs/project/coding_rules.md` may have together before one warning names the size and up to five lines that read like history (a date, an entry identifier, "formerly … since …") and the hint to send what of them would help the template as feedback; `off` or `0` skips it |
+| `own-rules-budget` | 6000 | `act-doctor` only, never refuses: the characters the "Own rules" sections of `docs/ai/local/rules.md` and `docs/project/coding_rules.md` may have together before one warning names the size and up to five lines that read like history (a date, an entry identifier, "formerly … since …") and the hint to send what of them would help the template as feedback; `off` or `0` skips it |
 | `own-rules-review` | warn | `act-doctor` and `act-update` only, never refuses: a local skill that overrides a template skill of the same name without `doctor.py --accept skill:<name>`, and after an update one bundled inbox question that sets the new and changed rules and skills of the update against the project's own rules, overrides and skills; `block` counts as `warn`, `off` skips both |
 
 ## Logging
@@ -392,7 +402,7 @@ installed package whose source has a newer version and asks; `off` leaves packag
 | `archive-compact` | 30d 300 |
 
 A finished task, backlog item or inbox entry is moved to `docs/ai/work/archive/` by `entries.py archive`; nothing is
-deleted there. The same goes for a concept file (`docs/ai/concept/*.md`, `docs/project/concepts/**/*.md`) that is
+deleted there. The same goes for a concept file (`docs/project/concepts/**/*.md`) that is
 decided or built: `entries.py archive <path>` moves it too (links to it follow). `act-compact` later folds the single
 files into their monthly file (`Q-`, `T-`, `B-`, `U-<YYYY-MM>.md`, concepts into `other-<YYYY-MM>.md`) with an overview
 `<YYYY-MM>.md`; only then is the single file gone, and Git still holds its full text. A row `done-entries` that an

@@ -29,14 +29,14 @@ always there.
 
 ## `R-human-capture` — Chat prefixes `todo:`, `note:`, `idea:` capture
 
-summary: todo:/note:/idea: becomes an inbox entry or ideas section (hook, else entries.py new --triage); triage: open handled next
+summary: todo:/note:/idea: becomes an inbox entry or a whiteboard section (hook, else entries.py new --triage); triage: open handled next
 
 A chat message that begins with `todo:`, `note:` or `idea:` (any letter case) is a capture, not an
 assignment. With `quick-capture` on (the default) the `UserPromptSubmit` hook files it and the message
 never reaches the model. Where the hook does not run and such a message arrives anyway, file it
 yourself at once, without starting on the todo: `todo:` and `note:` with `entries.py new todo|note
 --triage --for <writer> [--body-file <file>] <title>` (first line of the wording as title, all of it
-as body), `idea:` as a new section at the end of the writer's `docs/ai/concept/ideas-<identity>.md`,
+as body), `idea:` as a new `## <title>` section at the end of the writer's `docs/ai/whiteboard-<identity>.md`,
 text untouched. Answer with one line naming the file. With `quick-capture` off, the prefixes mean
 nothing special.
 
@@ -53,10 +53,11 @@ Reply only when the answer is final — not while it still depends on running wo
 findings, and never with one worker's report while others are still running. On a long run a one-line
 status is fine. A turn triggered only by a worker's completion
 notice ends with no text, or at most one line, unless that very notice makes the answer final. After
-starting workers the turn ends with one line saying how many run and that talking meanwhile is
-welcome; that line is no interim report. If the human asks something meanwhile, the answer says it
-rests on the state before the workers' results and never passes on a partial result.
-Questions follow `R-human-ask`. An inbox entry the human has already answered is booked and archived
+starting workers the turn ends with one line saying how many run; that line is no interim report.
+If the human asks something meanwhile, the answer says it rests on the state before the workers'
+results and never passes on a partial result. A `[act] tip:` line of the session start goes, text
+unchanged, as one line into the first answer of the session, at every `output-depth` (also
+`sparse`). Questions follow `R-human-ask`. An inbox entry the human has already answered is booked and archived
 in the same turn that notices the answer (`entries.py archive <id>`), never left open. Close with a
 short summary — done · next · problems · to discuss — without dropping anything that matters, and
 name new questions and tasks in one closing line ("New questions: Q12–Q14, new task T7"). Details

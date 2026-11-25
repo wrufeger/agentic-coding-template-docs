@@ -82,6 +82,7 @@ KNOWN_ENTRIES: tuple[str, ...] = (
     "worker-caps",              # hooks/checks/worker_cap.py
     "worker-scopes",            # hooks/checks/write_scope.py, worker_scope_overlap.py
     "protected-watch",          # hooks/checks/protected_watch.py: snapshot, copies, kept versions, queued notes
+    "worker-run-watch",         # hooks/checks/worker_run_watch.py: per-call snapshots, main-session activity marker
     "model-switch",             # hooks/checks/model_switch.py: read offsets per transcript
     "danger-scan-hints",        # hooks/checks/danger_scan.py
     "encoding-hints",           # hooks/checks/encoding_hint.py
@@ -104,7 +105,8 @@ KNOWN_ENTRIES: tuple[str, ...] = (
     "template-dev",             # marker: this checkout builds the template (init.py refuses to convert it)
     "identity.json", "cache.json", "last-applied.json",        # actlib.py
     "tips.json", "usage.json", "context-hint.json",            # hooks/checks/tips.py, usage.py, context_hint.py
-    "ideas-seen.json", "tier-proposals.json",                  # ideas.py, doctor.py
+    "whiteboard-seen.json", "ideas-seen.json",                 # whiteboard.py (ideas-seen.json: its former name)
+    "tier-proposals.json",                                     # doctor.py
     "refusal-proposals.json",   # doctor.py: the day a question about a refusing check was last filed
     "outside-root-note.json",   # hooks/checks/session.py
     "session-start.txt",        # hooks/checks/session.py: the whole session-start output

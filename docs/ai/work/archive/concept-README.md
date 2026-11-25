@@ -1,3 +1,8 @@
+---
+archived: 2026-11-25
+file: docs/ai/concept/README.md
+---
+
 <!-- act:default -->
 Everyone on the project has their own file here for ideas, wishes and concept notes:
 `ideas-<identity>.md`, `<identity>` being the short name in `.act-local/identity.json` (the same one
